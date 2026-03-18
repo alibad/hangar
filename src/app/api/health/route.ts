@@ -1,10 +1,41 @@
 import { NextResponse } from "next/server";
 
-const services = [
+type ServiceConfig = {
+  name: string;
+  url: string;
+  subdomain: string;
+  category: "ai" | "monitoring" | "app";
+  authRequired: boolean;
+};
+
+const services: ServiceConfig[] = [
   {
     name: "vLLM",
     url: `${process.env.LLM_BASE_URL}/models`,
     subdomain: "llm.betenshi.com",
+    category: "ai",
+    authRequired: true,
+  },
+  {
+    name: "Open WebUI",
+    url: "http://localhost:3001",
+    subdomain: "webui.betenshi.com",
+    category: "app",
+    authRequired: false,
+  },
+  {
+    name: "Grafana",
+    url: "http://localhost:3002/api/health",
+    subdomain: "grafana.betenshi.com",
+    category: "monitoring",
+    authRequired: false,
+  },
+  {
+    name: "Prometheus",
+    url: "http://localhost:9090/-/healthy",
+    subdomain: "prometheus.betenshi.com",
+    category: "monitoring",
+    authRequired: false,
   },
 ];
 
@@ -13,18 +44,21 @@ export async function GET() {
     services.map(async (service) => {
       const start = Date.now();
       try {
+        const headers: Record<string, string> = {};
+        if (service.authRequired) {
+          headers["CF-Access-Client-Id"] = process.env.CF_ACCESS_CLIENT_ID!;
+          headers["CF-Access-Client-Secret"] = process.env.CF_ACCESS_CLIENT_SECRET!;
+        }
         const res = await fetch(service.url, {
-          headers: {
-            "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID!,
-            "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET!,
-          },
+          headers,
           signal: AbortSignal.timeout(10000),
         });
         const latency = Date.now() - start;
         return {
           name: service.name,
           subdomain: service.subdomain,
-          status: res.ok ? "up" : "down",
+          category: service.category,
+          status: res.ok ? ("up" as const) : ("down" as const),
           statusCode: res.status,
           latency,
         };
@@ -32,7 +66,8 @@ export async function GET() {
         return {
           name: service.name,
           subdomain: service.subdomain,
-          status: "down",
+          category: service.category,
+          status: "down" as const,
           statusCode: 0,
           latency: Date.now() - start,
         };
@@ -40,5 +75,10 @@ export async function GET() {
     })
   );
 
-  return NextResponse.json({ services: results, timestamp: new Date().toISOString() });
+  return NextResponse.json({
+    services: results,
+    timestamp: new Date().toISOString(),
+    upCount: results.filter((s) => s.status === "up").length,
+    totalCount: results.length,
+  });
 }
