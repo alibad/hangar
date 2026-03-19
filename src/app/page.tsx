@@ -47,8 +47,12 @@ export default function Home() {
   const [transcribing, setTranscribing] = useState(false);
   const [transcribeResult, setTranscribeResult] = useState<TranscribeResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordingMs, setRecordingMs] = useState(0);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const checkHealth = useCallback(async () => {
     try {
@@ -81,6 +85,29 @@ export default function Home() {
     }, 15000);
     return () => clearInterval(interval);
   }, [autoRefresh, checkHealth, fetchMetrics]);
+
+  async function startRecording() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    const chunks: BlobPart[] = [];
+    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(chunks, { type: "audio/webm" });
+      transcribeAudio(new File([blob], "recording.webm", { type: "audio/webm" }));
+    };
+    recorder.start();
+    mediaRecorderRef.current = recorder;
+    setRecording(true);
+    setRecordingMs(0);
+    recordingTimer.current = setInterval(() => setRecordingMs((ms) => ms + 100), 100);
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    if (recordingTimer.current) clearInterval(recordingTimer.current);
+    setRecording(false);
+  }
 
   async function transcribeAudio(file: File) {
     setTranscribing(true);
@@ -285,41 +312,61 @@ export default function Home() {
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
             Transcribe — Whisper large-v3
           </h2>
-          <div
-            className={`bg-gray-900 rounded-xl border-2 border-dashed transition p-8 text-center cursor-pointer ${
-              dragOver ? "border-blue-500 bg-blue-500/5" : "border-gray-700 hover:border-gray-500"
-            }`}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              const file = e.dataTransfer.files[0];
-              if (file) transcribeAudio(file);
-            }}
-            onClick={() => audioInputRef.current?.click()}
-          >
-            <input
-              ref={audioInputRef}
-              type="file"
-              accept="audio/*"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) transcribeAudio(f); }}
-            />
-            {transcribing ? (
-              <div className="flex items-center justify-center gap-3 text-gray-400">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                <span className="text-sm">Transcribing...</span>
-              </div>
-            ) : (
-              <div>
-                <div className="text-3xl mb-2">🎙</div>
-                <p className="text-sm text-gray-400">Drop audio file or click to upload</p>
-                <p className="text-xs text-gray-600 mt-1">mp3, wav, m4a, ogg, webm</p>
-              </div>
-            )}
+          <div className="flex gap-4 items-stretch">
+            {/* Mic Record Button */}
+            <button
+              onClick={recording ? stopRecording : startRecording}
+              disabled={transcribing}
+              className={`flex flex-col items-center justify-center gap-2 rounded-xl px-8 py-6 font-medium transition flex-shrink-0 ${
+                recording
+                  ? "bg-red-600 hover:bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]"
+                  : "bg-gray-800 hover:bg-gray-700 border border-gray-700"
+              } disabled:opacity-40`}
+            >
+              <span className="text-3xl">{recording ? "⏹" : "🎙"}</span>
+              <span className="text-xs text-gray-300">
+                {recording
+                  ? `${(recordingMs / 1000).toFixed(1)}s — stop`
+                  : "Record"}
+              </span>
+            </button>
+
+            {/* Drop Zone */}
+            <div
+              className={`flex-1 bg-gray-900 rounded-xl border-2 border-dashed transition p-6 text-center cursor-pointer ${
+                dragOver ? "border-blue-500 bg-blue-500/5" : "border-gray-700 hover:border-gray-500"
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const file = e.dataTransfer.files[0];
+                if (file) transcribeAudio(file);
+              }}
+              onClick={() => audioInputRef.current?.click()}
+            >
+              <input
+                ref={audioInputRef}
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) transcribeAudio(f); }}
+              />
+              {transcribing ? (
+                <div className="flex items-center justify-center gap-3 text-gray-400 h-full">
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                  <span className="text-sm">Transcribing on GPU...</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full">
+                  <p className="text-sm text-gray-400">Drop audio file or click to upload</p>
+                  <p className="text-xs text-gray-600 mt-1">mp3, wav, m4a, ogg, webm</p>
+                </div>
+              )}
+            </div>
           </div>
           {transcribeResult && (
             <div className="mt-3 bg-gray-900 rounded-xl border border-gray-800 p-5">
