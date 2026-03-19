@@ -31,6 +31,12 @@ type Metrics = {
   raw_lines: number;
 };
 
+type TranscribeResult = {
+  text: string;
+  latency: number;
+  fileName: string;
+};
+
 export default function Home() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -38,7 +44,11 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcribeResult, setTranscribeResult] = useState<TranscribeResult | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const messagesEnd = useRef<HTMLDivElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
 
   const checkHealth = useCallback(async () => {
     try {
@@ -71,6 +81,26 @@ export default function Home() {
     }, 15000);
     return () => clearInterval(interval);
   }, [autoRefresh, checkHealth, fetchMetrics]);
+
+  async function transcribeAudio(file: File) {
+    setTranscribing(true);
+    setTranscribeResult(null);
+    const start = Date.now();
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("model", "whisper-1");
+      const res = await fetch("https://whisper.betenshi.com/v1/audio/transcriptions", {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      setTranscribeResult({ text: data.text, latency: Date.now() - start, fileName: file.name });
+    } catch (err) {
+      setTranscribeResult({ text: `Error: ${err}`, latency: Date.now() - start, fileName: file.name });
+    }
+    setTranscribing(false);
+  }
 
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
@@ -248,6 +278,58 @@ export default function Home() {
               decimals={1}
             />
           </div>
+        </section>
+
+        {/* Transcribe */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+            Transcribe — Whisper large-v3
+          </h2>
+          <div
+            className={`bg-gray-900 rounded-xl border-2 border-dashed transition p-8 text-center cursor-pointer ${
+              dragOver ? "border-blue-500 bg-blue-500/5" : "border-gray-700 hover:border-gray-500"
+            }`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              const file = e.dataTransfer.files[0];
+              if (file) transcribeAudio(file);
+            }}
+            onClick={() => audioInputRef.current?.click()}
+          >
+            <input
+              ref={audioInputRef}
+              type="file"
+              accept="audio/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) transcribeAudio(f); }}
+            />
+            {transcribing ? (
+              <div className="flex items-center justify-center gap-3 text-gray-400">
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                <span className="text-sm">Transcribing...</span>
+              </div>
+            ) : (
+              <div>
+                <div className="text-3xl mb-2">🎙</div>
+                <p className="text-sm text-gray-400">Drop audio file or click to upload</p>
+                <p className="text-xs text-gray-600 mt-1">mp3, wav, m4a, ogg, webm</p>
+              </div>
+            )}
+          </div>
+          {transcribeResult && (
+            <div className="mt-3 bg-gray-900 rounded-xl border border-gray-800 p-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-500">{transcribeResult.fileName}</span>
+                <span className="text-xs text-green-400">{transcribeResult.latency}ms</span>
+              </div>
+              <p className="text-sm text-gray-100 leading-relaxed">{transcribeResult.text || <span className="text-gray-500 italic">No speech detected</span>}</p>
+            </div>
+          )}
         </section>
 
         {/* Chat Playground */}
