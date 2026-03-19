@@ -18,23 +18,9 @@ const services: ServiceConfig[] = [
   },
   {
     name: "Open WebUI",
-    url: "http://localhost:3001",
+    url: "https://webui.betenshi.com",
     subdomain: "webui.betenshi.com",
     category: "app",
-    authRequired: false,
-  },
-  {
-    name: "Grafana",
-    url: "http://localhost:3002/api/health",
-    subdomain: "grafana.betenshi.com",
-    category: "monitoring",
-    authRequired: false,
-  },
-  {
-    name: "Prometheus",
-    url: "http://localhost:9090/-/healthy",
-    subdomain: "prometheus.betenshi.com",
-    category: "monitoring",
     authRequired: false,
   },
 ];
