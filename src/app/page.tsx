@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type ServiceStatus = {
   name: string;
@@ -432,18 +433,19 @@ export default function Home() {
                 className="flex-1 bg-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 placeholder-gray-500 resize-none"
               />
               <div className="flex flex-col gap-2">
-                <select
-                  value={ttsVoice}
-                  onChange={(e) => setTtsVoice(e.target.value)}
-                  className="bg-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-300 border border-gray-700 focus:outline-none"
-                >
-                  <option value="alloy">Alloy (F)</option>
-                  <option value="echo">Echo (M)</option>
-                  <option value="fable">Fable (F, UK)</option>
-                  <option value="onyx">Onyx (M)</option>
-                  <option value="nova">Nova (F)</option>
-                  <option value="shimmer">Shimmer (F)</option>
-                </select>
+                <Select value={ttsVoice} onValueChange={setTtsVoice}>
+                  <SelectTrigger className="w-36 bg-gray-800 border-gray-700 text-xs text-gray-300">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-700 text-gray-300">
+                    <SelectItem value="alloy">Alloy (F)</SelectItem>
+                    <SelectItem value="echo">Echo (M)</SelectItem>
+                    <SelectItem value="fable">Fable (F, UK)</SelectItem>
+                    <SelectItem value="onyx">Onyx (M)</SelectItem>
+                    <SelectItem value="nova">Nova (F)</SelectItem>
+                    <SelectItem value="shimmer">Shimmer (F)</SelectItem>
+                  </SelectContent>
+                </Select>
                 <button
                   type="submit"
                   disabled={ttsSpeaking || !ttsText.trim()}
