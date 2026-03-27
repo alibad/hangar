@@ -49,8 +49,13 @@ export default function Home() {
   const [dragOver, setDragOver] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingMs, setRecordingMs] = useState(0);
+  const [ttsText, setTtsText] = useState("");
+  const [ttsVoice, setTtsVoice] = useState("alloy");
+  const [ttsSpeaking, setTtsSpeaking] = useState(false);
+  const [ttsLatency, setTtsLatency] = useState<number | null>(null);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -87,7 +92,13 @@ export default function Home() {
   }, [autoRefresh, checkHealth, fetchMetrics]);
 
   async function startRecording() {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      setTranscribeResult({ text: `Mic error: ${err}`, latency: 0, fileName: "mic" });
+      return;
+    }
     const recorder = new MediaRecorder(stream);
     const chunks: BlobPart[] = [];
     recorder.ondataavailable = (e) => chunks.push(e.data);
@@ -127,6 +138,33 @@ export default function Home() {
       setTranscribeResult({ text: `Error: ${err}`, latency: Date.now() - start, fileName: file.name });
     }
     setTranscribing(false);
+  }
+
+  async function speakText(e: React.FormEvent) {
+    e.preventDefault();
+    if (!ttsText.trim() || ttsSpeaking) return;
+    setTtsSpeaking(true);
+    setTtsLatency(null);
+    const start = Date.now();
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: ttsText, voice: ttsVoice }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setTtsLatency(Date.now() - start);
+      if (ttsAudioRef.current) {
+        ttsAudioRef.current.src = url;
+        ttsAudioRef.current.play();
+      }
+    } catch (err) {
+      setTtsLatency(-1);
+      console.error("TTS error:", err);
+    }
+    setTtsSpeaking(false);
   }
 
   useEffect(() => {
@@ -377,6 +415,54 @@ export default function Home() {
               <p className="text-sm text-gray-100 leading-relaxed">{transcribeResult.text || <span className="text-gray-500 italic">No speech detected</span>}</p>
             </div>
           )}
+        </section>
+
+        {/* Text-to-Speech */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+            Text-to-Speech — Kokoro 82M
+          </h2>
+          <form onSubmit={speakText} className="bg-gray-900 rounded-xl border border-gray-800 p-5">
+            <div className="flex gap-3 mb-3">
+              <textarea
+                value={ttsText}
+                onChange={(e) => setTtsText(e.target.value)}
+                placeholder="Type text to speak..."
+                rows={2}
+                className="flex-1 bg-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 placeholder-gray-500 resize-none"
+              />
+              <div className="flex flex-col gap-2">
+                <select
+                  value={ttsVoice}
+                  onChange={(e) => setTtsVoice(e.target.value)}
+                  className="bg-gray-800 rounded-lg px-3 py-1.5 text-xs text-gray-300 border border-gray-700 focus:outline-none"
+                >
+                  <option value="alloy">Alloy (F)</option>
+                  <option value="echo">Echo (M)</option>
+                  <option value="fable">Fable (F, UK)</option>
+                  <option value="onyx">Onyx (M)</option>
+                  <option value="nova">Nova (F)</option>
+                  <option value="shimmer">Shimmer (F)</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={ttsSpeaking || !ttsText.trim()}
+                  className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 rounded-lg px-4 py-1.5 text-sm font-medium transition"
+                >
+                  {ttsSpeaking ? "..." : "Speak"}
+                </button>
+              </div>
+            </div>
+            {ttsLatency !== null && (
+              <div className="flex items-center gap-3 text-xs">
+                <span className={ttsLatency < 0 ? "text-red-400" : "text-green-400"}>
+                  {ttsLatency < 0 ? "Error" : `${ttsLatency}ms`}
+                </span>
+                <audio ref={ttsAudioRef} controls className="h-8 flex-1" />
+              </div>
+            )}
+            {ttsLatency === null && <audio ref={ttsAudioRef} className="hidden" />}
+          </form>
         </section>
 
         {/* Chat Playground */}

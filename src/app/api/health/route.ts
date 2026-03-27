@@ -23,6 +23,20 @@ const services: ServiceConfig[] = [
     category: "app",
     authRequired: false,
   },
+  {
+    name: "Whisper STT",
+    url: "https://whisper.betenshi.com/health",
+    subdomain: "whisper.betenshi.com",
+    category: "ai",
+    authRequired: false,
+  },
+  {
+    name: "Kokoro TTS",
+    url: "https://tts.betenshi.com/health",
+    subdomain: "tts.betenshi.com",
+    category: "ai",
+    authRequired: false,
+  },
 ];
 
 export async function GET() {
