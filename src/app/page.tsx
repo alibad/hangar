@@ -455,15 +455,12 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            {ttsLatency !== null && (
-              <div className="flex items-center gap-3 text-xs">
-                <span className={ttsLatency < 0 ? "text-red-400" : "text-green-400"}>
-                  {ttsLatency < 0 ? "Error" : `${ttsLatency}ms`}
-                </span>
-                <audio ref={ttsAudioRef} controls className="h-8 flex-1" />
-              </div>
-            )}
-            {ttsLatency === null && <audio ref={ttsAudioRef} className="hidden" />}
+            <div className={`flex items-center gap-3 text-xs mt-3 ${ttsLatency === null ? "invisible" : ""}`}>
+              <span className={ttsLatency !== null && ttsLatency < 0 ? "text-red-400" : "text-green-400"}>
+                {ttsLatency !== null && ttsLatency < 0 ? "Error" : ttsLatency !== null ? `${ttsLatency}ms` : ""}
+              </span>
+              <audio ref={ttsAudioRef} controls className="h-8 flex-1" />
+            </div>
           </form>
         </section>
 
