@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
+import { getServiceUrl, getServiceHeaders } from "@/lib/services";
 
 export async function GET() {
   try {
-    const res = await fetch(`${process.env.LLM_BASE_URL?.replace("/v1", "")}/metrics`, {
-      headers: {
-        "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID!,
-        "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET!,
-      },
+    const baseUrl = getServiceUrl("vllm");
+    const res = await fetch(`${baseUrl}/metrics`, {
+      headers: getServiceHeaders("vllm"),
       signal: AbortSignal.timeout(10000),
     });
 

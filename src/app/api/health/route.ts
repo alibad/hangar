@@ -1,75 +1,43 @@
 import { NextResponse } from "next/server";
-
-type ServiceConfig = {
-  name: string;
-  url: string;
-  subdomain: string;
-  category: "ai" | "monitoring" | "app";
-  authRequired: boolean;
-};
-
-const services: ServiceConfig[] = [
-  {
-    name: "vLLM",
-    url: `${process.env.LLM_BASE_URL}/models`,
-    subdomain: "llm.betenshi.com",
-    category: "ai",
-    authRequired: true,
-  },
-  {
-    name: "Open WebUI",
-    url: "https://webui.betenshi.com",
-    subdomain: "webui.betenshi.com",
-    category: "app",
-    authRequired: false,
-  },
-  {
-    name: "Whisper STT",
-    url: "https://whisper.betenshi.com/health",
-    subdomain: "whisper.betenshi.com",
-    category: "ai",
-    authRequired: false,
-  },
-  {
-    name: "Kokoro TTS",
-    url: "https://tts.betenshi.com/health",
-    subdomain: "tts.betenshi.com",
-    category: "ai",
-    authRequired: false,
-  },
-];
+import { SERVICE_REGISTRY, isLocalServer, getServiceHeaders } from "@/lib/services";
 
 export async function GET() {
+  const local = isLocalServer();
+
   const results = await Promise.all(
-    services.map(async (service) => {
+    SERVICE_REGISTRY.map(async (svc) => {
+      const baseUrl = local ? svc.localUrl : svc.publicUrl;
+      const url = baseUrl + svc.healthPath;
       const start = Date.now();
       try {
-        const headers: Record<string, string> = {};
-        if (service.authRequired) {
-          headers["CF-Access-Client-Id"] = process.env.CF_ACCESS_CLIENT_ID!;
-          headers["CF-Access-Client-Secret"] = process.env.CF_ACCESS_CLIENT_SECRET!;
-        }
-        const res = await fetch(service.url, {
-          headers,
+        const res = await fetch(url, {
+          headers: getServiceHeaders(svc.id),
           signal: AbortSignal.timeout(10000),
         });
-        const latency = Date.now() - start;
         return {
-          name: service.name,
-          subdomain: service.subdomain,
-          category: service.category,
+          name: svc.name,
+          id: svc.id,
+          subdomain: svc.publicUrl.replace("https://", ""),
+          localUrl: svc.localUrl,
+          publicUrl: svc.publicUrl,
+          category: svc.category,
           status: res.ok ? ("up" as const) : ("down" as const),
           statusCode: res.status,
-          latency,
+          latency: Date.now() - start,
+          routing: local ? "local" : "public",
         };
       } catch {
         return {
-          name: service.name,
-          subdomain: service.subdomain,
-          category: service.category,
+          name: svc.name,
+          id: svc.id,
+          subdomain: svc.publicUrl.replace("https://", ""),
+          localUrl: svc.localUrl,
+          publicUrl: svc.publicUrl,
+          category: svc.category,
           status: "down" as const,
           statusCode: 0,
           latency: Date.now() - start,
+          routing: local ? "local" : "public",
         };
       }
     })
@@ -80,5 +48,6 @@ export async function GET() {
     timestamp: new Date().toISOString(),
     upCount: results.filter((s) => s.status === "up").length,
     totalCount: results.length,
+    routing: local ? "local" : "public",
   });
 }

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServiceUrl } from "@/lib/services";
 
 export async function POST(req: NextRequest) {
   const start = Date.now();
   try {
     const body = await req.json();
-    const res = await fetch("http://localhost:8002/v1/audio/speech", {
+    const baseUrl = getServiceUrl("tts");
+    const res = await fetch(`${baseUrl}/v1/audio/speech`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -28,8 +30,10 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const cause = err instanceof Error && err.cause ? String(err.cause) : "";
     return NextResponse.json(
-      { error: `TTS error: ${err}` },
+      { error: `TTS error: ${message}`, cause },
       { status: 500 }
     );
   }

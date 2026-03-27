@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServiceUrl, getServiceHeaders } from "@/lib/services";
 
 export async function POST(req: NextRequest) {
   const { message } = await req.json();
+  const baseUrl = getServiceUrl("vllm");
 
   const start = Date.now();
   try {
-    const res = await fetch(`${process.env.LLM_BASE_URL}/chat/completions`, {
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID!,
-        "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET!,
-      },
+      headers: getServiceHeaders("vllm", { "Content-Type": "application/json" }),
       body: JSON.stringify({
         model: process.env.LLM_MODEL,
         messages: [{ role: "user", content: message }],
