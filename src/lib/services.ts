@@ -87,8 +87,8 @@ export const SERVICE_REGISTRY: ServiceEntry[] = [
     // (+ optional body mesh); correct on floor/inverted/acro poses.
     id: "sam3d",
     name: "SAM 3D Body",
-    localPort: 8003,
-    localUrl: "http://localhost:8003",
+    localPort: 8009,
+    localUrl: "http://localhost:8009",
     publicUrl: "https://sam3d.betenshi.com",
     healthPath: "/health",
     category: "ai",

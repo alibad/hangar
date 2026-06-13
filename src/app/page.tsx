@@ -134,7 +134,21 @@ export default function Home() {
   const [logViewerService, setLogViewerService] = useState<{ id: string; name: string } | null>(null);
   const [gpu, setGpu] = useState<GpuStatus | null>(null);
   const [routing, setRouting] = useState<RoutingInfo | null>(null);
-  const [tab, setTab] = useState<"llm" | "speech" | "services" | "gpu">("services");
+  const [tab, setTab] = useState<"llm" | "speech" | "services" | "gpu" | "creative">("services");
+  const [creativePrompt, setCreativePrompt] = useState("");
+  const [creativeGenerating, setCreativeGenerating] = useState(false);
+  const [creativeHistory, setCreativeHistory] = useState<{
+    prompt: string;
+    filename: string;
+    subfolder: string;
+    type: string;
+    latency: number;
+    seed: number;
+    timestamp: number;
+  }[]>([]);
+  const [creativeWidth, setCreativeWidth] = useState(1024);
+  const [creativeHeight, setCreativeHeight] = useState(768);
+  const [creativeSteps, setCreativeSteps] = useState(4);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -162,7 +176,12 @@ export default function Home() {
   const fetchServices = useCallback(async () => {
     try {
       const res = await fetch("/api/services");
-      if (res.ok) setManagedServices(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        // Defensive: only an array is a valid services payload. A flaky/wrong
+        // backend must never crash the whole dashboard on managedServices.filter.
+        setManagedServices(Array.isArray(data) ? data : []);
+      }
     } catch { /* ignore */ }
   }, []);
 
@@ -366,6 +385,7 @@ export default function Home() {
     { id: "gpu" as const, label: "GPU", count: gpu ? `${Math.round((gpu.mem_used / gpu.mem_total) * 100)}%` : undefined },
     { id: "llm" as const, label: "LLM" },
     { id: "speech" as const, label: "Speech" },
+    { id: "creative" as const, label: "Creative", count: creativeHistory.length > 0 ? `${creativeHistory.length}` : undefined },
   ];
 
   return (
@@ -726,6 +746,155 @@ export default function Home() {
           </>
         )}
 
+        {/* ── CREATIVE TAB ── */}
+        {tab === "creative" && (
+          <>
+            {/* Generate */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  Image Generation — FLUX.1 Schnell
+                </h2>
+                <a
+                  href="http://localhost:8188"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-pink-400 hover:text-pink-300 border border-pink-500/20 bg-pink-500/5 rounded-lg px-3 py-1.5 transition"
+                >
+                  Open ComfyUI Studio
+                </a>
+              </div>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!creativePrompt.trim() || creativeGenerating) return;
+                  setCreativeGenerating(true);
+                  try {
+                    const res = await fetch("/api/creative", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        prompt: creativePrompt,
+                        width: creativeWidth,
+                        height: creativeHeight,
+                        steps: creativeSteps,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (data.status === "success") {
+                      setCreativeHistory((prev) => [
+                        {
+                          prompt: creativePrompt,
+                          filename: data.image.filename,
+                          subfolder: data.image.subfolder,
+                          type: data.image.type,
+                          latency: data.latency,
+                          seed: data.seed,
+                          timestamp: Date.now(),
+                        },
+                        ...prev,
+                      ]);
+                    }
+                  } catch (err) {
+                    console.error("Creative error:", err);
+                  }
+                  setCreativeGenerating(false);
+                }}
+                className="bg-gray-900 rounded-xl border border-gray-800 p-5"
+              >
+                <textarea
+                  value={creativePrompt}
+                  onChange={(e) => setCreativePrompt(e.target.value)}
+                  placeholder="Describe the image you want to generate..."
+                  rows={3}
+                  className="w-full bg-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 placeholder-gray-500 resize-none mb-3"
+                />
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-500">Size</label>
+                    <select
+                      value={`${creativeWidth}x${creativeHeight}`}
+                      onChange={(e) => {
+                        const [w, h] = e.target.value.split("x").map(Number);
+                        setCreativeWidth(w);
+                        setCreativeHeight(h);
+                      }}
+                      className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-300"
+                    >
+                      <option value="1024x768">1024x768 (4:3)</option>
+                      <option value="768x1024">768x1024 (3:4)</option>
+                      <option value="1024x1024">1024x1024 (1:1)</option>
+                      <option value="1280x720">1280x720 (16:9)</option>
+                      <option value="2048x1536">2048x1536 (4:3 Hi-Res)</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-500">Steps</label>
+                    <select
+                      value={creativeSteps}
+                      onChange={(e) => setCreativeSteps(Number(e.target.value))}
+                      className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-300"
+                    >
+                      <option value={4}>4 (fast)</option>
+                      <option value={8}>8 (balanced)</option>
+                      <option value={12}>12 (quality)</option>
+                    </select>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={creativeGenerating || !creativePrompt.trim()}
+                    className="ml-auto bg-pink-600 hover:bg-pink-500 disabled:opacity-40 disabled:hover:bg-pink-600 rounded-xl px-6 py-2.5 text-sm font-medium transition"
+                  >
+                    {creativeGenerating ? (
+                      <span className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:0ms]" />
+                        <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:150ms]" />
+                        <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:300ms]" />
+                      </span>
+                    ) : (
+                      "Generate"
+                    )}
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            {/* Generated Images */}
+            {creativeHistory.length > 0 && (
+              <section>
+                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                  Generated ({creativeHistory.length})
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {creativeHistory.map((item, i) => (
+                    <div key={i} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+                      <img
+                        src={`/api/creative?filename=${encodeURIComponent(item.filename)}&subfolder=${encodeURIComponent(item.subfolder)}&type=${encodeURIComponent(item.type)}`}
+                        alt={item.prompt}
+                        className="w-full aspect-[4/3] object-cover"
+                      />
+                      <div className="p-3">
+                        <p className="text-xs text-gray-300 line-clamp-2 mb-2">{item.prompt}</p>
+                        <div className="flex items-center gap-3 text-[11px] text-gray-500">
+                          <span className="text-green-400">{(item.latency / 1000).toFixed(1)}s</span>
+                          <span>seed: {item.seed}</span>
+                          <span>{new Date(item.timestamp).toLocaleTimeString()}</span>
+                          <button
+                            onClick={() => setCreativePrompt(item.prompt)}
+                            className="ml-auto text-gray-500 hover:text-gray-300 transition"
+                          >
+                            Reuse prompt
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
         {/* ── GPU TAB ── */}
         {tab === "gpu" && gpu && !gpu.error && (
           <>
@@ -817,6 +986,7 @@ export default function Home() {
                         vllm: "bg-purple-500",
                         whisper: "bg-blue-500",
                         tts: "bg-cyan-500",
+                        comfyui: "bg-pink-500",
                       };
                       return (
                         <div
@@ -842,6 +1012,7 @@ export default function Home() {
                         vllm: "bg-purple-500",
                         whisper: "bg-blue-500",
                         tts: "bg-cyan-500",
+                        comfyui: "bg-pink-500",
                       };
                       const mem = svc.allocated_mb ?? svc.estimated_mb ?? 0;
                       return (
