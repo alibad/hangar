@@ -70,6 +70,30 @@ export const SERVICE_REGISTRY: ServiceEntry[] = [
     category: "monitoring",
     authRequired: false,
   },
+  {
+    id: "comfyui",
+    name: "ComfyUI",
+    localPort: 8188,
+    localUrl: "http://localhost:8188",
+    publicUrl: "https://comfyui.betenshi.com",
+    healthPath: "/system_stats",
+    category: "ai",
+    authRequired: false,
+  },
+  {
+    // Meta SAM 3D Body — single-image full-body 3D human mesh + pose recovery.
+    // Resident FastAPI service (move-quest: services/sam3d/server.py).
+    // POST /pose {image, bbox?} -> 70-joint 3D skeleton + global rotation
+    // (+ optional body mesh); correct on floor/inverted/acro poses.
+    id: "sam3d",
+    name: "SAM 3D Body",
+    localPort: 8003,
+    localUrl: "http://localhost:8003",
+    publicUrl: "https://sam3d.betenshi.com",
+    healthPath: "/health",
+    category: "ai",
+    authRequired: false,
+  },
 ];
 
 /**
