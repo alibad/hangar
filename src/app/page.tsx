@@ -3,6 +3,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LogViewer from "@/components/log-viewer";
+import QwenTab from "@/components/qwen-tab";
+import RequestsView from "@/components/requests-view";
+import { useTheme } from "@/components/theme-provider";
+import {
+  Brain, Mic, Volume2, Globe, Activity, Database,
+  Sparkles, Layers, ScanLine, Server, type LucideIcon,
+} from "lucide-react";
 
 type ServiceStatus = {
   name: string;
@@ -134,7 +141,7 @@ export default function Home() {
   const [logViewerService, setLogViewerService] = useState<{ id: string; name: string } | null>(null);
   const [gpu, setGpu] = useState<GpuStatus | null>(null);
   const [routing, setRouting] = useState<RoutingInfo | null>(null);
-  const [tab, setTab] = useState<"llm" | "speech" | "services" | "gpu" | "creative">("services");
+  const [tab, setTab] = useState<"llm" | "speech" | "services" | "gpu" | "creative" | "qwen" | "requests">("services");
   const [creativePrompt, setCreativePrompt] = useState("");
   const [creativeGenerating, setCreativeGenerating] = useState(false);
   const [creativeHistory, setCreativeHistory] = useState<{
@@ -367,11 +374,18 @@ export default function Home() {
     setSending(false);
   }
 
+  const { theme, toggle: toggleTheme } = useTheme();
   const m = metrics?.metrics || {};
   const getMetric = (partial: string) => {
     const key = Object.keys(m).find((k) => k.includes(partial));
     return key ? m[key] : null;
   };
+
+  const serviceIconMap: Record<string, LucideIcon> = {
+    vllm: Brain, whisper: Mic, tts: Volume2, webui: Globe,
+    grafana: Activity, prometheus: Database, qwen: Sparkles, comfyui: Layers, sam3d: ScanLine,
+  };
+  const gpuServiceIds = ["vllm", "whisper", "qwen", "comfyui", "sam3d"];
 
   const overallStatus =
     health && health.upCount === health.totalCount
@@ -386,6 +400,8 @@ export default function Home() {
     { id: "llm" as const, label: "LLM" },
     { id: "speech" as const, label: "Speech" },
     { id: "creative" as const, label: "Creative", count: creativeHistory.length > 0 ? `${creativeHistory.length}` : undefined },
+    { id: "qwen" as const, label: "Qwen Image" },
+    { id: "requests" as const, label: "Requests" },
   ];
 
   return (
@@ -393,43 +409,54 @@ export default function Home() {
       {/* Header */}
       <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-4">
-              <div
-                className={`w-3 h-3 rounded-full ${
-                  overallStatus === "operational"
-                    ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"
-                    : overallStatus === "degraded"
-                      ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]"
-                      : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
-                }`}
-              />
-              <h1 className="text-xl font-bold tracking-tight">BeTenshi</h1>
+          <div className="flex items-center justify-between py-3">
+            <div className="flex items-center gap-3">
+              {/* Logo */}
+              <svg width="26" height="26" viewBox="0 0 96 96" fill="none" aria-hidden="true">
+                <path d="M48 18 Q55 41 78 48 Q55 55 48 78 Q41 55 18 48 Q41 41 48 18 Z" fill="#31439b"/>
+                <path d="M60.02 35.98 Q52 48 60.02 60.02 Q48 52 35.98 60.02 Q44 48 35.98 35.98 Q48 44 60.02 35.98 Z" fill="#7b85c7"/>
+              </svg>
+              <h1 className="text-lg font-semibold tracking-tight">BeTenshi</h1>
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                overallStatus === "operational"
+                  ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]"
+                  : overallStatus === "degraded"
+                    ? "bg-yellow-500 shadow-[0_0_6px_rgba(234,179,8,0.5)]"
+                    : "bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]"
+              }`} />
               {routing && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                   routing.mode === "local"
-                    ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                    : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                    ? "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20"
+                    : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
                 }`}>
                   {routing.mode === "local" ? "Local" : "Cloud"}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
                   onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="rounded"
+                  className="rounded accent-blue-500"
                 />
                 Auto-refresh
               </label>
               <button
                 onClick={() => { checkHealth(); fetchMetrics(); fetchServices(); }}
-                className="text-sm text-gray-400 hover:text-white px-3 py-1.5 rounded-md border border-gray-700 hover:border-gray-500 transition"
+                className="text-sm text-gray-400 hover:text-gray-100 px-3 py-1.5 rounded-md border border-gray-700 hover:border-gray-500 transition"
               >
                 Refresh
+              </button>
+              {/* Theme toggle */}
+              <button
+                onClick={toggleTheme}
+                title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-gray-100 transition text-base"
+              >
+                {theme === "dark" ? "☀" : "☾"}
               </button>
             </div>
           </div>
@@ -439,9 +466,10 @@ export default function Home() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
+                style={tab === t.id ? { color: theme === "dark" ? "#f1f5f9" : "#0f172a" } : undefined}
                 className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
                   tab === t.id
-                    ? "border-blue-500 text-white"
+                    ? "border-blue-500"
                     : "border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600"
                 }`}
               >
@@ -485,87 +513,149 @@ export default function Home() {
 
         {/* ── SERVICES TAB ── */}
         {tab === "services" && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {managedServices.map((s) => {
-                const isActing = actionInProgress === s.id;
-                const msg = actionMessage?.id === s.id ? actionMessage : null;
-                return (
-                  <div key={s.id} className="bg-gray-900 rounded-xl border border-gray-800 p-4 transition">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2.5 h-2.5 rounded-full ${
-                          s.status === "running" ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]"
-                            : s.status === "starting" ? "bg-yellow-500 animate-pulse" : "bg-red-500"
-                        }`} />
-                        <span className="font-medium text-sm">{s.name}</span>
-                      </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        s.category === "ai" ? "bg-purple-500/10 text-purple-400"
-                          : s.category === "monitoring" ? "bg-blue-500/10 text-blue-400"
-                            : "bg-green-500/10 text-green-400"
-                      }`}>{s.category}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                      <span>:{s.port} &middot; {s.type}{s.pid ? ` (PID ${s.pid})` : ""}</span>
-                      <span className={
-                        s.status === "running" ? "text-green-400" :
-                        s.status === "starting" ? "text-yellow-400" : "text-red-400"
-                      }>{s.status}</span>
-                    </div>
-                    {(() => {
-                      const r = routing?.services.find((rs) => rs.id === s.id);
-                      if (!r) return null;
-                      const isLocal = routing?.mode === "local";
-                      return (
-                        <div className="text-[11px] space-y-0.5 mb-3 font-mono">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isLocal ? "bg-green-500" : "bg-gray-600"}`} />
-                            <span className={isLocal ? "text-green-400" : "text-gray-600"}>localhost:{r.localPort}</span>
-                            {isLocal && <span className="text-green-600 ml-auto">active</span>}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${!isLocal ? "bg-blue-500" : "bg-gray-600"}`} />
-                            <span className={!isLocal ? "text-blue-400" : "text-gray-600"}>{r.publicUrl.replace("https://", "")}</span>
-                            {!isLocal && <span className="text-blue-600 ml-auto">active</span>}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {managedServices.map((s) => {
+              const isActing = actionInProgress === s.id;
+              const msg = actionMessage?.id === s.id ? actionMessage : null;
+              const isRunning = s.status === "running";
+              const isStarting = s.status === "starting";
+              const r = routing?.services.find((rs) => rs.id === s.id);
+              const isLocal = routing?.mode === "local";
+              const Icon = serviceIconMap[s.id] ?? Server;
+
+              type CatConfig = { badge: string; strip: string; iconBg: string; iconColor: string; label: string };
+              const catMap: Record<string, CatConfig> = {
+                ai: {
+                  badge: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20",
+                  strip: "bg-gradient-to-r from-violet-500 via-violet-400/30 to-transparent",
+                  iconBg: "bg-violet-100 dark:bg-violet-500/10",
+                  iconColor: "text-violet-600 dark:text-violet-400",
+                  label: "AI",
+                },
+                monitoring: {
+                  badge: "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20",
+                  strip: "bg-gradient-to-r from-sky-500 via-sky-400/30 to-transparent",
+                  iconBg: "bg-sky-100 dark:bg-sky-500/10",
+                  iconColor: "text-sky-600 dark:text-sky-400",
+                  label: "Monitor",
+                },
+                app: {
+                  badge: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20",
+                  strip: "bg-gradient-to-r from-emerald-500 via-emerald-400/30 to-transparent",
+                  iconBg: "bg-emerald-100 dark:bg-emerald-500/10",
+                  iconColor: "text-emerald-600 dark:text-emerald-400",
+                  label: "App",
+                },
+              };
+              const cat: CatConfig = catMap[s.category] ?? {
+                badge: "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600/30",
+                strip: "bg-gray-300 dark:bg-gray-700",
+                iconBg: "bg-gray-100 dark:bg-gray-800",
+                iconColor: "text-gray-500 dark:text-gray-400",
+                label: s.category,
+              };
+
+              return (
+                <div key={s.id} className={`relative rounded-2xl border overflow-hidden transition-all duration-200 ${
+                  isRunning
+                    ? "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700/80 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600"
+                    : "bg-gray-50/80 dark:bg-gray-900/60 border-gray-200/80 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700"
+                }`}>
+                  {/* Top accent strip */}
+                  <div className={`absolute inset-x-0 top-0 h-[2px] ${
+                    isRunning ? cat.strip : isStarting ? "bg-amber-300 dark:bg-amber-500/60" : "bg-gray-100 dark:bg-gray-800"
+                  }`} />
+
+                  <div className="p-5 pt-6">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        {/* Icon */}
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border ${
+                          isRunning
+                            ? `${cat.iconBg} border-transparent`
+                            : "bg-gray-100 dark:bg-gray-800 border-transparent"
+                        }`}>
+                          <Icon className={`w-[18px] h-[18px] ${isRunning ? cat.iconColor : "text-gray-400 dark:text-gray-500"}`} />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100 leading-tight">{s.name}</h3>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                              isRunning  ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]"
+                              : isStarting ? "bg-amber-400 animate-pulse"
+                              : "bg-gray-300 dark:bg-gray-600"
+                            }`} />
+                            <span className={`text-[11px] font-medium ${
+                              isRunning  ? "text-emerald-600 dark:text-emerald-400"
+                              : isStarting ? "text-amber-600 dark:text-amber-400"
+                              : "text-gray-400 dark:text-gray-500"
+                            }`}>{s.status}</span>
+                            <span className="text-gray-300 dark:text-gray-700">·</span>
+                            <span className="text-[11px] text-gray-400 dark:text-gray-600 font-mono">:{s.port}</span>
+                            {s.pid && <span className="text-[10px] text-gray-400 dark:text-gray-700 font-mono ml-0.5">· pid {s.pid}</span>}
                           </div>
                         </div>
-                      );
-                    })()}
+                      </div>
+                      <span className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-md border font-semibold flex-shrink-0 ${cat.badge}`}>
+                        {cat.label}
+                      </span>
+                    </div>
+
+                    {/* Routing row */}
+                    {r && (
+                      <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-transparent rounded-xl p-2.5 mb-4 font-mono text-[11px] space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isLocal ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`} />
+                          <span className={isLocal ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-gray-600"}>localhost:{r.localPort}</span>
+                          {isLocal && <span className="ml-auto text-[10px] text-emerald-600 dark:text-emerald-600 font-sans font-semibold">active</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${!isLocal ? "bg-blue-500" : "bg-gray-300 dark:bg-gray-600"}`} />
+                          <span className={`truncate ${!isLocal ? "text-blue-600 dark:text-blue-400" : "text-gray-400 dark:text-gray-600"}`}>{r.publicUrl.replace("https://", "")}</span>
+                          {!isLocal && <span className="ml-auto text-[10px] text-blue-600 font-sans font-semibold flex-shrink-0">active</span>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Message */}
                     {msg && (
-                      <div className={`text-xs px-3 py-2 rounded-lg mb-3 ${
-                        msg.type === "error" ? "bg-red-500/10 text-red-400 border border-red-500/20"
-                          : "bg-green-500/10 text-green-400 border border-green-500/20"
+                      <div className={`text-xs px-3 py-2 rounded-xl mb-3 border ${
+                        msg.type === "error"
+                          ? "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20"
+                          : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
                       }`}>{msg.text}</div>
                     )}
-                    <div className="flex gap-2">
-                      {s.status === "running" || s.status === "starting" ? (
+
+                    {/* Actions */}
+                    <div className="flex gap-2 mt-auto">
+                      {isRunning || isStarting ? (
                         <>
                           <button onClick={() => serviceAction(s.id, "stop")} disabled={isActing}
-                            className="flex-1 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-40">
-                            {isActing ? "Stopping..." : "Stop"}
+                            className="flex-1 py-2 rounded-xl text-xs font-medium transition disabled:opacity-40 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20">
+                            {isActing ? "Stopping…" : "Stop"}
                           </button>
                           <button onClick={() => serviceAction(s.id, "restart")} disabled={isActing}
-                            className="flex-1 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 border border-yellow-600/30 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-40">
-                            {isActing ? "..." : "Restart"}
+                            className="flex-1 py-2 rounded-xl text-xs font-medium transition disabled:opacity-40 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
+                            {isActing ? "…" : "Restart"}
                           </button>
                         </>
                       ) : (
                         <button onClick={() => serviceAction(s.id, "start")} disabled={isActing}
-                          className="flex-1 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-600/30 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:opacity-40">
-                          {isActing ? "Starting..." : "Start"}
+                          className="flex-1 py-2 rounded-xl text-xs font-medium transition disabled:opacity-40 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+                          {isActing ? "Starting…" : "Start"}
                         </button>
                       )}
                       <button onClick={() => setLogViewerService({ id: s.id, name: s.name })}
-                        className="bg-gray-800 hover:bg-gray-700 text-gray-400 rounded-lg px-3 py-1.5 text-xs transition">
+                        className="px-3 py-2 rounded-xl text-xs font-medium transition bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border border-gray-200 dark:border-gray-700">
                         Logs
                       </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </>
+                </div>
+              );
+            })}
+          </div>
         )}
 
         {/* ── LLM TAB ── */}
@@ -895,6 +985,12 @@ export default function Home() {
           </>
         )}
 
+        {/* ── QWEN IMAGE TAB ── */}
+        {tab === "qwen" && <QwenTab />}
+
+        {/* ── REQUESTS TAB ── */}
+        {tab === "requests" && <RequestsView />}
+
         {/* ── GPU TAB ── */}
         {tab === "gpu" && gpu && !gpu.error && (
           <>
@@ -1115,8 +1211,89 @@ export default function Home() {
           </>
         )}
         {tab === "gpu" && (!gpu || gpu.error) && (
-          <div className="text-center text-gray-500 py-12">
-            {gpu?.error || "Loading GPU data..."}
+          <div className="space-y-6">
+            {/* GPU unavailable banner */}
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/60 p-8 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                <Server className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+              </div>
+              <h2 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">GPU Metrics Unavailable</h2>
+              <p className="text-sm text-gray-500 mb-5">
+                {gpu?.error || "nvidia-smi / GPU API is not reachable right now."}
+              </p>
+              <button
+                onClick={fetchGpu}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-sm text-gray-600 dark:text-gray-300 font-medium transition"
+              >
+                ↻ Retry GPU Metrics
+              </button>
+            </div>
+
+            {/* GPU-intensive services */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">
+                GPU-Intensive Services
+              </h3>
+              <div className="space-y-2">
+                {gpuServiceIds.map((id) => {
+                  const svc = managedServices.find((s) => s.id === id);
+                  const isActing = actionInProgress === id;
+                  const isRunning = svc?.status === "running";
+                  const isStarting = svc?.status === "starting";
+                  const GpuIcon = serviceIconMap[id] ?? Server;
+                  return (
+                    <div key={id} className={`flex items-center gap-4 rounded-xl border px-4 py-3 transition ${
+                      isRunning
+                        ? "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                        : "bg-gray-50/80 dark:bg-gray-900/50 border-gray-200/80 dark:border-gray-800"
+                    }`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        isRunning ? "bg-violet-100 dark:bg-violet-500/10" : "bg-gray-100 dark:bg-gray-800"
+                      }`}>
+                        <GpuIcon className={`w-4 h-4 ${isRunning ? "text-violet-600 dark:text-violet-400" : "text-gray-400 dark:text-gray-500"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                          {managedServices.find((s) => s.id === id)?.name ?? id}
+                        </span>
+                        {svc && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className={`w-1.5 h-1.5 rounded-full ${
+                              isRunning ? "bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.5)]"
+                              : isStarting ? "bg-amber-400 animate-pulse" : "bg-gray-300 dark:bg-gray-600"
+                            }`} />
+                            <span className={`text-[11px] ${
+                              isRunning ? "text-emerald-600 dark:text-emerald-400"
+                              : isStarting ? "text-amber-600 dark:text-amber-400"
+                              : "text-gray-400 dark:text-gray-500"
+                            }`}>{svc.status}</span>
+                          </div>
+                        )}
+                        {!svc && <p className="text-[11px] text-gray-400 dark:text-gray-600 mt-0.5">not in registry</p>}
+                      </div>
+                      {svc && !isRunning && !isStarting && (
+                        <button
+                          onClick={() => serviceAction(id, "start")}
+                          disabled={isActing}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20"
+                        >
+                          {isActing ? "Starting…" : "Start"}
+                        </button>
+                      )}
+                      {svc && isRunning && (
+                        <button
+                          onClick={() => serviceAction(id, "stop")}
+                          disabled={isActing}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20"
+                        >
+                          {isActing ? "Stopping…" : "Stop"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
