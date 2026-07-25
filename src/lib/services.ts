@@ -71,6 +71,19 @@ export const SERVICE_REGISTRY: ServiceEntry[] = [
     authRequired: false,
   },
   {
+    // Local 20B Qwen-Image diffusion model (RTX 5090, fp8). Text→image today;
+    // image-edit (Qwen-Image-Edit) is wired in the console but gated server-side.
+    // server: hq/quote-forge/server/qwen_image.py — POST /generate, POST /edit, GET /health
+    id: "qwen",
+    name: "Qwen-Image",
+    localPort: 8021,
+    localUrl: "http://localhost:8021",
+    publicUrl: "https://qwen.betenshi.com",
+    healthPath: "/health",
+    category: "ai",
+    authRequired: false,
+  },
+  {
     id: "comfyui",
     name: "ComfyUI",
     localPort: 8188,

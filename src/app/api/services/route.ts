@@ -1,30 +1,47 @@
 import { NextResponse } from "next/server";
+import { SERVICE_REGISTRY, isLocalServer } from "@/lib/services";
 
-const MANAGER_URL = "http://localhost:8003";
+const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
+
+async function registryFallback() {
+  const local = isLocalServer();
+  return Promise.all(
+    SERVICE_REGISTRY.map(async (svc) => {
+      const baseUrl = local ? svc.localUrl : svc.publicUrl;
+      let healthy = false;
+      try {
+        const res = await fetch(baseUrl + svc.healthPath, {
+          signal: AbortSignal.timeout(3000),
+        });
+        healthy = res.ok;
+      } catch { /* unreachable = stopped */ }
+      return {
+        id: svc.id,
+        name: svc.name,
+        type: "process",
+        port: svc.localPort,
+        category: svc.category,
+        status: healthy ? "running" : "stopped",
+        healthy,
+        pid: null,
+        container: null,
+        log_tail: [],
+      };
+    })
+  );
+}
 
 export async function GET() {
   try {
-    // /services health-checks every managed service serially and can exceed
-    // 10s on a busy box — give it margin so the tab populates instead of 502ing.
     const res = await fetch(`${MANAGER_URL}/services`, {
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(5000),
     });
     const data = await res.json();
-    // Propagate the upstream status so a 404/500 isn't laundered into a 200.
-    // The manager must return an array of services; anything else is an error
-    // shape (e.g. FastAPI's {detail:"Not Found"}) and must NOT reach the client
-    // as success — the dashboard does managedServices.filter(...).
     if (!res.ok || !Array.isArray(data)) {
-      return NextResponse.json(
-        { error: "Manager returned an unexpected response", upstream: data },
-        { status: res.ok ? 502 : res.status }
-      );
+      return NextResponse.json(await registryFallback());
     }
     return NextResponse.json(data);
-  } catch (err) {
-    return NextResponse.json(
-      { error: `Manager unreachable: ${err instanceof Error ? err.message : err}` },
-      { status: 502 }
-    );
+  } catch {
+    return NextResponse.json(await registryFallback());
   }
 }
