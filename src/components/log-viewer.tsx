@@ -114,7 +114,7 @@ export default function LogViewer({ serviceId, serviceName, onClose }: LogViewer
             <button
               onClick={fetchLogs}
               disabled={loading}
-              className="p-1.5 rounded-md hover:bg-gray-800 text-gray-400 hover:text-white transition disabled:opacity-40"
+              className="p-1.5 rounded-md hover:bg-gray-800 text-gray-400 hover:text-gray-100 transition disabled:opacity-40"
               title="Refresh"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -130,7 +130,7 @@ export default function LogViewer({ serviceId, serviceName, onClose }: LogViewer
             </button>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-md hover:bg-gray-800 text-gray-400 hover:text-white transition"
+              className="p-1.5 rounded-md hover:bg-gray-800 text-gray-400 hover:text-gray-100 transition"
             >
               <X className="w-4 h-4" />
             </button>
