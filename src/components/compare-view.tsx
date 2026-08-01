@@ -41,6 +41,8 @@ type Run = {
   local: boolean;
   costUsd?: number;
   state: RunState;
+  /** Why it's still running when nothing appears to be happening, e.g. a cold model loading. */
+  note?: string;
   /** Wall-clock for this model alone, filled in as it finishes. */
   ms?: number;
   startedAt?: number;
@@ -48,6 +50,18 @@ type Run = {
   savedPath?: string;
   error?: string;
 };
+
+/**
+ * How long to keep re-asking a model that says it's still loading.
+ *
+ * Deliberately generous. Measured on this box: Qwen-Image cold off disk
+ * reported elapsed_s 251 with eta_s 48 still to go — roughly five minutes to
+ * stream ~28 GB of fp8 weights into host RAM. A budget that expires mid-load
+ * reintroduces the exact bug this retry exists to fix, just later. The run is
+ * cancellable at any point, so the cost of waiting is bounded by the user, not
+ * by a number guessed here.
+ */
+const WARMUP_BUDGET_MS = 900_000;
 
 const SIZES = [
   { label: "1024²", w: 1024, h: 1024 },
@@ -147,21 +161,43 @@ export default function CompareView() {
       const ac = new AbortController();
       abortRef.current.set(model, ac);
       const startedAt = Date.now();
-      patch(model, { state: "running", startedAt });
+      patch(model, { state: "running", startedAt, note: undefined });
       try {
-        const res = await fetch("/api/image/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model, prompt, width: size.w, height: size.h, seed: runSeed }),
-          signal: ac.signal,
-        });
-        const j = await res.json();
+        // A cold local model answers 503 model_loading with an ETA. That is not
+        // a result — it's "ask again shortly" — and reporting it as a failure
+        // makes the comparison lie about the very thing it exists to measure.
+        // Seen for real: freeing ComfyUI's VRAM evicted Qwen, so Qwen "failed"
+        // in 0.1s while FLUX took a minute and succeeded.
+        const warmDeadline = Date.now() + WARMUP_BUDGET_MS;
+        let res: Response;
+        let j: { error?: string; load?: { eta_s?: number }; image?: string; savedPath?: string };
+
+        for (;;) {
+          res = await fetch("/api/image/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model, prompt, width: size.w, height: size.h, seed: runSeed }),
+            signal: ac.signal,
+          });
+          j = await res.json();
+
+          const warming = res.status === 503 || /warming up|model_loading|still loading/i.test(String(j.error ?? ""));
+          if (!warming || Date.now() > warmDeadline) break;
+
+          const etaS = Number(j.load?.eta_s);
+          const waitMs = Math.min(Math.max(Number.isFinite(etaS) ? etaS * 1000 : 5000, 2000), 20000);
+          patch(model, { note: `loading${Number.isFinite(etaS) ? ` — ~${Math.ceil(etaS)}s` : ""}` });
+          await new Promise(r => setTimeout(r, waitMs));
+          if (ac.signal.aborted) throw new DOMException("Aborted", "AbortError");
+        }
+
         if (!res.ok || j.error) {
-          patch(model, { state: "failed", ms: Date.now() - startedAt, error: String(j.error ?? `HTTP ${res.status}`) });
+          patch(model, { state: "failed", ms: Date.now() - startedAt, note: undefined, error: String(j.error ?? `HTTP ${res.status}`) });
         } else {
           patch(model, {
             state: "done",
             ms: Date.now() - startedAt,
+            note: undefined,
             image: j.image,
             savedPath: j.savedPath ?? undefined,
           });
@@ -363,6 +399,8 @@ export default function CompareView() {
                       <div className="flex flex-col items-center gap-2 p-4">
                         <span className="inline-block w-4 h-4 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
                         <span className="text-[11px] text-gray-500 tabular-nums">{elapsed.toFixed(1)}s</span>
+                        {/* Without this a cold model is indistinguishable from a stalled one. */}
+                        {r.note && <span className="text-[10px] text-amber-400/80">{r.note}</span>}
                       </div>
                     ) : (
                       <p className="p-4 text-[11px] text-gray-600">
