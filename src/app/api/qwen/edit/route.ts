@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceUrl, getServiceHeaders } from "@/lib/services";
 import { saveImage } from "@/lib/save-image";
+import { withTraffic } from "@/lib/with-traffic";
 
 export const maxDuration = 800;
 
@@ -42,7 +43,7 @@ function notInstalled(detail?: string) {
   );
 }
 
-export async function POST(req: NextRequest) {
+async function handlePOST(req: NextRequest) {
   const start = Date.now();
   try {
     const body = await req.json();
@@ -132,3 +133,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export const POST = withTraffic(handlePOST);
