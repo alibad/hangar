@@ -1,0 +1,228 @@
+# BeTenshi AI Router — LiteLLM proxy config
+#
+# One OpenAI-compatible gateway in front of every model this box can reach:
+# local (vLLM, Qwen-Image) and cloud (OpenAI, Gemini, Anthropic).
+#
+#   Started by the BeTenshi service manager as service id `ai-router`.
+#   Listens on 127.0.0.1:4000 ONLY — see the boundary note below.
+#
+# ── LOCAL-ONLY BOUNDARY (important) ─────────────────────────────────────────
+# This router exists for systems that use LOCAL resources on this box:
+#   betenshi-console, quote-forge, move-quest.
+# It is deliberately NOT reachable off-box and has NO public/tunnel hostname,
+# unlike every other BeTenshi service. Cloud projects (globe_quest, ColdClub,
+# avatar-lab, tinkerer-presenter) must keep calling vendor APIs directly with
+# their own keys and must NEVER be pointed at this router.
+#
+# ── Keys ────────────────────────────────────────────────────────────────────
+# Referenced by name only; set them in the environment (never in this file):
+#   OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY
+# A model whose key is absent stays listed and reports as "no key configured"
+# in the console rather than silently disappearing — that visibility is the
+# whole point of this work.
+#
+# ── Naming ──────────────────────────────────────────────────────────────────
+# `model_name` is the alias callers send. Aliases are stable; the underlying
+# vendor model id can be re-pointed here without touching any application code.
+# Cloud model ids move fast — this file is the ONLY place they are written.
+
+model_list:
+  # ── text · local ──────────────────────────────────────────────────────────
+  - model_name: local-coder
+    litellm_params:
+      model: openai/qwen3-coder          # served-model-name on the vLLM server
+      api_base: http://localhost:8005/v1
+      api_key: none                      # local vLLM ignores auth
+    model_info:
+      mode: chat
+
+  - model_name: local-small
+    litellm_params:
+      model: openai/qwen-small
+      api_base: http://localhost:8006/v1
+      api_key: none
+    model_info:
+      mode: chat
+
+  # ── text · cloud ──────────────────────────────────────────────────────────
+  - model_name: gpt-5.5
+    litellm_params:
+      model: openai/gpt-5.5
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: chat
+
+  # Model ids verified against the live ListModels API (v1beta), not guessed.
+  # Google also publishes moving aliases (gemini-flash-latest / gemini-pro-latest);
+  # explicit versions are pinned here instead so an archived result records which
+  # model actually produced it.
+  - model_name: gemini-flash
+    litellm_params:
+      model: gemini/gemini-3.6-flash
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      mode: chat
+
+  - model_name: claude-haiku
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      mode: chat
+
+  - model_name: claude-opus
+    litellm_params:
+      model: anthropic/claude-opus-4-8
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      mode: chat
+
+  - model_name: gemini-pro
+    litellm_params:
+      model: gemini/gemini-3.1-pro-preview
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+
+  # ── speech → text ─────────────────────────────────────────────────────────
+  # The local Whisper service already speaks the OpenAI audio API, so it needs
+  # no shim — it registers exactly like a cloud provider. Prefer it when the
+  # audio is sensitive: nothing leaves the box.
+  - model_name: local-whisper
+    litellm_params:
+      model: openai/whisper-1
+      api_base: http://localhost:8001/v1
+      api_key: none
+    model_info:
+      mode: audio_transcription
+
+  - model_name: openai-transcribe
+    litellm_params:
+      model: openai/gpt-4o-transcribe
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: audio_transcription
+
+  # ── text → speech ─────────────────────────────────────────────────────────
+  - model_name: local-kokoro
+    litellm_params:
+      model: openai/kokoro
+      api_base: http://localhost:8002/v1
+      api_key: none
+    model_info:
+      mode: audio_speech
+
+  - model_name: openai-tts
+    litellm_params:
+      model: openai/gpt-4o-mini-tts
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: audio_speech
+
+  # ── image · local (the default) ───────────────────────────────────────────
+  # Points at the OpenAI-compatible face added to the Qwen-Image service
+  # (server/qwen_image.py -> POST /v1/images/generations). Free, private, slow.
+  - model_name: local-qwen-image
+    litellm_params:
+      model: openai/qwen-image
+      api_base: http://localhost:8021/v1
+      api_key: none
+      timeout: 600                       # a cold 20B load can take minutes
+      # Cold starts are absorbed by the SERVICE, not by retries here.
+      #
+      # server/qwen_image.py binds :8021 BEFORE it loads the model and holds an
+      # incoming generation until the pipeline is ready (up to ~7 min, measured
+      # from the load's start), so the ordinary cold-start case is now one
+      # slow-but-successful call — which is exactly what `timeout: 600` is for.
+      # A 503 from it therefore means "still not ready after all that", and
+      # retrying that here only piles more load on a box that is already busy.
+      #
+      # Measured on litellm 1.94.0, pointing a throwaway model at an always-503
+      # server and counting the requests that actually arrived:
+      #   no retry knobs (the old default) ->  9 requests / 20.6s
+      #   num_retries: 0                   ->  3 requests /  4.0s
+      #   num_retries: 4 + Retry-After: 45 -> 15 requests /  679s  (past timeout: 600!)
+      # The floor of 3 is the openai SDK retrying inside EVERY router attempt, and
+      # it honours a Retry-After header literally — which is why the service keeps
+      # that header small and reports its real ETA in the response body instead.
+      # `max_retries` here does NOT suppress the SDK's retries: setting it to 0
+      # changed nothing (still 3). Don't infer that one from the param list either.
+      #
+      # And note litellm clamps its own backoff to MAX_RETRY_DELAY (8s), so no
+      # retry count configurable here could ever ride out a 4-5 minute load.
+      num_retries: 0
+      # Tells the local service "you are the downstream half of a router call".
+      # Both ends log to the Requests view, so without this ONE generation shows
+      # up as TWO rows with near-identical latency and no way to tell whether
+      # that was one image or two. The service echoes it back as `hop` and the
+      # console folds the duplicate away. See server/qwen_image.py.
+      #
+      # `extra_headers`, NOT `headers` — verified by pointing a throwaway model
+      # at an echo server and reading what actually arrived. `extra_headers`
+      # lands as a real HTTP header; `headers` was dropped silently and never
+      # reached the provider at all, despite being the key that IS in litellm's
+      # `all_litellm_params`. Don't infer this one from the param lists.
+      # Caveat: litellm also copies extra_headers into the JSON body. Harmless
+      # here (the pydantic request model ignores unknown fields) but worth
+      # knowing before pointing this at a provider that rejects extras.
+      extra_headers:
+        x-betenshi-hop: ai-router
+    model_info:
+      mode: image_generation
+
+  # ── image · cloud ─────────────────────────────────────────────────────────
+  # gpt-image-2 is the id already proven working in tinkerer-presenter/scripts/gen-images.mjs.
+  # Cost by quality tier, per that file: low ~$0.006, medium ~$0.053, high ~$0.211.
+  - model_name: gpt-image-2
+    litellm_params:
+      model: openai/gpt-image-2
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: image_generation
+
+  # Google exposes two image families. The classic imagen-* (predict API) is
+  # CLOSED to new API keys — it 404s with "no longer available to new users" —
+  # so the gemini-*-image family (images returned from generateContent) is the
+  # only usable one here.
+  - model_name: gemini-image
+    litellm_params:
+      model: gemini/gemini-3-pro-image
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: image_generation
+
+  - model_name: gemini-image-fast
+    litellm_params:
+      model: gemini/gemini-3.1-flash-image
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: image_generation
+
+litellm_settings:
+  # Report every call (model + latency + cost) to the console's Requests view.
+  # Path is relative to the process cwd, which the manager sets to the console dir.
+  callbacks: config.router_callback.betenshi_logger
+  # Providers disagree about which knobs exist (negative_prompt, cfg, steps are
+  # local-only; reasoning_effort is OpenAI-only). Drop unsupported params rather
+  # than 400-ing, so one prompt can fan out across every model unchanged.
+  drop_params: true
+  # Keep a local model's cold start from being read as a failure.
+  request_timeout: 600
+
+general_settings:
+  # No DB — model list is this file. Keeps the router a stateless, restartable
+  # process with no extra infrastructure.
+  store_model_in_db: false
+  # Pass the caller's headers upstream so X-Source survives the extra hop and
+  # images stay attributable to the app that asked for them ("quote-forge",
+  # "console") instead of all collapsing to "router" in the Activity archive.
+  # `user` can't do this job: our local model isn't in LiteLLM's registry, so
+  # drop_params strips it as an unsupported param.
+  forward_client_headers_to_llm_api: true

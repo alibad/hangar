@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceUrl, getServiceHeaders } from "@/lib/services";
+import { getActiveLlm } from "@/lib/llm";
 
 export async function POST(req: NextRequest) {
   const { message } = await req.json();
-  const baseUrl = getServiceUrl("vllm");
+  const llm = getActiveLlm();
 
   const start = Date.now();
   try {
-    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+    const res = await fetch(`${llm.baseUrl}/v1/chat/completions`, {
       method: "POST",
-      headers: getServiceHeaders("vllm", { "Content-Type": "application/json" }),
+      headers: llm.headers,
       body: JSON.stringify({
-        model: process.env.LLM_MODEL,
+        model: llm.model,
         messages: [{ role: "user", content: message }],
         max_tokens: 1024,
       }),
