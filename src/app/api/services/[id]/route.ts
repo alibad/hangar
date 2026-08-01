@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const MANAGER_URL = "http://localhost:8003";
+const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
 
 export async function POST(
   req: NextRequest,

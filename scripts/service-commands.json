@@ -1,0 +1,88 @@
+{
+  "_doc": "BeTenshi service commands. docker = container name. cmd+args+cwd = spawn a process. skip = externally managed.",
+
+  "_models-doc": "Model weights live on D: (see HF_HOME below), NOT the default C:\\Users\\Admin\\.cache\\huggingface. HF_HOME is set per-service rather than relied upon from the user environment: the manager runs as a scheduled task and inherits its environment at launch, so a user-level variable set afterwards would not reach spawned services until a re-login — they would silently fall back to the empty default path and re-download every model. Every service that loads Hugging Face weights must carry it.",
+
+  "vllm": {
+    "docker": "vllm-coder"
+  },
+
+  "vllm-small": {
+    "docker": "vllm-small"
+  },
+
+  "whisper": {
+    "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "args": ["-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\whisper",
+    "env": { "HF_HOME": "D:\\AI Models\\huggingface" }
+  },
+
+  "tts": {
+    "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "args": ["-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8002"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\tts",
+    "env": { "HF_HOME": "D:\\AI Models\\huggingface" }
+  },
+
+  "webui": {
+    "docker": "open-webui"
+  },
+
+  "grafana": {
+    "docker": "grafana"
+  },
+
+  "prometheus": {
+    "docker": "prometheus"
+  },
+
+  "qwen": {
+    "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "args": ["C:\\Users\\Admin\\Code\\hq\\quote-forge\\server\\qwen_image.py"],
+    "env": {
+      "QWEN_EDIT_ENABLED": "1",
+      "HF_HOME": "D:\\AI Models\\huggingface"
+    }
+  },
+
+  "comfyui": {
+    "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "args": ["main.py", "--port", "8188"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\creative-lab\\image\\ComfyUI"
+  },
+
+  "sam3d": {
+    "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "args": ["services\\sam3d\\server.py"],
+    "cwd": "C:\\Users\\Admin\\Code\\hq\\move-quest",
+    "env": { "HF_HOME": "D:\\AI Models\\huggingface" }
+  },
+
+  "sam3": {
+    "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+    "args": ["services\\sam3\\server.py"],
+    "cwd": "C:\\Users\\Admin\\Code\\hq\\move-quest",
+    "env": {
+      "HF_HUB_OFFLINE": "1",
+      "HF_HOME": "D:\\AI Models\\huggingface"
+    }
+  },
+
+  "_ai-router-doc": "LiteLLM proxy. --host 127.0.0.1 is a HARD requirement: this gateway must never be reachable off-box. Cloud API keys come from the environment (OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_KEY); a missing key leaves that model listed but reporting 'no key configured'.",
+  "ai-router": {
+    "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\litellm.exe",
+    "args": [
+      "--config", "C:\\Users\\Admin\\Code\\AI\\betenshi-console\\config\\ai-router.yaml",
+      "--host", "127.0.0.1",
+      "--port", "4000"
+    ],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\betenshi-console",
+    "envFile": "C:\\Users\\Admin\\Code\\AI\\betenshi-console\\.env",
+    "env": {
+      "LITELLM_LOG": "ERROR",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    }
+  }
+}
