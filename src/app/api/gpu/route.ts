@@ -1,9 +1,31 @@
 import { NextResponse } from "next/server";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import os from "os";
 import { SERVICE_REGISTRY, getServiceUrl } from "@/lib/services";
 
 const execFileP = promisify(execFile);
+
+/**
+ * Host RAM, reported alongside VRAM because on this box it is the tighter
+ * constraint and nothing was watching it.
+ *
+ * Qwen-Image keeps ~28 GB of fp8 weights in system RAM permanently
+ * (enable_model_cpu_offload streams them to the card per stage), and a FLUX run
+ * through ComfyUI wants a similar amount. Two of those do not fit in 63 GB — a
+ * collision that has already killed the Qwen service once with a MemoryError
+ * mid-shard-load, while every VRAM number on screen looked perfectly healthy.
+ */
+function hostRam() {
+  const total = os.totalmem();
+  const free = os.freemem();
+  return {
+    total_gb: Math.round((total / 1024 ** 3) * 10) / 10,
+    free_gb: Math.round((free / 1024 ** 3) * 10) / 10,
+    used_gb: Math.round(((total - free) / 1024 ** 3) * 10) / 10,
+    pct_used: total ? Math.round(((total - free) / total) * 1000) / 10 : 0,
+  };
+}
 
 /**
  * GPU status, read straight from nvidia-smi.
@@ -139,6 +161,7 @@ export async function GET() {
       power_limit: num(pLimit),
       impact,
       impact_msg,
+      host_ram: hostRam(),
       service_vram,
       vram_summary: {
         accounted_mb: accounted,
@@ -149,8 +172,13 @@ export async function GET() {
       },
     });
   } catch (err) {
+    // Host RAM still goes out: it does not come from nvidia-smi, and a missing
+    // GPU reading is no reason to blind the one budget that OOMs this box.
     return NextResponse.json(
-      { error: `nvidia-smi unavailable: ${err instanceof Error ? err.message : err}` },
+      {
+        error: `nvidia-smi unavailable: ${err instanceof Error ? err.message : err}`,
+        host_ram: hostRam(),
+      },
       { status: 502 },
     );
   }
