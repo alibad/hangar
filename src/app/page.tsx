@@ -2,14 +2,25 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import LogViewer from "@/components/log-viewer";
+import ModelPicker from "@/components/model-picker";
 import QwenTab from "@/components/qwen-tab";
 import RequestsView from "@/components/requests-view";
+import Sam3dView from "@/components/sam3d-view";
+import Sam3View from "@/components/sam3-view";
+import ProvidersView from "@/components/providers-view";
+import ModelFootprint, { type Footprint } from "@/components/model-footprint";
+import { ServiceLogsButton } from "@/components/service-control";
 import { useTheme } from "@/components/theme-provider";
+import { ThemePicker } from "@/components/theme-picker";
 import {
   Brain, Mic, Volume2, Globe, Activity, Database,
-  Sparkles, Layers, ScanLine, Server, type LucideIcon,
+  Sparkles, Layers, ScanLine, Scan, Server, ExternalLink, Cpu, type LucideIcon,
 } from "lucide-react";
+
+// Small inline spinner shown while a service action (start/stop/restart) is in flight.
+function Spinner() {
+  return <span className="inline-block w-3 h-3 rounded-full border-[1.5px] border-current border-t-transparent animate-spin align-[-2px]" />;
+}
 
 type ServiceStatus = {
   name: string;
@@ -45,6 +56,17 @@ type RoutingInfo = {
   }[];
 };
 
+/** One model from the AI Router catalogue, as far as a service card cares. */
+type CatalogEntry = {
+  id: string;
+  serviceId?: string;
+  mode: string;
+  checkpoint?: string;
+  params?: string;
+  target: string;
+  footprint?: Footprint;
+};
+
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
@@ -62,6 +84,10 @@ type TranscribeResult = {
   text: string;
   latency: number;
   fileName: string;
+  /** Router alias that actually did the work — the picked model, or the fallback. */
+  model?: string;
+  /** Set when the routing couldn't be honoured and the local model was used. */
+  degraded?: string;
 };
 
 type ManagedService = {
@@ -75,15 +101,27 @@ type ManagedService = {
   pid: number | null;
   container: string | null;
   log_tail: string[];
+  error?: string | null;
+  /**
+   * Who spawned the process on this port. "external" means it was started outside
+   * the manager (a shell, by hand), so its configured env was never applied and
+   * its output was never captured — Restart hands it over.
+   */
+  owner?: "manager" | "external" | null;
 };
 
-type GpuProcess = {
-  pid: number;
-  name: string;
-  mem_mb: number | null;
-  category: string;
-  desc: string;
+/** Stable colour per service in the VRAM bar, so the legend and bar agree. */
+const VRAM_COLORS: Record<string, string> = {
+  qwen: "bg-violet-500",
+  vllm: "bg-purple-500",
+  "vllm-small": "bg-fuchsia-500",
+  whisper: "bg-blue-500",
+  tts: "bg-cyan-500",
+  comfyui: "bg-pink-500",
+  sam3: "bg-teal-500",
+  sam3d: "bg-emerald-500",
 };
+const vramColor = (id: string) => VRAM_COLORS[id] ?? "bg-slate-500";
 
 type GpuStatus = {
   name: string;
@@ -97,24 +135,19 @@ type GpuStatus = {
   power_limit: number;
   fan_speed: number | null;
   pstate: string;
-  processes: GpuProcess[];
+  /** Per-service VRAM, self-reported by each service (nvidia-smi can't on Windows). */
   service_vram: Record<string, {
     name: string;
-    allocated_mb?: number;
-    estimated_mb?: number;
-    reserved_mb?: number;
+    used_mb: number;
     pct_of_total: number;
-    kv_cache_usage_pct?: number | null;
-    source: string;
+    model?: string | null;
   }>;
   vram_summary: {
     accounted_mb: number;
-    accounted_pct: number;
-    used_mb: number;
     unaccounted_mb: number;
     unaccounted_note: string;
   };
-  impact: "good" | "warning" | "critical" | "busy";
+  impact: "ok" | "good" | "warning" | "critical" | "busy";
   impact_msg: string;
   error?: string;
 };
@@ -126,6 +159,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [transcribeResult, setTranscribeResult] = useState<TranscribeResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -135,27 +169,38 @@ export default function Home() {
   const [ttsVoice, setTtsVoice] = useState("alloy");
   const [ttsSpeaking, setTtsSpeaking] = useState(false);
   const [ttsLatency, setTtsLatency] = useState<number | null>(null);
+  /** Which model spoke — reported by /api/tts, so the panel can't imply "local" wrongly. */
+  const [ttsModel, setTtsModel] = useState<string | null>(null);
+  const [ttsError, setTtsError] = useState<string | null>(null);
   const [managedServices, setManagedServices] = useState<ManagedService[]>([]);
-  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [actionInProgress, setActionInProgress] = useState<{ id: string; action: "start" | "stop" | "restart" } | null>(null);
   const [actionMessage, setActionMessage] = useState<{ id: string; text: string; type: "success" | "error" } | null>(null);
-  const [logViewerService, setLogViewerService] = useState<{ id: string; name: string } | null>(null);
   const [gpu, setGpu] = useState<GpuStatus | null>(null);
   const [routing, setRouting] = useState<RoutingInfo | null>(null);
-  const [tab, setTab] = useState<"llm" | "speech" | "services" | "gpu" | "creative" | "qwen" | "requests">("services");
-  const [creativePrompt, setCreativePrompt] = useState("");
-  const [creativeGenerating, setCreativeGenerating] = useState(false);
-  const [creativeHistory, setCreativeHistory] = useState<{
-    prompt: string;
-    filename: string;
-    subfolder: string;
-    type: string;
-    latency: number;
-    seed: number;
-    timestamp: number;
-  }[]>([]);
-  const [creativeWidth, setCreativeWidth] = useState(1024);
-  const [creativeHeight, setCreativeHeight] = useState(768);
-  const [creativeSteps, setCreativeSteps] = useState(4);
+  /**
+   * Qwen-Image's own health, purely so the stack card can list BOTH checkpoints it
+   * serves. The manager sees one process on :8021 and the router publishes one
+   * alias, so without this the separate ~20B image-edit model existed nowhere in
+   * the stack view — the card looked like a single-model service.
+   */
+  const [qwenHealth, setQwenHealth] = useState<{
+    up: boolean;
+    model?: string;
+    loaded?: boolean;
+    mode?: string | null;
+    edit?: { enabled: boolean; model: string; loaded: boolean };
+  } | null>(null);
+  /**
+   * The AI Router's model catalogue, keyed by the service that backs each model.
+   * Lets a service card say WHAT it serves — a process card that doesn't name its
+   * model made you cross-reference the Models tab to answer "what's loaded?".
+   * Same source as the Models tab, so the two can't disagree.
+   */
+  const [catalogByService, setCatalogByService] = useState<Record<string, CatalogEntry[]>>({});
+  const [activeModels, setActiveModels] = useState<Record<string, string>>({});
+  const [tab, setTab] = useState<"llm" | "speech" | "stack" | "qwen" | "requests" | "sam3d" | "sam3" | "models">("stack");
+  /** Stack tab filter — All / GPU / or a service category. */
+  const [stackFilter, setStackFilter] = useState<"all" | "ai" | "monitoring" | "app">("all");
   const messagesEnd = useRef<HTMLDivElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -187,9 +232,12 @@ export default function Home() {
         const data = await res.json();
         // Defensive: only an array is a valid services payload. A flaky/wrong
         // backend must never crash the whole dashboard on managedServices.filter.
-        setManagedServices(Array.isArray(data) ? data : []);
+        const list: ManagedService[] = Array.isArray(data) ? data : [];
+        setManagedServices(list);
+        return list;
       }
     } catch { /* ignore */ }
+    return [] as ManagedService[];
   }, []);
 
   const fetchRouting = useCallback(async () => {
@@ -206,14 +254,52 @@ export default function Home() {
     } catch { /* ignore */ }
   }, []);
 
-  const getActiveUrl = useCallback((serviceId: string) => {
-    const svc = routing?.services.find((s) => s.id === serviceId);
-    return svc?.activeUrl ?? svc?.publicUrl ?? "";
-  }, [routing]);
+  const fetchQwenHealth = useCallback(async () => {
+    try {
+      const res = await fetch("/api/qwen/health");
+      if (res.ok) setQwenHealth(await res.json());
+    } catch { /* service down — the card falls back to "unknown" */ }
+  }, []);
+
+  // Refresh everything at once, exposing a `refreshing` flag so the UI can show
+  // it's actually doing something — on manual click AND on each auto tick.
+  /** Group the router's models by the local service that backs them. */
+  const fetchCatalog = useCallback(async () => {
+    try {
+      const data = await fetch("/api/providers").then((r) => r.json());
+      const models: CatalogEntry[] = Array.isArray(data.models) ? data.models : [];
+      const grouped: Record<string, CatalogEntry[]> = {};
+      for (const m of models) {
+        if (!m.serviceId) continue; // cloud models have no local process
+        (grouped[m.serviceId] ??= []).push(m);
+      }
+      setCatalogByService(grouped);
+      // alias -> capability, so a card can show which slot it currently serves
+      const active: Record<string, string> = {};
+      for (const [cap, alias] of Object.entries(data.routing ?? {})) {
+        if (typeof alias === "string") active[alias] = cap;
+      }
+      setActiveModels(active);
+    } catch {
+      /* router down — cards simply omit model info */
+    }
+  }, []);
+
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([checkHealth(), fetchMetrics(), fetchServices(), fetchRouting(), fetchGpu(), fetchCatalog(), fetchQwenHealth()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchCatalog, fetchQwenHealth]);
 
   async function serviceAction(id: string, action: "start" | "stop" | "restart") {
-    setActionInProgress(id);
+    setActionInProgress({ id, action });
     setActionMessage(null);
+    const startedAt = Date.now();
+    // Auto-dismiss the transient feedback so a stale message can't linger.
+    const dismiss = () => window.setTimeout(() => setActionMessage((m) => (m && m.id === id ? null : m)), 6000);
     try {
       const res = await fetch(`/api/services/${id}`, {
         method: "POST",
@@ -223,14 +309,32 @@ export default function Home() {
       const data = await res.json();
       if (data.error) {
         setActionMessage({ id, text: data.error, type: "error" });
-      } else {
-        setActionMessage({ id, text: data.message || `${action} complete`, type: "success" });
+        setActionInProgress(null);
+        dismiss();
+        return;
       }
-      fetchServices();
+      const defaultMsg = action === "start" ? "launching — model loading…" : action === "stop" ? "stopping…" : "restarting…";
+      setActionMessage({ id, text: data.message || defaultMsg, type: "success" });
+      // The manager returns the instant it fires the signal — the process is still
+      // coming up / shutting down. Keep the control in its in-progress state and poll
+      // until the service actually reaches the target, so it reads as genuinely live.
+      const reached = (s?: ManagedService) =>
+        !s ? false : action === "stop" ? s.status === "stopped" : s.status === "running" && s.healthy;
+      const deadline = Date.now() + 60000;
+      let list = await fetchServices();
+      while (!reached(list.find((s) => s.id === id)) && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 1000));
+        list = await fetchServices();
+      }
     } catch (err) {
       setActionMessage({ id, text: `Failed: ${err}`, type: "error" });
     }
+    // Hold the in-progress state for a beat even if the service flips instantly
+    // (SIGTERM is near-instant on Windows), so the action always reads as deliberate.
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < 1000) await new Promise((r) => setTimeout(r, 1000 - elapsed));
     setActionInProgress(null);
+    dismiss();
   }
 
   useEffect(() => {
@@ -239,18 +343,14 @@ export default function Home() {
     fetchServices();
     fetchRouting();
     fetchGpu();
-  }, [checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu]);
+    fetchCatalog();
+  }, [checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchCatalog]);
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = setInterval(() => {
-      checkHealth();
-      fetchMetrics();
-      fetchServices();
-      fetchGpu();
-    }, 15000);
+    const interval = setInterval(refreshAll, 15000);
     return () => clearInterval(interval);
-  }, [autoRefresh, checkHealth, fetchMetrics, fetchServices, fetchGpu]);
+  }, [autoRefresh, refreshAll]);
 
   async function startRecording() {
     let stream: MediaStream;
@@ -288,14 +388,17 @@ export default function Home() {
     try {
       const form = new FormData();
       form.append("file", file);
-      form.append("model", "whisper-1");
-      const whisperBase = getActiveUrl("whisper") || "https://whisper.betenshi.com";
-      const res = await fetch(`${whisperBase}/v1/audio/transcriptions`, {
-        method: "POST",
-        body: form,
-      });
+      // Via the console, not straight at Whisper: /api/stt dispatches to whichever
+      // model the Speech → text picker selected (local service or cloud via router).
+      const res = await fetch("/api/stt", { method: "POST", body: form });
       const data = await res.json();
-      setTranscribeResult({ text: data.text, latency: Date.now() - start, fileName: file.name });
+      setTranscribeResult({
+        text: res.ok ? data.text : `Error: ${data.error}${data.detail ? ` — ${data.detail}` : ""}`,
+        latency: data.latency ?? Date.now() - start,
+        fileName: file.name,
+        model: data.model,
+        degraded: data.degraded,
+      });
     } catch (err) {
       setTranscribeResult({ text: `Error: ${err}`, latency: Date.now() - start, fileName: file.name });
     }
@@ -307,6 +410,7 @@ export default function Home() {
     if (!ttsText.trim() || ttsSpeaking) return;
     setTtsSpeaking(true);
     setTtsLatency(null);
+    setTtsError(null);
     const start = Date.now();
     try {
       const res = await fetch("/api/tts", {
@@ -314,17 +418,24 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input: ttsText, voice: ttsVoice }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        // The route names the picked model and why it couldn't be reached; showing
+        // only "Error" here would send you hunting through the Stack tab for it.
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       setTtsLatency(Date.now() - start);
+      setTtsModel(res.headers.get("X-TTS-Model"));
       if (ttsAudioRef.current) {
         ttsAudioRef.current.src = url;
         ttsAudioRef.current.play();
       }
     } catch (err) {
       setTtsLatency(-1);
-      console.error("TTS error:", err);
+      setTtsModel(null);
+      setTtsError(err instanceof Error ? err.message : String(err));
     }
     setTtsSpeaking(false);
   }
@@ -341,26 +452,22 @@ export default function Home() {
     setInput("");
     setSending(true);
     try {
-      const start = Date.now();
-      const llmBase = getActiveUrl("vllm") || "https://llm.betenshi.com";
-      const res = await fetch(`${llmBase}/v1/chat/completions`, {
+      // Go through our own route so it uses the active LLM (and no browser CORS
+      // to the model). The server route resolves URL + served-model + auth.
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "Qwen/Qwen2.5-Coder-32B-Instruct-AWQ",
-          messages: [{ role: "user", content: input }],
-          max_tokens: 1024,
-        }),
+        body: JSON.stringify({ message: input }),
       });
       const data = await res.json();
       setMessages((prev) => [
         ...prev,
         data.error
-          ? { role: "assistant", content: `Error: ${JSON.stringify(data.error)}` }
+          ? { role: "assistant", content: `Error: ${typeof data.error === "string" ? data.error : JSON.stringify(data.error)}` }
           : {
               role: "assistant",
-              content: data.choices[0].message.content,
-              latency: Date.now() - start,
+              content: data.content,
+              latency: data.latency,
               tokens: data.usage?.total_tokens,
               model: data.model,
             },
@@ -383,9 +490,8 @@ export default function Home() {
 
   const serviceIconMap: Record<string, LucideIcon> = {
     vllm: Brain, whisper: Mic, tts: Volume2, webui: Globe,
-    grafana: Activity, prometheus: Database, qwen: Sparkles, comfyui: Layers, sam3d: ScanLine,
+    grafana: Activity, prometheus: Database, qwen: Sparkles, comfyui: Layers, sam3d: ScanLine, sam3: Scan,
   };
-  const gpuServiceIds = ["vllm", "whisper", "qwen", "comfyui", "sam3d"];
 
   const overallStatus =
     health && health.upCount === health.totalCount
@@ -395,13 +501,21 @@ export default function Home() {
         : "down";
 
   const tabs = [
-    { id: "services" as const, label: "Services", count: managedServices.filter((s) => s.status === "running").length + "/" + managedServices.length },
-    { id: "gpu" as const, label: "GPU", count: gpu ? `${Math.round((gpu.mem_used / gpu.mem_total) * 100)}%` : undefined },
+    // Services and GPU were two views of the same local processes — one listing
+    // them, one duplicating their controls under a GPU header. Merged into
+    // "Stack": the GPU is the shared constraint every service competes for, so
+    // it belongs above the cards rather than in a tab of its own.
+    { id: "stack" as const, label: "Stack", count: managedServices.filter((s) => s.status === "running").length + "/" + managedServices.length },
     { id: "llm" as const, label: "LLM" },
     { id: "speech" as const, label: "Speech" },
-    { id: "creative" as const, label: "Creative", count: creativeHistory.length > 0 ? `${creativeHistory.length}` : undefined },
-    { id: "qwen" as const, label: "Qwen Image" },
+    // One tab for every image model on the box. "Creative" used to sit beside
+    // this as a second, weaker generator for FLUX; the model is a picker inside
+    // the studio now, so both share its gallery, queue and Activity feed.
+    { id: "qwen" as const, label: "Image" },
     { id: "requests" as const, label: "Requests" },
+    { id: "sam3d" as const, label: "3D Body" },
+    { id: "sam3" as const, label: "Segment" },
+    { id: "models" as const, label: "Models" },
   ];
 
   return (
@@ -443,21 +557,28 @@ export default function Home() {
                   className="rounded accent-blue-500"
                 />
                 Auto-refresh
+                {autoRefresh && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" title="auto-refreshing every 15s" />
+                )}
               </label>
               <button
-                onClick={() => { checkHealth(); fetchMetrics(); fetchServices(); }}
-                className="text-sm text-gray-400 hover:text-gray-100 px-3 py-1.5 rounded-md border border-gray-700 hover:border-gray-500 transition"
+                onClick={refreshAll}
+                disabled={refreshing}
+                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-100 px-3 py-1.5 rounded-md border border-gray-700 hover:border-gray-500 transition disabled:opacity-60 disabled:cursor-default"
               >
-                Refresh
+                <span className={`inline-block leading-none ${refreshing ? "animate-spin" : ""}`}>⟳</span>
+                {refreshing ? "Refreshing…" : "Refresh"}
               </button>
               {/* Theme toggle */}
               <button
                 onClick={toggleTheme}
                 title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                suppressHydrationWarning
                 className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-gray-100 transition text-base"
               >
                 {theme === "dark" ? "☀" : "☾"}
               </button>
+              <ThemePicker />
             </div>
           </div>
           {/* Tabs */}
@@ -466,10 +587,9 @@ export default function Home() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                style={tab === t.id ? { color: theme === "dark" ? "#f1f5f9" : "#0f172a" } : undefined}
                 className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
                   tab === t.id
-                    ? "border-blue-500"
+                    ? "border-blue-500 text-slate-900 dark:text-slate-100"
                     : "border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600"
                 }`}
               >
@@ -485,9 +605,9 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
 
-        {/* ── GPU QUICK STATUS (visible on all tabs) ── */}
-        {gpu && !gpu.error && tab !== "gpu" && (
-          <button onClick={() => setTab("gpu")} className={`w-full rounded-lg border px-4 py-2 flex items-center gap-4 text-left transition hover:border-gray-600 ${
+        {/* ── GPU QUICK STATUS (every tab except Stack, which shows it in full) ── */}
+        {gpu && !gpu.error && tab !== "stack" && (
+          <button onClick={() => setTab("stack")} className={`w-full rounded-lg border px-4 py-2 flex items-center gap-4 text-left transition hover:border-gray-600 ${
             gpu.impact === "critical" ? "bg-red-500/5 border-red-500/30" :
             gpu.impact === "warning" ? "bg-yellow-500/5 border-yellow-500/30" :
             "bg-gray-900 border-gray-800"
@@ -511,156 +631,415 @@ export default function Home() {
           </button>
         )}
 
-        {/* ── SERVICES TAB ── */}
-        {tab === "services" && (
+        {/* ── STACK TAB (services + GPU) ── */}
+        {tab === "stack" && (
+          <div className="space-y-4">
+            {/* GPU strip — the shared constraint, above the things competing for it */}
+            {gpu && !gpu.error ? (
+              <section className={`rounded-xl border p-4 ${
+                gpu.impact === "critical" ? "bg-red-500/5 border-red-500/30" :
+                gpu.impact === "warning" ? "bg-yellow-500/5 border-yellow-500/30" :
+                gpu.impact === "busy" ? "bg-orange-500/5 border-orange-500/30" :
+                "bg-gray-900 border-gray-800"
+              }`}>
+                <div className="flex items-center gap-3 flex-wrap mb-3">
+                  <Cpu className="w-4 h-4 text-gray-400" />
+                  <span className="font-semibold text-sm">{gpu.name}</span>
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                    gpu.impact === "critical" ? "bg-red-500/15 text-red-400" :
+                    gpu.impact === "warning" ? "bg-yellow-500/15 text-yellow-400" :
+                    gpu.impact === "busy" ? "bg-orange-500/15 text-orange-400" :
+                    "bg-green-500/15 text-green-400"
+                  }`}>{gpu.impact_msg}</span>
+                  <span className="ml-auto flex items-center gap-4 text-[11px] text-gray-500 tabular-nums">
+                    <span>util <span className="text-gray-200 font-semibold">{gpu.gpu_util}%</span></span>
+                    <span>temp <span className={`font-semibold ${gpu.temperature > 85 ? "text-red-400" : gpu.temperature > 70 ? "text-yellow-400" : "text-gray-200"}`}>{gpu.temperature}°C</span></span>
+                    <span>power <span className="text-gray-200 font-semibold">{Math.round(gpu.power_draw)}W</span><span className="text-gray-600">/{Math.round(gpu.power_limit)}</span></span>
+                  </span>
+                </div>
+
+                {/* VRAM, segmented by the service holding it */}
+                <div className="flex justify-between text-[11px] text-gray-500 mb-1.5 tabular-nums">
+                  <span>VRAM</span>
+                  <span>{(gpu.mem_used / 1024).toFixed(1)} / {(gpu.mem_total / 1024).toFixed(1)} GB · {(gpu.mem_free / 1024).toFixed(1)} GB free</span>
+                </div>
+                <div className="h-4 bg-gray-800 rounded-full overflow-hidden flex">
+                  {Object.entries(gpu.service_vram ?? {}).map(([id, svc]) => (
+                    <div
+                      key={id}
+                      className={`h-full ${vramColor(id)} transition-all`}
+                      style={{ width: `${svc.pct_of_total}%` }}
+                      title={`${svc.name}: ${(svc.used_mb / 1024).toFixed(1)} GB`}
+                    />
+                  ))}
+                  {gpu.vram_summary && gpu.vram_summary.unaccounted_mb > 0 && (
+                    <div
+                      className="h-full bg-gray-600/70"
+                      style={{ width: `${(gpu.vram_summary.unaccounted_mb / gpu.mem_total) * 100}%` }}
+                      title={`${(gpu.vram_summary.unaccounted_mb / 1024).toFixed(1)} GB — ${gpu.vram_summary.unaccounted_note}`}
+                    />
+                  )}
+                </div>
+                <div className="flex items-center gap-3 flex-wrap mt-2 text-[10px] text-gray-500">
+                  {Object.entries(gpu.service_vram ?? {}).map(([id, svc]) => (
+                    <span key={id} className="flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-sm ${vramColor(id)}`} />
+                      {svc.name} <span className="tabular-nums text-gray-400">{(svc.used_mb / 1024).toFixed(1)} GB</span>
+                    </span>
+                  ))}
+                  {gpu.vram_summary && gpu.vram_summary.unaccounted_mb > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-sm bg-gray-600/70" />
+                      other <span className="tabular-nums text-gray-400">{(gpu.vram_summary.unaccounted_mb / 1024).toFixed(1)} GB</span>
+                    </span>
+                  )}
+                </div>
+              </section>
+            ) : (
+              <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 text-[11px] text-gray-500">
+                GPU stats unavailable{gpu?.error ? ` — ${gpu.error}` : ""}.
+              </section>
+            )}
+
+            {/* Filters — one per category. There is deliberately NO "GPU" filter:
+                it was a near-subset of "AI", and which services hold VRAM is
+                already answered better by the bar above and the per-card figure
+                than by hiding the rest of the stack. */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {([
+                ["all", "All"],
+                ["ai", "AI"],
+                ["app", "App"],
+                ["monitoring", "Monitor"],
+              ] as const).map(([id, label]) => {
+                const n = id === "all"
+                  ? managedServices.length
+                  : managedServices.filter((s) => s.category === id).length;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setStackFilter(id)}
+                    className={`text-[11px] px-2.5 py-1 rounded-full border transition cursor-pointer ${
+                      stackFilter === id
+                        ? "bg-gray-100 text-gray-900 border-gray-100 font-medium"
+                        : "border-gray-700 text-gray-400 hover:text-gray-100 hover:border-gray-500"
+                    }`}
+                  >
+                    {label} <span className="tabular-nums opacity-60">{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {managedServices.map((s) => {
-              const isActing = actionInProgress === s.id;
+            {managedServices.filter((s) =>
+              stackFilter === "all" ? true : s.category === stackFilter,
+            ).map((s) => {
+              const isActing = actionInProgress?.id === s.id;
+              const actingVerb = isActing ? actionInProgress!.action : null;
               const msg = actionMessage?.id === s.id ? actionMessage : null;
               const isRunning = s.status === "running";
               const isStarting = s.status === "starting";
+              const isFailed = s.status === "failed";
               const r = routing?.services.find((rs) => rs.id === s.id);
               const isLocal = routing?.mode === "local";
               const Icon = serviceIconMap[s.id] ?? Server;
 
-              type CatConfig = { badge: string; strip: string; iconBg: string; iconColor: string; label: string };
+              /* All gray-N classes here work WITHOUT dark: variants —
+                 globals.css inverts the scale so gray-900 is light in
+                 light mode and dark in dark mode automatically. */
+              type CatConfig = { badge: string; accent: string; iconBg: string; iconColor: string; label: string };
               const catMap: Record<string, CatConfig> = {
-                ai: {
-                  badge: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20",
-                  strip: "bg-gradient-to-r from-violet-500 via-violet-400/30 to-transparent",
-                  iconBg: "bg-violet-100 dark:bg-violet-500/10",
-                  iconColor: "text-violet-600 dark:text-violet-400",
-                  label: "AI",
-                },
-                monitoring: {
-                  badge: "bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20",
-                  strip: "bg-gradient-to-r from-sky-500 via-sky-400/30 to-transparent",
-                  iconBg: "bg-sky-100 dark:bg-sky-500/10",
-                  iconColor: "text-sky-600 dark:text-sky-400",
-                  label: "Monitor",
-                },
-                app: {
-                  badge: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20",
-                  strip: "bg-gradient-to-r from-emerald-500 via-emerald-400/30 to-transparent",
-                  iconBg: "bg-emerald-100 dark:bg-emerald-500/10",
-                  iconColor: "text-emerald-600 dark:text-emerald-400",
-                  label: "App",
-                },
+                ai:         { badge: "bg-violet-500/10 text-violet-400 border border-violet-500/20",  accent: "bg-violet-500",  iconBg: "bg-violet-500/15",  iconColor: "text-violet-400",  label: "AI" },
+                monitoring: { badge: "bg-sky-500/10 text-sky-400 border border-sky-500/20",           accent: "bg-sky-500",     iconBg: "bg-sky-500/15",     iconColor: "text-sky-400",     label: "Monitor" },
+                app:        { badge: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20", accent: "bg-emerald-500", iconBg: "bg-emerald-500/15", iconColor: "text-emerald-400", label: "App" },
               };
               const cat: CatConfig = catMap[s.category] ?? {
-                badge: "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-700/30 dark:text-gray-400 dark:border-gray-600/30",
-                strip: "bg-gray-300 dark:bg-gray-700",
-                iconBg: "bg-gray-100 dark:bg-gray-800",
-                iconColor: "text-gray-500 dark:text-gray-400",
+                badge: "bg-gray-700/40 text-gray-400 border border-gray-700/60",
+                accent: "bg-gray-600",
+                iconBg: "bg-gray-800",
+                iconColor: "text-gray-400",
                 label: s.category,
               };
 
               return (
-                <div key={s.id} className={`relative rounded-2xl border overflow-hidden transition-all duration-200 ${
+                <div key={s.id} className={`relative flex flex-col rounded-xl border overflow-hidden transition-all duration-200 ${
                   isRunning
-                    ? "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700/80 shadow-sm hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600"
-                    : "bg-gray-50/80 dark:bg-gray-900/60 border-gray-200/80 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700"
+                    ? "bg-gray-900 border-gray-700 shadow-[0_1px_3px_rgba(0,0,0,0.12)] hover:border-gray-600"
+                    : "bg-gray-900 border-gray-800 hover:border-gray-700"
                 }`}>
-                  {/* Top accent strip */}
-                  <div className={`absolute inset-x-0 top-0 h-[2px] ${
-                    isRunning ? cat.strip : isStarting ? "bg-amber-300 dark:bg-amber-500/60" : "bg-gray-100 dark:bg-gray-800"
+
+                  {/* Left accent bar — category color when running */}
+                  <div className={`absolute inset-y-0 left-0 w-[3px] rounded-l-xl transition-all ${
+                    isRunning ? cat.accent : isStarting ? "bg-amber-500/60" : "bg-transparent"
                   }`} />
 
-                  <div className="p-5 pt-6">
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        {/* Icon */}
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border ${
-                          isRunning
-                            ? `${cat.iconBg} border-transparent`
-                            : "bg-gray-100 dark:bg-gray-800 border-transparent"
-                        }`}>
-                          <Icon className={`w-[18px] h-[18px] ${isRunning ? cat.iconColor : "text-gray-400 dark:text-gray-500"}`} />
+                  {/* Card body */}
+                  <div className="flex-1 px-4 pt-4 pb-3 pl-5">
+                    {/* Header row */}
+                    <div className="flex items-start gap-3 mb-3">
+                      {/* Icon container */}
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        isRunning ? cat.iconBg : "bg-gray-800"
+                      }`}>
+                        <Icon className={`w-[17px] h-[17px] ${isRunning ? cat.iconColor : "text-gray-500"}`} />
+                      </div>
+
+                      {/* Name + status */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <h3 className="text-sm font-semibold text-gray-100 leading-none truncate">{s.name}</h3>
+                          <span className={`text-[10px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 ${cat.badge}`}>
+                            {cat.label}
+                          </span>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100 leading-tight">{s.name}</h3>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                              isRunning  ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]"
-                              : isStarting ? "bg-amber-400 animate-pulse"
-                              : "bg-gray-300 dark:bg-gray-600"
-                            }`} />
-                            <span className={`text-[11px] font-medium ${
-                              isRunning  ? "text-emerald-600 dark:text-emerald-400"
-                              : isStarting ? "text-amber-600 dark:text-amber-400"
-                              : "text-gray-400 dark:text-gray-500"
-                            }`}>{s.status}</span>
-                            <span className="text-gray-300 dark:text-gray-700">·</span>
-                            <span className="text-[11px] text-gray-400 dark:text-gray-600 font-mono">:{s.port}</span>
-                            {s.pid && <span className="text-[10px] text-gray-400 dark:text-gray-700 font-mono ml-0.5">· pid {s.pid}</span>}
-                          </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                            isActing ? "bg-amber-400 animate-pulse"
+                            : isRunning  ? "bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.7)]"
+                            : isStarting ? "bg-amber-400 animate-pulse"
+                            : isFailed ? "bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.7)]"
+                            : "bg-gray-600"
+                          }`} />
+                          <span className={`text-[11px] font-medium ${
+                            isActing ? "text-amber-400"
+                            : isRunning  ? "text-emerald-400"
+                            : isStarting ? "text-amber-400"
+                            : isFailed ? "text-red-400"
+                            : "text-gray-500"
+                          }`}>{isActing ? (actingVerb === "stop" ? "stopping…" : actingVerb === "restart" ? "restarting…" : "starting…") : s.status}</span>
+                          <span className="text-gray-700 select-none">·</span>
+                          <span className="text-[11px] font-mono text-gray-500">:{s.port}</span>
+                          {s.pid && <><span className="text-gray-700 select-none">·</span><span className="text-[10px] font-mono text-gray-600">{s.pid}</span></>}
+                          {/* Started outside the manager: it runs, but with none of
+                              its configured env and with no captured output. Silent
+                              until now — this is what made Qwen-Image serve with its
+                              edit checkpoint disabled and an empty log panel. */}
+                          {s.owner === "external" && (
+                            <>
+                              <span className="text-gray-700 select-none">·</span>
+                              <span
+                                title="Started outside the manager — its configured environment wasn't applied and its output isn't captured. Restart to hand it over."
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium cursor-help"
+                              >
+                                external
+                              </span>
+                            </>
+                          )}
+                          {/* This service's own VRAM — the link between a
+                              process and the resource it's consuming. */}
+                          {gpu?.service_vram?.[s.id] && (
+                            <>
+                              <span className="text-gray-700 select-none">·</span>
+                              <span className="flex items-center gap-1 text-[10px] tabular-nums text-gray-400">
+                                <span className={`w-1.5 h-1.5 rounded-sm ${vramColor(s.id)}`} />
+                                {(gpu.service_vram[s.id].used_mb / 1024).toFixed(1)} GB
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
-                      <span className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-md border font-semibold flex-shrink-0 ${cat.badge}`}>
-                        {cat.label}
-                      </span>
                     </div>
 
-                    {/* Routing row */}
+                    {/* What this process actually serves. A service card that
+                        names its port but not its model made "what's loaded?" a
+                        trip to another tab. Sourced from the same router
+                        catalogue the Models tab uses, so they can't disagree. */}
+                    {(catalogByService[s.id]?.length ?? 0) > 0 && (
+                      <div className="mb-2 space-y-1">
+                        {catalogByService[s.id].map((m) => (
+                          <div key={m.id} className="flex items-baseline gap-1.5 flex-wrap">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 font-medium">
+                              {m.id}
+                            </span>
+                            {activeModels[m.id] && (
+                              <span className="text-[9px] uppercase tracking-wide px-1 py-0.5 rounded bg-indigo-500/15 text-indigo-300">
+                                active · {activeModels[m.id]}
+                              </span>
+                            )}
+                            {m.params && <span className="text-[10px] text-gray-500">{m.params}</span>}
+                            {/* Live VRAM when the service is up, expected cost when
+                                it isn't — the card already shows one, never the other. */}
+                            <ModelFootprint
+                              footprint={m.footprint}
+                              liveVramMb={gpu?.service_vram?.[s.id]?.used_mb ?? null}
+                            />
+                            {m.checkpoint && (
+                              <span className="text-[10px] font-mono text-gray-600 truncate w-full" title={m.checkpoint}>
+                                {m.checkpoint}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Qwen-Image serves TWO separate ~20B checkpoints from one
+                        process, and only one is in VRAM at a time. The manager and
+                        the router both see a single service, so the split is only
+                        visible if the card reads the service's own /health. */}
+                    {s.id === "qwen" && (
+                      <div className="mb-2 space-y-1">
+                        <p className="text-[10px] uppercase tracking-wide text-gray-600">
+                          Checkpoints · one in VRAM at a time
+                        </p>
+                        {[
+                          {
+                            key: "gen",
+                            name: qwenHealth?.model || "Qwen-Image",
+                            installed: true,
+                            resident: !!qwenHealth?.loaded,
+                            use: "text→image",
+                          },
+                          {
+                            key: "edit",
+                            name: qwenHealth?.edit?.model || "Qwen-Image-Edit",
+                            installed: !!qwenHealth?.edit?.enabled,
+                            resident: !!qwenHealth?.edit?.loaded,
+                            use: "image edit",
+                          },
+                        ].map((c) => (
+                          <div key={c.key} className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                              !qwenHealth?.up || !c.installed ? "bg-gray-600"
+                              : c.resident ? "bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.7)]"
+                              : "bg-yellow-500/70"
+                            }`} />
+                            <span className="text-[11px] text-gray-300">{c.name}</span>
+                            <span className="text-[10px] text-gray-600">{c.use}</span>
+                            <span className="text-[10px] text-gray-500">
+                              {!qwenHealth?.up
+                                ? "· unknown"
+                                : !c.installed
+                                  ? "· not installed"
+                                  : c.resident
+                                    ? "· in VRAM"
+                                    : "· loads on demand"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Routing */}
                     {r && (
-                      <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-transparent rounded-xl p-2.5 mb-4 font-mono text-[11px] space-y-1.5">
+                      <div className="bg-gray-800/60 rounded-lg px-3 py-2 space-y-1.5 text-[11px] font-mono">
                         <div className="flex items-center gap-2">
-                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isLocal ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`} />
-                          <span className={isLocal ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-gray-600"}>localhost:{r.localPort}</span>
-                          {isLocal && <span className="ml-auto text-[10px] text-emerald-600 dark:text-emerald-600 font-sans font-semibold">active</span>}
+                          <span className={`w-1 h-1 rounded-full flex-shrink-0 ${isLocal ? "bg-emerald-400" : "bg-gray-600"}`} />
+                          <span className={isLocal ? "text-emerald-400" : "text-gray-600"}>localhost:{r.localPort}</span>
+                          {isLocal && <span className="ml-auto font-sans text-[10px] font-semibold text-emerald-500 tracking-wide">live</span>}
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${!isLocal ? "bg-blue-500" : "bg-gray-300 dark:bg-gray-600"}`} />
-                          <span className={`truncate ${!isLocal ? "text-blue-600 dark:text-blue-400" : "text-gray-400 dark:text-gray-600"}`}>{r.publicUrl.replace("https://", "")}</span>
-                          {!isLocal && <span className="ml-auto text-[10px] text-blue-600 font-sans font-semibold flex-shrink-0">active</span>}
+                          <span className={`w-1 h-1 rounded-full flex-shrink-0 ${!isLocal ? "bg-indigo-400" : "bg-gray-600"}`} />
+                          <span className={`truncate ${!isLocal ? "text-indigo-400" : "text-gray-600"}`}>{r.publicUrl.replace("https://", "")}</span>
+                          {!isLocal && <span className="ml-auto font-sans text-[10px] font-semibold text-indigo-400 flex-shrink-0 tracking-wide">live</span>}
                         </div>
                       </div>
                     )}
 
-                    {/* Message */}
+                    {/* Feedback message */}
                     {msg && (
-                      <div className={`text-xs px-3 py-2 rounded-xl mb-3 border ${
+                      <div className={`mt-2 text-[11px] px-3 py-1.5 rounded-lg border ${
                         msg.type === "error"
-                          ? "bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20"
-                          : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20"
+                          ? "bg-red-500/10 text-red-400 border-red-500/20"
+                          : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                       }`}>{msg.text}</div>
                     )}
 
-                    {/* Actions */}
-                    <div className="flex gap-2 mt-auto">
-                      {isRunning || isStarting ? (
+                    {/* Crash surfaced by the manager — a failed start, not a clean stop */}
+                    {isFailed && s.error && (
+                      <div className="mt-2 text-[11px] px-3 py-1.5 rounded-lg border bg-red-500/10 text-red-400 border-red-500/20">
+                        <span className="font-semibold">Failed to start.</span>{" "}
+                        <span className="font-mono break-all">{s.error}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer — action strip */}
+                  <div className="border-t border-gray-800 px-3 py-2 flex items-center gap-1">
+                    {isActing ? (
+                      <div className="flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium text-amber-400 select-none">
+                        <Spinner />
+                        {actingVerb === "stop" ? "Stopping…" : actingVerb === "restart" ? "Restarting…" : "Starting…"}
+                      </div>
+                    ) : isRunning || isStarting ? (
+                      <>
+                        <button onClick={() => serviceAction(s.id, "stop")}
+                          className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all text-red-400 hover:bg-red-500/10 hover:text-red-300">
+                          Stop
+                        </button>
+                        <div className="w-px h-4 bg-gray-800 flex-shrink-0" />
+                        <button onClick={() => serviceAction(s.id, "restart")}
+                          className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all text-amber-400 hover:bg-amber-500/10 hover:text-amber-300">
+                          Restart
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => serviceAction(s.id, "start")}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300">
+                        Start
+                      </button>
+                    )}
+                    <div className="w-px h-4 bg-gray-800 flex-shrink-0" />
+                    {/* Same button component every other surface uses — this card
+                        only supplies the strip's own sizing. */}
+                    <ServiceLogsButton
+                      id={s.id}
+                      name={s.name}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+                    />
+                    {/* Open / Test CTA — only when running */}
+                    {isRunning && (() => {
+                      type TabId = "llm" | "speech" | "stack" | "qwen" | "requests" | "sam3d" | "sam3" | "models";
+                      type Cta = { label: string; goTab?: TabId; href?: string };
+                      const ctaMap: Record<string, Cta> = {
+                        vllm:       { label: "Playground", goTab: "llm" },
+                        whisper:    { label: "Test",       goTab: "speech" },
+                        tts:        { label: "Test",       goTab: "speech" },
+                        webui:      { label: "Open",       href: r?.activeUrl ?? `http://localhost:${s.port}` },
+                        grafana:    { label: "Open",       href: r?.activeUrl ?? `http://localhost:${s.port}` },
+                        prometheus: { label: "Open",       href: r?.activeUrl ?? `http://localhost:${s.port}` },
+                        qwen:       { label: "Studio",     goTab: "qwen" },
+                        comfyui:    { label: "Open",       href: r?.activeUrl ?? `http://localhost:${s.port}` },
+                        sam3d:      { label: "Test",       goTab: "sam3d" },
+                        sam3:       { label: "Try",        goTab: "sam3" },
+                      };
+                      const cta = ctaMap[s.id];
+                      if (!cta) return null;
+                      const cls = "flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300 flex-shrink-0";
+                      if (cta.goTab) return (
                         <>
-                          <button onClick={() => serviceAction(s.id, "stop")} disabled={isActing}
-                            className="flex-1 py-2 rounded-xl text-xs font-medium transition disabled:opacity-40 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20">
-                            {isActing ? "Stopping…" : "Stop"}
-                          </button>
-                          <button onClick={() => serviceAction(s.id, "restart")} disabled={isActing}
-                            className="flex-1 py-2 rounded-xl text-xs font-medium transition disabled:opacity-40 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
-                            {isActing ? "…" : "Restart"}
+                          <div className="w-px h-4 bg-gray-800 flex-shrink-0" />
+                          <button onClick={() => setTab(cta.goTab!)} className={cls}>
+                            {cta.label}
                           </button>
                         </>
-                      ) : (
-                        <button onClick={() => serviceAction(s.id, "start")} disabled={isActing}
-                          className="flex-1 py-2 rounded-xl text-xs font-medium transition disabled:opacity-40 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
-                          {isActing ? "Starting…" : "Start"}
-                        </button>
-                      )}
-                      <button onClick={() => setLogViewerService({ id: s.id, name: s.name })}
-                        className="px-3 py-2 rounded-xl text-xs font-medium transition bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 border border-gray-200 dark:border-gray-700">
-                        Logs
-                      </button>
-                    </div>
+                      );
+                      return (
+                        <>
+                          <div className="w-px h-4 bg-gray-800 flex-shrink-0" />
+                          <a href={cta.href} target="_blank" rel="noreferrer" className={cls}>
+                            {cta.label} <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               );
             })}
+          </div>
           </div>
         )}
 
         {/* ── LLM TAB ── */}
         {tab === "llm" && (
           <>
+            {/* The same picker every other testing tab uses, scoped to text.
+                exclusiveLocal because the two vLLMs share one 32 GB card and
+                cannot both be resident — selecting one stops the other. */}
+            <ModelPicker capability="text" exclusiveLocal className="mb-4" />
+
             {/* Metrics */}
             <section>
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
@@ -686,14 +1065,14 @@ export default function Home() {
                       <div className="text-center">
                         <div className="text-gray-600 text-4xl mb-4">AI</div>
                         <p className="text-gray-500 text-sm">Send a message to test the LLM</p>
-                        <p className="text-gray-600 text-xs mt-1">Qwen2.5-Coder-32B via BeTenshi</p>
+                        <p className="text-gray-600 text-xs mt-1">Uses the active LLM selected above</p>
                       </div>
                     </div>
                   )}
                   {messages.map((msg, i) => (
                     <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${
-                        msg.role === "user" ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-100"
+                        msg.role === "user" ? "bg-blue-600 on-accent" : "bg-gray-800 text-gray-100"
                       }`}>
                         <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">{msg.content}</pre>
                         {msg.latency != null && (
@@ -741,8 +1120,12 @@ export default function Home() {
             {/* Transcribe (STT) */}
             <section>
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Speech-to-Text — Whisper large-v3
+                Speech → text
               </h2>
+              {/* Status + pick for the model this panel uses. Both speech services
+                  are small enough to co-reside, so unlike the LLM picker there's no
+                  stop-the-others logic — Start/Stop is per model. */}
+              <ModelPicker capability="stt" className="mb-4" />
               <div className="flex gap-4 items-stretch">
                 <button
                   onClick={recording ? stopRecording : startRecording}
@@ -786,11 +1169,21 @@ export default function Home() {
               </div>
               {transcribeResult && (
                 <div className="mt-3 bg-gray-900 rounded-xl border border-gray-800 p-5">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-gray-500">{transcribeResult.fileName}</span>
-                    <span className="text-xs text-green-400">{transcribeResult.latency}ms</span>
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <span className="text-xs text-gray-500 truncate">{transcribeResult.fileName}</span>
+                    <span className="flex items-center gap-2 flex-shrink-0">
+                      {transcribeResult.model && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 font-medium">
+                          {transcribeResult.model}
+                        </span>
+                      )}
+                      <span className="text-xs text-green-400">{transcribeResult.latency}ms</span>
+                    </span>
                   </div>
                   <p className="text-sm text-gray-100 leading-relaxed">{transcribeResult.text || <span className="text-gray-500 italic">No speech detected</span>}</p>
+                  {transcribeResult.degraded && (
+                    <p className="mt-2 text-[11px] text-amber-400">{transcribeResult.degraded}</p>
+                  )}
                 </div>
               )}
             </section>
@@ -798,8 +1191,9 @@ export default function Home() {
             {/* Text-to-Speech */}
             <section>
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Text-to-Speech — Kokoro 82M
+                Text → speech
               </h2>
+              <ModelPicker capability="tts" className="mb-4" />
               <form onSubmit={speakText} className="bg-gray-900 rounded-xl border border-gray-800 p-5">
                 <div className="flex gap-3 mb-3">
                   <textarea value={ttsText} onChange={(e) => setTtsText(e.target.value)}
@@ -829,7 +1223,15 @@ export default function Home() {
                   <span className={ttsLatency !== null && ttsLatency < 0 ? "text-red-400" : "text-green-400"}>
                     {ttsLatency !== null && ttsLatency < 0 ? "Error" : ttsLatency !== null ? `${ttsLatency}ms` : ""}
                   </span>
+                  {ttsModel && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 font-medium flex-shrink-0">
+                      {ttsModel}
+                    </span>
+                  )}
                   <audio ref={ttsAudioRef} controls className="h-8 flex-1" />
+                </div>
+                <div className={ttsError ? "mt-2 text-[11px] text-red-400" : "hidden"}>
+                  {ttsError}
                 </div>
               </form>
             </section>
@@ -837,465 +1239,20 @@ export default function Home() {
         )}
 
         {/* ── CREATIVE TAB ── */}
-        {tab === "creative" && (
-          <>
-            {/* Generate */}
-            <section>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                  Image Generation — FLUX.1 Schnell
-                </h2>
-                <a
-                  href="http://localhost:8188"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-pink-400 hover:text-pink-300 border border-pink-500/20 bg-pink-500/5 rounded-lg px-3 py-1.5 transition"
-                >
-                  Open ComfyUI Studio
-                </a>
-              </div>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  if (!creativePrompt.trim() || creativeGenerating) return;
-                  setCreativeGenerating(true);
-                  try {
-                    const res = await fetch("/api/creative", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        prompt: creativePrompt,
-                        width: creativeWidth,
-                        height: creativeHeight,
-                        steps: creativeSteps,
-                      }),
-                    });
-                    const data = await res.json();
-                    if (data.status === "success") {
-                      setCreativeHistory((prev) => [
-                        {
-                          prompt: creativePrompt,
-                          filename: data.image.filename,
-                          subfolder: data.image.subfolder,
-                          type: data.image.type,
-                          latency: data.latency,
-                          seed: data.seed,
-                          timestamp: Date.now(),
-                        },
-                        ...prev,
-                      ]);
-                    }
-                  } catch (err) {
-                    console.error("Creative error:", err);
-                  }
-                  setCreativeGenerating(false);
-                }}
-                className="bg-gray-900 rounded-xl border border-gray-800 p-5"
-              >
-                <textarea
-                  value={creativePrompt}
-                  onChange={(e) => setCreativePrompt(e.target.value)}
-                  placeholder="Describe the image you want to generate..."
-                  rows={3}
-                  className="w-full bg-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 placeholder-gray-500 resize-none mb-3"
-                />
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-500">Size</label>
-                    <select
-                      value={`${creativeWidth}x${creativeHeight}`}
-                      onChange={(e) => {
-                        const [w, h] = e.target.value.split("x").map(Number);
-                        setCreativeWidth(w);
-                        setCreativeHeight(h);
-                      }}
-                      className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-300"
-                    >
-                      <option value="1024x768">1024x768 (4:3)</option>
-                      <option value="768x1024">768x1024 (3:4)</option>
-                      <option value="1024x1024">1024x1024 (1:1)</option>
-                      <option value="1280x720">1280x720 (16:9)</option>
-                      <option value="2048x1536">2048x1536 (4:3 Hi-Res)</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-500">Steps</label>
-                    <select
-                      value={creativeSteps}
-                      onChange={(e) => setCreativeSteps(Number(e.target.value))}
-                      className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-300"
-                    >
-                      <option value={4}>4 (fast)</option>
-                      <option value={8}>8 (balanced)</option>
-                      <option value={12}>12 (quality)</option>
-                    </select>
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={creativeGenerating || !creativePrompt.trim()}
-                    className="ml-auto bg-pink-600 hover:bg-pink-500 disabled:opacity-40 disabled:hover:bg-pink-600 rounded-xl px-6 py-2.5 text-sm font-medium transition"
-                  >
-                    {creativeGenerating ? (
-                      <span className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:0ms]" />
-                        <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:150ms]" />
-                        <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:300ms]" />
-                      </span>
-                    ) : (
-                      "Generate"
-                    )}
-                  </button>
-                </div>
-              </form>
-            </section>
 
-            {/* Generated Images */}
-            {creativeHistory.length > 0 && (
-              <section>
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                  Generated ({creativeHistory.length})
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {creativeHistory.map((item, i) => (
-                    <div key={i} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-                      <img
-                        src={`/api/creative?filename=${encodeURIComponent(item.filename)}&subfolder=${encodeURIComponent(item.subfolder)}&type=${encodeURIComponent(item.type)}`}
-                        alt={item.prompt}
-                        className="w-full aspect-[4/3] object-cover"
-                      />
-                      <div className="p-3">
-                        <p className="text-xs text-gray-300 line-clamp-2 mb-2">{item.prompt}</p>
-                        <div className="flex items-center gap-3 text-[11px] text-gray-500">
-                          <span className="text-green-400">{(item.latency / 1000).toFixed(1)}s</span>
-                          <span>seed: {item.seed}</span>
-                          <span>{new Date(item.timestamp).toLocaleTimeString()}</span>
-                          <button
-                            onClick={() => setCreativePrompt(item.prompt)}
-                            className="ml-auto text-gray-500 hover:text-gray-300 transition"
-                          >
-                            Reuse prompt
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
-        )}
-
-        {/* ── QWEN IMAGE TAB ── */}
+        {/* ── IMAGE TAB — Qwen-Image + FLUX, model picked inside the studio ── */}
         {tab === "qwen" && <QwenTab />}
 
         {/* ── REQUESTS TAB ── */}
         {tab === "requests" && <RequestsView />}
 
-        {/* ── GPU TAB ── */}
-        {tab === "gpu" && gpu && !gpu.error && (
-          <>
-            {/* GPU Overview */}
-            <section className={`rounded-xl border p-5 ${
-              gpu.impact === "critical" ? "bg-red-500/5 border-red-500/30" :
-              gpu.impact === "warning" ? "bg-yellow-500/5 border-yellow-500/30" :
-              gpu.impact === "busy" ? "bg-orange-500/5 border-orange-500/30" :
-              "bg-gray-900 border-gray-800"
-            }`}>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-semibold">{gpu.name}</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">Performance State: {gpu.pstate} {gpu.fan_speed != null ? `| Fan: ${gpu.fan_speed}%` : ""}</p>
-                </div>
-                <span className={`text-sm px-3 py-1 rounded-full font-medium ${
-                  gpu.impact === "critical" ? "bg-red-500/15 text-red-400" :
-                  gpu.impact === "warning" ? "bg-yellow-500/15 text-yellow-400" :
-                  gpu.impact === "busy" ? "bg-orange-500/15 text-orange-400" :
-                  "bg-green-500/15 text-green-400"
-                }`}>{gpu.impact_msg}</span>
-              </div>
+        {/* ── SAM3D TAB ── */}
+        {tab === "sam3d" && <Sam3dView />}
+        {tab === "sam3" && <Sam3View />}
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* VRAM */}
-                <div className="col-span-2">
-                  <div className="flex justify-between text-xs text-gray-500 mb-1.5">
-                    <span>VRAM Usage</span>
-                    <span className="tabular-nums">{(gpu.mem_used / 1024).toFixed(1)} / {(gpu.mem_total / 1024).toFixed(1)} GB ({Math.round((gpu.mem_used / gpu.mem_total) * 100)}%)</span>
-                  </div>
-                  <div className="h-4 bg-gray-800 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        gpu.mem_used / gpu.mem_total > 0.95 ? "bg-red-500" :
-                        gpu.mem_used / gpu.mem_total > 0.8 ? "bg-yellow-500" :
-                        "bg-green-500"
-                      }`}
-                      style={{ width: `${(gpu.mem_used / gpu.mem_total) * 100}%` }}
-                    />
-                  </div>
-                  <p className="text-[11px] text-gray-600 mt-1">{(gpu.mem_free / 1024).toFixed(1)} GB free for KV cache and new workloads</p>
-                </div>
-                {/* GPU util */}
-                <div className="bg-gray-800/50 rounded-lg p-3">
-                  <div className="text-xs text-gray-500 mb-1">GPU Utilization</div>
-                  <div className="text-2xl font-bold tabular-nums">{gpu.gpu_util}%</div>
-                </div>
-                {/* Temp */}
-                <div className="bg-gray-800/50 rounded-lg p-3">
-                  <div className="text-xs text-gray-500 mb-1">Temperature</div>
-                  <div className={`text-2xl font-bold tabular-nums ${
-                    gpu.temperature > 85 ? "text-red-400" : gpu.temperature > 70 ? "text-yellow-400" : "text-gray-100"
-                  }`}>{gpu.temperature}°C</div>
-                </div>
-              </div>
+        {/* ── MODELS / AI ROUTER TAB ── */}
+        {tab === "models" && <ProvidersView />}
 
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                {/* Power */}
-                <div className="bg-gray-800/50 rounded-lg p-3">
-                  <div className="text-xs text-gray-500 mb-1">Power Draw</div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-bold tabular-nums">{Math.round(gpu.power_draw)}W</span>
-                    <span className="text-xs text-gray-500">/ {Math.round(gpu.power_limit)}W</span>
-                  </div>
-                  <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden mt-2">
-                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(gpu.power_draw / gpu.power_limit) * 100}%` }} />
-                  </div>
-                </div>
-                {/* Memory util */}
-                <div className="bg-gray-800/50 rounded-lg p-3">
-                  <div className="text-xs text-gray-500 mb-1">Memory Controller</div>
-                  <div className="text-xl font-bold tabular-nums">{gpu.mem_util}%</div>
-                  <p className="text-[11px] text-gray-600 mt-1">Bandwidth utilization</p>
-                </div>
-              </div>
-            </section>
-
-            {/* VRAM Breakdown */}
-            {Object.keys(gpu.service_vram).length > 0 && (
-              <section>
-                <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                  VRAM Breakdown
-                </h2>
-                <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
-                  {/* Stacked bar */}
-                  <div className="h-6 bg-gray-800 rounded-full overflow-hidden flex mb-4">
-                    {Object.entries(gpu.service_vram).map(([id, svc]) => {
-                      const colors: Record<string, string> = {
-                        vllm: "bg-purple-500",
-                        whisper: "bg-blue-500",
-                        tts: "bg-cyan-500",
-                        comfyui: "bg-pink-500",
-                      };
-                      return (
-                        <div
-                          key={id}
-                          className={`${colors[id] || "bg-gray-500"} h-full transition-all relative group`}
-                          style={{ width: `${svc.pct_of_total}%` }}
-                          title={`${svc.name}: ${svc.pct_of_total}%`}
-                        />
-                      );
-                    })}
-                    {gpu.vram_summary.unaccounted_mb > 0 && (
-                      <div
-                        className="bg-gray-600 h-full"
-                        style={{ width: `${((gpu.vram_summary.unaccounted_mb / gpu.mem_total) * 100)}%` }}
-                        title={`System/Desktop: ${gpu.vram_summary.unaccounted_note}`}
-                      />
-                    )}
-                  </div>
-                  {/* Legend */}
-                  <div className="space-y-2">
-                    {Object.entries(gpu.service_vram).map(([id, svc]) => {
-                      const colors: Record<string, string> = {
-                        vllm: "bg-purple-500",
-                        whisper: "bg-blue-500",
-                        tts: "bg-cyan-500",
-                        comfyui: "bg-pink-500",
-                      };
-                      const mem = svc.allocated_mb ?? svc.estimated_mb ?? 0;
-                      return (
-                        <div key={id} className="flex items-center gap-3 text-xs">
-                          <div className={`w-3 h-3 rounded ${colors[id] || "bg-gray-500"} flex-shrink-0`} />
-                          <span className="text-gray-300 font-medium min-w-[180px]">{svc.name}</span>
-                          <span className="text-gray-500 tabular-nums">{(mem / 1024).toFixed(1)} GB</span>
-                          <span className="text-gray-600 tabular-nums">({svc.pct_of_total}%)</span>
-                          {svc.kv_cache_usage_pct != null && (
-                            <span className={`ml-2 px-1.5 py-0.5 rounded text-[11px] ${
-                              svc.kv_cache_usage_pct > 80 ? "bg-red-500/10 text-red-400" :
-                              svc.kv_cache_usage_pct > 50 ? "bg-yellow-500/10 text-yellow-400" :
-                              "bg-green-500/10 text-green-400"
-                            }`}>KV cache: {svc.kv_cache_usage_pct}%</span>
-                          )}
-                          {svc.estimated_mb && !svc.allocated_mb && (
-                            <span className="text-gray-600 text-[11px]">(estimated)</span>
-                          )}
-                          <span className="text-gray-700 text-[11px] ml-auto">{svc.source}</span>
-                        </div>
-                      );
-                    })}
-                    {gpu.vram_summary.unaccounted_mb > 0 && (
-                      <div className="flex items-center gap-3 text-xs">
-                        <div className="w-3 h-3 rounded bg-gray-600 flex-shrink-0" />
-                        <span className="text-gray-500 min-w-[180px]">System / Desktop</span>
-                        <span className="text-gray-500 tabular-nums">{(gpu.vram_summary.unaccounted_mb / 1024).toFixed(1)} GB</span>
-                        <span className="text-gray-600 text-[11px] ml-auto">{gpu.vram_summary.unaccounted_note}</span>
-                      </div>
-                    )}
-                  </div>
-                  {/* Total */}
-                  <div className="border-t border-gray-800 mt-3 pt-2 flex items-center gap-3 text-xs">
-                    <span className="text-gray-400 font-medium min-w-[180px] ml-6">Accounted</span>
-                    <span className="text-gray-400 tabular-nums">{(gpu.vram_summary.accounted_mb / 1024).toFixed(1)} GB</span>
-                    <span className="text-gray-500 tabular-nums">({gpu.vram_summary.accounted_pct}%)</span>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* Process List */}
-            <section>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                GPU Processes ({gpu.processes.length})
-              </h2>
-              {gpu.processes.length === 0 ? (
-                <p className="text-sm text-gray-500">No GPU processes detected</p>
-              ) : (
-                <div className="space-y-1">
-                  {/* Group by category */}
-                  {(["ai", "dev", "browser", "app", "gaming", "system", "other"] as const).map((cat) => {
-                    const procs = gpu.processes.filter((p) => p.category === cat);
-                    if (procs.length === 0) return null;
-                    const catLabels: Record<string, { label: string; color: string }> = {
-                      ai: { label: "AI / Compute", color: "text-purple-400" },
-                      dev: { label: "Development", color: "text-blue-400" },
-                      browser: { label: "Browsers", color: "text-cyan-400" },
-                      app: { label: "Applications", color: "text-green-400" },
-                      gaming: { label: "Gaming", color: "text-orange-400" },
-                      system: { label: "System", color: "text-gray-400" },
-                      other: { label: "Other", color: "text-gray-500" },
-                    };
-                    const info = catLabels[cat] || catLabels.other;
-                    return (
-                      <div key={cat} className="mb-3">
-                        <div className={`text-[11px] font-medium uppercase tracking-wider mb-1 ${info.color}`}>{info.label}</div>
-                        <div className="space-y-0.5">
-                          {procs.map((p) => (
-                            <div key={p.pid} className={`flex items-center gap-3 text-xs py-1.5 px-3 rounded-lg ${
-                              cat === "ai" ? "bg-purple-500/5 border border-purple-500/10" : "bg-gray-900/50"
-                            }`}>
-                              <span className={`font-mono font-medium ${cat === "ai" ? "text-purple-300" : "text-gray-300"}`}>{p.name}</span>
-                              <span className="text-gray-600">PID {p.pid}</span>
-                              {p.mem_mb != null && (
-                                <span className="text-gray-500">{p.mem_mb >= 1024 ? `${(p.mem_mb / 1024).toFixed(1)} GB` : `${p.mem_mb} MB`}</span>
-                              )}
-                              <span className="text-gray-600 ml-auto text-[11px]">{p.desc}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            {/* Explainer */}
-            <section className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-              <h3 className="text-sm font-semibold text-gray-300 mb-2">Why is VRAM full?</h3>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                On Windows, every application that renders a window uses GPU memory for hardware-accelerated compositing.
-                Electron apps (Slack, Notion, Spotify, VS Code, ChatGPT) are particularly heavy since each runs its own
-                Chromium renderer. Your RTX 5090 has 32 GB VRAM which is shared between desktop rendering and AI workloads.
-                When VRAM is full, vLLM&apos;s KV cache shrinks, drastically reducing inference speed. To free VRAM: close
-                Electron apps you&apos;re not using, or disable hardware acceleration in their settings.
-              </p>
-            </section>
-          </>
-        )}
-        {tab === "gpu" && (!gpu || gpu.error) && (
-          <div className="space-y-6">
-            {/* GPU unavailable banner */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/60 p-8 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-                <Server className="w-6 h-6 text-gray-400 dark:text-gray-500" />
-              </div>
-              <h2 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">GPU Metrics Unavailable</h2>
-              <p className="text-sm text-gray-500 mb-5">
-                {gpu?.error || "nvidia-smi / GPU API is not reachable right now."}
-              </p>
-              <button
-                onClick={fetchGpu}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-sm text-gray-600 dark:text-gray-300 font-medium transition"
-              >
-                ↻ Retry GPU Metrics
-              </button>
-            </div>
-
-            {/* GPU-intensive services */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">
-                GPU-Intensive Services
-              </h3>
-              <div className="space-y-2">
-                {gpuServiceIds.map((id) => {
-                  const svc = managedServices.find((s) => s.id === id);
-                  const isActing = actionInProgress === id;
-                  const isRunning = svc?.status === "running";
-                  const isStarting = svc?.status === "starting";
-                  const GpuIcon = serviceIconMap[id] ?? Server;
-                  return (
-                    <div key={id} className={`flex items-center gap-4 rounded-xl border px-4 py-3 transition ${
-                      isRunning
-                        ? "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
-                        : "bg-gray-50/80 dark:bg-gray-900/50 border-gray-200/80 dark:border-gray-800"
-                    }`}>
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        isRunning ? "bg-violet-100 dark:bg-violet-500/10" : "bg-gray-100 dark:bg-gray-800"
-                      }`}>
-                        <GpuIcon className={`w-4 h-4 ${isRunning ? "text-violet-600 dark:text-violet-400" : "text-gray-400 dark:text-gray-500"}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                          {managedServices.find((s) => s.id === id)?.name ?? id}
-                        </span>
-                        {svc && (
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${
-                              isRunning ? "bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.5)]"
-                              : isStarting ? "bg-amber-400 animate-pulse" : "bg-gray-300 dark:bg-gray-600"
-                            }`} />
-                            <span className={`text-[11px] ${
-                              isRunning ? "text-emerald-600 dark:text-emerald-400"
-                              : isStarting ? "text-amber-600 dark:text-amber-400"
-                              : "text-gray-400 dark:text-gray-500"
-                            }`}>{svc.status}</span>
-                          </div>
-                        )}
-                        {!svc && <p className="text-[11px] text-gray-400 dark:text-gray-600 mt-0.5">not in registry</p>}
-                      </div>
-                      {svc && !isRunning && !isStarting && (
-                        <button
-                          onClick={() => serviceAction(id, "start")}
-                          disabled={isActing}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20"
-                        >
-                          {isActing ? "Starting…" : "Start"}
-                        </button>
-                      )}
-                      {svc && isRunning && (
-                        <button
-                          onClick={() => serviceAction(id, "stop")}
-                          disabled={isActing}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20"
-                        >
-                          {isActing ? "Stopping…" : "Stop"}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Footer */}
         <footer className="text-center text-xs text-gray-600 py-4">
@@ -1305,14 +1262,6 @@ export default function Home() {
         </footer>
       </main>
 
-      {/* Log Viewer Panel */}
-      {logViewerService && (
-        <LogViewer
-          serviceId={logViewerService.id}
-          serviceName={logViewerService.name}
-          onClose={() => setLogViewerService(null)}
-        />
-      )}
     </div>
   );
 }

@@ -5,7 +5,8 @@
       "name": "betenshi-console",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 8003
+      "port": 8003,
+      "autoPort": true
     }
   ]
 }
