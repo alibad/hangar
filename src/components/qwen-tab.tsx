@@ -24,13 +24,18 @@ export default function QwenTab() {
             key={id}
             onClick={() => setView(id)}
             className={`px-4 py-1.5 text-sm font-medium rounded-lg transition ${
-              view === id ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-gray-100"
+              view === id ? "bg-indigo-600 on-accent" : "text-gray-400 hover:text-gray-100"
             }`}
           >
             {label}
           </button>
         ))}
       </div>
+      {/* No ModelPicker here. This tab is the one place it duplicated something
+          that already existed: the studio has its own Model row, so the model
+          appeared twice — once as a routing card at the top and again as the
+          thing you actually generate with. Local vs cloud selection and the
+          box-wide routing it writes now live in that one row. */}
       {view === "studio" ? <QwenStudio /> : <QwenActivity />}
     </div>
   );
