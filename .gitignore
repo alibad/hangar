@@ -5,3 +5,7 @@ node_modules/
 generated/
 archive/
 *.tsbuildinfo
+
+# Runtime state, not source
+var/
+__pycache__/
