@@ -1,0 +1,131 @@
+{
+  "_doc": "Human-facing facts about each router alias: real checkpoint, parameter count, and where to read more. Kept OUT of ai-router.yaml because LiteLLM does not pass custom model_info keys through /model/info (verified) — it returns only its own standard fields. Keyed by the alias in ai-router.yaml. Every field is optional; the UI degrades gracefully. Params for local models are exact counts from the Hugging Face repo; cloud vendors do not publish parameter counts, so those are intentionally absent rather than guessed.",
+  "_footprint_doc": "`footprint` answers the only question that matters on a single 32 GB card: what does this model COST to have running, and what else can sit beside it. vramGb/ramGb are approximate by nature, so every entry carries a `basis` saying where the number came from — measured, or read off the launch flags. Do not add a footprint you cannot source in `basis`. Two different meanings are deliberately not averaged: vLLM RESERVES its share up front (the number is a floor you pay the moment it starts), while Qwen-Image PEAKS transiently and idles near zero because its weights live in host RAM. `service` is the BeTenshi service id, duplicated here so footprints still render when the router is down — the surface that most needs them. Cloud models have no footprint: they run off-box and cost money, not memory. Card total is 31.8 GB (32607 MiB).",
+  "_benchmarks": {
+    "image": {
+      "label": "Text-to-image arena (Elo, blind human votes)",
+      "url": "https://artificialanalysis.ai/image/leaderboard/text-to-image"
+    },
+    "text": {
+      "label": "LLM leaderboard (intelligence / speed / price)",
+      "url": "https://llm-stats.com/"
+    }
+  },
+  "local-qwen-image": {
+    "checkpoint": "Qwen/Qwen-Image",
+    "params": "20.4B denoiser · 28.8B loaded",
+    "released": "2025-08",
+    "docs": "https://hf.co/Qwen/Qwen-Image",
+    "paper": "https://arxiv.org/abs/2508.02324",
+    "note": "Newer sibling available: Qwen/Qwen-Image-2512 (Dec 2025), same 20.4B size.",
+    "service": "qwen",
+    "footprint": {
+      "vramGb": 20.3,
+      "ramGb": 28,
+      "kind": "peak",
+      "basis": "VRAM measured: 20.3 GB peak mid-generation, ~0.1 GB idle. It does NOT hold the card — enable_model_cpu_offload() keeps the ~28 GB of fp8 weights in host RAM and streams them per stage, so the cost is transient and RAM is where it actually lives."
+    }
+  },
+  "local-flux-schnell": {
+    "checkpoint": "black-forest-labs/FLUX.1-schnell",
+    "params": "12B rectified-flow transformer, 4-step distilled",
+    "released": "2024-08",
+    "docs": "https://hf.co/black-forest-labs/FLUX.1-schnell",
+    "note": "Served through ComfyUI (:8188), not a router alias — the console builds the graph itself. Fast-draft tier beside Qwen-Image.",
+    "service": "comfyui",
+    "footprint": {
+      "vramGb": 31.7,
+      "kind": "peak",
+      "basis": "VRAM measured 2026-07-30: card went to 31.72 GiB of 31.84 GiB during a 512x512 4-step run (35s cold). Weights on disk total 31.81 GiB — flux1-schnell 22.15, t5xxl_fp16 9.12, clip_l 0.23, ae 0.31 — so it effectively fills the card and nothing meaningful fits beside it. ComfyUI streams via cudaMallocAsync + comfy-aimdo DynamicVRAM, so torch_vram_total reads ~0.44 GiB and per-process attribution is NOT available: this figure is whole-card usage minus the 0.1 GiB Qwen-Image held idle at the time."
+    }
+  },
+  "local-coder": {
+    "checkpoint": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
+    "params": "30B (A3B MoE, ~3B active) · AWQ 4-bit",
+    "docs": "https://hf.co/QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
+    "note": "32k context, gpu-memory-utilization 0.72.",
+    "service": "vllm",
+    "footprint": {
+      "vramGb": 22.9,
+      "ramGb": 1,
+      "kind": "reserved",
+      "basis": "Read off the container's launch flags: --gpu-memory-utilization 0.72 of a 31.8 GB card. vLLM claims all of it at startup whatever the weights need (~16 GB AWQ 4-bit); the remainder is KV cache for 32k context. This is a floor you pay the moment it starts, not a peak."
+    }
+  },
+  "local-small": {
+    "checkpoint": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "params": "7B · AWQ 4-bit",
+    "docs": "https://hf.co/Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "note": "8k context, gpu-memory-utilization 0.24 — small enough to co-reside.",
+    "service": "vllm-small",
+    "footprint": {
+      "vramGb": 7.6,
+      "ramGb": 1,
+      "kind": "reserved",
+      "basis": "Read off the container's launch flags: --gpu-memory-utilization 0.24 of a 31.8 GB card, reserved at startup. ~4 GB of AWQ 4-bit weights plus KV cache for 8k context."
+    }
+  },
+  "local-whisper": {
+    "checkpoint": "openai/whisper large-v3 (local service on :8001)",
+    "params": "1.5B · int8_float16",
+    "docs": "https://github.com/openai/whisper",
+    "note": "Audio never leaves this box.",
+    "service": "whisper",
+    "footprint": {
+      "vramGb": 1.5,
+      "ramGb": 1,
+      "kind": "reserved",
+      "basis": "The service self-reports 1550 MB for large-v3 at int8_float16 — CTranslate2 bypasses PyTorch's allocator, so nothing else can see this memory."
+    }
+  },
+  "local-kokoro": {
+    "checkpoint": "Kokoro TTS (local service on :8002)",
+    "docs": "https://hf.co/hexgrad/Kokoro-82M",
+    "params": "82M",
+    "service": "tts",
+    "footprint": {
+      "vramGb": 0.4,
+      "ramGb": 0.5,
+      "kind": "reserved",
+      "basis": "Estimated from 82M parameters — rounding error next to everything else on this card."
+    }
+  },
+  "gpt-5.5": {
+    "docs": "https://platform.openai.com/docs/models"
+  },
+  "gpt-image-2": {
+    "docs": "https://platform.openai.com/docs/models",
+    "note": "Cost scales with quality: low/medium/high."
+  },
+  "openai-transcribe": {
+    "docs": "https://platform.openai.com/docs/guides/speech-to-text"
+  },
+  "openai-tts": {
+    "docs": "https://platform.openai.com/docs/guides/text-to-speech"
+  },
+  "claude-opus": {
+    "docs": "https://docs.claude.com/en/docs/about-claude/models"
+  },
+  "claude-sonnet": {
+    "docs": "https://docs.claude.com/en/docs/about-claude/models"
+  },
+  "claude-haiku": {
+    "docs": "https://docs.claude.com/en/docs/about-claude/models"
+  },
+  "gemini-pro": {
+    "docs": "https://ai.google.dev/gemini-api/docs/models",
+    "note": "Verified id, but this key returned 429 — Gemini pro needs billing enabled."
+  },
+  "gemini-flash": {
+    "docs": "https://ai.google.dev/gemini-api/docs/models",
+    "note": "Verified working. A reasoning model — allow generous max_tokens or replies truncate."
+  },
+  "gemini-image": {
+    "docs": "https://ai.google.dev/gemini-api/docs/image-generation",
+    "note": "Verified id, but returned 429 — needs billing. imagen-4.0-* is closed to new API keys."
+  },
+  "gemini-image-fast": {
+    "docs": "https://ai.google.dev/gemini-api/docs/image-generation",
+    "note": "Cheaper/faster image tier; same 429 quota caveat."
+  }
+}
