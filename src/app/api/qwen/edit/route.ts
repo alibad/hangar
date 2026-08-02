@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceUrl, getServiceHeaders } from "@/lib/services";
 import { saveImage } from "@/lib/save-image";
-import { withTraffic } from "@/lib/with-traffic";
+import { withTraffic, TARGET_HEADER } from "@/lib/with-traffic";
 
 export const maxDuration = 800;
 
@@ -134,4 +134,11 @@ async function handlePOST(req: NextRequest) {
   }
 }
 
-export const POST = withTraffic(handlePOST);
+// Every exit from handlePOST — success, 400, 501-not-installed, 502-unreachable
+// — is still a call aimed at the Qwen service, so the target is set once here
+// rather than on each of the six returns.
+export const POST = withTraffic(async (req: NextRequest) => {
+  const res = await handlePOST(req);
+  res.headers.set(TARGET_HEADER, "qwen");
+  return res;
+});

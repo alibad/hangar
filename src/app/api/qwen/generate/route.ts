@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withTraffic } from "@/lib/with-traffic";
+import { withTraffic, TARGET_HEADER } from "@/lib/with-traffic";
 import { generateAndSave } from "@/lib/image-gen";
 
 // Qwen-Image text→image. Kept as a stable endpoint for callers outside the
@@ -10,7 +10,9 @@ export const maxDuration = 800;
 
 async function handlePOST(req: NextRequest) {
   const result = await generateAndSave(await req.json(), "qwen-image");
-  return NextResponse.json(result.body, result.ok ? undefined : { status: result.status });
+  const res = NextResponse.json(result.body, result.ok ? undefined : { status: result.status });
+  res.headers.set(TARGET_HEADER, result.target);
+  return res;
 }
 
 export const POST = withTraffic(handlePOST);
