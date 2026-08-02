@@ -19,6 +19,8 @@ type Ev = {
   tokensIn?: number | null;
   tokensOut?: number | null;
   error?: string | null;
+  /** The service this call was dispatched TO, when `service` is just the logger. */
+  target?: string | null;
   hop?: string | null;
   rid?: string | null;
   pending?: boolean;
@@ -64,6 +66,10 @@ function fmtTime(ts: number | null): string {
 function fmtMs(ms: number | null): string {
   if (ms == null) return "—";
   return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
+}
+/** Loopback in its several spellings — all of them mean "this box". */
+function loopback(ip: string | null | undefined): boolean {
+  return ip === "::1" || ip === "127.0.0.1" || ip === "::ffff:127.0.0.1" || ip === "localhost";
 }
 
 /**
@@ -141,7 +147,10 @@ export default function RequestsView() {
       ? [...events, ...extra].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
       : events;
     return base.filter((e) => {
-      if (service !== "all" && e.service !== service) return false;
+      // Match either end of the call. Filtering to "qwen" and getting only the
+      // rows Qwen logged itself would hide every console request aimed AT it —
+      // which is most of what you want when you pick a service here.
+      if (service !== "all" && e.service !== service && e.target !== service) return false;
       if (method !== "all" && e.method !== method) return false;
       if (statusClass !== "all") {
         const c = e.status == null ? "?" : String(Math.floor(e.status / 100)) + "xx";
@@ -295,8 +304,18 @@ export default function RequestsView() {
                     {e.source === "log" && e.ts ? "~" : ""}
                     {fmtTime(e.ts)}
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className="px-3 py-1.5 whitespace-nowrap">
                     <span className={`px-1.5 py-0.5 rounded-full border text-[10px] ${svcColor(e.service)}`}>{e.service}</span>
+                    {/* Who logged it → who it was aimed at. Without the second
+                        half every console route reads "console" and the table
+                        can't answer the one question it exists for: which
+                        service is actually being called. */}
+                    {e.target && e.target !== e.service && (
+                      <>
+                        <span className="mx-1 text-gray-600">→</span>
+                        <span className={`px-1.5 py-0.5 rounded-full border text-[10px] ${svcColor(e.target)}`}>{e.target}</span>
+                      </>
+                    )}
                   </td>
                   <td className={`px-3 py-1.5 font-mono font-medium ${methodColor(e.method)}`}>{e.method}</td>
                   <td className="px-3 py-1.5 font-mono text-gray-300 max-w-[420px] truncate" title={e.path}>
@@ -313,12 +332,10 @@ export default function RequestsView() {
                         ${e.costUsd < 0.01 ? e.costUsd.toFixed(5) : e.costUsd.toFixed(3)}
                       </span>
                     )}
-                    {/* Who triggered it — visible without opening the row. */}
-                    {e.caller && (
-                      <span className="ml-1.5 text-[10px] text-gray-500 font-sans" title={e.caller}>
-                        ← {e.caller}
-                      </span>
-                    )}
+                    {/* The caller used to be tacked on here, competing with the
+                        model and cost badges inside a truncating cell. It lives
+                        in the `from` column now — which is the question it
+                        answers. */}
                     {/* Only visible with "show internal hops" on — say so, or a
                         duplicate-looking row is indistinguishable from a real one. */}
                     {e.hop && (
@@ -345,8 +362,18 @@ export default function RequestsView() {
                   <td className="px-3 py-1.5 tabular-nums text-gray-400">
                     {e.pending ? <Elapsed since={e.ts} /> : fmtMs(e.ms)}
                   </td>
-                  <td className="px-3 py-1.5 text-gray-600">
-                    {e.ip ?? "—"}
+                  {/* WHO, not from which socket. Every service on this box talks
+                      to every other over loopback, so the IP was "::1" or
+                      "127.0.0.1" on every single row — technically true and
+                      completely uninformative. X-Source is the real answer, so
+                      it leads; the address stays as the title for the rare case
+                      a call came from off-box. */}
+                  <td className="px-3 py-1.5 text-gray-600 whitespace-nowrap" title={e.ip ?? undefined}>
+                    {e.caller ? (
+                      <span className="text-gray-300">{e.caller}</span>
+                    ) : (
+                      <span>{loopback(e.ip) ? "localhost" : (e.ip ?? "—")}</span>
+                    )}
                     <span className="ml-1.5 text-[10px] text-gray-700">{e.source}</span>
                   </td>
                 </tr>

@@ -59,6 +59,16 @@ export type TrafficEvent = {
    * that?". The fronting row wins because it carries strictly more (model alias,
    * caller, cost); this half is folded away but kept inspectable.
    */
+  /**
+   * The service this call was DISPATCHED TO, when the row is a console route
+   * that proxies somewhere.
+   *
+   * `service` names whoever logged the row, which for every console API route is
+   * "console" — so a table of them said "console" 56 times and never once said
+   * whether the work went to Qwen, to ComfyUI, or off-box to a cloud provider.
+   * That is the question the Requests view exists to answer.
+   */
+  target?: string | null;
   hop?: string | null;
   /**
    * Correlates the "started" event with the "finished" one, so a call can appear
@@ -137,6 +147,8 @@ const NOISE_PATHS = [
   /^\/system_stats$/,
   /^\/services$/,
   /^\/api\/(health|gpu|metrics|services|routing|llm|providers|traffic)$/,
+  // Static metadata read on mount by both the studio and the compare view.
+  /^\/api\/(footprints|model-meta)$/,
   /^\/api\/qwen\/(health|progress|archive|images|jobs|jobs\/status)$/,
   /^\/api\/(sam3d|sam3)\/health$/,
   // assets — one request per gallery tile
@@ -259,6 +271,31 @@ function backfillUpstream(hopEv: TrafficEvent): void {
   }
 }
 
+/**
+ * Fold a later event into the row that already exists for its rid.
+ *
+ * Producers are fire-and-forget — the Qwen service posts each event from its own
+ * daemon thread — so events for one call can arrive OUT OF ORDER and can be
+ * PARTIAL: a handler enriching a running row sends little more than the prompt.
+ * A blind spread broke on both counts. Nulls would erase a status that had
+ * already landed, and a late "still running" event would drag a finished row
+ * back to running and leave it there.
+ *
+ * So: only fields the newer event actually carries win, and a row that has
+ * settled never reopens.
+ */
+function mergeById(prev: TrafficEvent, ev: TrafficEvent): TrafficEvent {
+  const out = { ...prev } as Record<string, unknown>;
+  for (const [k, v] of Object.entries(ev)) {
+    if (v === null || v === undefined) continue; // absent, not "cleared"
+    out[k] = v;
+  }
+  const merged = out as unknown as TrafficEvent;
+  merged.ts = prev.ts ?? ev.ts; // keep its place in the feed
+  merged.pending = prev.pending === false ? false : (ev.pending ?? false);
+  return merged;
+}
+
 export function record(rawEv: TrafficEvent): void {
   const ev = rawEv.hop ? rawEv : adoptHopArtifact(rawEv);
   if (ev.hop) backfillUpstream(ev);
@@ -274,7 +311,7 @@ export function record(rawEv: TrafficEvent): void {
     for (const r of [ring, hopRing, noiseRing]) {
       const i = r.findIndex((e) => e.rid === ev.rid);
       if (i === -1) continue;
-      const merged = { ...r[i], ...ev, ts: r[i].ts ?? ev.ts, pending: ev.pending ?? false };
+      const merged = mergeById(r[i], ev);
       r.splice(i, 1);
       push(target, merged);
       return;

@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       tokensIn: b.tokensIn == null ? null : Number(b.tokensIn),
       tokensOut: b.tokensOut == null ? null : Number(b.tokensOut),
       error: b.error ? String(b.error).slice(0, 400) : null,
+      target: b.target ? String(b.target).slice(0, 40) : null,
       hop: b.hop ? String(b.hop).slice(0, 40) : null,
       rid: b.rid ? String(b.rid).slice(0, 80) : null,
       pending: b.pending === true,
