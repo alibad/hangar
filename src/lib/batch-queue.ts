@@ -420,7 +420,15 @@ class BatchQueue {
             : await nodePost(
                 `${base}/generate`,
                 JSON.stringify(payload),
-                { "Content-Type": "application/json" },
+                {
+                  "Content-Type": "application/json",
+                  // Distinct from plain "console" (a single Studio generation),
+                  // because the volume is not comparable: one click here queues
+                  // hundreds of images. Batch ran untagged for months and became
+                  // the entire "misc" bucket — 1,589 images with no way to tell
+                  // what produced them.
+                  "X-Source": "console-batch",
+                },
                 ac.signal,
               );
         clearTimeout(timeoutId);
