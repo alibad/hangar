@@ -13,9 +13,18 @@ import { generateFlux } from "@/lib/flux";
 import { getImageModel, isImageModelId, type ImageModelId } from "@/lib/image-models";
 import { routerUrl } from "@/lib/providers";
 
+/**
+ * Which backend served (or would have served) the call.
+ *
+ * Reported back so the Requests view can say where a console route sent the
+ * work: the three paths below are indistinguishable from the outside, and the
+ * row for all of them just read "console · POST /api/image/generate".
+ */
+export type GenerateTarget = "qwen" | "comfyui" | "ai-router";
+
 export type GenerateResult =
-  | { ok: true; body: Record<string, unknown> }
-  | { ok: false; status: number; body: Record<string, unknown> };
+  | { ok: true; target: GenerateTarget; body: Record<string, unknown> }
+  | { ok: false; target: GenerateTarget; status: number; body: Record<string, unknown> };
 
 type GenPayload = {
   prompt: string;
@@ -79,6 +88,7 @@ export async function generateAndSave(
   // that fallback would quietly run a cloud comparison on Qwen instead.
   const viaRouter = !!requested && !isImageModelId(requested);
   const model = getImageModel(requested);
+  const target: GenerateTarget = viaRouter ? "ai-router" : model.serviceId;
 
   const seed =
     Number.isFinite(raw.seed as number) && raw.seed != null
@@ -96,7 +106,7 @@ export async function generateAndSave(
   };
 
   if (!payload.prompt) {
-    return { ok: false, status: 400, body: { error: "Prompt is required" } };
+    return { ok: false, target, status: 400, body: { error: "Prompt is required" } };
   }
 
   try {
@@ -126,6 +136,7 @@ export async function generateAndSave(
 
     return {
       ok: true,
+      target,
       body: {
         status: "success",
         image: `data:image/png;base64,${buf.toString("base64")}`,
@@ -140,6 +151,6 @@ export async function generateAndSave(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const cause = err instanceof Error && err.cause ? String(err.cause) : "";
-    return { ok: false, status: 500, body: { error: message, cause } };
+    return { ok: false, target, status: 500, body: { error: message, cause } };
   }
 }

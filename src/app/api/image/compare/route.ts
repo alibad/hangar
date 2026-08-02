@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import os from "os";
 import { generateAndSave } from "@/lib/image-gen";
-import { getCatalogue } from "@/lib/providers";
+import { getCatalogue, getFootprintsByService } from "@/lib/providers";
 import { IMAGE_MODELS, isImageModelId } from "@/lib/image-models";
+import { projectHostRam } from "@/lib/ram-budget";
 
 // One prompt, N models, side by side.
 //
@@ -39,11 +41,43 @@ export async function POST(req: NextRequest) {
   // Published rates, for the cost column. Read from the router's own model_info
   // rather than hardcoded here, so a price change lands in one place.
   const priced = new Map<string, number | undefined>();
+  const serviceOfAlias = new Map<string, string>();
   try {
     const { models: catalogue } = await getCatalogue();
-    for (const m of catalogue) priced.set(m.id, m.costPerImage);
+    for (const m of catalogue) {
+      priced.set(m.id, m.costPerImage);
+      if (m.serviceId) serviceOfAlias.set(m.id, m.serviceId);
+    }
   } catch {
     /* catalogue unavailable — the run still works, just without prices */
+  }
+
+  // ── Host-RAM guard ────────────────────────────────────────────────────────
+  // Refuse a combination that cannot physically fit, rather than discovering it
+  // as a MemoryError that takes a service down mid-run. Qwen-Image + FLUX is the
+  // pairing this exists for: ~28 GB of host RAM each, on a 63 GB box.
+  const footprints = getFootprintsByService();
+  const budget = projectHostRam({
+    modelIds: models,
+    serviceOf: (id) =>
+      isImageModelId(id)
+        ? IMAGE_MODELS.find((m) => m.id === id)?.serviceId
+        : serviceOfAlias.get(id),
+    footprintOf: (svc) => footprints[svc]?.footprint,
+    freeGb: Math.round((os.freemem() / 1024 ** 3) * 10) / 10,
+  });
+
+  if (!budget.fits && raw.force !== true) {
+    return NextResponse.json(
+      {
+        error:
+          `Not enough host RAM: this selection needs ~${budget.requiredGb} GB and only ` +
+          `${budget.freeGb} GB is free (${budget.parts.map((p) => `${p.serviceId} ~${p.ramGb} GB`).join(" + ")}). ` +
+          `Run them separately, or stop one of the services first.`,
+        budget,
+      },
+      { status: 409 },
+    );
   }
 
   const seed = pickSeed(raw);

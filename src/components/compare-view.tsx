@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IMAGE_MODELS } from "@/lib/image-models";
+import { projectHostRam } from "@/lib/ram-budget";
 import { useLocalFootprints } from "@/lib/use-local-footprints";
 import ModelFootprint, { type Footprint } from "./model-footprint";
 
@@ -29,6 +30,7 @@ type CatalogModel = {
   detail?: string;
   provider: string;
   params?: string;
+  serviceId?: string;
   costPerImage?: number;
   footprint?: Footprint;
 };
@@ -104,7 +106,7 @@ export default function CompareView() {
   const abortRef = useRef<Map<string, AbortController>>(new Map());
   /** Set when the whole run is cancelled, so the local chain stops advancing. */
   const cancelledAllRef = useRef(false);
-  const { footprints, liveMb } = useLocalFootprints();
+  const { footprints, liveMb, hostFreeGb } = useLocalFootprints();
 
   const running = runs.some((r) => r.state === "queued" || r.state === "running");
   const now = useNow(running);
@@ -150,6 +152,30 @@ export default function CompareView() {
     () => options.filter((o) => picked.includes(o.id)).reduce((s, o) => s + (o.cost ?? 0), 0),
     [options, picked],
   );
+
+  /**
+   * Will this selection fit in system RAM?
+   *
+   * Local models run one at a time here, and that does NOT make the cost
+   * sequential: Qwen-Image holds its ~28 GB of host-resident weights for as long
+   * as the service is up, so a FLUX run afterwards ADDS to it rather than
+   * replacing it. Two of those on a 63 GB box is the MemoryError that already
+   * killed the Qwen service — summing per service is the honest model.
+   *
+   * VRAM is not checked: local runs are serialised on the card, so they never
+   * overlap there. RAM is the one that accumulates.
+   */
+  const ramBudget = useMemo(() => {
+    if (hostFreeGb == null) return null; // no reading yet — don't block on nothing
+    return projectHostRam({
+      modelIds: picked,
+      serviceOf: (id) => IMAGE_MODELS.find((m) => m.id === id)?.serviceId,
+      footprintOf: (svc) => footprints.get(svc),
+      freeGb: hostFreeGb,
+    });
+  }, [picked, footprints, hostFreeGb]);
+
+  const ramBlocked = ramBudget != null && !ramBudget.fits;
 
   const patch = useCallback((model: string, next: Partial<Run>) => {
     setRuns((rs) => rs.map((r) => (r.model === model ? { ...r, ...next } : r)));
@@ -260,7 +286,7 @@ export default function CompareView() {
     setRuns((rs) => rs.map((r) => (r.state === "queued" || r.state === "running" ? { ...r, state: "cancelled" } : r)));
   }, []);
 
-  const canRun = prompt.trim().length > 0 && picked.length >= 2 && !running;
+  const canRun = prompt.trim().length > 0 && picked.length >= 2 && !running && !ramBlocked;
 
   const doneCount = runs.filter((r) => r.state === "done").length;
   const spent = runs.filter((r) => r.state === "done" && !r.local).reduce((s, r) => s + (r.costUsd ?? 0), 0);
@@ -359,6 +385,30 @@ export default function CompareView() {
             <span className="text-[11px] text-gray-600">Local models run one at a time — they share the GPU.</span>
           )}
         </div>
+
+        {/* The constraint that actually breaks this box, said before the click
+            rather than discovered as a dead service. Names the pairing, because
+            "out of memory" alone doesn't tell you which two to separate. */}
+        {ramBlocked && ramBudget && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 space-y-1">
+            <p className="text-xs text-red-300">
+              Won&apos;t fit in system RAM — needs{" "}
+              <span className="tabular-nums font-medium">~{ramBudget.requiredGb} GB</span> with only{" "}
+              <span className="tabular-nums font-medium">{ramBudget.freeGb} GB</span> free.
+            </p>
+            <p className="text-[11px] text-red-300/70">
+              {ramBudget.parts.map((p) => `${p.serviceId} ~${p.ramGb} GB`).join(" + ")} — these keep their
+              weights in host RAM and don&apos;t release them between runs. Run them separately, or stop one
+              service first.
+            </p>
+          </div>
+        )}
+        {!ramBlocked && ramBudget && ramBudget.requiredGb > 0 && !running && (
+          <p className="text-[11px] text-gray-600 tabular-nums">
+            host RAM: ~{ramBudget.requiredGb} GB needed · {ramBudget.freeGb} GB free ·{" "}
+            {ramBudget.headroomGb} GB headroom
+          </p>
+        )}
       </section>
 
       {runs.length > 0 && (
