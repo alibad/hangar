@@ -147,6 +147,26 @@ type GpuStatus = {
     unaccounted_mb: number;
     unaccounted_note: string;
   };
+  /** System RAM — the budget that actually runs out here. See /api/gpu. */
+  host_ram?: {
+    total_gb: number;
+    free_gb: number;
+    used_gb: number;
+    pct_used: number;
+  };
+  /** Resident RAM per service, resolved by port→pid so it survives a restart
+   *  by anything other than the manager. `docker-wsl` is a synthetic row. */
+  service_ram?: Record<string, {
+    name: string;
+    rss_mb: number;
+    pid: number;
+    pct_of_total: number;
+  }>;
+  ram_summary?: {
+    accounted_mb: number;
+    unaccounted_mb: number;
+    unaccounted_note: string;
+  };
   impact: "ok" | "good" | "warning" | "critical" | "busy";
   impact_msg: string;
   error?: string;
@@ -201,6 +221,8 @@ export default function Home() {
   const [tab, setTab] = useState<"llm" | "speech" | "stack" | "qwen" | "requests" | "sam3d" | "sam3" | "models">("stack");
   /** Stack tab filter — All / GPU / or a service category. */
   const [stackFilter, setStackFilter] = useState<"all" | "ai" | "monitoring" | "app">("all");
+  /** Resource breakdown is collapsed by default — it's diagnostics, not status. */
+  const [resourcesOpen, setResourcesOpen] = useState(false);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -694,6 +716,147 @@ export default function Home() {
                     </span>
                   )}
                 </div>
+
+                {/* HOST RAM — shown beside VRAM because on this box it is the
+                    tighter budget and nothing was watching it. Qwen-Image keeps
+                    ~28 GB of weights in system RAM for as long as it's loaded,
+                    and a FLUX run wants a similar amount; the pair has already
+                    OOM-killed the Qwen service while every VRAM figure above
+                    looked perfectly healthy. */}
+                {gpu.host_ram && (
+                  <div className="mt-3 pt-3 border-t border-gray-800">
+                    <div className="flex justify-between text-[11px] text-gray-500 mb-1.5 tabular-nums">
+                      <span>System RAM</span>
+                      <span>
+                        {gpu.host_ram.used_gb} / {gpu.host_ram.total_gb} GB · {gpu.host_ram.free_gb} GB free
+                      </span>
+                    </div>
+                    {/* Segmented like VRAM, so the two budgets read the same way. */}
+                    <div className="h-2 bg-gray-800 rounded-full overflow-hidden flex">
+                      {Object.entries(gpu.service_ram ?? {}).map(([id, svc]) => (
+                        <div
+                          key={id}
+                          className={`h-full ${vramColor(id)} transition-all`}
+                          style={{ width: `${svc.pct_of_total}%` }}
+                          title={`${svc.name}: ${(svc.rss_mb / 1024).toFixed(1)} GB resident`}
+                        />
+                      ))}
+                      {gpu.ram_summary && gpu.ram_summary.unaccounted_mb > 0 && gpu.host_ram.total_gb > 0 && (
+                        <div
+                          className="h-full bg-gray-600/70"
+                          style={{ width: `${(gpu.ram_summary.unaccounted_mb / 1024 / gpu.host_ram.total_gb) * 100}%` }}
+                          title={`${(gpu.ram_summary.unaccounted_mb / 1024).toFixed(1)} GB — ${gpu.ram_summary.unaccounted_note}`}
+                        />
+                      )}
+                    </div>
+                    {gpu.host_ram.free_gb < 8 && (
+                      <p className="mt-1.5 text-[10px] text-amber-400/80">
+                        Low — a second host-resident model (Qwen-Image or FLUX, ~28 GB each) will not load.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* ── WHO IS HOLDING WHAT ──
+                    Both budgets in one table, per service, with the control to
+                    act on it. The bars above say a resource is nearly gone; only
+                    this says which process to stop to get it back. Collapsed by
+                    default — it's diagnostics, not everyday status. */}
+                <button
+                  onClick={() => setResourcesOpen((v) => !v)}
+                  className="mt-3 w-full flex items-center gap-2 text-[11px] text-gray-500 hover:text-gray-300 transition"
+                >
+                  <span className={`transition-transform ${resourcesOpen ? "rotate-90" : ""}`}>›</span>
+                  Consumption by service
+                  <span className="text-gray-700">
+                    · {Object.keys(gpu.service_ram ?? {}).length} holding RAM
+                    · {Object.keys(gpu.service_vram ?? {}).length} holding VRAM
+                  </span>
+                </button>
+
+                {resourcesOpen && (
+                  <div className="mt-2 rounded-lg border border-gray-800 overflow-hidden">
+                    <table className="w-full text-[11px]">
+                      <thead className="bg-gray-950/60 text-gray-500">
+                        <tr className="text-left">
+                          <th className="px-2.5 py-1.5 font-medium">service</th>
+                          <th className="px-2.5 py-1.5 font-medium text-right">RAM</th>
+                          <th className="px-2.5 py-1.5 font-medium text-right">VRAM</th>
+                          <th className="px-2.5 py-1.5 font-medium text-right">pid</th>
+                          <th className="px-2.5 py-1.5" />
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800/70">
+                        {[...new Set([
+                          ...Object.keys(gpu.service_ram ?? {}),
+                          ...Object.keys(gpu.service_vram ?? {}),
+                        ])]
+                          .sort((a, b) =>
+                            ((gpu.service_ram?.[b]?.rss_mb ?? 0) + (gpu.service_vram?.[b]?.used_mb ?? 0)) -
+                            ((gpu.service_ram?.[a]?.rss_mb ?? 0) + (gpu.service_vram?.[a]?.used_mb ?? 0)))
+                          .map((id) => {
+                            const ram = gpu.service_ram?.[id];
+                            const vram = gpu.service_vram?.[id];
+                            // docker-wsl is an aggregate of every container, not
+                            // a service — there is nothing here to stop.
+                            const managed = managedServices.find((s) => s.id === id);
+                            const busy = actionInProgress?.id === id;
+                            return (
+                              <tr key={id} className="hover:bg-gray-900/60">
+                                <td className="px-2.5 py-1.5">
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-sm ${vramColor(id)}`} />
+                                    {ram?.name ?? vram?.name ?? id}
+                                  </span>
+                                </td>
+                                <td className="px-2.5 py-1.5 text-right tabular-nums text-sky-300/90">
+                                  {ram ? `${(ram.rss_mb / 1024).toFixed(1)} GB` : "—"}
+                                </td>
+                                <td className="px-2.5 py-1.5 text-right tabular-nums text-violet-300/90">
+                                  {vram ? `${(vram.used_mb / 1024).toFixed(1)} GB` : "—"}
+                                </td>
+                                <td className="px-2.5 py-1.5 text-right tabular-nums text-gray-600">
+                                  {ram?.pid ? ram.pid : "—"}
+                                </td>
+                                <td className="px-2.5 py-1.5 text-right">
+                                  {managed ? (
+                                    <button
+                                      onClick={() => serviceAction(id, "stop")}
+                                      disabled={busy}
+                                      className="text-[10px] px-2 py-0.5 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition disabled:opacity-40"
+                                    >
+                                      {busy ? "…" : "Stop"}
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] text-gray-700">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        {gpu.ram_summary && gpu.ram_summary.unaccounted_mb > 0 && (
+                          <tr className="text-gray-600">
+                            <td className="px-2.5 py-1.5">
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-sm bg-gray-600/70" />
+                                everything else
+                              </span>
+                            </td>
+                            <td className="px-2.5 py-1.5 text-right tabular-nums">
+                              {(gpu.ram_summary.unaccounted_mb / 1024).toFixed(1)} GB
+                            </td>
+                            <td className="px-2.5 py-1.5 text-right tabular-nums">
+                              {gpu.vram_summary ? `${(gpu.vram_summary.unaccounted_mb / 1024).toFixed(1)} GB` : "—"}
+                            </td>
+                            <td colSpan={2} className="px-2.5 py-1.5 text-right text-[10px]">
+                              {gpu.ram_summary.unaccounted_note}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </section>
             ) : (
               <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 text-[11px] text-gray-500">

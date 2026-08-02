@@ -22,8 +22,10 @@
     "footprint": {
       "vramGb": 20.3,
       "ramGb": 28,
+      "idleVramGb": 0.1,
+      "idleRamGb": 28,
       "kind": "peak",
-      "basis": "VRAM measured: 20.3 GB peak mid-generation, ~0.1 GB idle. It does NOT hold the card — enable_model_cpu_offload() keeps the ~28 GB of fp8 weights in host RAM and streams them per stage, so the cost is transient and RAM is where it actually lives."
+      "basis": "VRAM measured: 20.3 GB peak mid-generation, ~0.1 GB idle. It does NOT hold the card — enable_model_cpu_offload() keeps the ~28 GB of fp8 weights in host RAM and streams them per stage. Note idleRamGb == ramGb and that is the point: the VRAM cost is transient but the HOST RAM cost is permanent for as long as the service is loaded (measured 21.7 GB resident while generating, 2026-08-01). That standing 28 GB is what collides with a FLUX run on a 63 GB box."
     }
   },
   "local-flux-schnell": {
@@ -35,8 +37,11 @@
     "service": "comfyui",
     "footprint": {
       "vramGb": 31.7,
+      "ramGb": 28,
+      "idleVramGb": 0.06,
+      "idleRamGb": 0.13,
       "kind": "peak",
-      "basis": "VRAM measured 2026-07-30: card went to 31.72 GiB of 31.84 GiB during a 512x512 4-step run (35s cold). Weights on disk total 31.81 GiB — flux1-schnell 22.15, t5xxl_fp16 9.12, clip_l 0.23, ae 0.31 — so it effectively fills the card and nothing meaningful fits beside it. ComfyUI streams via cudaMallocAsync + comfy-aimdo DynamicVRAM, so torch_vram_total reads ~0.44 GiB and per-process attribution is NOT available: this figure is whole-card usage minus the 0.1 GiB Qwen-Image held idle at the time."
+      "basis": "VRAM measured 2026-07-30: card went to 31.72 GiB of 31.84 GiB during a 512x512 4-step run (35s cold). Weights on disk total 31.81 GiB — flux1-schnell 22.15, t5xxl_fp16 9.12, clip_l 0.23, ae 0.31 — so it effectively fills the card and nothing meaningful fits beside it. ComfyUI streams via cudaMallocAsync + comfy-aimdo DynamicVRAM, so torch_vram_total reads ~0.44 GiB and per-process attribution is NOT available: this figure is whole-card usage minus the 0.1 GiB Qwen-Image held idle at the time. IDLE measured 2026-08-01 with the service running but no workflow executed: torch_vram_total 64 MB, process resident 0.13 GB — ComfyUI loads checkpoints lazily on first execution and evicts after, so STARTING it costs nothing. ramGb is the host-RAM cost of an actual run, estimated from the weight total; that is what collides with Qwen-Image's standing 28 GB."
     }
   },
   "local-coder": {

@@ -20,10 +20,20 @@ import type { Footprint } from "@/components/model-footprint";
 export type LocalFootprints = {
   footprints: Map<string, Footprint>;
   liveMb: Map<string, number>;
+  /**
+   * Free system RAM. Carried here because on this box it — not VRAM — is what
+   * actually runs out: two ~28 GB host-resident models don't fit in 63 GB, and
+   * that collision has already killed a service. null until first read.
+   */
+  hostFreeGb: number | null;
+  hostTotalGb: number | null;
 };
 
 type FootprintPayload = { footprints?: Record<string, { footprint?: Footprint }> };
-type GpuPayload = { service_vram?: Record<string, { used_mb?: number }> };
+type GpuPayload = {
+  service_vram?: Record<string, { used_mb?: number }>;
+  host_ram?: { free_gb?: number; total_gb?: number };
+};
 
 /** How often to re-read live VRAM. Slow: this is context, not a monitor. */
 const LIVE_POLL_MS = 15_000;
@@ -31,6 +41,8 @@ const LIVE_POLL_MS = 15_000;
 export function useLocalFootprints(): LocalFootprints {
   const [footprints, setFootprints] = useState<Map<string, Footprint>>(new Map());
   const [liveMb, setLiveMb] = useState<Map<string, number>>(new Map());
+  const [hostFreeGb, setHostFreeGb] = useState<number | null>(null);
+  const [hostTotalGb, setHostTotalGb] = useState<number | null>(null);
 
   // Static, and only changes when model-meta.json does — fetched once. Read from
   // /api/footprints, not the router catalogue: FLUX isn't a router alias at all,
@@ -62,6 +74,10 @@ export function useLocalFootprints(): LocalFootprints {
           if (typeof v?.used_mb === "number") next.set(id, v.used_mb);
         }
         setLiveMb(next);
+        // Present even when nvidia-smi fails (that response is a 502 carrying
+        // host_ram anyway) — a missing GPU reading must not blind the RAM budget.
+        if (typeof d?.host_ram?.free_gb === "number") setHostFreeGb(d.host_ram.free_gb);
+        if (typeof d?.host_ram?.total_gb === "number") setHostTotalGb(d.host_ram.total_gb);
       } catch { /* leave the previous reading in place */ }
     };
     read();
@@ -69,5 +85,5 @@ export function useLocalFootprints(): LocalFootprints {
     return () => { alive = false; clearInterval(t); };
   }, []);
 
-  return { footprints, liveMb };
+  return { footprints, liveMb, hostFreeGb, hostTotalGb };
 }

@@ -14,15 +14,28 @@
  */
 
 export type Footprint = {
+  /** While working — a peak for `peak`, the standing reservation for `reserved`. */
   vramGb?: number;
   ramGb?: number;
+  /**
+   * What it costs merely by being STARTED, which is a different number and the
+   * one that decides what you can leave running. ComfyUI idle holds 0.13 GB and
+   * loads FLUX only on the first workflow run; Qwen-Image idles at ~0.1 GB VRAM
+   * but never gives back its ~28 GB of host RAM. A single figure per model
+   * cannot say either of those things.
+   *
+   * Omitted for `reserved` models, where idle and busy are the same by
+   * definition — vLLM claims its share at startup and holds it.
+   */
+  idleVramGb?: number;
+  idleRamGb?: number;
   kind?: "reserved" | "peak";
   basis?: string;
 };
 
 const KIND_NOTE: Record<string, string> = {
-  reserved: "Reserved at startup and held for as long as the service runs.",
-  peak: "Transient peak while working; idles near zero.",
+  reserved: "Reserved at startup and held for as long as the service runs — idle costs the same as busy.",
+  peak: "Transient peak while working.",
 };
 
 function gb(n: number): string {
@@ -66,8 +79,15 @@ export default function ModelFootprint({
   else if (footprint?.vramGb) parts.push(`~${gb(footprint.vramGb)} VRAM`);
   if (footprint?.ramGb) parts.push(`~${gb(footprint.ramGb)} RAM`);
 
+  // Only worth saying when idle differs from busy — for a reserved model it
+  // doesn't, and repeating the same number twice reads as a bug.
+  const idle: string[] = [];
+  if (footprint?.idleVramGb != null) idle.push(`${gb(footprint.idleVramGb)} VRAM`);
+  if (footprint?.idleRamGb != null) idle.push(`${gb(footprint.idleRamGb)} RAM`);
+
   const title = [
-    hasLive && footprint?.vramGb ? `Measured now; ~${gb(footprint.vramGb)} expected.` : null,
+    hasLive && footprint?.vramGb ? `Measured now; ~${gb(footprint.vramGb)} while working.` : null,
+    idle.length ? `Idle (started, not working): ${idle.join(" · ")}` : null,
     KIND_NOTE[kind],
     footprint?.basis,
   ]
@@ -86,6 +106,10 @@ export default function ModelFootprint({
       {/* A reservation and a transient peak are not the same commitment. */}
       <span aria-hidden className="opacity-70">{kind === "peak" ? "▲" : "▮"}</span>
       <span className="tabular-nums">{parts.join(" · ")}</span>
+      {/* The cost of merely leaving it started — what decides co-residency. */}
+      {idle.length > 0 && !hasLive && (
+        <span className="opacity-60 tabular-nums">· idle {idle.join(" · ")}</span>
+      )}
     </span>
   );
 }

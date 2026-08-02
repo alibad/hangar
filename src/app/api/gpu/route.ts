@@ -118,6 +118,103 @@ async function serviceVram(memTotalMb: number) {
   return Object.fromEntries(entries.filter(Boolean) as [string, object][]);
 }
 
+/**
+ * Per-service host RAM, resolved by PORT → owning PID → resident set.
+ *
+ * Deliberately NOT taken from the manager's own pid bookkeeping: the manager
+ * only knows processes it spawned itself, and this box has repeatedly had a
+ * service running under a pid it never issued — a watchdog relaunched Qwen and
+ * the manager went on reporting the dead pid as healthy. Whoever is actually
+ * listening on the port is the process consuming the memory.
+ *
+ * Resident set, not commit: committed memory counts mapped files and pagefile
+ * reservations, which is why Qwen-Image reads 89 GB "private" on a 63 GB box.
+ * Only the resident figure competes for physical RAM.
+ */
+async function serviceRam(): Promise<Record<string, { name: string; rss_mb: number; pid: number; pct_of_total: number }>> {
+  const totalMb = os.totalmem() / 1024 ** 2;
+  const ps = [
+    "$ErrorActionPreference='SilentlyContinue';",
+    "Get-NetTCPConnection -State Listen |",
+    "Select-Object -Property LocalPort,OwningProcess -Unique |",
+    "ForEach-Object { $p = Get-Process -Id $_.OwningProcess;",
+    "  if ($p) { [pscustomobject]@{ port=$_.LocalPort; pid=$_.OwningProcess; rss=$p.WorkingSet64 } } } |",
+    "ConvertTo-Json -Compress",
+  ].join(" ");
+
+  let rows: { port: number; pid: number; rss: number }[] = [];
+  try {
+    const { stdout } = await execFileP("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], {
+      timeout: 10000,
+      windowsHide: true,
+      maxBuffer: 4 * 1024 * 1024,
+    });
+    const parsed = JSON.parse(stdout.trim() || "[]");
+    rows = Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    return {}; // no listener table — better to show nothing than to guess
+  }
+
+  const byPort = new Map(rows.map((r) => [Number(r.port), r]));
+
+  // A containerised service's port is held by Docker's proxy, not by the server
+  // — so webui, grafana and prometheus all resolve to ONE pid. Attributing that
+  // process's RSS to each of them would triple-count a few hundred MB while the
+  // containers' real memory (inside vmmemWSL) went unreported entirely. Any pid
+  // fronting more than one registered service is a proxy, not a workload.
+  const svcByPid = new Map<number, string[]>();
+  for (const svc of SERVICE_REGISTRY) {
+    const hit = byPort.get(svc.localPort);
+    if (!hit?.rss) continue;
+    const list = svcByPid.get(Number(hit.pid)) ?? [];
+    list.push(svc.id);
+    svcByPid.set(Number(hit.pid), list);
+  }
+
+  const out: Record<string, { name: string; rss_mb: number; pid: number; pct_of_total: number }> = {};
+  for (const svc of SERVICE_REGISTRY) {
+    const hit = byPort.get(svc.localPort);
+    if (!hit?.rss) continue;
+    if ((svcByPid.get(Number(hit.pid))?.length ?? 0) > 1) continue; // proxied — counted under docker
+    const rssMb = Math.round(hit.rss / 1024 ** 2);
+    out[svc.id] = {
+      name: svc.name,
+      rss_mb: rssMb,
+      pid: Number(hit.pid),
+      pct_of_total: Math.round((rssMb / totalMb) * 1000) / 10,
+    };
+  }
+
+  // Where container memory actually is. One synthetic row rather than a lie
+  // spread across several real ones.
+  const wsl = rows.length ? await wslRam() : 0;
+  if (wsl > 0) {
+    out["docker-wsl"] = {
+      name: "Docker / WSL (all containers)",
+      rss_mb: wsl,
+      pid: 0,
+      pct_of_total: Math.round((wsl / totalMb) * 1000) / 10,
+    };
+  }
+  return out;
+}
+
+/** vmmemWSL holds every container's memory as one Windows process. */
+async function wslRam(): Promise<number> {
+  try {
+    const { stdout } = await execFileP(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command",
+       "(Get-Process -Name 'vmmem*' -ErrorAction SilentlyContinue | Measure-Object WorkingSet64 -Sum).Sum"],
+      { timeout: 8000, windowsHide: true },
+    );
+    const bytes = Number(stdout.trim());
+    return Number.isFinite(bytes) && bytes > 0 ? Math.round(bytes / 1024 ** 2) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function GET() {
   try {
     const { stdout } = await execFileP(
@@ -133,10 +230,12 @@ export async function GET() {
     const mem_used = num(memUsed);
     const ratio = mem_total ? mem_used / mem_total : 0;
 
-    const service_vram = await serviceVram(mem_total);
+    const [service_vram, service_ram] = await Promise.all([serviceVram(mem_total), serviceRam()]);
     const accounted = Object.values(service_vram).reduce(
       (a, s) => a + (s as { used_mb: number }).used_mb, 0,
     );
+    const host = hostRam();
+    const ramAccountedMb = Object.values(service_ram).reduce((a, s) => a + s.rss_mb, 0);
 
     // What this means for "can I start another model right now".
     const impact =
@@ -161,8 +260,18 @@ export async function GET() {
       power_limit: num(pLimit),
       impact,
       impact_msg,
-      host_ram: hostRam(),
+      host_ram: host,
       service_vram,
+      service_ram,
+      ram_summary: {
+        accounted_mb: ramAccountedMb,
+        // Everything not held by a registered service: the desktop, browsers,
+        // WSL, and Windows' own compressed-memory store. On this box that has
+        // been the larger share more than once, so it is named rather than
+        // silently folded into the services' total.
+        unaccounted_mb: Math.max(0, Math.round(host.used_gb * 1024) - ramAccountedMb),
+        unaccounted_note: "desktop + apps + WSL/docker + OS cache",
+      },
       vram_summary: {
         accounted_mb: accounted,
         // Everything not claimed by a service: desktop compositing, browsers,
