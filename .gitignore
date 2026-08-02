@@ -9,3 +9,7 @@ archive/
 # Runtime state, not source
 var/
 __pycache__/
+
+# Ad-hoc dev-server redirects. The task logs to var/console.log (rotated).
+console-dev.log
+console-dev.err.log
