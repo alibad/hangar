@@ -79,6 +79,7 @@ export default function ProvidersView() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);   // model id being switched
   const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null);
+  const [selectedCapability, setSelectedCapability] = useState("text");
 
   // Resolves to whether the router is up, so the lifecycle control can poll it.
   const refresh = useCallback(async (): Promise<boolean> => {
@@ -146,6 +147,15 @@ export default function ProvidersView() {
     }));
   }, [data]);
 
+  useEffect(() => {
+    const capabilities = data?.capabilities ?? [];
+    if (capabilities.length && !capabilities.some((cap) => cap.id === selectedCapability)) {
+      setSelectedCapability(capabilities[0].id);
+    }
+  }, [data, selectedCapability]);
+
+  const selectedGroup = grouped.find(({ cap }) => cap.id === selectedCapability) ?? grouped[0];
+
   if (loading) return <p className="text-sm text-gray-500 py-12 text-center">Loading models…</p>;
 
   const routerUp = data?.routerUp ?? false;
@@ -190,25 +200,54 @@ export default function ProvidersView() {
         )}
       </section>
 
+      <section className="space-y-3" aria-label="Active model routing">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-200">Active routing</h2>
+          <p className="text-[11px] text-gray-600">Choose a capability to inspect or change its model. Each context is independent.</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {grouped.map(({ cap, models }) => {
+            const active = data?.routing?.[cap.id];
+            const model = models.find((item) => item.id === active);
+            const selected = cap.id === selectedCapability;
+            return (
+              <button
+                type="button"
+                key={cap.id}
+                onClick={() => setSelectedCapability(cap.id)}
+                aria-pressed={selected}
+                className={`rounded-xl border p-3 text-left transition ${selected ? "border-indigo-500/60 bg-indigo-500/10" : "border-gray-800 bg-gray-900 hover:border-gray-600"}`}
+              >
+                <span className="block text-[10px] font-medium uppercase tracking-wide text-gray-500">{cap.label}</span>
+                <span className="mt-1 block truncate text-sm font-semibold text-gray-100" title={active}>{active ?? "not selected"}</span>
+                <span className={`mt-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] ${model ? STATUS_STYLE[model.status] : "bg-gray-800 text-gray-500"}`}>
+                  {model ? STATUS_LABEL[model.status] : "unresolved"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       {msg && (
         <div className={`text-xs rounded-lg px-3 py-2 ${msg.bad ? "bg-red-500/10 text-red-400" : "bg-green-500/10 text-green-400"}`}>
           {msg.text}
         </div>
       )}
 
-      {grouped.map(({ cap, models }) => (
+      {selectedGroup && (
         <Group
-          key={cap.id}
-          title={cap.label}
-          subtitle={cap.hint}
-          capability={cap.id}
-          models={models}
-          active={data?.routing?.[cap.id]}
+          key={selectedGroup.cap.id}
+          title={selectedGroup.cap.label}
+          subtitle={selectedGroup.cap.hint}
+          capability={selectedGroup.cap.id}
+          models={selectedGroup.models}
+          active={data?.routing?.[selectedGroup.cap.id]}
           busy={busy}
           onSelect={setActive}
           onProbeService={probeService}
         />
-      ))}
+      )}
     </div>
   );
 }

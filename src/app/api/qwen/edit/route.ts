@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceUrl, getServiceHeaders } from "@/lib/services";
 import { saveImage } from "@/lib/save-image";
 import { withTraffic, TARGET_HEADER } from "@/lib/with-traffic";
+import { ResourceLeaseError, withResourceLease } from "@/lib/resource-manager";
 
 export const maxDuration = 800;
 
@@ -74,12 +75,23 @@ async function handlePOST(req: NextRequest) {
     const base = getServiceUrl("qwen");
     let res: Response;
     try {
-      res = await qwenFetch(`${base}/edit`, {
-        method: "POST",
-        headers: getServiceHeaders("qwen", { "Content-Type": "application/json", "X-Source": "console" }),
-        body: JSON.stringify(payload),
-      });
+      res = await withResourceLease(
+        "qwen-edit",
+        { owner: "console:qwen-edit", lane: "interactive", signal: req.signal },
+        () => qwenFetch(`${base}/edit`, {
+          method: "POST",
+          headers: getServiceHeaders("qwen", { "Content-Type": "application/json", "X-Source": "console" }),
+          body: JSON.stringify(payload),
+          signal: req.signal,
+        }),
+      );
     } catch (err) {
+      if (err instanceof ResourceLeaseError) {
+        return NextResponse.json(
+          { error: err.message, code: err.code, resourceBlocked: true, details: err.details },
+          { status: err.status },
+        );
+      }
       // Server unreachable — distinct from "edit disabled".
       return NextResponse.json(
         { error: err instanceof Error ? err.message : String(err) },

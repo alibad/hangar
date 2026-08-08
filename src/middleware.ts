@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // crowd out real requests. Skip them at ingest (GET only). Keep this in sync with
 // the same list in lib/traffic.ts (edge middleware can't import that Node module).
 const DASHBOARD_POLLS = new Set([
-  "/api/health", "/api/gpu", "/api/metrics", "/api/services", "/api/routing", "/api/llm",
+  "/api/health", "/api/gpu", "/api/metrics", "/api/services", "/api/resources", "/api/routing", "/api/llm",
   "/api/qwen/health", "/api/qwen/progress", "/api/qwen/archive", "/api/qwen/images", "/api/qwen/prompts",
   "/api/sam3d/health", "/api/sam3/health", "/api/providers",
   // Static model metadata the studio and compare view each read on mount. Two

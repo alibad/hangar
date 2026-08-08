@@ -12,26 +12,32 @@ const Ctx = createContext<{
 }>({ theme: "dark", toggle: () => {}, palette: DEFAULT_THEME, setPalette: () => {} });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Read localStorage synchronously on the client so the first render already
-  // knows the saved theme — eliminates the flash caused by a useEffect read.
-  const [theme, setTheme] = useState<Mode>(() => {
-    if (typeof window === "undefined") return "dark";
-    return (localStorage.getItem("bt-theme") as Mode) ?? "dark";
-  });
+  // Keep SSR and the browser's first React render deterministic. The inline
+  // script in layout.tsx handles the pre-paint DOM class and palette.
+  const [theme, setTheme] = useState<Mode>("dark");
+  const [palette, setPaletteState] = useState<ThemeId>(DEFAULT_THEME);
+  const [hydrated, setHydrated] = useState(false);
 
-  const [palette, setPaletteState] = useState<ThemeId>(() => {
-    if (typeof window === "undefined") return DEFAULT_THEME;
-    const saved = localStorage.getItem("bt-palette");
-    return isThemeId(saved) ? saved : DEFAULT_THEME;
-  });
+  // SSR and the browser's first render must use the same values. layout.tsx
+  // already applies the saved classes before paint; after hydration this only
+  // brings React state into agreement with that pre-painted DOM state.
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("bt-theme");
+    const savedPalette = localStorage.getItem("bt-palette");
+    setTheme(savedTheme === "light" ? "light" : "dark");
+    setPaletteState(isThemeId(savedPalette) ? savedPalette : DEFAULT_THEME);
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
+  }, [hydrated, theme]);
 
   useEffect(() => {
+    if (!hydrated) return;
     document.documentElement.dataset.theme = palette;
-  }, [palette]);
+  }, [hydrated, palette]);
 
   function toggle() {
     setTheme(prev => {

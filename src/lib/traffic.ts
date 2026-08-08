@@ -146,7 +146,7 @@ const NOISE_PATHS = [
   /^\/v1\/models$/,
   /^\/system_stats$/,
   /^\/services$/,
-  /^\/api\/(health|gpu|metrics|services|routing|llm|providers|traffic)$/,
+  /^\/api\/(health|gpu|metrics|services|resources|routing|llm|providers|traffic)$/,
   // Static metadata read on mount by both the studio and the compare view.
   /^\/api\/(footprints|model-meta)$/,
   /^\/api\/qwen\/(health|progress|archive|images|jobs|jobs\/status)$/,
@@ -414,7 +414,7 @@ const EXTRA_LOG_SERVICES = ["manager"];
 // in sync with the set there; filtered here too so any already sitting in the
 // ring don't crowd out real traffic.
 const DASHBOARD_POLLS = new Set([
-  "/api/health", "/api/gpu", "/api/metrics", "/api/services", "/api/routing", "/api/llm",
+  "/api/health", "/api/gpu", "/api/metrics", "/api/services", "/api/resources", "/api/routing", "/api/llm",
   "/api/qwen/health", "/api/qwen/progress", "/api/qwen/archive", "/api/qwen/images", "/api/qwen/prompts",
   "/api/sam3d/health", "/api/sam3/health", "/api/providers",
 ]);

@@ -12,6 +12,7 @@ import { nodePost } from "@/lib/qwen-http";
 import { generateFlux } from "@/lib/flux";
 import { getImageModel, isImageModelId, type ImageModelId } from "@/lib/image-models";
 import { routerUrl } from "@/lib/providers";
+import { ResourceLeaseError, withResourceLease, workloadForImageModel } from "@/lib/resource-manager";
 
 /**
  * Which backend served (or would have served) the call.
@@ -110,28 +111,31 @@ export async function generateAndSave(
   }
 
   try {
-    let buf: Buffer;
-
-    if (viaRouter) {
-      buf = await generateViaRouter(requested, payload);
-    } else if (model.id === "flux-schnell") {
-      buf = await generateFlux({
-        prompt: payload.prompt,
-        width: payload.width,
-        height: payload.height,
-        steps: payload.steps,
-        seed,
-      });
-    } else {
+    const generate = async () => {
+      if (viaRouter) return generateViaRouter(requested, payload);
+      if (model.id === "flux-schnell") {
+        return generateFlux({
+          prompt: payload.prompt,
+          width: payload.width,
+          height: payload.height,
+          steps: payload.steps,
+          seed,
+        });
+      }
       const base = getServiceUrl("qwen");
       const headers = getServiceHeaders("qwen", { "Content-Type": "application/json", "X-Source": "console" });
-      buf = await nodePost(`${base}/generate`, JSON.stringify(payload), headers);
-    }
+      return nodePost(`${base}/generate`, JSON.stringify(payload), headers);
+    };
+
+    const modelId = viaRouter ? requested : model.id;
+    const workload = workloadForImageModel(modelId);
+    const buf = workload
+      ? await withResourceLease(workload, { owner: `console:image:${modelId}`, lane: "interactive" }, generate)
+      : await generate();
 
     const latency = Date.now() - start;
     // Record the alias that was actually asked for, not the local fallback —
     // otherwise every cloud comparison would archive as "qwen-image".
-    const modelId = viaRouter ? requested : model.id;
     const saved = await saveImage(buf, { kind: "generate", model: modelId, ...payload, latency });
 
     return {
@@ -151,6 +155,12 @@ export async function generateAndSave(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const cause = err instanceof Error && err.cause ? String(err.cause) : "";
-    return { ok: false, target, status: 500, body: { error: message, cause } };
+    const resource = err instanceof ResourceLeaseError;
+    return {
+      ok: false,
+      target,
+      status: resource ? err.status : 500,
+      body: { error: message, cause, ...(resource ? { code: err.code, resourceBlocked: true, details: err.details } : {}) },
+    };
   }
 }

@@ -19,7 +19,7 @@ export async function POST(
       signal: AbortSignal.timeout(120000),
     });
     const data = await res.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data, { status: res.status });
   } catch (err) {
     return NextResponse.json(
       { error: `Manager error: ${err instanceof Error ? err.message : err}` },
@@ -38,7 +38,7 @@ export async function GET(
       signal: AbortSignal.timeout(5000),
     });
     const data = await res.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data, { status: res.status });
   } catch (err) {
     return NextResponse.json(
       { error: `Manager error: ${err instanceof Error ? err.message : err}` },

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { SERVICE_REGISTRY } from "@/lib/services";
+import { Search, X } from "lucide-react";
 
 type Ev = {
   ts: number | null;
@@ -31,8 +32,6 @@ type Ev = {
 // than filtered here. A client-side regex still let chatter into the shared ring,
 // where a 70-second generation's once-a-second /progress ticks could evict real
 // requests before anyone looked at them.
-
-const PAGE_SIZE = 100;
 
 const SERVICE_COLORS: Record<string, string> = {
   console: "bg-pink-500/15 text-pink-300 border-pink-500/30",
@@ -97,6 +96,9 @@ export default function RequestsView() {
   const [service, setService] = useState("all");
   const [method, setMethod] = useState("all");
   const [statusClass, setStatusClass] = useState("all");
+  const [query, setQuery] = useState("");
+  const [failuresOnly, setFailuresOnly] = useState(false);
+  const [pageSize, setPageSize] = useState(50);
   /**
    * Noise is OFF by default and opt-in. The server keeps it in its own ring, so
    * this isn't a cosmetic filter over a polluted feed — leaving it off means
@@ -156,16 +158,25 @@ export default function RequestsView() {
         const c = e.status == null ? "?" : String(Math.floor(e.status / 100)) + "xx";
         if (c !== statusClass) return false;
       }
+      if (failuresOnly && (e.status == null || e.status < 400)) return false;
+      if (query.trim()) {
+        const needle = query.trim().toLowerCase();
+        const haystack = [e.service, e.target, e.method, e.path, e.model, e.caller, e.error]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(needle)) return false;
+      }
       return true;
     });
-  }, [events, noise, showNoise, hops, showHops, service, method, statusClass]);
+  }, [events, noise, showNoise, hops, showHops, service, method, statusClass, failuresOnly, query]);
 
   // Filters changed → jump back to the first page.
-  useEffect(() => { setPage(0); }, [service, method, statusClass, showNoise, showHops]);
+  useEffect(() => { setPage(0); }, [service, method, statusClass, showNoise, showHops, failuresOnly, query, pageSize]);
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const curPage = Math.min(page, pageCount - 1);
-  const shown = filtered.slice(curPage * PAGE_SIZE, (curPage + 1) * PAGE_SIZE);
+  const shown = filtered.slice(curPage * pageSize, (curPage + 1) * pageSize);
   const methods = useMemo(() => [...new Set(events.map((e) => e.method))].sort(), [events]);
 
   /**
@@ -247,7 +258,30 @@ export default function RequestsView() {
       </section>
 
       {/* filters */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="sticky top-[104px] z-[3] flex items-center gap-2.5 flex-wrap rounded-xl border border-gray-800 bg-gray-950/95 p-2.5 backdrop-blur-sm">
+        <label className="relative min-w-[220px] flex-1 sm:max-w-sm">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-600" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search path, model, caller or error…"
+            className="h-8 w-full rounded-lg border border-gray-700 bg-gray-900 pl-8 pr-8 text-xs text-gray-200 outline-none placeholder:text-gray-600"
+            aria-label="Search requests"
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery("")} aria-label="Clear request search" className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-gray-600 hover:text-gray-200">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </label>
+        <button
+          type="button"
+          onClick={() => setFailuresOnly((value) => !value)}
+          aria-pressed={failuresOnly}
+          className={`rounded-lg border px-2.5 py-1.5 text-xs transition ${failuresOnly ? "border-red-500/40 bg-red-500/10 text-red-300" : "border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"}`}
+        >
+          Failures
+        </button>
         <Sel label="service" value={service} onChange={setService} opts={services} />
         <Sel label="method" value={method} onChange={setMethod} opts={methods} />
         <Sel label="status" value={statusClass} onChange={setStatusClass} opts={["2xx", "3xx", "4xx", "5xx"]} />
@@ -270,6 +304,12 @@ export default function RequestsView() {
           {hopCount > 0 && (
             <span className="text-[10px] tabular-nums text-gray-600">({hopCount} hidden)</span>
           )}
+        </label>
+        <label className="ml-auto flex items-center gap-1.5 text-xs text-gray-500">
+          rows
+          <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
+            {[25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+          </select>
         </label>
       </div>
 

@@ -9,12 +9,17 @@ const { spawn, execFile } = require("child_process");
 const net = require("net");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+const { ResourceAdmissionError, ResourceCoordinator, buildResourceProfiles } = require("./resource-coordinator.cjs");
 
 const PORT = parseInt(process.env.MANAGER_PORT || "8099");
 const COMMANDS_FILE = path.join(__dirname, "service-commands.json");
+const RESOURCE_POLICY_FILE = path.join(__dirname, "..", "config", "resource-policy.json");
+const MODEL_META_FILE = path.join(__dirname, "..", "config", "model-meta.json");
 
 const SERVICES = [
-  { id: "vllm",       name: "vLLM",          port: 8000, healthPath: "/models",       category: "ai" },
+  { id: "vllm",       name: "vLLM",          port: 8005, healthPath: "/models",       category: "ai" },
+  { id: "vllm-small", name: "vLLM Small",    port: 8006, healthPath: "/models",       category: "ai" },
   { id: "whisper",    name: "Whisper STT",    port: 8001, healthPath: "/health",       category: "ai" },
   { id: "tts",        name: "Kokoro TTS",     port: 8002, healthPath: "/health",       category: "ai" },
   { id: "webui",      name: "Open WebUI",     port: 3001, healthPath: "/",             category: "app" },
@@ -29,6 +34,69 @@ const SERVICES = [
 
 // id -> { proc, logs: string[], startedAt }
 const managed = new Map();
+
+const resourcePolicy = JSON.parse(fs.readFileSync(RESOURCE_POLICY_FILE, "utf8"));
+const resourceProfiles = buildResourceProfiles(
+  resourcePolicy,
+  JSON.parse(fs.readFileSync(MODEL_META_FILE, "utf8"))
+);
+
+let gpuCapacityCache = { at: 0, value: null };
+function readGpuCapacity() {
+  if (gpuCapacityCache.value && Date.now() - gpuCapacityCache.at < 1000) {
+    return Promise.resolve(gpuCapacityCache.value);
+  }
+  return new Promise((resolve) => {
+    execFile(
+      "nvidia-smi",
+      ["--query-gpu=memory.total,memory.free", "--format=csv,noheader,nounits"],
+      { windowsHide: true },
+      (error, stdout) => {
+        if (error) return resolve(gpuCapacityCache.value || { totalGb: 0, freeGb: 0 });
+        const [totalMib, freeMib] = String(stdout).trim().split(/[,\s]+/).map(Number);
+        const value = {
+          totalGb: Math.round((totalMib / 1024) * 100) / 100,
+          freeGb: Math.round((freeMib / 1024) * 100) / 100,
+        };
+        gpuCapacityCache = { at: Date.now(), value };
+        resolve(value);
+      }
+    );
+  });
+}
+
+async function readCapacity() {
+  return {
+    ram: {
+      totalGb: os.totalmem() / (1024 ** 3),
+      freeGb: os.freemem() / (1024 ** 3),
+    },
+    vram: await readGpuCapacity(),
+    sampledAt: Date.now(),
+  };
+}
+
+const resourceCoordinator = new ResourceCoordinator({ profiles: resourceProfiles, capacityProvider: readCapacity });
+const expectedActiveUntil = new Map();
+let reconcilePromise = null;
+
+function reconcileResourceState() {
+  if (reconcilePromise) return reconcilePromise;
+  reconcilePromise = (async () => {
+    const now = Date.now();
+    const active = [];
+    await Promise.all(SERVICES.map(async (service) => {
+      const expected = expectedActiveUntil.get(service.id) || 0;
+      if (expected && expected <= now) expectedActiveUntil.delete(service.id);
+      if (isProcAlive(managed.get(service.id)) || await isPortOpen(service.port) || expected > now) {
+        active.push(service.id);
+      }
+    }));
+    resourceCoordinator.setActiveServices(active);
+    resourceCoordinator.reapExpired();
+  })().finally(() => { reconcilePromise = null; });
+  return reconcilePromise;
+}
 
 // Memoised on mtime: status polling asks for this once per service per tick, and
 // edits must still take effect without restarting the manager.
@@ -234,7 +302,7 @@ async function getStatus(svc) {
   };
 }
 
-async function startService(id) {
+async function startServiceRaw(id) {
   const commands = loadCommands();
   const cfg = commands[id];
 
@@ -337,7 +405,7 @@ async function startService(id) {
   return { ok: true, pid: proc.pid };
 }
 
-async function stopService(id) {
+async function stopServiceRaw(id) {
   const commands = loadCommands();
   const cfg = commands[id] || {};
 
@@ -386,6 +454,40 @@ async function stopService(id) {
   }, 6000);
   console.log(`[manager] stopping ${id}`);
   return { ok: true };
+}
+
+async function startService(id) {
+  await reconcileResourceState();
+  const reservation = await resourceCoordinator.reserveServiceStart(id);
+  if (!reservation.ok) {
+    return {
+      error: `Cannot start ${id}: ${reservation.error}`,
+      code: "resource-blocked",
+      resourceBlocked: true,
+      denial: reservation.denial,
+      capacity: reservation.capacity,
+      usage: reservation.usage,
+    };
+  }
+
+  try {
+    const result = await startServiceRaw(id);
+    if (result?.error) return result;
+    expectedActiveUntil.set(id, Date.now() + 60_000);
+    resourceCoordinator.promoteServiceStart(reservation.reservationId, id);
+    return result;
+  } finally {
+    resourceCoordinator.releaseServiceStart(reservation.reservationId);
+  }
+}
+
+async function stopService(id) {
+  const result = await stopServiceRaw(id);
+  if (!result?.error) {
+    expectedActiveUntil.delete(id);
+    resourceCoordinator.markServiceActive(id, false);
+  }
+  return result;
 }
 
 async function restartService(id) {
@@ -444,6 +546,42 @@ const server = http.createServer(async (req, res) => {
   const parts = url.pathname.replace(/^\/+|\/+$/g, "").split("/");
 
   try {
+    // GET /resources — live capacity, modeled usage, leases, and queue.
+    if (req.method === "GET" && parts[0] === "resources" && !parts[1]) {
+      await reconcileResourceState();
+      return respond(res, 200, await resourceCoordinator.snapshot());
+    }
+
+    // POST /resources/leases/acquire
+    if (req.method === "POST" && parts[0] === "resources" && parts[1] === "leases" && parts[2] === "acquire") {
+      const body = await readBody(req);
+      const controller = new AbortController();
+      req.once("aborted", () => controller.abort());
+      res.once("close", () => { if (!res.writableEnded) controller.abort(); });
+      try {
+        const lease = await resourceCoordinator.acquire(body.workload, {
+          owner: body.owner,
+          lane: body.lane,
+          waitMs: body.waitMs,
+          ttlMs: body.ttlMs,
+          signal: controller.signal,
+        });
+        return respond(res, 201, { ok: true, lease });
+      } catch (error) {
+        if (error instanceof ResourceAdmissionError) {
+          const status = error.code === "unknown-workload" ? 400 : error.code === "resource-cancelled" ? 499 : 409;
+          return respond(res, status, { error: error.message, code: error.code, details: error.details });
+        }
+        throw error;
+      }
+    }
+
+    // POST /resources/leases/:id/release
+    if (req.method === "POST" && parts[0] === "resources" && parts[1] === "leases" && parts[3] === "release") {
+      const released = resourceCoordinator.release(parts[2]);
+      return respond(res, released ? 200 : 404, released ? { ok: true } : { error: "Lease not found" });
+    }
+
     // GET /services
     if (req.method === "GET" && parts[0] === "services" && !parts[1]) {
       const statuses = await Promise.all(SERVICES.map(getStatus));
@@ -485,7 +623,7 @@ const server = http.createServer(async (req, res) => {
       else if (action === "restart") result = await restartService(id);
       else return respond(res, 400, { error: "Unknown action" });
 
-      if (result && result.error) return respond(res, 400, result);
+      if (result && result.error) return respond(res, result.resourceBlocked ? 409 : 400, result);
       return respond(res, 200, result || { ok: true });
     }
 
@@ -508,6 +646,12 @@ server.listen(PORT, "127.0.0.1", () => {
   if (configured.length) console.log(`  Ready:  ${configured.join(", ")}`);
   if (todo.length)       console.log(`  TODO:   ${todo.join(", ")} — edit scripts/service-commands.json`);
 });
+
+const resourceTimer = setInterval(() => {
+  reconcileResourceState().catch((error) => console.error("[resources] reconcile failed:", error.message));
+}, 5000);
+resourceTimer.unref();
+reconcileResourceState().catch((error) => console.error("[resources] initial reconcile failed:", error.message));
 
 process.on("SIGINT", () => {
   console.log("\n[manager] shutting down — stopping managed services");

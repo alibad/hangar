@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceUrl, getServiceHeaders } from "@/lib/services";
+import { ResourceLeaseError, withResourceLease } from "@/lib/resource-manager";
 
 export const maxDuration = 600; // video tracking runs inference over every frame
 
@@ -21,8 +22,18 @@ export async function POST(req: NextRequest) {
     const base = getServiceUrl("sam3");
     let res: Response;
     try {
-      res = await fetch(`${base}/segment_video`, { method: "POST", headers: getServiceHeaders("sam3"), body: out });
+      res = await withResourceLease(
+        "sam3-video",
+        { owner: "console:sam3-video", lane: "interactive", ttlMs: 30 * 60 * 1000, signal: req.signal },
+        () => fetch(`${base}/segment_video`, { method: "POST", headers: getServiceHeaders("sam3"), body: out, signal: req.signal }),
+      );
     } catch (err) {
+      if (err instanceof ResourceLeaseError) {
+        return NextResponse.json(
+          { ok: false, error: err.message, code: err.code, resourceBlocked: true, details: err.details },
+          { status: err.status },
+        );
+      }
       return NextResponse.json(
         { ok: false, error: `SAM3 unreachable: ${err instanceof Error ? err.message : String(err)}` },
         { status: 502 },

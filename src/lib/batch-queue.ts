@@ -4,6 +4,7 @@ import { getServiceUrl } from "@/lib/services";
 import { getDb } from "@/lib/db";
 import { generateFlux } from "@/lib/flux";
 import { getImageModel, type ImageModelId } from "@/lib/image-models";
+import { withResourceLease, workloadForImageModel } from "@/lib/resource-manager";
 
 export type JobStatus = "queued" | "running" | "paused" | "done" | "failed" | "cancelled";
 
@@ -393,7 +394,7 @@ class BatchQueue {
       // Distinguish "we aborted this on purpose" from "the image took 10 minutes":
       // both surface as an abort, but only the timeout is a genuine failure.
       let timedOut = false;
-      const timeoutId = setTimeout(() => { timedOut = true; ac.abort(); }, IMAGE_TIMEOUT_MS);
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
       const seed = Math.floor(Math.random() * 2_147_483_647);
       const payload = {
@@ -406,18 +407,22 @@ class BatchQueue {
         seed,
       };
       try {
-        // FLUX is driven through ComfyUI's graph API, which has no equivalent of
-        // the Qwen server's single POST — generateFlux queues and polls instead.
-        const buf =
-          model.id === "flux-schnell"
-            ? await generateFlux({
+        const generate = async () => {
+          // Waiting for the shared GPU slot is not generation time. Start the
+          // timeout only after admission, while this AbortController still lets
+          // pause/cancel remove a queued request.
+          timeoutId = setTimeout(() => { timedOut = true; ac.abort(); }, IMAGE_TIMEOUT_MS);
+          // FLUX is driven through ComfyUI's graph API, which has no equivalent of
+          // the Qwen server's single POST — generateFlux queues and polls instead.
+          return model.id === "flux-schnell"
+            ? generateFlux({
                 prompt: payload.prompt,
                 width: payload.width,
                 height: payload.height,
                 steps: payload.steps,
                 seed,
               }, IMAGE_TIMEOUT_MS, ac.signal)
-            : await nodePost(
+            : nodePost(
                 `${base}/generate`,
                 JSON.stringify(payload),
                 {
@@ -431,13 +436,28 @@ class BatchQueue {
                 },
                 ac.signal,
               );
-        clearTimeout(timeoutId);
+        };
+        const workload = workloadForImageModel(model.id);
+        const buf = workload
+          ? await withResourceLease(
+              workload,
+              {
+                owner: `batch:${job.id}:${i + 1}/${job.prompts.length}`,
+                lane: "background",
+                waitMs: 0,
+                ttlMs: IMAGE_TIMEOUT_MS + 60_000,
+                signal: ac.signal,
+              },
+              generate,
+            )
+          : await generate();
+        if (timeoutId) clearTimeout(timeoutId);
         await saveImage(buf, { kind: "generate", model: model.id, ...payload, latency: 0 }, job.id);
         job.completed++;
         consecutiveFails = 0;
         delete job.lastError;
       } catch (err) {
-        clearTimeout(timeoutId);
+        if (timeoutId) clearTimeout(timeoutId);
         if (this.stopped) {
           // The abort came from shutdown(), not from a real failure.
           this.currentAbort = null;
@@ -501,7 +521,8 @@ class BatchQueue {
 // reinit the singleton and kill any zombie runJob calls from old code.
 // 7: jobs carry a model and dispatch per-backend (Qwen :8021 or ComfyUI :8188).
 // 8: FLUX generations get the job's abort signal and tolerate transient polls.
-const QUEUE_VERSION = 8;
+// 9: local GPU work acquires a cancellable background resource lease.
+const QUEUE_VERSION = 9;
 const g = globalThis as typeof globalThis & { __batchQueue?: BatchQueue; __batchQueueV?: number };
 if (!g.__batchQueue || g.__batchQueueV !== QUEUE_VERSION) {
   g.__batchQueue?.shutdown();

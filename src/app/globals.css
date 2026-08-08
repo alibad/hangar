@@ -143,3 +143,28 @@ html {
     @apply font-sans;
     }
 }
+
+/* Keyboard users should never have to guess where focus moved. Mouse clicks do
+   not get the ring, so dense operational surfaces stay visually quiet. */
+:where(button, a, input, textarea, select, summary, [role="button"]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent-500) 35%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--accent-500) 30%, transparent) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

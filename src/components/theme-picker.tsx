@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/theme-provider";
 import { THEMES } from "@/lib/themes";
+import { Check } from "lucide-react";
 
 export function ThemePicker() {
   const { palette, setPalette } = useTheme();
@@ -33,7 +34,6 @@ export function ThemePicker() {
         title={`Theme: ${current.name}`}
         aria-label="Change theme"
         aria-expanded={open}
-        suppressHydrationWarning
         className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-700 hover:border-gray-500 transition"
       >
         {/* The swatch is drawn from the live CSS ramp, not the stored hex, so it
@@ -66,7 +66,7 @@ export function ThemePicker() {
                   <span key={c} className="w-1.5 h-4 rounded-sm" style={{ background: c }} />
                 ))}
               </span>
-              {t.id === palette && <span className="text-[10px] text-gray-400 flex-shrink-0">✓</span>}
+              {t.id === palette && <Check className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" aria-hidden="true" />}
             </button>
           ))}
         </div>

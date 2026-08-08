@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Star, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Star, Trash2, ChevronDown, ChevronUp, Mic, Square } from "lucide-react";
 import { DIM_POOLS, type DimKey } from "@/lib/prompt-variations";
 import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, type ImageModelId } from "@/lib/image-models";
 import { useLocalFootprints } from "@/lib/use-local-footprints";
@@ -1152,6 +1152,7 @@ export default function QwenStudio() {
         onClick={recording ? stopRec : startRec}
         disabled={transcribing}
         title={recording ? "Stop & transcribe" : "Dictate with mic (local Whisper)"}
+        aria-label={recording ? "Stop recording and transcribe" : "Dictate prompt with microphone"}
         className={`absolute top-2.5 right-2.5 h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs transition ${
           recording ? "bg-red-600 text-white animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.4)]" : "bg-gray-700/70 hover:bg-gray-600 text-gray-300"
         } disabled:opacity-50`}
@@ -1160,11 +1161,11 @@ export default function QwenStudio() {
           <span>transcribing…</span>
         ) : recording ? (
           <>
-            <span>⏹</span>
+            <Square className="h-3.5 w-3.5" />
             <span className="tabular-nums">{(recMs / 1000).toFixed(1)}s</span>
           </>
         ) : (
-          <span>🎙</span>
+          <Mic className="h-3.5 w-3.5" />
         )}
       </button>
     );
@@ -1390,7 +1391,13 @@ export default function QwenStudio() {
               Both always visible, with the one this mode uses ringed. They are
               separate ~20B models sharing one process and one GPU: whichever you
               run evicts the other, which is why residency is per-checkpoint. */}
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <details className="group mt-3 rounded-lg border border-gray-800 bg-gray-950/25">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-[11px] font-medium text-gray-400 hover:text-gray-200">
+              <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+              Checkpoint residency and swap behavior
+              <span className="ml-auto text-[10px] text-gray-600">diagnostics</span>
+            </summary>
+          <div className="grid gap-2 border-t border-gray-800 p-3 sm:grid-cols-2">
             {([
               {
                 name: genModel,
@@ -1450,10 +1457,11 @@ export default function QwenStudio() {
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-gray-600">
+          <p className="px-3 pb-3 text-[11px] text-gray-600">
             One process on :8021 serves both, but only one fits in VRAM — switching between Generate and Edit
             swaps the checkpoint on the next run, which is why the first request after a switch is slow.
           </p>
+          </details>
           <ServiceStartupNote
             lifecycle={lifecycle}
             downMessage={`Server unreachable${health?.error ? ` — ${health.error}` : ""}.`}
@@ -2252,11 +2260,11 @@ export default function QwenStudio() {
 
       {/* ── HISTORY GALLERY (disk-backed, foldered) ── */}
       <section ref={galleryRef}>
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
             History {gallery.length > 0 && <span className="text-gray-600">({gallery.length})</span>}
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {pagedImages.length > 0 && (
               <button
                 onClick={() => (allPageSelected ? clearSelection() : selectPage())}
@@ -2282,9 +2290,9 @@ export default function QwenStudio() {
         {galleryLoading ? (
           <p className="text-sm text-gray-600">Loading history…</p>
         ) : (
-          <div className="flex gap-5 items-start">
+          <div className="flex flex-col gap-5 items-start lg:flex-row">
             {/* folder sidebar */}
-            <aside className="w-48 flex-shrink-0 space-y-1">
+            <aside className="w-full flex-shrink-0 space-y-1 rounded-xl border border-gray-800 bg-gray-900/40 p-2 lg:w-48 lg:border-0 lg:bg-transparent lg:p-0">
               <div className="flex items-center justify-between mb-1 px-1">
                 <span className="text-[11px] uppercase tracking-wider text-gray-600">Galleries</span>
                 <button onClick={() => { setNewFolderName(""); setNewFolderOpen(true); }} title="New folder (created inside the selected one)"

@@ -13,9 +13,12 @@ import Markdown from "@/components/markdown";
 import { ServiceLogsButton } from "@/components/service-control";
 import { useTheme } from "@/components/theme-provider";
 import { ThemePicker } from "@/components/theme-picker";
+import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
+import TabErrorBoundary from "@/components/tab-error-boundary";
 import {
   Brain, Mic, Volume2, Globe, Activity, Database,
-  Sparkles, Layers, ScanLine, Scan, Server, ExternalLink, Cpu, type LucideIcon,
+  Sparkles, Layers, ScanLine, Scan, Server, ExternalLink, Cpu, RefreshCw,
+  Sun, Moon, LayoutGrid, List, AlertTriangle, type LucideIcon,
 } from "lucide-react";
 
 // Small inline spinner shown while a service action (start/stop/restart) is in flight.
@@ -199,6 +202,38 @@ type GpuStatus = {
   error?: string;
 };
 
+type ResourceControlSnapshot = {
+  sampledAt: number;
+  budgets: { ramSafetyGb: number; vramSafetyGb: number };
+  capacity: {
+    ram: { totalGb: number; freeGb: number };
+    vram: { totalGb: number; freeGb: number };
+  };
+  usage: { ramGb: number; vramGb: number };
+  activeServices: string[];
+  starts: Array<{ id: string; serviceId: string; owner: string; createdAt: number }>;
+  leases: Array<{
+    id: string;
+    workload: string;
+    serviceId: string | null;
+    slot: string | null;
+    owner: string;
+    lane: "interactive" | "background";
+    resources: { ramGb: number; vramGb: number };
+    acquiredAt: number;
+    expiresAt: number;
+  }>;
+  queue: Array<{
+    id: string;
+    workload: string;
+    owner: string;
+    lane: "interactive" | "background";
+    queuedAt: number;
+    lastDenial?: { kind: string; message: string } | null;
+  }>;
+  lastEvent?: { at: number; type: string; message?: string; serviceId?: string; workload?: string } | null;
+};
+
 export default function Home() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -223,6 +258,7 @@ export default function Home() {
   const [actionInProgress, setActionInProgress] = useState<{ id: string; action: "start" | "stop" | "restart" } | null>(null);
   const [actionMessage, setActionMessage] = useState<{ id: string; text: string; type: "success" | "error" } | null>(null);
   const [gpu, setGpu] = useState<GpuStatus | null>(null);
+  const [resourceControl, setResourceControl] = useState<ResourceControlSnapshot | null>(null);
   const [routing, setRouting] = useState<RoutingInfo | null>(null);
   /**
    * Qwen-Image's own health, purely so the stack card can list BOTH checkpoints it
@@ -245,9 +281,10 @@ export default function Home() {
    */
   const [catalogByService, setCatalogByService] = useState<Record<string, CatalogEntry[]>>({});
   const [activeModels, setActiveModels] = useState<Record<string, string>>({});
-  const [tab, setTab] = useState<"llm" | "speech" | "stack" | "qwen" | "requests" | "sam3d" | "sam3" | "models">("stack");
+  const [tab, setTab] = useState<ConsoleTab>("stack");
   /** Stack tab filter — All / GPU / or a service category. */
-  const [stackFilter, setStackFilter] = useState<"all" | "ai" | "monitoring" | "app">("all");
+  const [stackFilter, setStackFilter] = useState<"all" | "attention" | "ai" | "monitoring" | "app">("all");
+  const [compactStack, setCompactStack] = useState(true);
   /** Resource breakdown is collapsed by default — it's diagnostics, not status. */
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const messagesEnd = useRef<HTMLDivElement>(null);
@@ -255,6 +292,31 @@ export default function Home() {
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const selectTab = useCallback((next: ConsoleTab) => {
+    setTab(next);
+    window.localStorage.setItem("bt-active-tab", next);
+    window.history.pushState({ tab: next }, "", `#${next}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    const valid = new Set<ConsoleTab>(["stack", "llm", "speech", "qwen", "requests", "sam3d", "sam3", "models"]);
+    const resolve = () => {
+      const hash = window.location.hash.slice(1) as ConsoleTab;
+      const saved = window.localStorage.getItem("bt-active-tab") as ConsoleTab | null;
+      const next = valid.has(hash) ? hash : saved && valid.has(saved) ? saved : "stack";
+      setTab(next);
+    };
+    resolve();
+    window.addEventListener("popstate", resolve);
+    return () => window.removeEventListener("popstate", resolve);
+  }, []);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("bt-stack-density");
+    if (saved) setCompactStack(saved !== "detail");
+  }, []);
 
   const checkHealth = useCallback(async () => {
     try {
@@ -303,6 +365,16 @@ export default function Home() {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchResourceControl = useCallback(async () => {
+    try {
+      const res = await fetch("/api/resources");
+      if (res.ok) setResourceControl(await res.json());
+      else setResourceControl(null);
+    } catch {
+      setResourceControl(null);
+    }
+  }, []);
+
   const fetchQwenHealth = useCallback(async () => {
     try {
       const res = await fetch("/api/qwen/health");
@@ -337,11 +409,11 @@ export default function Home() {
   const refreshAll = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([checkHealth(), fetchMetrics(), fetchServices(), fetchRouting(), fetchGpu(), fetchCatalog(), fetchQwenHealth()]);
+      await Promise.all([checkHealth(), fetchMetrics(), fetchServices(), fetchRouting(), fetchGpu(), fetchResourceControl(), fetchCatalog(), fetchQwenHealth()]);
     } finally {
       setRefreshing(false);
     }
-  }, [checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchCatalog, fetchQwenHealth]);
+  }, [checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchResourceControl, fetchCatalog, fetchQwenHealth]);
 
   async function serviceAction(id: string, action: "start" | "stop" | "restart") {
     setActionInProgress({ id, action });
@@ -392,8 +464,10 @@ export default function Home() {
     fetchServices();
     fetchRouting();
     fetchGpu();
+    fetchResourceControl();
     fetchCatalog();
-  }, [checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchCatalog]);
+    fetchQwenHealth();
+  }, [checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchResourceControl, fetchCatalog, fetchQwenHealth]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -551,12 +625,18 @@ export default function Home() {
         ? "degraded"
         : "down";
 
+  const runningServices = managedServices.filter((service) => service.status === "running").length;
+  const attentionServices = managedServices.filter(
+    (service) => service.status === "failed" || service.status === "starting" || service.owner === "external",
+  );
+  const queueDepth = (resourceControl?.queue.length ?? 0) + (resourceControl?.starts.length ?? 0);
+
   const tabs = [
     // Services and GPU were two views of the same local processes — one listing
     // them, one duplicating their controls under a GPU header. Merged into
     // "Stack": the GPU is the shared constraint every service competes for, so
     // it belongs above the cards rather than in a tab of its own.
-    { id: "stack" as const, label: "Stack", count: managedServices.filter((s) => s.status === "running").length + "/" + managedServices.length },
+    { id: "stack" as const, label: "Stack", count: runningServices + "/" + managedServices.length },
     { id: "llm" as const, label: "LLM" },
     { id: "speech" as const, label: "Speech" },
     // One tab for every image model on the box. "Creative" used to sit beside
@@ -573,8 +653,8 @@ export default function Home() {
     <div className="min-h-screen bg-gray-950 text-gray-100">
       {/* Header */}
       <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-center justify-between py-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between gap-3 py-3">
             <div className="flex items-center gap-3">
               {/* Logo */}
               <svg width="26" height="26" viewBox="0 0 96 96" fill="none" aria-hidden="true">
@@ -582,7 +662,7 @@ export default function Home() {
                 <path d="M60.02 35.98 Q52 48 60.02 60.02 Q48 52 35.98 60.02 Q44 48 35.98 35.98 Q48 44 60.02 35.98 Z" fill="#7b85c7"/>
               </svg>
               <h1 className="text-lg font-semibold tracking-tight">BeTenshi</h1>
-              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+              <div role="status" aria-label={`Stack ${overallStatus}`} className={`w-2 h-2 rounded-full flex-shrink-0 ${
                 overallStatus === "operational"
                   ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]"
                   : overallStatus === "degraded"
@@ -599,8 +679,9 @@ export default function Home() {
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-2 text-sm text-gray-500 cursor-pointer select-none">
+            <div className="flex min-w-0 items-center gap-2">
+              <CommandPalette active={tab} onSelect={selectTab} />
+              <label className="hidden items-center gap-2 text-sm text-gray-500 cursor-pointer select-none xl:flex">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
@@ -615,30 +696,32 @@ export default function Home() {
               <button
                 onClick={refreshAll}
                 disabled={refreshing}
-                className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-100 px-3 py-1.5 rounded-md border border-gray-700 hover:border-gray-500 transition disabled:opacity-60 disabled:cursor-default"
+                aria-label={refreshing ? "Refreshing console" : "Refresh console"}
+                className="flex h-8 items-center gap-1.5 text-sm text-gray-400 hover:text-gray-100 px-2.5 rounded-md border border-gray-700 hover:border-gray-500 transition disabled:opacity-60 disabled:cursor-default"
               >
-                <span className={`inline-block leading-none ${refreshing ? "animate-spin" : ""}`}>⟳</span>
-                {refreshing ? "Refreshing…" : "Refresh"}
+                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                <span className="hidden lg:inline">{refreshing ? "Refreshing…" : "Refresh"}</span>
               </button>
               {/* Theme toggle */}
               <button
                 onClick={toggleTheme}
                 title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-                suppressHydrationWarning
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
                 className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-gray-100 transition text-base"
               >
-                {theme === "dark" ? "☀" : "☾"}
+                {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
               </button>
               <ThemePicker />
             </div>
           </div>
           {/* Tabs */}
-          <nav className="flex gap-1 -mb-px">
+          <nav className="-mb-px flex gap-1 overflow-x-auto" aria-label="Console tools">
             {tabs.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
+                onClick={() => selectTab(t.id)}
+                aria-current={tab === t.id ? "page" : undefined}
+                className={`whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 transition ${
                   tab === t.id
                     ? "border-blue-500 text-slate-900 dark:text-slate-100"
                     : "border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600"
@@ -654,11 +737,13 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+
+        <TabErrorBoundary key={tab} label={tabs.find((item) => item.id === tab)?.label ?? "Console"}>
 
         {/* ── GPU QUICK STATUS (every tab except Stack, which shows it in full) ── */}
         {gpu && !gpu.error && tab !== "stack" && (
-          <button onClick={() => setTab("stack")} className={`w-full rounded-lg border px-4 py-2 flex items-center gap-4 text-left transition hover:border-gray-600 ${
+          <button onClick={() => selectTab("stack")} className={`w-full rounded-lg border px-4 py-2 flex items-center gap-4 text-left transition hover:border-gray-600 ${
             gpu.impact === "critical" ? "bg-red-500/5 border-red-500/30" :
             gpu.impact === "warning" ? "bg-yellow-500/5 border-yellow-500/30" :
             "bg-gray-900 border-gray-800"
@@ -685,6 +770,28 @@ export default function Home() {
         {/* ── STACK TAB (services + GPU) ── */}
         {tab === "stack" && (
           <div className="space-y-4">
+            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Stack overview">
+              <button type="button" onClick={() => setStackFilter("all")} className="rounded-xl border border-gray-800 bg-gray-900 p-3 text-left transition hover:border-gray-600">
+                <span className="text-[10px] uppercase tracking-wide text-gray-600">Running</span>
+                <span className="mt-1 block text-xl font-semibold tabular-nums text-gray-100">{runningServices}<span className="text-sm text-gray-600">/{managedServices.length}</span></span>
+                <span className="text-[11px] text-gray-500">managed services ready</span>
+              </button>
+              <button type="button" onClick={() => setStackFilter("attention")} className={`rounded-xl border p-3 text-left transition ${attentionServices.length ? "border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50" : "border-gray-800 bg-gray-900 hover:border-gray-600"}`}>
+                <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-600"><AlertTriangle className="h-3 w-3" /> Needs attention</span>
+                <span className={`mt-1 block text-xl font-semibold tabular-nums ${attentionServices.length ? "text-amber-300" : "text-gray-100"}`}>{attentionServices.length}</span>
+                <span className="text-[11px] text-gray-500">failed, starting or external</span>
+              </button>
+              <div className="rounded-xl border border-gray-800 bg-gray-900 p-3">
+                <span className="text-[10px] uppercase tracking-wide text-gray-600">GPU memory</span>
+                <span className="mt-1 block text-xl font-semibold tabular-nums text-gray-100">{gpu && !gpu.error ? `${(gpu.mem_used / 1024).toFixed(1)} GB` : "—"}</span>
+                <span className="text-[11px] text-gray-500">{gpu && !gpu.error ? `${(gpu.mem_free / 1024).toFixed(1)} GB free of ${(gpu.mem_total / 1024).toFixed(0)}` : "telemetry unavailable"}</span>
+              </div>
+              <div className="rounded-xl border border-gray-800 bg-gray-900 p-3">
+                <span className="text-[10px] uppercase tracking-wide text-gray-600">Scheduler</span>
+                <span className={`mt-1 block text-xl font-semibold tabular-nums ${queueDepth ? "text-sky-300" : "text-gray-100"}`}>{queueDepth}</span>
+                <span className="text-[11px] text-gray-500">{resourceControl ? `${resourceControl.leases.length} active · ${resourceControl.queue.length} queued` : "manager reconnect required"}</span>
+              </div>
+            </section>
             {/* GPU strip — the shared constraint, above the things competing for it */}
             {gpu && !gpu.error ? (
               <section className={`rounded-xl border p-4 ${
@@ -782,6 +889,53 @@ export default function Home() {
                       <p className="mt-1.5 text-[10px] text-amber-400/80">
                         Low — a second host-resident model (Qwen-Image or FLUX, ~28 GB each) will not load.
                       </p>
+                    )}
+                  </div>
+                )}
+
+                {/* The measured bars above explain what the machine is doing;
+                    this is the control plane deciding what may happen next. */}
+                {resourceControl && (
+                  <div className="mt-3 pt-3 border-t border-gray-800 text-[11px]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-gray-300">Work scheduler</span>
+                      <span className={`px-1.5 py-0.5 rounded-full ${
+                        resourceControl.leases.length
+                          ? "bg-orange-500/15 text-orange-300"
+                          : "bg-green-500/15 text-green-400"
+                      }`}>
+                        {resourceControl.leases.length ? `${resourceControl.leases.length} active` : "idle"}
+                      </span>
+                      <span className="text-gray-600">
+                        {resourceControl.queue.length} queued · {resourceControl.starts.length} starting
+                      </span>
+                      <span className="ml-auto text-gray-600 tabular-nums">
+                        modeled {resourceControl.usage.vramGb.toFixed(1)} GB VRAM · {resourceControl.usage.ramGb.toFixed(1)} GB RAM
+                      </span>
+                    </div>
+
+                    {resourceControl.leases.map((lease) => (
+                      <div key={lease.id} className="mt-2 flex items-center gap-2 rounded-md bg-gray-950/60 px-2.5 py-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                        <span className="text-gray-300">{lease.workload}</span>
+                        <span className="text-gray-600 truncate">{lease.owner}</span>
+                        <span className="ml-auto text-gray-500 tabular-nums">
+                          {lease.resources.vramGb.toFixed(1)} GB VRAM · {lease.lane}
+                        </span>
+                      </div>
+                    ))}
+
+                    {resourceControl.queue.slice(0, 3).map((item, index) => (
+                      <div key={item.id} className="mt-1.5 flex items-center gap-2 text-gray-500">
+                        <span className="tabular-nums text-gray-700">#{index + 1}</span>
+                        <span className={item.lane === "interactive" ? "text-sky-300/80" : "text-gray-500"}>{item.lane}</span>
+                        <span className="text-gray-400">{item.workload}</span>
+                        <span className="truncate">{item.lastDenial?.message ?? "waiting for admission"}</span>
+                      </div>
+                    ))}
+
+                    {resourceControl.lastEvent?.type.endsWith("blocked") && resourceControl.lastEvent.message && (
+                      <p className="mt-2 text-amber-400/80">Last refusal: {resourceControl.lastEvent.message}</p>
                     )}
                   </div>
                 )}
@@ -900,12 +1054,15 @@ export default function Home() {
             <div className="flex items-center gap-2 flex-wrap">
               {([
                 ["all", "All"],
+                ["attention", "Attention"],
                 ["ai", "AI"],
                 ["app", "App"],
                 ["monitoring", "Monitor"],
               ] as const).map(([id, label]) => {
                 const n = id === "all"
                   ? managedServices.length
+                  : id === "attention"
+                    ? attentionServices.length
                   : managedServices.filter((s) => s.category === id).length;
                 return (
                   <button
@@ -921,11 +1078,34 @@ export default function Home() {
                   </button>
                 );
               })}
+              <div className="ml-auto flex items-center rounded-lg border border-gray-800 bg-gray-900 p-0.5" aria-label="Stack card density">
+                <button
+                  type="button"
+                  onClick={() => { setCompactStack(true); window.localStorage.setItem("bt-stack-density", "compact"); }}
+                  aria-pressed={compactStack}
+                  className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] transition ${compactStack ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-200"}`}
+                ><LayoutGrid className="h-3 w-3" /> Compact</button>
+                <button
+                  type="button"
+                  onClick={() => { setCompactStack(false); window.localStorage.setItem("bt-stack-density", "detail"); }}
+                  aria-pressed={!compactStack}
+                  className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] transition ${!compactStack ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-200"}`}
+                ><List className="h-3 w-3" /> Detail</button>
+              </div>
             </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {stackFilter === "attention" && attentionServices.length === 0 && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-5 text-sm text-emerald-300">
+              Nothing needs attention. Intentionally stopped on-demand services remain available under All.
+            </div>
+          )}
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${compactStack ? "xl:grid-cols-4" : "lg:grid-cols-3"}`}>
             {managedServices.filter((s) =>
-              stackFilter === "all" ? true : s.category === stackFilter,
+              stackFilter === "all"
+                ? true
+                : stackFilter === "attention"
+                  ? s.status === "failed" || s.status === "starting" || s.owner === "external"
+                  : s.category === stackFilter,
             ).map((s) => {
               const isActing = actionInProgress?.id === s.id;
               const actingVerb = isActing ? actionInProgress!.action : null;
@@ -1039,7 +1219,7 @@ export default function Home() {
                         catalogue the Models tab uses, so they can't disagree. */}
                     {(catalogByService[s.id]?.length ?? 0) > 0 && (
                       <div className="mb-2 space-y-1">
-                        {catalogByService[s.id].map((m) => (
+                        {catalogByService[s.id].slice(0, compactStack ? 1 : undefined).map((m) => (
                           <div key={m.id} className="flex items-baseline gap-1.5 flex-wrap">
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 font-medium">
                               {m.id}
@@ -1049,20 +1229,23 @@ export default function Home() {
                                 active · {activeModels[m.id]}
                               </span>
                             )}
-                            {m.params && <span className="text-[10px] text-gray-500">{m.params}</span>}
+                            {m.params && !compactStack && <span className="text-[10px] text-gray-500">{m.params}</span>}
                             {/* Live VRAM when the service is up, expected cost when
                                 it isn't — the card already shows one, never the other. */}
                             <ModelFootprint
                               footprint={m.footprint}
                               liveVramMb={gpu?.service_vram?.[s.id]?.used_mb ?? null}
                             />
-                            {m.checkpoint && (
+                            {m.checkpoint && !compactStack && (
                               <span className="text-[10px] font-mono text-gray-600 truncate w-full" title={m.checkpoint}>
                                 {m.checkpoint}
                               </span>
                             )}
                           </div>
                         ))}
+                        {compactStack && catalogByService[s.id].length > 1 && (
+                          <span className="text-[10px] text-gray-600">+{catalogByService[s.id].length - 1} more model alias</span>
+                        )}
                       </div>
                     )}
 
@@ -1070,7 +1253,7 @@ export default function Home() {
                         process, and only one is in VRAM at a time. The manager and
                         the router both see a single service, so the split is only
                         visible if the card reads the service's own /health. */}
-                    {s.id === "qwen" && (
+                    {s.id === "qwen" && !compactStack && (
                       <div className="mb-2 space-y-1">
                         <p className="text-[10px] uppercase tracking-wide text-gray-600">
                           Checkpoints · one in VRAM at a time
@@ -1114,7 +1297,7 @@ export default function Home() {
                     )}
 
                     {/* Routing */}
-                    {r && (
+                    {r && !compactStack && (
                       <div className="bg-gray-800/60 rounded-lg px-3 py-2 space-y-1.5 text-[11px] font-mono">
                         <div className="flex items-center gap-2">
                           <span className={`w-1 h-1 rounded-full flex-shrink-0 ${isLocal ? "bg-emerald-400" : "bg-gray-600"}`} />
@@ -1131,7 +1314,7 @@ export default function Home() {
 
                     {/* Feedback message */}
                     {msg && (
-                      <div className={`mt-2 text-[11px] px-3 py-1.5 rounded-lg border ${
+                      <div role="status" aria-live="polite" className={`mt-2 text-[11px] px-3 py-1.5 rounded-lg border ${
                         msg.type === "error"
                           ? "bg-red-500/10 text-red-400 border-red-500/20"
                           : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
@@ -1202,7 +1385,7 @@ export default function Home() {
                       if (cta.goTab) return (
                         <>
                           <div className="w-px h-4 bg-gray-800 flex-shrink-0" />
-                          <button onClick={() => setTab(cta.goTab!)} className={cls}>
+                          <button onClick={() => selectTab(cta.goTab!)} className={cls}>
                             {cta.label}
                           </button>
                         </>
@@ -1459,6 +1642,7 @@ export default function Home() {
 
         {/* ── MODELS / AI ROUTER TAB ── */}
         {tab === "models" && <ProvidersView />}
+        </TabErrorBoundary>
 
 
         {/* Footer */}

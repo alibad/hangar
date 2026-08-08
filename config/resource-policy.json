@@ -1,0 +1,54 @@
+{
+  "_doc": "Authoritative resource policy shared by the BeTenshi manager and console. Numeric footprints are resolved from model-meta.json so measured values have one source of truth.",
+  "budgets": {
+    "ramSafetyGb": 4,
+    "vramSafetyGb": 0.02
+  },
+  "services": {
+    "vllm": { "model": "local-coder" },
+    "vllm-small": { "model": "local-small" },
+    "whisper": { "model": "local-whisper" },
+    "tts": { "model": "local-kokoro" },
+    "qwen": { "model": "local-qwen-image" },
+    "comfyui": { "model": "local-flux-schnell" },
+    "sam3": {},
+    "sam3d": {}
+  },
+  "workloads": {
+    "qwen-generate": {
+      "service": "qwen",
+      "model": "local-qwen-image",
+      "slot": "gpu-heavy",
+      "aliases": ["qwen-image", "local-qwen-image"],
+      "ttlMs": 900000
+    },
+    "flux-generate": {
+      "service": "comfyui",
+      "model": "local-flux-schnell",
+      "slot": "gpu-heavy",
+      "aliases": ["flux-schnell", "local-flux-schnell"],
+      "ttlMs": 900000
+    },
+    "qwen-edit": {
+      "service": "qwen",
+      "model": "local-qwen-image",
+      "slot": "gpu-heavy",
+      "ttlMs": 900000
+    },
+    "sam3-segment": {
+      "service": "sam3",
+      "slot": "gpu-heavy",
+      "ttlMs": 600000
+    },
+    "sam3-video": {
+      "service": "sam3",
+      "slot": "gpu-heavy",
+      "ttlMs": 1800000
+    },
+    "sam3d-pose": {
+      "service": "sam3d",
+      "slot": "gpu-heavy",
+      "ttlMs": 900000
+    }
+  }
+}
