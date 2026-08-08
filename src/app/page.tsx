@@ -9,6 +9,7 @@ import Sam3dView from "@/components/sam3d-view";
 import Sam3View from "@/components/sam3-view";
 import ProvidersView from "@/components/providers-view";
 import ModelFootprint, { type Footprint } from "@/components/model-footprint";
+import Markdown from "@/components/markdown";
 import { ServiceLogsButton } from "@/components/service-control";
 import { useTheme } from "@/components/theme-provider";
 import { ThemePicker } from "@/components/theme-picker";
@@ -20,6 +21,28 @@ import {
 // Small inline spinner shown while a service action (start/stop/restart) is in flight.
 function Spinner() {
   return <span className="inline-block w-3 h-3 rounded-full border-[1.5px] border-current border-t-transparent animate-spin align-[-2px]" />;
+}
+
+/**
+ * A reasoning model's working, collapsed.
+ *
+ * Worth showing — it's most of what you're paying for with a reasoning model,
+ * and it's where you see the reply go wrong. Worth collapsing — it's routinely
+ * longer than the answer, and expanded by default it buries the thing you asked
+ * for. Closed, with the length on the summary so you can judge before opening.
+ */
+function ThinkingBlock({ text }: { text: string }) {
+  const words = text.trim().split(/\s+/).length;
+  return (
+    <details className="mb-2 rounded-lg border border-violet-500/25 bg-violet-500/5">
+      <summary className="cursor-pointer select-none px-2.5 py-1.5 text-[11px] text-violet-300/90 hover:text-violet-200">
+        Thinking <span className="text-violet-400/50 tabular-nums">· {words} words</span>
+      </summary>
+      <div className="border-t border-violet-500/20 px-2.5 py-2 text-[12px] leading-relaxed text-gray-400 whitespace-pre-wrap">
+        {text}
+      </div>
+    </details>
+  );
 }
 
 type ServiceStatus = {
@@ -70,6 +93,10 @@ type CatalogEntry = {
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+  /** Reasoning models put their working here — see splitThinking in /api/chat. */
+  thinking?: string | null;
+  /** finish_reason === "length": the reply was cut off, often mid-thought. */
+  truncated?: boolean;
   latency?: number;
   tokens?: number;
   model?: string;
@@ -489,6 +516,8 @@ export default function Home() {
           : {
               role: "assistant",
               content: data.content,
+              thinking: data.thinking,
+              truncated: data.truncated,
               latency: data.latency,
               tokens: data.usage?.total_tokens,
               model: data.model,
@@ -1237,7 +1266,22 @@ export default function Home() {
                       <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${
                         msg.role === "user" ? "bg-blue-600 on-accent" : "bg-gray-800 text-gray-100"
                       }`}>
-                        <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">{msg.content}</pre>
+                        {/* Thinking first and collapsed: it's the interesting
+                            part of a reasoning model, but it is not the answer. */}
+                        {msg.thinking && <ThinkingBlock text={msg.thinking} />}
+                        {/* The user's own text is literal — rendering it as
+                            markdown would reformat what they typed. */}
+                        {msg.role === "user" ? (
+                          <pre className="whitespace-pre-wrap text-sm font-sans leading-relaxed">{msg.content}</pre>
+                        ) : msg.content ? (
+                          <Markdown>{msg.content}</Markdown>
+                        ) : (
+                          <p className="text-sm italic text-gray-400">
+                            {msg.truncated
+                              ? "Spent the whole token budget thinking — no answer left. Raise max_tokens."
+                              : "Empty reply."}
+                          </p>
+                        )}
                         {msg.latency != null && (
                           <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
                             <span>{msg.latency}ms</span>
