@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { CaretDown, Moon, Sun } from "@phosphor-icons/react";
-import { Activity, Home, Network, RefreshCw, Server } from "lucide-react";
+import { Activity, Gauge, Home, Network, RefreshCw, Server } from "lucide-react";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import { ThemePicker } from "@/components/theme-picker";
 import { useTheme } from "@/components/theme-provider";
@@ -29,6 +29,12 @@ const workstreams: Array<{ id: ConsoleTab; label: string; hint: string }> = [
   { id: "sam3", label: "Segment", hint: "Open-vocabulary masks" },
 ];
 
+// What is flowing through the stack, and what it costs.
+const insights: Array<{ id: ConsoleTab; label: string; hint: string }> = [
+  { id: "requests", label: "Requests", hint: "Live traffic and failures" },
+  { id: "usage", label: "Usage", hint: "Claude Code tokens and cost" },
+];
+
 export default function ConsoleHeader({
   active,
   onSelect,
@@ -43,17 +49,24 @@ export default function ConsoleHeader({
 }: Props) {
   const { theme, toggle } = useTheme();
   const workstreamsMenuRef = useRef<HTMLDetailsElement>(null);
+  const insightsMenuRef = useRef<HTMLDetailsElement>(null);
   const workstreamActive = workstreams.some((item) => item.id === active);
+  const insightsActive = insights.some((item) => item.id === active);
 
   useEffect(() => {
-    const closeWorkstreams = () => workstreamsMenuRef.current?.removeAttribute("open");
+    const menus = [workstreamsMenuRef, insightsMenuRef];
+    const closeAll = () => menus.forEach((ref) => ref.current?.removeAttribute("open"));
     const handlePointerDown = (event: PointerEvent) => {
-      if (!workstreamsMenuRef.current?.contains(event.target as Node)) closeWorkstreams();
+      for (const ref of menus) {
+        if (!ref.current?.contains(event.target as Node)) ref.current?.removeAttribute("open");
+      }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !workstreamsMenuRef.current?.open) return;
-      closeWorkstreams();
-      workstreamsMenuRef.current.querySelector("summary")?.focus();
+      if (event.key !== "Escape") return;
+      const open = menus.find((ref) => ref.current?.open);
+      if (!open) return;
+      closeAll();
+      open.current?.querySelector("summary")?.focus();
     };
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -66,6 +79,11 @@ export default function ConsoleHeader({
 
   const selectWorkstream = (tab: ConsoleTab) => {
     workstreamsMenuRef.current?.removeAttribute("open");
+    onSelect(tab);
+  };
+
+  const selectInsight = (tab: ConsoleTab) => {
+    insightsMenuRef.current?.removeAttribute("open");
     onSelect(tab);
   };
 
@@ -96,7 +114,20 @@ export default function ConsoleHeader({
           </details>
           <NavButton active={active === "services"} onClick={() => onSelect("services")}>Services</NavButton>
           <NavButton active={active === "models"} onClick={() => onSelect("models")}>Models</NavButton>
-          <NavButton active={active === "requests"} onClick={() => onSelect("requests")}>Requests</NavButton>
+          <details ref={insightsMenuRef} className="group relative h-full">
+            <summary className={`flex h-full cursor-pointer list-none items-center gap-1 px-3 text-sm font-medium transition ${insightsActive ? "text-orange-300" : "text-gray-500 hover:text-gray-200"}`}>
+              Insights
+              <CaretDown size={11} className="transition group-open:rotate-180" />
+            </summary>
+            <div className="absolute left-0 top-[54px] w-56 overflow-hidden rounded-xl border border-gray-700 bg-gray-950 p-1.5 shadow-2xl">
+              {insights.map((item) => (
+                <button key={item.id} type="button" onClick={() => selectInsight(item.id)} className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-gray-800">
+                  <span className="block text-xs font-medium text-gray-200">{item.label}</span>
+                  <span className="block text-[10px] text-gray-600">{item.hint}</span>
+                </button>
+              ))}
+            </div>
+          </details>
         </nav>
 
         <div className="ml-auto flex min-w-0 items-center gap-2">
@@ -127,10 +158,11 @@ export default function ConsoleHeader({
         </div>
       </div>
     </header>
-    <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-4 rounded-2xl border border-gray-700 bg-gray-950/95 p-1.5 shadow-2xl backdrop-blur-xl md:hidden" aria-label="Mobile navigation">
+    <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-2xl border border-gray-700 bg-gray-950/95 p-1.5 shadow-2xl backdrop-blur-xl md:hidden" aria-label="Mobile navigation">
         <MobileNavButton label="Home" active={active === "stack"} onClick={() => onSelect("stack")} icon={<Home className="h-4 w-4" />} />
         <MobileNavButton label="Services" active={active === "services"} onClick={() => onSelect("services")} icon={<Server className="h-4 w-4" />} />
         <MobileNavButton label="Requests" active={active === "requests"} onClick={() => onSelect("requests")} icon={<Activity className="h-4 w-4" />} />
+        <MobileNavButton label="Usage" active={active === "usage"} onClick={() => onSelect("usage")} icon={<Gauge className="h-4 w-4" />} />
         <MobileNavButton label="Models" active={active === "models"} onClick={() => onSelect("models")} icon={<Network className="h-4 w-4" />} />
     </nav>
     </>

@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import ModelPicker from "@/components/model-picker";
 import QwenTab from "@/components/qwen-tab";
 import RequestsView from "@/components/requests-view";
+import UsageView from "@/components/usage-view";
 import Sam3dView from "@/components/sam3d-view";
 import Sam3View from "@/components/sam3-view";
 import ProvidersView from "@/components/providers-view";
@@ -320,7 +321,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const valid = new Set<ConsoleTab>(["stack", "services", "llm", "speech", "qwen", "requests", "sam3d", "sam3", "models"]);
+    const valid = new Set<ConsoleTab>(["stack", "services", "llm", "speech", "qwen", "requests", "usage", "sam3d", "sam3", "models"]);
     const resolve = () => {
       const hash = window.location.hash.slice(1) as ConsoleTab;
       const saved = window.localStorage.getItem("bt-active-tab") as ConsoleTab | null;
@@ -657,6 +658,7 @@ export default function Home() {
     // the studio now, so both share its gallery, queue and Activity feed.
     { id: "qwen" as const, label: "Image" },
     { id: "requests" as const, label: "Requests" },
+    { id: "usage" as const, label: "Usage" },
     { id: "sam3d" as const, label: "3D Body" },
     { id: "sam3" as const, label: "Segment" },
     { id: "models" as const, label: "Models" },
@@ -1701,6 +1703,9 @@ export default function Home() {
 
         {/* ── REQUESTS TAB ── */}
         {tab === "requests" && <RequestsView />}
+
+        {/* ── USAGE TAB ── */}
+        {tab === "usage" && <UsageView />}
 
         {/* ── SAM3D TAB ── */}
         {tab === "sam3d" && <Sam3dView />}
