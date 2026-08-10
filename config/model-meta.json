@@ -61,13 +61,13 @@
     "checkpoint": "Qwen/Qwen2.5-7B-Instruct-AWQ",
     "params": "7B · AWQ 4-bit",
     "docs": "https://hf.co/Qwen/Qwen2.5-7B-Instruct-AWQ",
-    "note": "8k context, gpu-memory-utilization 0.24 — small enough to co-reside.",
+    "note": "16k context with Hermes tool parsing for MCP agents; gpu-memory-utilization 0.55.",
     "service": "vllm-small",
     "footprint": {
-      "vramGb": 7.6,
+      "vramGb": 17.5,
       "ramGb": 1,
       "kind": "reserved",
-      "basis": "Read off the container's launch flags: --gpu-memory-utilization 0.24 of a 31.8 GB card, reserved at startup. ~4 GB of AWQ 4-bit weights plus KV cache for 8k context."
+      "basis": "Read off the OpenRA tool-enabled container launch flags: --gpu-memory-utilization 0.55 of a 31.8 GB card, with KV cache for 16k context."
     }
   },
   "local-whisper": {
