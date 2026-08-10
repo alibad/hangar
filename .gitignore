@@ -13,8 +13,3 @@ __pycache__/
 # Ad-hoc dev-server redirects. The task logs to var/console.log (rotated).
 console-dev.log
 console-dev.err.log
-
-# Screenshots from design-QA passes: ~2 MB per run, regenerated on demand, and
-# superseded the moment the UI changes. The write-up (design-qa.md) is the part
-# worth keeping in history; the PNGs are not.
-design-qa-artifacts/
