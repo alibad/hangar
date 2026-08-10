@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { record, readTraffic, type TrafficEvent } from "@/lib/traffic";
+import { recordRouterCall } from "@/lib/router-usage";
 
 // GET — the merged feed (live ring + parsed access logs), newest first.
 // Background noise (polling + gallery asset loads) is returned SEPARATELY and
@@ -43,6 +44,12 @@ export async function POST(req: NextRequest) {
           : null,
     };
     record(ev);
+    // Durable copy of billable router calls. Deliberately not awaited: the ring
+    // is the live feed and must stay fast, and a duckdb hiccup must not drop the
+    // event or fail the producer's POST.
+    void recordRouterCall(ev).catch((err) =>
+      console.error("[traffic] router_calls insert failed:", err),
+    );
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
