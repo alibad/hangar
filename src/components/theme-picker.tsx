@@ -34,7 +34,7 @@ export function ThemePicker() {
         title={`Theme: ${current.name}`}
         aria-label="Change theme"
         aria-expanded={open}
-        className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-700 hover:border-gray-500 transition"
+        className="flex h-11 w-11 items-center justify-center rounded-md border border-gray-700 transition hover:border-gray-500 md:h-8 md:w-8"
       >
         {/* The swatch is drawn from the live CSS ramp, not the stored hex, so it
             always matches what the rest of the UI actually renders. */}

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ServiceControls, ServiceStartupNote, useServiceLifecycle } from "./service-control";
+import { SelectionAll } from "@phosphor-icons/react";
+import { ToolPageHeader } from "./tool-page";
 
 type Health = {
   up: boolean;
@@ -189,9 +191,16 @@ export default function Sam3View() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="tool-page vision-page segment-page space-y-6">
+      <ToolPageHeader
+        eyebrow="Open-vocabulary vision"
+        title="Segment"
+        description="Describe what matters, then mask every matching object in an image or track it across a video."
+        icon={<SelectionAll size={24} weight="duotone" />}
+        meta={<span className={`tool-page-chip ${ready ? "is-ready" : "is-offline"}`}>{ready ? "Model ready" : "On demand"}</span>}
+      />
       {/* health header */}
-      <section className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+      <section className="tool-panel service-status-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
         <div className="flex items-center gap-3 flex-wrap">
           <span className={`w-2.5 h-2.5 rounded-full ${
             lifecycle.busyVerb ? "bg-amber-400 animate-pulse"
@@ -222,7 +231,7 @@ export default function Sam3View() {
       </section>
 
       {/* uploader + concept prompt */}
-      <section className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-4">
+      <section className="tool-panel vision-workspace bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-4">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 bg-gray-950 border border-gray-800 rounded-lg p-0.5">
             {tabBtn("image", "Image")}

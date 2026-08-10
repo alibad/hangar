@@ -218,6 +218,7 @@ export function ServiceControls({
   actions = ["stop", "restart"],
   onRefresh,
   stopTitle,
+  confirmStop,
   name,
   showLogs = true,
   className = "",
@@ -228,6 +229,8 @@ export function ServiceControls({
   onRefresh?: () => void;
   /** Service-specific warning for Stop, e.g. how much VRAM it frees. */
   stopTitle?: string;
+  /** When set, Stop requires a second explicit confirmation with this impact copy. */
+  confirmStop?: string;
   /** Title for the log viewer; defaults to the registry name for this id. */
   name?: string;
   /** On by default — a service you can start is one you'll want to read the logs of. */
@@ -235,6 +238,7 @@ export function ServiceControls({
   className?: string;
 }) {
   const { up, busyVerb, run } = lifecycle;
+  const [confirmingStop, setConfirmingStop] = useState(false);
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {busyVerb ? (
@@ -244,9 +248,15 @@ export function ServiceControls({
         </span>
       ) : up ? (
         <>
-          {actions.includes("stop") && (
+          {actions.includes("stop") && confirmingStop && confirmStop ? (
+            <span className="flex flex-wrap items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-100">
+              <span className="max-w-64 leading-4">{confirmStop}</span>
+              <button type="button" onClick={() => { setConfirmingStop(false); run("stop"); }} className="rounded bg-red-500 px-2 py-1 font-medium text-white">Confirm stop</button>
+              <button type="button" onClick={() => setConfirmingStop(false)} className="rounded border border-gray-600 px-2 py-1 text-gray-200">Cancel</button>
+            </span>
+          ) : actions.includes("stop") && (
             <button
-              onClick={() => run("stop")}
+              onClick={() => confirmStop ? setConfirmingStop(true) : run("stop")}
               title={stopTitle ?? "Stop this service"}
               className="text-[11px] text-red-400 hover:text-red-300 border border-red-700/40 hover:border-red-600 rounded-md px-2 py-1 transition cursor-pointer"
             >

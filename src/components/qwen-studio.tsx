@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Star, Trash2, ChevronDown, ChevronUp, Mic, Square } from "lucide-react";
+import { Star, Trash2, ChevronDown, ChevronUp, Mic, Square, X, ChevronRight, SlidersHorizontal, ServerCog } from "lucide-react";
 import { DIM_POOLS, type DimKey } from "@/lib/prompt-variations";
 import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, type ImageModelId } from "@/lib/image-models";
 import { useLocalFootprints } from "@/lib/use-local-footprints";
@@ -71,9 +71,86 @@ function Spinner() {
   return <span className="inline-block w-3 h-3 rounded-full border-[1.5px] border-current border-t-transparent animate-spin align-[-2px]" />;
 }
 
+function StudioDialog({
+  title,
+  description,
+  onClose,
+  children,
+}: {
+  title: string;
+  description: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const frame = requestAnimationFrame(() => closeRef.current?.focus());
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="image-setup-dialog-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="image-setup-dialog-title"
+      aria-describedby="image-setup-dialog-description"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div ref={dialogRef} className="image-setup-dialog">
+        <header className="image-setup-dialog-header">
+          <div className="min-w-0">
+            <h2 id="image-setup-dialog-title">{title}</h2>
+            <p id="image-setup-dialog-description">{description}</p>
+          </div>
+          <button ref={closeRef} type="button" onClick={onClose} aria-label={`Close ${title}`}>
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+        <div className="image-setup-dialog-body">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function QwenStudio() {
   const [health, setHealth] = useState<QwenHealth | null>(null);
   const [mode, setMode] = useState<"generate" | "batch" | "jobs" | "edit" | "compare">("generate");
+  const [setupDialog, setSetupDialog] = useState<null | "model" | "runtime">(null);
 
   // Which model Generate targets. Qwen-Image is the resident service on :8021;
   // FLUX.1-schnell goes through ComfyUI on :8188 and is the fast-draft tier.
@@ -161,6 +238,19 @@ export default function QwenStudio() {
 
   // run state
   const [busy, setBusy] = useState(false);
+  const homeDraftApplied = useRef(false);
+
+  // Home's multimodal composer hands image prompts to the studio through a
+  // one-shot local draft. Consume it here so Run lands in the real generator
+  // with the user's text intact, without coupling the two large components.
+  useEffect(() => {
+    const draft = window.localStorage.getItem("bt-qwen-draft");
+    if (!draft) return;
+    homeDraftApplied.current = true;
+    setPrompt(draft);
+    setMode("generate");
+    window.localStorage.removeItem("bt-qwen-draft");
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [editNotice, setEditNotice] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -458,7 +548,7 @@ export default function QwenStudio() {
       if (s.batchSuffix !== undefined) setBatchSuffix(s.batchSuffix);
       if (s.batchManual !== undefined) setBatchManual(s.batchManual);
       if (s.batchDims) setBatchDims(s.batchDims);
-      if (s.prompt !== undefined) setPrompt(s.prompt);
+      if (s.prompt !== undefined && !homeDraftApplied.current) setPrompt(s.prompt);
     } catch { /* ignore */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1225,10 +1315,82 @@ export default function QwenStudio() {
       : health.up
         ? "bg-yellow-500"
         : "bg-red-500";
+  const closeSetupDialog = useCallback(() => setSetupDialog(null), []);
+  const runtimeName =
+    activeModel.serviceId === "qwen"
+      ? "Qwen-Image service"
+      : activeModel.serviceId === "comfyui"
+        ? "ComfyUI"
+        : "AI Router";
+  const runtimeReady =
+    activeModel.serviceId === "qwen"
+      ? !!health?.up
+      : activeModel.serviceId === "comfyui"
+        ? !!comfyHealth?.up
+        : routerUp;
+  const runtimeBusy =
+    activeModel.serviceId === "qwen"
+      ? busyVerb
+      : activeModel.serviceId === "comfyui"
+        ? comfyLifecycle.busyVerb
+        : null;
+  const runtimeDetail =
+    activeModel.serviceId === "qwen"
+      ? runtimeBusy
+        ? runtimeBusy === "stop" ? "Stopping…" : runtimeBusy === "restart" ? "Restarting…" : "Starting…"
+        : health?.up
+          ? `${health.latency}ms · 2 checkpoints`
+          : "Offline"
+      : activeModel.serviceId === "comfyui"
+        ? runtimeBusy
+          ? runtimeBusy === "stop" ? "Stopping…" : runtimeBusy === "restart" ? "Restarting…" : "Starting…"
+          : comfyHealth?.up
+            ? `Running · ${activeModel.name}`
+            : "Offline"
+        : routerUp
+          ? "Cloud · no local VRAM"
+          : "Router offline";
 
   return (
-    <div className="space-y-6">
+    <div className="image-studio-grid">
+      <aside className="image-runtime-rail" aria-label="Run setup">
+        <section className="image-run-setup">
+          <div className="image-run-setup-heading">
+            <div>
+              <p>Run setup</p>
+              <span>Model and runtime</span>
+            </div>
+            <span className={runtimeReady ? "is-ready" : "is-offline"}>
+              {runtimeBusy ? "Working" : runtimeReady ? "Ready" : "Offline"}
+            </span>
+          </div>
+          <button type="button" className="image-run-setup-row" onClick={() => setSetupDialog("model")}>
+            <span className="image-run-setup-icon" aria-hidden="true"><SlidersHorizontal className="h-4 w-4" /></span>
+            <span className="min-w-0 flex-1 text-left">
+              <span className="image-run-setup-label">Model</span>
+              <strong>{activeModel.name}</strong>
+              <span>{activeModel.tier}</span>
+            </span>
+            <span className="image-run-setup-action">Change <ChevronRight className="h-3.5 w-3.5" /></span>
+          </button>
+          <button type="button" className="image-run-setup-row" onClick={() => setSetupDialog("runtime")}>
+            <span className="image-run-setup-icon" aria-hidden="true"><ServerCog className="h-4 w-4" /></span>
+            <span className="min-w-0 flex-1 text-left">
+              <span className="image-run-setup-label">Runtime</span>
+              <strong><span className={`image-run-setup-dot ${runtimeBusy ? "is-busy" : runtimeReady ? "is-ready" : "is-offline"}`} />{runtimeName}</strong>
+              <span>{runtimeDetail}</span>
+            </span>
+            <span className="image-run-setup-action">Manage <ChevronRight className="h-3.5 w-3.5" /></span>
+          </button>
+        </section>
+      </aside>
 
+      {setupDialog === "model" && (
+        <StudioDialog
+          title="Choose image model"
+          description="Local models use this machine's GPU and RAM. Cloud models are billed by their provider."
+          onClose={closeSetupDialog}
+        >
       {/* ── MODEL PICKER ──
           Which backend Generate targets. These used to be two separate tabs
           ("Qwen Image" and "Creative"); the second had no gallery, no queue and
@@ -1237,7 +1399,7 @@ export default function QwenStudio() {
 
           It leads the page because everything below follows from the answer:
           which service's health you see, and which modes are available. */}
-      <div className="space-y-2">
+      <div className="image-model-panel space-y-3" aria-label="Image model">
         <div className="flex items-center gap-2 pl-1">
           <span className="text-[10px] uppercase tracking-wide text-gray-600">Model</span>
           {/* Local vs cloud is a real split, not cosmetic: a local model is a
@@ -1269,7 +1431,7 @@ export default function QwenStudio() {
               return (
                 <button
                   key={m.id}
-                  onClick={() => pickModel(m.id, alias)}
+                  onClick={() => { pickModel(m.id, alias); setSetupDialog(null); }}
                   aria-pressed={active}
                   disabled={routingBusy === m.id}
                   className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2 text-left transition ${
@@ -1314,7 +1476,7 @@ export default function QwenStudio() {
                 return (
                   <button
                     key={m.id}
-                    onClick={() => pickModel(m.id, m.id)}
+                    onClick={() => { pickModel(m.id, m.id); setSetupDialog(null); }}
                     aria-pressed={active}
                     disabled={keyMissing || routingBusy === m.id}
                     title={keyMissing ? "This provider's API key is not set" : undefined}
@@ -1353,10 +1515,19 @@ export default function QwenStudio() {
           {activeModel.serviceId === "comfyui" && " FLUX has no router alias, so it changes the studio only."}
         </p>
       </div>
+        </StudioDialog>
+      )}
 
+      {setupDialog === "runtime" && (
+        <StudioDialog
+          title={`${runtimeName} controls`}
+          description="Service lifecycle, live status, and checkpoint diagnostics for the selected model."
+          onClose={closeSetupDialog}
+        >
+        <div className="image-runtime-dialog-stack">
       {/* ── HEALTH HEADER — Qwen-Image's own service ── */}
       {activeModel.serviceId === "qwen" && (
-        <section className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+        <section className="image-service-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
           <div className="flex items-center gap-3 flex-wrap">
             <div className={`w-2.5 h-2.5 rounded-full ${dotColor} ${busyVerb || (health?.up && !activeResident) ? "animate-pulse" : ""}`} />
             <span className="font-semibold text-sm">Qwen-Image service</span>
@@ -1475,7 +1646,7 @@ export default function QwenStudio() {
           different VRAM. Showing the Qwen service (and its two checkpoints) while
           FLUX was selected described a backend the studio wasn't about to call. */}
       {activeModel.serviceId === "comfyui" && (
-        <section className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+        <section className="image-service-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
           <div className="flex items-center gap-3 flex-wrap">
             <div className={`w-2.5 h-2.5 rounded-full ${
               comfyLifecycle.busyVerb ? "bg-amber-400 animate-pulse"
@@ -1509,78 +1680,67 @@ export default function QwenStudio() {
           />
         </section>
       )}
+      {activeModel.serviceId === null && (
+        <section className="image-service-panel rounded-xl border border-gray-800 bg-gray-900 p-4">
+          <div className="flex items-center gap-3">
+            <span className={`h-2.5 w-2.5 rounded-full ${routerUp ? "bg-green-500" : "bg-red-500"}`} />
+            <div>
+              <p className="text-sm font-semibold">AI Router</p>
+              <p className="text-xs text-gray-500">{routerUp ? "Online · the selected model runs off-box." : "Offline · cloud generation is unavailable."}</p>
+            </div>
+          </div>
+        </section>
+      )}
+        </div>
+        </StudioDialog>
+      )}
 
       {/* ── MODE TOGGLE — grouped by model ──
           Generate / Batch / Jobs are three faces of the SAME Qwen-Image model;
           Edit is the separate Qwen-Image-Edit checkpoint that swaps into its VRAM.
           Two labelled groups make that split legible instead of implying four peers. */}
-      <div className="space-y-2">
-        <div className="flex items-end gap-3 flex-wrap">
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wide text-gray-600 pl-1">Qwen-Image</span>
-            <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
-              {(["generate", "batch", "jobs"] as const).map((mm) => (
-                <button
-                  key={mm}
-                  onClick={() => setMode(mm)}
-                  disabled={mm === "batch" && !activeModel.supportsBatch}
-                  title={
-                    mm === "batch" && !activeModel.supportsBatch
-                      ? `The batch queue drives Qwen-Image directly — switch model to use it.`
+      <main className="image-workbench">
+      <nav className="image-mode-nav" aria-label="Image workflow">
+        <div className="image-mode-tabs" role="tablist">
+          {(["generate", "edit", "batch", "compare", "jobs"] as const).map((mm) => {
+            const disabled =
+              (mm === "batch" && !activeModel.supportsBatch) ||
+              (mm === "edit" && !activeModel.supportsEdit);
+            return (
+              <button
+                key={mm}
+                role="tab"
+                aria-selected={mode === mm}
+                onClick={() => setMode(mm)}
+                disabled={disabled}
+                title={
+                  mm === "batch" && disabled
+                    ? "Batch runs on Qwen-Image. Select Qwen-Image to use it."
+                    : mm === "edit" && disabled
+                      ? `${activeModel.name} has no image-edit endpoint.`
                       : undefined
-                  }
-                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition capitalize flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed ${
-                    mode === mm ? "bg-pink-600 on-accent" : "text-gray-400 hover:text-gray-100"
-                  }`}
-                >
-                  {mm}
-                  {mm === "jobs" && activeJobCount > 0 && (
-                    <span className="bg-amber-500 text-black text-[9px] rounded-full px-1.5 py-px font-bold tabular-nums leading-none">{activeJobCount}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wide text-purple-400/70 pl-1">Qwen-Image-Edit · separate model</span>
-            <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
-              <button
-                onClick={() => setMode("edit")}
-                disabled={!activeModel.supportsEdit}
-                title={!activeModel.supportsEdit ? `${activeModel.name} has no image-edit endpoint.` : undefined}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition capitalize flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed ${
-                  mode === "edit" ? "bg-pink-600 on-accent" : "text-gray-400 hover:text-gray-100"
-                }`}
+                }
+                className={mode === mm ? "is-active" : undefined}
               >
-                edit
-                {health?.up && !editAvailable && <span className="text-[10px] opacity-60">stub</span>}
+                <span className="capitalize">{mm}</span>
+                {mm === "edit" && health?.up && !editAvailable && <span className="image-tab-note">Stub</span>}
+                {mm === "jobs" && activeJobCount > 0 && <span className="image-tab-count">{activeJobCount}</span>}
               </button>
-            </div>
-          </div>
-
-          {/* Its own group because it is the one mode that ISN'T about a single
-              model — it runs the same prompt across local and cloud together. */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wide text-indigo-400/70 pl-1">Across models</span>
-            <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
-              <button
-                onClick={() => setMode("compare")}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition capitalize ${
-                  mode === "compare" ? "bg-pink-600 on-accent" : "text-gray-400 hover:text-gray-100"
-                }`}
-              >
-                compare
-              </button>
-            </div>
-          </div>
+            );
+          })}
         </div>
-        <p className="text-[11px] text-gray-600">
-          Generate, Batch and Jobs share the <span className="text-gray-400">Qwen-Image</span> model. Edit uses the separate{" "}
-          <span className="text-purple-400/80">Qwen-Image-Edit</span> checkpoint, which swaps into VRAM in its place.{" "}
-          <span className="text-indigo-400/80">Compare</span> runs one prompt across several models at once.
+        <p className="image-mode-hint">
+          {mode === "edit"
+            ? "Edit loads the separate Qwen-Image-Edit checkpoint on first run."
+            : mode === "compare"
+              ? "Run one prompt across several local and cloud models."
+              : mode === "batch" || mode === "jobs"
+                ? "Queue and manage multi-image Qwen-Image runs."
+                : `Create with ${activeModel.name}.`}
         </p>
-      </div>
+      </nav>
+
+      <div className="image-mode-content">
 
       {mode === "compare" && <CompareView />}
 
@@ -2259,7 +2419,10 @@ export default function QwenStudio() {
       )}
 
       {/* ── HISTORY GALLERY (disk-backed, foldered) ── */}
-      <section ref={galleryRef}>
+      </div>
+      </main>
+
+      <section ref={galleryRef} className="image-history-panel">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
             History {gallery.length > 0 && <span className="text-gray-600">({gallery.length})</span>}

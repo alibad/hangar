@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { ServiceControls, ServiceStartupNote, useServiceLifecycle } from "./service-control";
+import { PersonArmsSpread } from "@phosphor-icons/react";
+import { ToolPageHeader } from "./tool-page";
 
 type Health = {
   up: boolean;
@@ -354,9 +356,16 @@ export default function Sam3dView() {
   const fmtRot = (r?: number[]) => (r ? r.map((v) => v.toFixed(2)).join(", ") : "—");
 
   return (
-    <div className="space-y-6">
+    <div className="tool-page vision-page sam3d-page space-y-6">
+      <ToolPageHeader
+        eyebrow="3D vision"
+        title="3D Body"
+        description="Turn one person photo into a rotatable pose, landmark set, and optional body mesh on your GPU."
+        icon={<PersonArmsSpread size={24} weight="duotone" />}
+        meta={<span className={`tool-page-chip ${ready ? "is-ready" : "is-offline"}`}>{ready ? "Model ready" : "On demand"}</span>}
+      />
       {/* health header */}
-      <section className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+      <section className="tool-panel service-status-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
         <div className="flex items-center gap-3 flex-wrap">
           <span className={`w-2.5 h-2.5 rounded-full ${
             lifecycle.busyVerb ? "bg-amber-400 animate-pulse"
@@ -387,7 +396,7 @@ export default function Sam3dView() {
       </section>
 
       {/* uploader + options */}
-      <section className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-4">
+      <section className="tool-panel vision-workspace bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-4">
         <p className="text-xs text-gray-500">Upload a photo of a person → SAM 3D Body recovers a full-body 3D pose: 70 joints, global rotation, MediaPipe-33, and an optional body mesh.</p>
         <div
           className={`rounded-xl border-2 border-dashed transition p-6 text-center cursor-pointer ${dragOver ? "border-indigo-500 bg-indigo-500/5" : "border-gray-700 hover:border-gray-500"}`}

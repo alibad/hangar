@@ -3,6 +3,8 @@
 import { useState } from "react";
 import QwenStudio from "./qwen-studio";
 import QwenActivity from "./qwen-activity";
+import { ImageSquare } from "@phosphor-icons/react";
+import { ToolPageHeader } from "./tool-page";
 
 // The Qwen Image tab has two surfaces:
 //  • Studio   — the curated, human-driven workspace (generate/edit/batch + a
@@ -12,25 +14,33 @@ import QwenActivity from "./qwen-activity";
 export default function QwenTab() {
   const [view, setView] = useState<"studio" | "activity">("studio");
   return (
-    <div className="space-y-6">
-      <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
-        {(
-          [
-            ["studio", "Studio"],
-            ["activity", "Activity"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setView(id)}
-            className={`px-4 py-1.5 text-sm font-medium rounded-lg transition ${
-              view === id ? "bg-indigo-600 on-accent" : "text-gray-400 hover:text-gray-100"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+    <div className="tool-page image-page space-y-4">
+      <ToolPageHeader
+        eyebrow="Visual workstream"
+        title="Image Studio"
+        description="Generate, edit, compare, and revisit local or cloud images."
+        icon={<ImageSquare size={22} weight="duotone" />}
+        actions={
+          <div className="image-view-switch" role="tablist" aria-label="Image Studio view">
+            {(
+              [
+                ["studio", "Create"],
+                ["activity", "Activity"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={view === id}
+                onClick={() => setView(id)}
+                className={view === id ? "is-active" : undefined}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        }
+      />
       {/* No ModelPicker here. This tab is the one place it duplicated something
           that already existed: the studio has its own Model row, so the model
           appeared twice — once as a routing card at the top and again as the

@@ -61,6 +61,145 @@ const num = (v: string) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+type GpuProcess = {
+  name: string;
+  used_mb: number;
+  bar_mb: number;
+  pct_of_total: number;
+  pids: number[];
+  kind: "service" | "container" | "system" | "app";
+  service_id?: string;
+  note?: string;
+};
+
+type RawGpuProcess = { pid: number; dedicated_mb: number; process?: string | null; path?: string | null };
+
+let gpuProcessCache: { at: number; rows: RawGpuProcess[] } = { at: 0, rows: [] };
+
+/**
+ * Windows WDDM hides per-process memory from nvidia-smi, but the Windows GPU
+ * performance counters expose the same dedicated-memory accounting Task
+ * Manager uses. Query those counters and resolve each PID to a useful name.
+ */
+async function windowsGpuProcesses(
+  memTotalMb: number,
+  memUsedMb: number,
+  serviceRamRows: Record<string, { name: string; rss_mb: number; pid: number; pct_of_total: number }>,
+  containerWorkloads: string[],
+): Promise<GpuProcess[]> {
+  let raw = gpuProcessCache.rows;
+  if (!raw.length || Date.now() - gpuProcessCache.at > 2000) {
+    const ps = [
+      "$ErrorActionPreference='SilentlyContinue';",
+      "$rows=Get-CimInstance Win32_PerfFormattedData_GPUPerformanceCounters_GPUProcessMemory |",
+      "Where-Object DedicatedUsage -gt 0 | ForEach-Object {",
+      "if($_.Name -match 'pid_(\\d+)'){ [pscustomobject]@{pid=[int]$matches[1]; dedicated_mb=[math]::Round([double]$_.DedicatedUsage/1MB,1)} } };",
+      "$rows | Group-Object pid | ForEach-Object {",
+      "$id=[int]$_.Name; $proc=Get-Process -Id $id;",
+      "[pscustomobject]@{pid=$id; dedicated_mb=[math]::Round(($_.Group | Measure-Object dedicated_mb -Maximum).Maximum,1); process=$proc.ProcessName; path=$proc.Path} } |",
+      "Sort-Object dedicated_mb -Descending | ConvertTo-Json -Compress",
+    ].join(" ");
+    try {
+      const { stdout } = await execFileP("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], {
+        timeout: 8000,
+        windowsHide: true,
+        maxBuffer: 4 * 1024 * 1024,
+      });
+      const parsed = JSON.parse(stdout.trim() || "[]");
+      raw = (Array.isArray(parsed) ? parsed : [parsed]).filter(
+        (row): row is RawGpuProcess => Number(row?.pid) > 0 && Number(row?.dedicated_mb) > 0,
+      );
+      gpuProcessCache = { at: Date.now(), rows: raw };
+    } catch {
+      return [];
+    }
+  }
+
+  const serviceByPid = new Map(
+    Object.entries(serviceRamRows)
+      .filter(([, service]) => service.pid > 0)
+      .map(([id, service]) => [service.pid, { id, name: service.name }]),
+  );
+
+  const grouped = new Map<string, Omit<GpuProcess, "bar_mb" | "pct_of_total">>();
+  for (const row of raw) {
+    const service = serviceByPid.get(Number(row.pid));
+    const processName = String(row.process || "Unknown process");
+    const path = String(row.path || "");
+    const lower = processName.toLowerCase();
+
+    let name = service?.name || processName;
+    let kind: GpuProcess["kind"] = service ? "service" : "app";
+    let note: string | undefined;
+    if (lower === "vmwp") {
+      name = "Docker / WSL GPU VM";
+      kind = "container";
+      note = containerWorkloads.length
+        ? `Contains ${containerWorkloads.join(" + ")}`
+        : "Containerized GPU workloads; Windows cannot split VRAM by container";
+    } else if (lower === "dwm") {
+      name = "Windows desktop compositor";
+      kind = "system";
+      note = "Displays, windows, and desktop composition";
+    } else if (lower === "csrss") {
+      name = "Windows graphics subsystem";
+      kind = "system";
+    } else if (/openai[.\\/]codex/i.test(path)) {
+      name = "Codex";
+    } else if (lower === "steamwebhelper") {
+      name = "Steam";
+    } else if (lower === "windowsterminal") {
+      name = "Windows Terminal";
+    } else if (lower === "msedgewebview2") {
+      name = "Edge WebView";
+    }
+
+    const key = service ? `service:${service.id}` : `${kind}:${name.toLowerCase()}`;
+    const current = grouped.get(key);
+    if (current) {
+      current.used_mb += Number(row.dedicated_mb);
+      current.pids.push(Number(row.pid));
+    } else {
+      grouped.set(key, {
+        name,
+        used_mb: Number(row.dedicated_mb),
+        pids: [Number(row.pid)],
+        kind,
+        service_id: service?.id,
+        note,
+      });
+    }
+  }
+
+  const rows = [...grouped.values()].sort((a, b) => b.used_mb - a.used_mb);
+  const measuredMb = rows.reduce((sum, row) => sum + row.used_mb, 0);
+  // The Windows and NVIDIA counters are sampled a few hundred milliseconds
+  // apart. Normalize only the bar geometry; keep the measured number in labels.
+  const scale = measuredMb > memUsedMb && measuredMb > 0 ? memUsedMb / measuredMb : 1;
+  return rows.map((row) => ({
+    ...row,
+    used_mb: Math.round(row.used_mb),
+    bar_mb: Math.round(row.used_mb * scale),
+    pct_of_total: memTotalMb ? Math.round(((row.used_mb * scale) / memTotalMb) * 1000) / 10 : 0,
+  }));
+}
+
+/** Which containerized vLLM workloads are actually reachable right now. */
+async function runningContainerWorkloads() {
+  const llms = SERVICE_REGISTRY.filter((service) => Boolean(service.llm));
+  const checks = await Promise.all(llms.map(async (service) => {
+    try {
+      const response = await fetch(getServiceUrl(service.id) + service.healthPath, {
+        signal: AbortSignal.timeout(1500),
+      });
+      return response.ok ? service.name : null;
+    } catch {
+      return null;
+    }
+  }));
+  return checks.filter((name): name is string => Boolean(name));
+}
+
 /**
  * Ask every service that's up how much VRAM it is holding.
  *
@@ -230,10 +369,17 @@ export async function GET() {
     const mem_used = num(memUsed);
     const ratio = mem_total ? mem_used / mem_total : 0;
 
-    const [service_vram, service_ram] = await Promise.all([serviceVram(mem_total), serviceRam()]);
-    const accounted = Object.values(service_vram).reduce(
+    const [service_vram, service_ram, containerWorkloads] = await Promise.all([
+      serviceVram(mem_total),
+      serviceRam(),
+      runningContainerWorkloads(),
+    ]);
+    const gpu_processes = await windowsGpuProcesses(mem_total, mem_used, service_ram, containerWorkloads);
+    const processAccountedMb = gpu_processes.reduce((sum, process) => sum + process.bar_mb, 0);
+    const serviceAccountedMb = Object.values(service_vram).reduce(
       (a, s) => a + (s as { used_mb: number }).used_mb, 0,
     );
+    const accounted = gpu_processes.length ? processAccountedMb : serviceAccountedMb;
     const host = hostRam();
     const ramAccountedMb = Object.values(service_ram).reduce((a, s) => a + s.rss_mb, 0);
 
@@ -262,6 +408,7 @@ export async function GET() {
       impact_msg,
       host_ram: host,
       service_vram,
+      gpu_processes,
       service_ram,
       ram_summary: {
         accounted_mb: ramAccountedMb,
@@ -274,10 +421,12 @@ export async function GET() {
       },
       vram_summary: {
         accounted_mb: accounted,
-        // Everything not claimed by a service: desktop compositing, browsers,
-        // and any model whose service does not self-report.
+        // On Windows the process performance counters normally account for the
+        // whole card. Fall back to service self-reporting when unavailable.
         unaccounted_mb: Math.max(0, mem_used - accounted),
-        unaccounted_note: "desktop + apps + services that don't report VRAM",
+        unaccounted_note: gpu_processes.length
+          ? "GPU memory not resolved to a Windows process"
+          : "desktop + apps + services that don't report VRAM",
       },
     });
   } catch (err) {

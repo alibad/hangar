@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ModelFootprint, { type Footprint } from "./model-footprint";
 import { ServiceControl, ServiceControls, ServiceStartupNote, useServiceLifecycle } from "./service-control";
+import { ToolPageHeader } from "./tool-page";
+import { Circuitry } from "@phosphor-icons/react";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 type ModelStatus = "ready" | "no-key" | "service-stopped" | "router-offline";
 
@@ -96,28 +99,47 @@ export default function ProvidersView() {
     return up;
   }, []);
 
-  useEffect(() => {
-    refresh();
-    const t = setInterval(refresh, 10000);
-    return () => clearInterval(t);
-  }, [refresh]);
+  useLiveRefresh(refresh, { intervalMs: 10000 });
 
   const routerLifecycle = useServiceLifecycle("ai-router", data?.routerUp, refresh);
 
-  const setActive = useCallback(async (capability: string, id: string) => {
-    setBusy(id);
+  const setActive = useCallback(async (capability: string, model: CatalogModel) => {
+    setBusy(model.id);
     setMsg(null);
     try {
+      if (model.status === "service-stopped" && model.serviceId) {
+        setMsg({ text: `Starting ${model.id} and waiting for a healthy model endpoint…` });
+        const start = await fetch(`/api/services/${model.serviceId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "start" }),
+        });
+        const startPayload = await start.json();
+        if (!start.ok || startPayload.error) throw new Error(startPayload.error || `Service manager returned ${start.status}`);
+
+        const deadline = Date.now() + 60_000;
+        let ready = false;
+        while (!ready && Date.now() < deadline) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1000));
+          const payload: Payload = await fetch("/api/providers", { cache: "no-store" }).then((response) => response.json());
+          setData(payload);
+          ready = payload.models.some((item) => item.id === model.id && item.status === "ready");
+        }
+        if (!ready) throw new Error(`${model.id} did not become healthy within 60 seconds`);
+        setMsg({ text: `${model.id} is healthy. Applying the ${capability} route…` });
+      }
+
       const res = await fetch("/api/providers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [capability]: id }),
+        body: JSON.stringify({ [capability]: model.id }),
       });
       const j = await res.json();
-      if (j.error) setMsg({ text: j.error, bad: true });
-      else { setMsg({ text: `${capability} → ${id}` }); await refresh(); }
+      if (!res.ok || j.error) throw new Error(j.error || `Router returned ${res.status}`);
+      setMsg({ text: `${capability} → ${model.id}. The route is ready.` });
+      await refresh();
     } catch (e) {
-      setMsg({ text: String(e), bad: true });
+      setMsg({ text: e instanceof Error ? e.message : String(e), bad: true });
     }
     setBusy(null);
     setTimeout(() => setMsg(null), 5000);
@@ -161,9 +183,16 @@ export default function ProvidersView() {
   const routerUp = data?.routerUp ?? false;
 
   return (
-    <div className="space-y-6">
+    <div className="tool-page models-page space-y-6">
+      <ToolPageHeader
+        eyebrow="Routing control"
+        title="Models"
+        description="See every local and cloud alias, understand why it is available, and route each capability independently."
+        icon={<Circuitry size={24} weight="duotone" />}
+        meta={<span className={`tool-page-chip ${routerUp ? "is-ready" : "is-offline"}`}>{routerUp ? "Router online" : "Router offline"}</span>}
+      />
       {/* header */}
-      <section className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+      <section className="tool-panel models-router-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
         <div className="flex items-center gap-3 flex-wrap">
           <span className={`w-2.5 h-2.5 rounded-full ${routerUp ? "bg-green-500" : "bg-red-500 animate-pulse"}`} />
           <span className="font-semibold text-sm">AI Router</span>
@@ -173,7 +202,11 @@ export default function ProvidersView() {
           </span>
           <span className="text-[11px] text-gray-600 ml-auto">local-only · never exposed off-box</span>
           {/* The router gates this whole tab, so its own lifecycle belongs here. */}
-          <ServiceControls lifecycle={routerLifecycle} onRefresh={refresh} />
+          <ServiceControls
+            lifecycle={routerLifecycle}
+            onRefresh={refresh}
+            confirmStop="Stopping the AI Router disables model routing for every local console caller until it returns."
+          />
         </div>
         <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
           One OpenAI-compatible gateway for every model this box can reach. Aliases are defined in{" "}
@@ -230,7 +263,7 @@ export default function ProvidersView() {
       </section>
 
       {msg && (
-        <div className={`text-xs rounded-lg px-3 py-2 ${msg.bad ? "bg-red-500/10 text-red-400" : "bg-green-500/10 text-green-400"}`}>
+        <div role="status" aria-live="polite" className={`text-xs rounded-lg px-3 py-2 ${msg.bad ? "bg-red-500/10 text-red-400" : "bg-green-500/10 text-green-400"}`}>
           {msg.text}
         </div>
       )}
@@ -261,7 +294,7 @@ function Group({
   models: CatalogModel[];
   active?: string;
   busy: string | null;
-  onSelect: (c: string, id: string) => void;
+  onSelect: (c: string, model: CatalogModel) => void;
   onProbeService: (serviceId: string) => Promise<boolean>;
 }) {
   return (
@@ -276,6 +309,7 @@ function Group({
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {models.map((m) => {
             const isActive = m.id === active;
+            const canActivate = m.status === "ready" || m.status === "service-stopped";
             return (
               <div
                 key={m.id}
@@ -323,6 +357,11 @@ function Group({
                   <p className="text-[10px] text-amber-400/80 leading-relaxed">{m.detail}</p>
                 )}
                 {m.note && <p className="text-[10px] text-gray-500 leading-relaxed">{m.note}</p>}
+                {m.status === "service-stopped" && !isActive && (
+                  <p className="rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1.5 text-[10px] leading-relaxed text-amber-200/80">
+                    Cold start required. The console will wait for health before changing the route; configured memory reserves still apply.
+                  </p>
+                )}
 
                 {(m.docs || m.paper) && (
                   <div className="flex items-center gap-2 text-[10px]">
@@ -344,7 +383,7 @@ function Group({
                 <div className="flex items-center gap-2 pt-1">
                   {/* Local models get their full lifecycle here — a running one can
                       also be stopped or restarted, not only started when down. */}
-                  {m.serviceId && (
+                  {m.serviceId && (isActive || m.status === "ready") && (
                     <ServiceControl
                       id={m.serviceId}
                       up={m.status === "ready"}
@@ -353,11 +392,12 @@ function Group({
                   )}
                   {!isActive && (
                     <button
-                      onClick={() => onSelect(capability, m.id)}
-                      disabled={busy === m.id}
+                      onClick={() => onSelect(capability, m)}
+                      disabled={busy === m.id || !canActivate}
+                      title={!canActivate ? STATUS_LABEL[m.status] : m.status === "service-stopped" ? "Start the service, wait for health, then apply this route" : "Apply this route"}
                       className="text-[11px] text-gray-300 hover:text-white border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition disabled:opacity-50 cursor-pointer ml-auto"
                     >
-                      {busy === m.id ? "…" : "Use"}
+                      {busy === m.id ? "Working…" : m.status === "service-stopped" ? "Start and use" : "Use"}
                     </button>
                   )}
                 </div>

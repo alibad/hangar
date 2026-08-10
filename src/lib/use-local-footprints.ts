@@ -38,15 +38,21 @@ type GpuPayload = {
 /** How often to re-read live VRAM. Slow: this is context, not a monitor. */
 const LIVE_POLL_MS = 15_000;
 
-export function useLocalFootprints(): LocalFootprints {
+/**
+ * The sourced estimates alone, with no live polling attached.
+ *
+ * Split out for callers that already receive live VRAM/RAM by another route —
+ * the services page gets both from its parent's `/api/gpu` poll, and pulling in
+ * the full hook there would have run a second poll of the same endpoint purely
+ * to reach the static half.
+ *
+ * Static, and only changes when model-meta.json does — so it is fetched once.
+ * Read from /api/footprints, not the router catalogue: FLUX isn't a router alias
+ * at all, and a stopped router shouldn't blank out the numbers.
+ */
+export function useFootprintEstimates(): Map<string, Footprint> {
   const [footprints, setFootprints] = useState<Map<string, Footprint>>(new Map());
-  const [liveMb, setLiveMb] = useState<Map<string, number>>(new Map());
-  const [hostFreeGb, setHostFreeGb] = useState<number | null>(null);
-  const [hostTotalGb, setHostTotalGb] = useState<number | null>(null);
 
-  // Static, and only changes when model-meta.json does — fetched once. Read from
-  // /api/footprints, not the router catalogue: FLUX isn't a router alias at all,
-  // and a stopped router shouldn't blank out the numbers.
   useEffect(() => {
     let alive = true;
     fetch("/api/footprints", { cache: "no-store" })
@@ -62,6 +68,15 @@ export function useLocalFootprints(): LocalFootprints {
       .catch(() => { /* the picker still works without footprints */ });
     return () => { alive = false; };
   }, []);
+
+  return footprints;
+}
+
+export function useLocalFootprints(): LocalFootprints {
+  const footprints = useFootprintEstimates();
+  const [liveMb, setLiveMb] = useState<Map<string, number>>(new Map());
+  const [hostFreeGb, setHostFreeGb] = useState<number | null>(null);
+  const [hostTotalGb, setHostTotalGb] = useState<number | null>(null);
 
   useEffect(() => {
     let alive = true;

@@ -15,6 +15,13 @@ import { useTheme } from "@/components/theme-provider";
 import { ThemePicker } from "@/components/theme-picker";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import TabErrorBoundary from "@/components/tab-error-boundary";
+import HomeCockpit from "@/components/home-cockpit";
+import ConsoleHeader from "@/components/console-header";
+import ResourcePulse from "@/components/resource-pulse";
+import ServicesControlCenter from "@/components/services-control-center";
+import { ToolPageHeader, ToolSectionHeading } from "@/components/tool-page";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { ChatCircleText, Waveform as WaveformIcon } from "@phosphor-icons/react";
 import {
   Brain, Mic, Volume2, Globe, Activity, Database,
   Sparkles, Layers, ScanLine, Scan, Server, ExternalLink, Cpu, RefreshCw,
@@ -223,6 +230,16 @@ type ResourceControlSnapshot = {
     acquiredAt: number;
     expiresAt: number;
   }>;
+  gpu_processes?: Array<{
+    name: string;
+    used_mb: number;
+    bar_mb: number;
+    pct_of_total: number;
+    pids: number[];
+    kind: "service" | "container" | "system" | "app";
+    service_id?: string;
+    note?: string;
+  }>;
   queue: Array<{
     id: string;
     workload: string;
@@ -282,6 +299,8 @@ export default function Home() {
   const [catalogByService, setCatalogByService] = useState<Record<string, CatalogEntry[]>>({});
   const [activeModels, setActiveModels] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<ConsoleTab>("stack");
+  // Incremented to ask the cockpit to expand its Resource map panel.
+  const [resourceMapSignal, setResourceMapSignal] = useState(0);
   /** Stack tab filter — All / GPU / or a service category. */
   const [stackFilter, setStackFilter] = useState<"all" | "attention" | "ai" | "monitoring" | "app">("all");
   const [compactStack, setCompactStack] = useState(true);
@@ -301,7 +320,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const valid = new Set<ConsoleTab>(["stack", "llm", "speech", "qwen", "requests", "sam3d", "sam3", "models"]);
+    const valid = new Set<ConsoleTab>(["stack", "services", "llm", "speech", "qwen", "requests", "sam3d", "sam3", "models"]);
     const resolve = () => {
       const hash = window.location.hash.slice(1) as ConsoleTab;
       const saved = window.localStorage.getItem("bt-active-tab") as ConsoleTab | null;
@@ -420,7 +439,7 @@ export default function Home() {
     setActionMessage(null);
     const startedAt = Date.now();
     // Auto-dismiss the transient feedback so a stale message can't linger.
-    const dismiss = () => window.setTimeout(() => setActionMessage((m) => (m && m.id === id ? null : m)), 6000);
+    const dismissSuccess = () => window.setTimeout(() => setActionMessage((message) => (message?.id === id && message.type === "success" ? null : message)), 6000);
     try {
       const res = await fetch(`/api/services/${id}`, {
         method: "POST",
@@ -428,12 +447,7 @@ export default function Home() {
         body: JSON.stringify({ action }),
       });
       const data = await res.json();
-      if (data.error) {
-        setActionMessage({ id, text: data.error, type: "error" });
-        setActionInProgress(null);
-        dismiss();
-        return;
-      }
+      if (!res.ok || data.error) throw new Error(data.error || `Service manager returned ${res.status}`);
       const defaultMsg = action === "start" ? "launching — model loading…" : action === "stop" ? "stopping…" : "restarting…";
       setActionMessage({ id, text: data.message || defaultMsg, type: "success" });
       // The manager returns the instant it fires the signal — the process is still
@@ -447,33 +461,27 @@ export default function Home() {
         await new Promise((r) => setTimeout(r, 1000));
         list = await fetchServices();
       }
+      if (!reached(list.find((service) => service.id === id))) {
+        throw new Error(`Timed out waiting for ${id} to ${action === "stop" ? "stop" : "become healthy"}`);
+      }
+      setActionMessage({
+        id,
+        text: action === "stop" ? "Stopped" : action === "restart" ? "Restarted and healthy" : "Ready",
+        type: "success",
+      });
+      dismissSuccess();
     } catch (err) {
-      setActionMessage({ id, text: `Failed: ${err}`, type: "error" });
+      const message = err instanceof Error ? err.message : String(err);
+      setActionMessage({ id, text: `Failed: ${message}`, type: "error" });
     }
     // Hold the in-progress state for a beat even if the service flips instantly
     // (SIGTERM is near-instant on Windows), so the action always reads as deliberate.
     const elapsed = Date.now() - startedAt;
     if (elapsed < 1000) await new Promise((r) => setTimeout(r, 1000 - elapsed));
     setActionInProgress(null);
-    dismiss();
   }
 
-  useEffect(() => {
-    checkHealth();
-    fetchMetrics();
-    fetchServices();
-    fetchRouting();
-    fetchGpu();
-    fetchResourceControl();
-    fetchCatalog();
-    fetchQwenHealth();
-  }, [checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchResourceControl, fetchCatalog, fetchQwenHealth]);
-
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const interval = setInterval(refreshAll, 15000);
-    return () => clearInterval(interval);
-  }, [autoRefresh, refreshAll]);
+  useLiveRefresh(refreshAll, { intervalMs: autoRefresh ? 15000 : null });
 
   async function startRecording() {
     let stream: MediaStream;
@@ -626,8 +634,12 @@ export default function Home() {
         : "down";
 
   const runningServices = managedServices.filter((service) => service.status === "running").length;
+  const readyServices = managedServices.filter((service) => service.status === "running" && service.healthy).length;
+  const onDemandServices = managedServices.filter(
+    (service) => service.status !== "running" && service.status !== "failed" && service.owner !== "external",
+  ).length;
   const attentionServices = managedServices.filter(
-    (service) => service.status === "failed" || service.status === "starting" || service.owner === "external",
+    (service) => service.status === "failed" || (service.status === "running" && !service.healthy) || service.owner === "external",
   );
   const queueDepth = (resourceControl?.queue.length ?? 0) + (resourceControl?.starts.length ?? 0);
 
@@ -637,6 +649,7 @@ export default function Home() {
     // "Stack": the GPU is the shared constraint every service competes for, so
     // it belongs above the cards rather than in a tab of its own.
     { id: "stack" as const, label: "Stack", count: runningServices + "/" + managedServices.length },
+    { id: "services" as const, label: "Services" },
     { id: "llm" as const, label: "LLM" },
     { id: "speech" as const, label: "Speech" },
     // One tab for every image model on the box. "Creative" used to sit beside
@@ -650,9 +663,33 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
+    <div className="console-shell min-h-screen bg-gray-950 text-gray-100">
+      <ConsoleHeader
+        active={tab}
+        onSelect={selectTab}
+        overallStatus={attentionServices.length === 0 && runningServices > 0 ? "operational" : overallStatus}
+        readyServices={readyServices}
+        onDemandServices={onDemandServices}
+        attentionServices={attentionServices.length}
+        refreshing={refreshing}
+        onRefresh={refreshAll}
+        autoRefresh={autoRefresh}
+        onAutoRefresh={setAutoRefresh}
+      />
+      <ResourcePulse
+        gpu={gpu}
+        resources={resourceControl}
+        onOpenDetails={() => {
+          selectTab("stack");
+          // Expand it as well as scroll to it — see openResourceMapSignal.
+          setResourceMapSignal((n) => n + 1);
+          window.setTimeout(() => {
+            document.getElementById("resource-map")?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, tab === "stack" ? 0 : 100);
+        }}
+      />
       {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
+      <header className="hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between gap-3 py-3">
             <div className="flex items-center gap-3">
@@ -737,39 +774,51 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+      <main className="mx-auto max-w-[1500px] space-y-6 px-4 pb-24 pt-4 sm:px-6 sm:pt-5 md:pb-5">
 
         <TabErrorBoundary key={tab} label={tabs.find((item) => item.id === tab)?.label ?? "Console"}>
 
-        {/* ── GPU QUICK STATUS (every tab except Stack, which shows it in full) ── */}
-        {gpu && !gpu.error && tab !== "stack" && (
-          <button onClick={() => selectTab("stack")} className={`w-full rounded-lg border px-4 py-2 flex items-center gap-4 text-left transition hover:border-gray-600 ${
-            gpu.impact === "critical" ? "bg-red-500/5 border-red-500/30" :
-            gpu.impact === "warning" ? "bg-yellow-500/5 border-yellow-500/30" :
-            "bg-gray-900 border-gray-800"
-          }`}>
-            <span className="text-xs text-gray-400">{gpu.name}</span>
-            <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full ${
-                gpu.mem_used / gpu.mem_total > 0.95 ? "bg-red-500" :
-                gpu.mem_used / gpu.mem_total > 0.8 ? "bg-yellow-500" : "bg-green-500"
-              }`} style={{ width: `${(gpu.mem_used / gpu.mem_total) * 100}%` }} />
-            </div>
-            <span className="text-xs tabular-nums text-gray-500">{(gpu.mem_used / 1024).toFixed(1)}/{(gpu.mem_total / 1024).toFixed(1)} GB</span>
-            <span className="text-xs tabular-nums text-gray-500">{gpu.temperature}°C</span>
-            <span className="text-xs tabular-nums text-gray-500">{gpu.gpu_util}%</span>
-            <span className={`text-[11px] px-2 py-0.5 rounded-full ${
-              gpu.impact === "critical" ? "bg-red-500/15 text-red-400" :
-              gpu.impact === "warning" ? "bg-yellow-500/15 text-yellow-400" :
-              gpu.impact === "busy" ? "bg-orange-500/15 text-orange-400" :
-              "bg-green-500/15 text-green-400"
-            }`}>{gpu.impact}</span>
-          </button>
-        )}
-
         {/* ── STACK TAB (services + GPU) ── */}
         {tab === "stack" && (
-          <div className="space-y-4">
+          <HomeCockpit
+            managedServices={managedServices}
+            catalogByService={catalogByService}
+            gpu={gpu}
+            resourceControl={resourceControl}
+            queueDepth={queueDepth}
+            attentionCount={attentionServices.length}
+            onSelectTab={selectTab}
+            onPrefillChat={(value) => {
+              setInput(value);
+              selectTab("llm");
+            }}
+            onPrefillSpeech={(value) => {
+              setTtsText(value);
+              selectTab("speech");
+            }}
+            onTranscribeFile={transcribeAudio}
+            openResourceMapSignal={resourceMapSignal}
+          />
+        )}
+
+        {tab === "services" && (
+          <ServicesControlCenter
+            services={managedServices}
+            catalogByService={catalogByService}
+            serviceVram={gpu?.service_vram ?? {}}
+            serviceRam={gpu?.service_ram ?? {}}
+            actionInProgress={actionInProgress}
+            actionMessage={actionMessage}
+            onDismissActionMessage={(id) => setActionMessage((message) => message?.id === id ? null : message)}
+            onServiceAction={serviceAction}
+            onSelectTab={selectTab}
+          />
+        )}
+
+        {/* Kept hidden for one checkpoint so the former Stack markup remains a
+            local rollback while the new Home cockpit settles. */}
+        {tab === "stack" && (
+          <div className="hidden space-y-4" aria-hidden="true">
             <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Stack overview">
               <button type="button" onClick={() => setStackFilter("all")} className="rounded-xl border border-gray-800 bg-gray-900 p-3 text-left transition hover:border-gray-600">
                 <span className="text-[10px] uppercase tracking-wide text-gray-600">Running</span>
@@ -1409,17 +1458,22 @@ export default function Home() {
 
         {/* ── LLM TAB ── */}
         {tab === "llm" && (
-          <>
+          <div className="tool-page chat-page chat-page-layout">
+            <ToolPageHeader
+              eyebrow="Text workstream"
+              title="Chat & Code"
+              description="Test local reasoning, inspect response speed, and keep the active text model in view while you work."
+              icon={<ChatCircleText size={24} weight="duotone" />}
+              meta={<span className="tool-page-chip">OpenAI-compatible</span>}
+            />
             {/* The same picker every other testing tab uses, scoped to text.
                 exclusiveLocal because the two vLLMs share one 32 GB card and
                 cannot both be resident — selecting one stops the other. */}
-            <ModelPicker capability="text" exclusiveLocal className="mb-4" />
+            <ModelPicker capability="text" exclusiveLocal className="chat-model-picker" />
 
             {/* Metrics */}
-            <section>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                vLLM Metrics
-              </h2>
+            <section className="chat-metrics tool-panel">
+              <ToolSectionHeading eyebrow="Live telemetry" title="Model pulse" description="A quick read on the active engine." />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <MetricCard label="Requests Served" value={getMetric("num_requests_running")} suffix=" active" />
                 <MetricCard label="Tokens Generated" value={getMetric("generation_tokens_total")} format="compact" />
@@ -1429,18 +1483,21 @@ export default function Home() {
             </section>
 
             {/* Chat Playground */}
-            <section>
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Chat Playground
-              </h2>
-              <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-[500px]">
+            <section className="chat-playground">
+              <ToolSectionHeading eyebrow="Playground" title="Start a conversation" description="Prompt the selected model and inspect its thinking, latency, and token use." />
+              <div className="tool-panel chat-canvas bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-[540px]">
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {messages.length === 0 && (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
-                        <div className="text-gray-600 text-4xl mb-4">AI</div>
-                        <p className="text-gray-500 text-sm">Send a message to test the LLM</p>
-                        <p className="text-gray-600 text-xs mt-1">Uses the active LLM selected above</p>
+                        <div className="chat-empty-mark"><ChatCircleText size={30} weight="duotone" /></div>
+                        <p className="text-gray-300 text-base font-semibold">Your local model is ready for a prompt</p>
+                        <p className="text-gray-500 text-xs mt-1">Ask for code, analysis, or a quick reasoning check.</p>
+                        <div className="chat-starter-row">
+                          {["Explain a code path", "Draft a unit test", "Think through a bug"].map((starter) => (
+                            <button key={starter} type="button" onClick={() => setInput(starter)}>{starter}</button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1490,25 +1547,33 @@ export default function Home() {
                 <form onSubmit={sendMessage} className="p-4 border-t border-gray-800">
                   <div className="flex gap-3">
                     <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-                      placeholder="Type a message..."
+                      placeholder="Ask the local model anything..."
                       className="flex-1 bg-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder-gray-500"
                       disabled={sending} />
                     <button type="submit" disabled={sending || !input.trim()}
                       className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 rounded-xl px-5 py-2.5 text-sm font-medium transition">
-                      Send
+                      Run
                     </button>
                   </div>
                 </form>
               </div>
             </section>
-          </>
+          </div>
         )}
 
         {/* ── SPEECH TAB ── */}
         {tab === "speech" && (
-          <>
+          <div className="tool-page speech-page">
+            <ToolPageHeader
+              eyebrow="Voice workstream"
+              title="Speech Lab"
+              description="Transcribe recordings and synthesize natural speech from one focused local audio workspace."
+              icon={<WaveformIcon size={24} weight="duotone" />}
+              meta={<span className="tool-page-chip">Whisper + Kokoro</span>}
+            />
+            <div className="speech-workspace-grid">
             {/* Transcribe (STT) */}
-            <section>
+            <section className="tool-panel speech-workspace">
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
                 Speech → text
               </h2>
@@ -1579,7 +1644,7 @@ export default function Home() {
             </section>
 
             {/* Text-to-Speech */}
-            <section>
+            <section className="tool-panel speech-workspace">
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
                 Text → speech
               </h2>
@@ -1625,7 +1690,8 @@ export default function Home() {
                 </div>
               </form>
             </section>
-          </>
+            </div>
+          </div>
         )}
 
         {/* ── CREATIVE TAB ── */}

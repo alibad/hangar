@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useId, useMemo, useRef } from "react";
 import { SERVICE_REGISTRY } from "@/lib/services";
 import { Search, X } from "lucide-react";
+import { Pulse } from "@phosphor-icons/react";
+import { ToolPageHeader } from "./tool-page";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 type Ev = {
   ts: number | null;
@@ -27,6 +30,34 @@ type Ev = {
   pending?: boolean;
   artifact?: { kind: "image"; rel: string } | null;
 };
+
+type TimeRange = "15m" | "1h" | "24h" | "all";
+
+const RANGE_MS: Record<TimeRange, number | null> = {
+  "15m": 15 * 60_000,
+  "1h": 60 * 60_000,
+  "24h": 24 * 60 * 60_000,
+  all: null,
+};
+
+function eventKey(event: Ev): string {
+  return event.rid ?? [event.ts ?? 0, event.service, event.method, event.path, event.model ?? ""].join(":");
+}
+
+function percentile(values: number[], p: number): number | null {
+  if (!values.length) return null;
+  const ordered = values.toSorted((a, b) => a - b);
+  return ordered[Math.min(ordered.length - 1, Math.max(0, Math.ceil(ordered.length * p) - 1))];
+}
+
+function topGroups(events: Ev[], getLabel: (event: Ev) => string, limit = 3) {
+  const counts = new Map<string, number>();
+  for (const event of events) {
+    const label = getLabel(event);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts.entries()].toSorted((a, b) => b[1] - a[1]).slice(0, limit);
+}
 
 // Polling is classified and segregated SERVER-side (see lib/traffic.ts) rather
 // than filtered here. A client-side regex still let chatter into the shared ring,
@@ -86,6 +117,42 @@ function Elapsed({ since }: { since: number | null }) {
   return <span className="text-sky-400">{((now - since) / 1000).toFixed(0)}s</span>;
 }
 
+function DiagnosticStat({ label, value, hint, tone = "neutral" }: { label: string; value: string; hint: string; tone?: "neutral" | "good" | "warn" | "bad" }) {
+  const valueTone = tone === "bad" ? "text-red-300" : tone === "warn" ? "text-amber-300" : tone === "good" ? "text-emerald-300" : "text-gray-100";
+  return (
+    <div className="tool-panel rounded-xl border border-gray-800 bg-gray-900 p-3">
+      <span className="block text-[9px] font-semibold uppercase tracking-wider text-gray-600">{label}</span>
+      <span className={`mt-1 block text-xl font-semibold tabular-nums ${valueTone}`}>{value}</span>
+      <span className="mt-0.5 block text-[10px] text-gray-500">{hint}</span>
+    </div>
+  );
+}
+
+function Breakdown({ label, rows }: { label: string; rows: Array<[string, number]> }) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <span className="text-[9px] font-semibold uppercase tracking-wider text-gray-600">{label}</span>
+      {rows.length ? rows.map(([name, count]) => (
+        <span key={name} className={`max-w-48 truncate rounded-full border px-2 py-1 text-[10px] ${name === "unknown" ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-gray-800 bg-gray-900 text-gray-400"}`} title={name}>
+          {name} <span className="tabular-nums text-gray-600">×{count}</span>
+        </span>
+      )) : <span className="text-[10px] text-gray-600">No data</span>}
+    </div>
+  );
+}
+
+function FilterSelect({ value, onChange, options, label }: { value: string; onChange: (value: string) => void; options: string[]; label: string }) {
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-gray-500">
+      {label}
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
+        <option value="all">all</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    </label>
+  );
+}
+
 export default function RequestsView() {
   const [events, setEvents] = useState<Ev[]>([]);
   const [services, setServices] = useState<string[]>([]);
@@ -96,6 +163,7 @@ export default function RequestsView() {
   const [service, setService] = useState("all");
   const [method, setMethod] = useState("all");
   const [statusClass, setStatusClass] = useState("all");
+  const [timeRange, setTimeRange] = useState<TimeRange>("1h");
   const [query, setQuery] = useState("");
   const [failuresOnly, setFailuresOnly] = useState(false);
   const [pageSize, setPageSize] = useState(50);
@@ -118,6 +186,38 @@ export default function RequestsView() {
   const [hopCount, setHopCount] = useState(0);
   const [page, setPage] = useState(0);
   const [detail, setDetail] = useState<Ev | null>(null);
+  const [detailKey, setDetailKey] = useState<string | null>(null);
+  const [urlReady, setUrlReady] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setService(params.get("rq_service") ?? "all");
+    setMethod(params.get("rq_method") ?? "all");
+    setStatusClass(params.get("rq_status") ?? "all");
+    const range = params.get("rq_range") as TimeRange | null;
+    if (range && range in RANGE_MS) setTimeRange(range);
+    setFailuresOnly(params.get("rq_failures") === "1");
+    setQuery(params.get("rq_query") ?? "");
+    setDetailKey(params.get("rq_id"));
+    setUrlReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!urlReady) return;
+    const url = new URL(window.location.href);
+    const setOrDelete = (key: string, value: string, fallback: string) => {
+      if (value === fallback) url.searchParams.delete(key);
+      else url.searchParams.set(key, value);
+    };
+    setOrDelete("rq_service", service, "all");
+    setOrDelete("rq_method", method, "all");
+    setOrDelete("rq_status", statusClass, "all");
+    setOrDelete("rq_range", timeRange, "1h");
+    setOrDelete("rq_failures", failuresOnly ? "1" : "0", "0");
+    setOrDelete("rq_query", query.trim(), "");
+    setOrDelete("rq_id", detailKey ?? "", "");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [detailKey, failuresOnly, method, query, service, statusClass, timeRange, urlReady]);
 
   const refresh = useCallback(async () => {
     try {
@@ -135,12 +235,13 @@ export default function RequestsView() {
     setLoading(false);
   }, []);
 
+  useLiveRefresh(refresh, { intervalMs: live ? 4000 : null });
+
   useEffect(() => {
-    refresh();
-    if (!live) return;
-    const t = setInterval(refresh, 4000);
-    return () => clearInterval(t);
-  }, [refresh, live]);
+    if (!detailKey || detail) return;
+    const found = [...events, ...noise, ...hops].find((event) => eventKey(event) === detailKey);
+    if (found) setDetail(found);
+  }, [detail, detailKey, events, hops, noise]);
 
   const filtered = useMemo(() => {
     // Noise and hops are separate streams server-side; merge them in on demand.
@@ -149,6 +250,8 @@ export default function RequestsView() {
       ? [...events, ...extra].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
       : events;
     return base.filter((e) => {
+      const rangeMs = RANGE_MS[timeRange];
+      if (rangeMs != null && e.ts != null && Date.now() - e.ts > rangeMs) return false;
       // Match either end of the call. Filtering to "qwen" and getting only the
       // rows Qwen logged itself would hide every console request aimed AT it —
       // which is most of what you want when you pick a service here.
@@ -169,15 +272,47 @@ export default function RequestsView() {
       }
       return true;
     });
-  }, [events, noise, showNoise, hops, showHops, service, method, statusClass, failuresOnly, query]);
+  }, [events, noise, showNoise, hops, showHops, service, method, statusClass, failuresOnly, query, timeRange]);
 
   // Filters changed → jump back to the first page.
-  useEffect(() => { setPage(0); }, [service, method, statusClass, showNoise, showHops, failuresOnly, query, pageSize]);
+  useEffect(() => { setPage(0); }, [service, method, statusClass, timeRange, showNoise, showHops, failuresOnly, query, pageSize]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const curPage = Math.min(page, pageCount - 1);
   const shown = filtered.slice(curPage * pageSize, (curPage + 1) * pageSize);
   const methods = useMemo(() => [...new Set(events.map((e) => e.method))].sort(), [events]);
+  const diagnostics = useMemo(() => {
+    const complete = filtered.filter((event) => !event.pending && event.status != null);
+    const failures = complete.filter((event) => (event.status ?? 0) >= 400);
+    const latencies = complete.flatMap((event) => event.ms == null ? [] : [event.ms]);
+    const totalCost = filtered.reduce((sum, event) => sum + Math.max(0, event.costUsd ?? 0), 0);
+    const unattributed = filtered.filter((event) => (event.costUsd ?? 0) > 0 && !event.caller);
+    return {
+      failures: failures.length,
+      failureRate: complete.length ? (failures.length / complete.length) * 100 : 0,
+      p50: percentile(latencies, 0.5),
+      p95: percentile(latencies, 0.95),
+      totalCost,
+      unattributed: unattributed.length,
+      callers: topGroups(filtered, (event) => event.caller || "unknown"),
+      models: topGroups(filtered.filter((event) => Boolean(event.model)), (event) => event.model || "unknown"),
+      services: topGroups(filtered, (event) => event.target || event.service),
+      slowest: filtered
+        .filter((event) => event.ms != null)
+        .toSorted((a, b) => (b.ms ?? 0) - (a.ms ?? 0))
+        .slice(0, 3),
+    };
+  }, [filtered]);
+
+  const openDetail = useCallback((event: Ev) => {
+    setDetail(event);
+    setDetailKey(eventKey(event));
+  }, []);
+
+  const closeDetail = useCallback(() => {
+    setDetail(null);
+    setDetailKey(null);
+  }, []);
 
   /**
    * Rolling spend per model. Computed over the ENTIRE event set, not the current
@@ -201,26 +336,44 @@ export default function RequestsView() {
     return { rows, total };
   }, [events]);
 
-  const Sel = ({ value, onChange, opts, label }: { value: string; onChange: (v: string) => void; opts: string[]; label: string }) => (
-    <label className="flex items-center gap-1.5 text-xs text-gray-500">
-      {label}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-300"
-      >
-        <option value="all">all</option>
-        {opts.map((o) => (
-          <option key={o} value={o}>{o}</option>
-        ))}
-      </select>
-    </label>
-  );
-
   return (
-    <div className="space-y-4">
+    <div className="tool-page requests-page space-y-4">
+      <ToolPageHeader
+        eyebrow="Observability"
+        title="Requests"
+        description="Trace every meaningful call across the console, router, and local services without health-check noise."
+        icon={<Pulse size={24} weight="duotone" />}
+        meta={<span className={`tool-page-chip ${live ? "is-ready" : ""}`}>{live ? "Live feed" : "Paused"}</span>}
+      />
+      <section className="grid grid-cols-2 gap-2 lg:grid-cols-5" aria-label={`Request health for ${timeRange}`}>
+        <DiagnosticStat label="Requests" value={String(filtered.length)} hint={timeRange === "all" ? "entire retained feed" : `last ${timeRange}`} />
+        <DiagnosticStat label="Failure rate" value={`${diagnostics.failureRate.toFixed(1)}%`} hint={`${diagnostics.failures} failed`} tone={diagnostics.failures ? "bad" : "good"} />
+        <DiagnosticStat label="p50 latency" value={fmtMs(diagnostics.p50)} hint="typical completed call" />
+        <DiagnosticStat label="p95 latency" value={fmtMs(diagnostics.p95)} hint="slow-call threshold" tone={(diagnostics.p95 ?? 0) > 10_000 ? "warn" : "neutral"} />
+        <DiagnosticStat label="Spend" value={`$${diagnostics.totalCost < 0.01 ? diagnostics.totalCost.toFixed(5) : diagnostics.totalCost.toFixed(3)}`} hint={diagnostics.unattributed ? `${diagnostics.unattributed} missing caller` : "all spend attributed"} tone={diagnostics.unattributed ? "warn" : "neutral"} />
+      </section>
+
+      <section className="tool-panel flex flex-col gap-2 rounded-xl border border-gray-800 bg-gray-950/45 px-3 py-2.5 lg:flex-row lg:items-center lg:justify-between" aria-label="Request breakdowns">
+        <Breakdown label="Callers" rows={diagnostics.callers} />
+        <Breakdown label="Models" rows={diagnostics.models} />
+        <Breakdown label="Services" rows={diagnostics.services} />
+      </section>
+      {diagnostics.slowest.length > 0 && (
+        <section className="tool-panel rounded-xl border border-gray-800 bg-gray-950/45 px-3 py-2.5" aria-labelledby="slowest-requests-title">
+          <div className="flex flex-wrap items-center gap-2">
+            <span id="slowest-requests-title" className="text-[9px] font-semibold uppercase tracking-wider text-gray-600">Slowest calls</span>
+            {diagnostics.slowest.map((event) => (
+              <button key={eventKey(event)} type="button" onClick={() => openDetail(event)} className="max-w-full rounded-lg border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-left text-[10px] text-gray-400 hover:border-gray-600 hover:text-gray-100">
+                <span className="font-mono text-gray-300">{event.path}</span>{" "}
+                <span className="tabular-nums text-amber-300">{fmtMs(event.ms)}</span>{" "}
+                <span className="text-gray-600">{event.model || event.target || event.service}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       {/* header */}
-      <section className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+      <section className="tool-panel requests-summary bg-gray-900 rounded-xl border border-gray-800 p-4">
         <div className="flex items-center gap-3 flex-wrap">
           <span className={`w-2.5 h-2.5 rounded-full ${live ? "bg-green-500 animate-pulse" : "bg-gray-600"}`} />
           <span className="font-semibold text-sm">Requests</span>
@@ -258,7 +411,7 @@ export default function RequestsView() {
       </section>
 
       {/* filters */}
-      <div className="sticky top-[104px] z-[3] flex items-center gap-2.5 flex-wrap rounded-xl border border-gray-800 bg-gray-950/95 p-2.5 backdrop-blur-sm">
+      <div className="requests-toolbar sticky top-[104px] z-[3] flex items-center gap-2.5 flex-wrap rounded-xl border border-gray-800 bg-gray-950/95 p-2.5 backdrop-blur-sm">
         <label className="relative min-w-[220px] flex-1 sm:max-w-sm">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-600" />
           <input
@@ -274,6 +427,15 @@ export default function RequestsView() {
             </button>
           )}
         </label>
+        <label className="flex items-center gap-1.5 text-xs text-gray-500">
+          range
+          <select value={timeRange} onChange={(event) => setTimeRange(event.target.value as TimeRange)} className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
+            <option value="15m">15m</option>
+            <option value="1h">1h</option>
+            <option value="24h">24h</option>
+            <option value="all">all retained</option>
+          </select>
+        </label>
         <button
           type="button"
           onClick={() => setFailuresOnly((value) => !value)}
@@ -282,9 +444,9 @@ export default function RequestsView() {
         >
           Failures
         </button>
-        <Sel label="service" value={service} onChange={setService} opts={services} />
-        <Sel label="method" value={method} onChange={setMethod} opts={methods} />
-        <Sel label="status" value={statusClass} onChange={setStatusClass} opts={["2xx", "3xx", "4xx", "5xx"]} />
+        <FilterSelect label="service" value={service} onChange={setService} options={services} />
+        <FilterSelect label="method" value={method} onChange={setMethod} options={methods} />
+        <FilterSelect label="status" value={statusClass} onChange={setStatusClass} options={["2xx", "3xx", "4xx", "5xx"]} />
         <label
           className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer select-none"
           title="Health probes, status polls, /progress ticks and gallery thumbnail loads. Held in a separate buffer so they can never displace real requests."
@@ -324,7 +486,7 @@ export default function RequestsView() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-800">
+        <div className="requests-table tool-panel overflow-x-auto rounded-xl border border-gray-800">
           <table className="w-full text-xs">
             <thead className="bg-gray-900 text-gray-500">
               <tr className="text-left">
@@ -338,11 +500,17 @@ export default function RequestsView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/70">
-              {shown.map((e, i) => (
-                <tr key={i} onClick={() => setDetail(e)} className="hover:bg-gray-900/60 cursor-pointer">
+              {shown.map((e) => (
+                <tr key={eventKey(e)} onClick={() => openDetail(e)} className="hover:bg-gray-900/60 cursor-pointer">
                   <td className="px-3 py-1.5 tabular-nums text-gray-500 whitespace-nowrap">
-                    {e.source === "log" && e.ts ? "~" : ""}
-                    {fmtTime(e.ts)}
+                    <button
+                      type="button"
+                      onClick={(event) => { event.stopPropagation(); openDetail(e); }}
+                      className="rounded text-left underline-offset-2 hover:text-gray-200 hover:underline"
+                      aria-label={`Open request detail for ${e.method} ${e.path} at ${fmtTime(e.ts)}`}
+                    >
+                      {e.source === "log" && e.ts ? "~" : ""}{fmtTime(e.ts)}
+                    </button>
                   </td>
                   <td className="px-3 py-1.5 whitespace-nowrap">
                     <span className={`px-1.5 py-0.5 rounded-full border text-[10px] ${svcColor(e.service)}`}>{e.service}</span>
@@ -432,7 +600,7 @@ export default function RequestsView() {
         </div>
       )}
 
-      {detail && <DetailPanel ev={detail} onClose={() => setDetail(null)} />}
+      {detail && <DetailPanel key={eventKey(detail)} ev={detail} onClose={closeDetail} />}
     </div>
   );
 }
@@ -459,19 +627,64 @@ function DRow({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
 
 function DetailPanel({ ev, onClose }: { ev: Ev; onClose: () => void }) {
   const { url } = resolveUrl(ev);
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusFrame = window.requestAnimationFrame(() => closeRef.current?.focus());
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const focusable = [...panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )].filter((element) => !element.hasAttribute("hidden"));
+      if (!focusable.length) {
+        e.preventDefault();
+        panelRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus();
+    };
   }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={onClose}>
-      <div className="w-full max-w-lg h-full overflow-y-auto bg-gray-900 border-l border-gray-800 p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="h-full w-full max-w-lg space-y-4 overflow-y-auto border-l border-gray-800 bg-gray-900 p-5 shadow-2xl"
+      >
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm">Request detail</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
+          <h3 id={titleId} className="text-sm font-semibold">Request detail</h3>
+          <button ref={closeRef} type="button" onClick={onClose} aria-label="Close request detail" className="flex h-10 w-10 items-center justify-center rounded-lg text-lg leading-none text-gray-500 hover:bg-gray-800 hover:text-white">✕</button>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`font-mono font-semibold ${methodColor(ev.method)}`}>{ev.method}</span>
@@ -504,6 +717,12 @@ function DetailPanel({ ev, onClose }: { ev: Ev; onClose: () => void }) {
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {(ev.costUsd ?? 0) > 0 && !ev.caller && (
+          <div role="note" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] leading-relaxed text-amber-100">
+            This billable call has no <span className="font-mono">X-Source</span> attribution. Add the caller header so spend and failures can be traced to the originating app.
           </div>
         )}
 

@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type ConsoleTab = "stack" | "llm" | "speech" | "qwen" | "requests" | "sam3d" | "sam3" | "models";
+export type ConsoleTab = "stack" | "services" | "llm" | "speech" | "qwen" | "requests" | "sam3d" | "sam3" | "models";
 
 type Destination = {
   id: ConsoleTab;
@@ -26,7 +26,8 @@ type Destination = {
 };
 
 const DESTINATIONS: Destination[] = [
-  { id: "stack", label: "Stack", hint: "Services, GPU, RAM and queue", keywords: "status health gpu resources services", icon: Server },
+  { id: "stack", label: "Home", hint: "Workstreams, GPU, RAM and queue", keywords: "status health gpu resources stack", icon: Server },
+  { id: "services", label: "Services", hint: "Inspect and control every local process", keywords: "start stop restart logs ports health infrastructure", icon: Settings2 },
   { id: "llm", label: "LLM", hint: "Chat with the active text model", keywords: "chat text vllm qwen", icon: Brain },
   { id: "speech", label: "Speech", hint: "Transcribe and synthesize audio", keywords: "whisper stt tts voice audio", icon: Mic },
   { id: "qwen", label: "Image", hint: "Generate, edit, queue and browse", keywords: "qwen flux creative gallery", icon: Image },
@@ -47,6 +48,7 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -70,9 +72,32 @@ export function CommandPalette({
 
   useEffect(() => {
     if (!open) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setQuery("");
     setCursor(0);
-    requestAnimationFrame(() => inputRef.current?.focus());
+    const focusFrame = requestAnimationFrame(() => inputRef.current?.focus());
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", trapFocus);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", trapFocus);
+      previousFocus?.focus();
+    };
   }, [open]);
 
   useEffect(() => setCursor(0), [query]);
@@ -87,7 +112,7 @@ export function CommandPalette({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="console-jump flex h-8 items-center gap-2 rounded-md border border-gray-700 px-2.5 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-100"
+        className="console-jump flex h-11 w-11 items-center justify-center gap-2 rounded-md border border-gray-700 px-2.5 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-100 md:h-8 md:w-auto"
         aria-label="Jump to a console tool"
       >
         <Search className="h-3.5 w-3.5" />
@@ -105,7 +130,7 @@ export function CommandPalette({
             if (event.target === event.currentTarget) setOpen(false);
           }}
         >
-          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-700 bg-gray-950 shadow-2xl">
+          <div ref={dialogRef} className="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-700 bg-gray-950 shadow-2xl">
             <div className="flex items-center gap-3 border-b border-gray-800 px-4">
               <Search className="h-4 w-4 text-gray-500" />
               <input

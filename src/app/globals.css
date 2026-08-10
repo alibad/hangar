@@ -155,6 +155,1047 @@ html {
   background: color-mix(in oklab, var(--accent-500) 35%, transparent);
 }
 
+/* Home is intentionally calmer and warmer than the tool surfaces. The tint is
+   derived from the active palette, so every saved theme keeps its identity. */
+.cockpit {
+  --cockpit-warm: color-mix(in oklab, var(--accent-500) 9%, transparent);
+}
+
+.cockpit-surface {
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 3%, transparent),
+    0 12px 30px color-mix(in oklab, black 12%, transparent);
+}
+
+.dark .cockpit-surface {
+  background-color: color-mix(in oklab, var(--color-gray-900) 96%, var(--cockpit-warm));
+}
+
+/* Light mode is a designed surface, not an inverted dark palette. Warm canvas,
+   crisp paper panels and a deeper copper accent preserve the cockpit hierarchy
+   without the muddy beige/yellow cast of the raw semantic ramps. */
+html:root:not(.dark) body,
+html:root:not(.dark) .console-shell {
+  background-color: oklch(0.965 0.008 70);
+}
+
+html:root:not(.dark) .console-shell {
+  background-image:
+    radial-gradient(circle at 8% 0%, oklch(0.91 0.055 48 / 32%), transparent 34rem),
+    radial-gradient(circle at 92% 38%, oklch(0.94 0.025 305 / 25%), transparent 30rem),
+    linear-gradient(180deg, oklch(0.982 0.006 70), oklch(0.955 0.009 68));
+}
+
+/* ---------------------------------------------------------------------------
+   Light mode: the BASELINE, not a per-component patch list.
+
+   Every component in this app is written dark-first (`text-gray-100` for primary
+   text, `bg-gray-900` for panels, `text-amber-100` on tinted notes). Light mode
+   used to be ~100 hand-written overrides scoped to individual components
+   (`.cockpit .text-orange-200`, `.services-center .text-gray-500`, …), which
+   means any markup NOT on that list rendered its dark-mode colour onto a light
+   surface and became invisible. That is a design that fails silently, one new
+   component at a time — the amber "no X-Source attribution" note in
+   requests-view was unreadable exactly this way.
+
+   So: remap the whole dark-first vocabulary once, at the shell. Placed BEFORE
+   the per-component blocks below, which carry equal specificity and therefore
+   still win on source order — existing hand-tuning is preserved, and everything
+   it never covered now has a legible default.
+
+   `.tool-page` (further down) already did this for tool surfaces; this is the
+   same treatment applied to the console shell, so the two stay consistent.
+
+   Targets are WCAG AA (4.5:1) for body text against the oklch(0.965) canvas.
+   The muted end of the ramp is deliberately COMPRESSED — gray-500/600/700 land
+   close together, because in light mode a seven-step grey ramp can only stay
+   distinct by pushing the dim end below readable contrast. Legibility wins.
+   --------------------------------------------------------------------------- */
+
+/* The shell itself carries `text-gray-100`, so anything without an explicit
+   colour class inherited near-white. Set the inherited ink first. */
+html:root:not(.dark) .console-shell {
+  color: oklch(0.26 0.016 58);
+}
+
+html:root:not(.dark) .console-shell .text-gray-100,
+html:root:not(.dark) .console-shell .text-gray-200 { color: oklch(0.26 0.016 58); }
+html:root:not(.dark) .console-shell .text-gray-300 { color: oklch(0.34 0.015 58); }
+html:root:not(.dark) .console-shell .text-gray-400 { color: oklch(0.42 0.014 60); }
+html:root:not(.dark) .console-shell .text-gray-500 { color: oklch(0.45 0.013 60); }
+html:root:not(.dark) .console-shell .text-gray-600,
+html:root:not(.dark) .console-shell .text-gray-700 { color: oklch(0.47 0.012 62); }
+
+/* Tinted text sits on `bg-<hue>-500/10` panels, which stay pale in light mode —
+   so the text has to invert to a dark, saturated version of the SAME hue rather
+   than fall back to grey, or the note loses the colour that classifies it. */
+html:root:not(.dark) .console-shell .text-amber-100,
+html:root:not(.dark) .console-shell .text-amber-200,
+html:root:not(.dark) .console-shell .text-amber-300 { color: oklch(0.45 0.1 72); }
+html:root:not(.dark) .console-shell .text-amber-400 { color: oklch(0.5 0.12 70); }
+
+html:root:not(.dark) .console-shell .text-orange-100,
+html:root:not(.dark) .console-shell .text-orange-200,
+html:root:not(.dark) .console-shell .text-orange-300 { color: oklch(0.48 0.14 43); }
+html:root:not(.dark) .console-shell .text-orange-400 { color: oklch(0.52 0.15 45); }
+
+html:root:not(.dark) .console-shell .text-red-200,
+html:root:not(.dark) .console-shell .text-red-300 { color: oklch(0.46 0.16 26); }
+html:root:not(.dark) .console-shell .text-red-400,
+html:root:not(.dark) .console-shell .text-red-500 { color: oklch(0.5 0.19 27); }
+
+html:root:not(.dark) .console-shell .text-emerald-200,
+html:root:not(.dark) .console-shell .text-emerald-300 { color: oklch(0.43 0.11 152); }
+html:root:not(.dark) .console-shell .text-emerald-400,
+html:root:not(.dark) .console-shell .text-emerald-500 { color: oklch(0.46 0.12 152); }
+
+html:root:not(.dark) .console-shell .text-violet-200,
+html:root:not(.dark) .console-shell .text-violet-300 { color: oklch(0.47 0.14 300); }
+html:root:not(.dark) .console-shell .text-violet-400 { color: oklch(0.5 0.16 300); }
+
+html:root:not(.dark) .console-shell .text-blue-300 { color: oklch(0.46 0.13 250); }
+html:root:not(.dark) .console-shell .text-blue-400 { color: oklch(0.49 0.15 252); }
+
+html:root:not(.dark) .console-shell .text-sky-200,
+html:root:not(.dark) .console-shell .text-sky-300 { color: oklch(0.45 0.11 233); }
+html:root:not(.dark) .console-shell .text-sky-400 { color: oklch(0.48 0.13 235); }
+
+/* Dark panel/chip surfaces. These MUST move together with the text ramp above:
+   a `bg-gray-800` code block keeping its dark fill while its `text-gray-300`
+   inverts to near-black would be unreadable in the opposite direction.
+   Only the surface tones (950/900/800) are remapped — `bg-gray-500/600` are
+   bar fills and dots that are already mid-tone and legible either way. */
+/* Matched by prefix rather than enumerated, because Tailwind emits an opacity
+   variant only when some component asks for it — `bg-gray-950/85`, `/45`, `/30`
+   and so on appear as the UI grows. A hand-listed set silently misses whichever
+   variant is added next, and the miss is invisible in dark mode: that is exactly
+   how the header's resource pulse ended up dark-on-dark, its `bg-gray-950/85`
+   left untouched while the text ramp above turned its label near-black.
+
+   The leading space in `[class*=" bg-gray-…"]` is load-bearing — it stops the
+   selector matching `hover:bg-gray-800/45`, which would otherwise paint the hover
+   fill permanently. `[class^=…]` covers the case where it is the first class. */
+html:root:not(.dark) .console-shell [class^="bg-gray-950"],
+html:root:not(.dark) .console-shell [class*=" bg-gray-950"],
+html:root:not(.dark) .console-shell [class^="bg-gray-900"],
+html:root:not(.dark) .console-shell [class*=" bg-gray-900"] { background-color: oklch(0.988 0.006 72); }
+html:root:not(.dark) .console-shell [class^="bg-gray-800"],
+html:root:not(.dark) .console-shell [class*=" bg-gray-800"],
+html:root:not(.dark) .console-shell [class^="bg-gray-700"],
+html:root:not(.dark) .console-shell [class*=" bg-gray-700"] { background-color: oklch(0.945 0.012 66); }
+
+html:root:not(.dark) .console-shell .border-gray-800 { border-color: oklch(0.875 0.012 67); }
+html:root:not(.dark) .console-shell .border-gray-700 { border-color: oklch(0.81 0.018 62); }
+html:root:not(.dark) .console-shell .border-gray-600 { border-color: oklch(0.73 0.02 60); }
+html:root:not(.dark) .console-shell .divide-gray-800\/80 > :not(:last-child),
+html:root:not(.dark) .console-shell .divide-gray-800\/70 > :not(:last-child) { border-color: oklch(0.89 0.012 65); }
+
+/* Placeholders inherit nothing useful from the ramp above and were pinned to
+   `placeholder:text-gray-600`, which read as near-invisible on paper. */
+html:root:not(.dark) .console-shell input::placeholder,
+html:root:not(.dark) .console-shell textarea::placeholder { color: oklch(0.56 0.015 60); }
+
+html:root:not(.dark) .console-header {
+  border-color: oklch(0.88 0.01 65);
+  background-color: color-mix(in oklab, oklch(0.985 0.006 70) 92%, transparent);
+  box-shadow: 0 1px 0 oklch(1 0 0 / 75%), 0 8px 24px oklch(0.3 0.02 50 / 5%);
+}
+
+html:root:not(.dark) .console-header .text-orange-300 {
+  color: oklch(0.53 0.15 43);
+}
+
+html:root:not(.dark) .console-header .bg-orange-500 {
+  background-color: oklch(0.58 0.16 43);
+}
+
+html:root:not(.dark) .resource-pulse {
+  border-color: oklch(0.87 0.015 63);
+  background-color: oklch(0.975 0.008 68 / 88%);
+}
+
+html:root:not(.dark) .resource-pulse-surface {
+  border-color: oklch(0.84 0.03 58);
+  background:
+    linear-gradient(110deg, oklch(0.995 0.003 70), oklch(0.968 0.014 65));
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 90%),
+    0 8px 22px oklch(0.34 0.03 50 / 7%);
+}
+
+html:root:not(.dark) .resource-pulse-surface:hover {
+  border-color: oklch(0.7 0.09 48);
+}
+
+html:root:not(.dark) .resource-pulse-icon {
+  border-color: oklch(0.8 0.08 48);
+  background-color: oklch(0.95 0.035 50);
+  color: oklch(0.48 0.15 42);
+}
+
+html:root:not(.dark) .resource-pulse-vram {
+  background-color: oklch(0.56 0.15 43);
+}
+
+html:root:not(.dark) .resource-pulse-ram {
+  background-color: oklch(0.55 0.1 245);
+}
+
+html:root:not(.dark) .resource-pulse-details {
+  color: oklch(0.48 0.15 42);
+}
+
+.dark .resource-pulse-vram {
+  background-color: oklch(0.66 0.14 65);
+}
+
+.dark .resource-pulse-ram {
+  background-color: oklch(0.64 0.12 245);
+}
+
+.dark .resource-pulse-details {
+  color: oklch(0.72 0.12 68);
+}
+
+html:root:not(.dark) .cockpit {
+  --cockpit-copper: oklch(0.55 0.15 43);
+  --cockpit-copper-dark: oklch(0.48 0.15 42);
+  --cockpit-border: oklch(0.875 0.012 67);
+  --cockpit-paper: oklch(0.988 0.006 72);
+}
+
+html:root:not(.dark) .cockpit-surface {
+  border-color: var(--cockpit-border);
+  background:
+    linear-gradient(145deg, oklch(0.997 0.002 70 / 98%), var(--cockpit-paper));
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / 90%),
+    0 1px 2px oklch(0.32 0.025 52 / 4%),
+    0 16px 38px oklch(0.32 0.025 52 / 8%);
+}
+
+html:root:not(.dark) .cockpit-hero {
+  border-color: oklch(0.84 0.045 55);
+  background:
+    radial-gradient(circle at 88% -18%, oklch(0.84 0.11 48 / 20%), transparent 19rem),
+    linear-gradient(145deg, oklch(0.998 0.002 70), oklch(0.975 0.012 65));
+  box-shadow:
+    inset 0 2px 0 oklch(0.68 0.14 44 / 18%),
+    0 18px 42px oklch(0.38 0.045 48 / 10%);
+}
+
+html:root:not(.dark) .cockpit-composer {
+  border-color: oklch(0.74 0.09 54);
+  background-color: oklch(0.998 0.002 70);
+  box-shadow: inset 0 1px 0 oklch(1 0 0);
+}
+
+html:root:not(.dark) .cockpit-composer:focus-within {
+  border-color: var(--cockpit-copper);
+  box-shadow: 0 0 0 3px oklch(0.68 0.12 48 / 12%);
+}
+
+html:root:not(.dark) .cockpit textarea:focus-visible {
+  outline: none;
+}
+
+html:root:not(.dark) .cockpit-primary {
+  background-color: var(--cockpit-copper);
+  color: white;
+  box-shadow: 0 9px 22px oklch(0.48 0.14 42 / 20%);
+}
+
+html:root:not(.dark) .cockpit-primary:hover {
+  background-color: var(--cockpit-copper-dark);
+}
+
+html:root:not(.dark) .cockpit-mode-active {
+  border-color: oklch(0.7 0.12 48);
+  background-color: oklch(0.965 0.035 52);
+  color: oklch(0.44 0.14 42);
+}
+
+html:root:not(.dark) .cockpit-verdict {
+  border-color: oklch(0.84 0.035 58);
+  background:
+    radial-gradient(circle at 90% 0%, oklch(0.88 0.06 140 / 22%), transparent 14rem),
+    linear-gradient(155deg, oklch(0.997 0.002 70), oklch(0.976 0.01 72));
+  box-shadow:
+    inset 0 2px 0 oklch(0.72 0.09 56 / 14%),
+    0 16px 38px oklch(0.32 0.025 52 / 8%);
+}
+
+html:root:not(.dark) .cockpit-ready {
+  background-color: oklch(0.94 0.04 145);
+  color: oklch(0.43 0.11 145);
+}
+
+html:root:not(.dark) .cockpit-accent-text,
+html:root:not(.dark) .cockpit .text-orange-300,
+html:root:not(.dark) .cockpit .text-orange-200 {
+  color: var(--cockpit-copper-dark);
+}
+
+html:root:not(.dark) .cockpit-tone-orange {
+  border-color: oklch(0.82 0.07 48);
+  background-color: oklch(0.965 0.035 52);
+  color: oklch(0.45 0.14 42);
+}
+
+html:root:not(.dark) .cockpit-tone-violet {
+  border-color: oklch(0.84 0.055 305);
+  background-color: oklch(0.97 0.025 305);
+  color: oklch(0.48 0.11 305);
+}
+
+html:root:not(.dark) .cockpit-tone-blue {
+  border-color: oklch(0.84 0.055 245);
+  background-color: oklch(0.97 0.025 245);
+  color: oklch(0.46 0.11 245);
+}
+
+html:root:not(.dark) .cockpit-tone-emerald {
+  border-color: oklch(0.83 0.055 155);
+  background-color: oklch(0.965 0.025 155);
+  color: oklch(0.43 0.1 155);
+}
+
+html:root:not(.dark) .cockpit-action-orange { color: oklch(0.5 0.15 42); }
+html:root:not(.dark) .cockpit-action-violet { color: oklch(0.48 0.12 305); }
+html:root:not(.dark) .cockpit-action-blue { color: oklch(0.46 0.12 245); }
+html:root:not(.dark) .cockpit-action-emerald { color: oklch(0.42 0.11 155); }
+
+html:root:not(.dark) .cockpit .text-emerald-300 {
+  color: oklch(0.43 0.11 145);
+}
+
+html:root:not(.dark) .cockpit-section-header {
+  border-color: oklch(0.89 0.012 65);
+  background-color: oklch(0.968 0.009 68 / 72%);
+}
+
+html:root:not(.dark) .cockpit-row,
+html:root:not(.dark) .cockpit-request {
+  background-color: oklch(0.996 0.002 70 / 58%);
+}
+
+html:root:not(.dark) .cockpit-row:hover,
+html:root:not(.dark) .cockpit-request:hover {
+  background-color: oklch(0.955 0.026 55);
+}
+
+html:root:not(.dark) .cockpit-request-icon {
+  background-color: oklch(0.945 0.025 55);
+  color: var(--cockpit-copper-dark);
+}
+
+html:root:not(.dark) .cockpit-resource {
+  border-color: oklch(0.85 0.026 60);
+  background:
+    linear-gradient(150deg, oklch(0.995 0.003 70), oklch(0.965 0.012 68));
+}
+
+html:root:not(.dark) .services-hero {
+  border-color: oklch(0.84 0.04 56);
+  background:
+    radial-gradient(circle at 88% -20%, oklch(0.84 0.11 48 / 18%), transparent 25rem),
+    linear-gradient(145deg, oklch(0.998 0.002 70), oklch(0.972 0.012 66));
+}
+
+html:root:not(.dark) .services-search {
+  border-color: oklch(0.84 0.025 60);
+  background-color: oklch(0.995 0.003 70);
+}
+
+html:root:not(.dark) .services-stat {
+  border-color: oklch(0.88 0.015 64);
+  background-color: oklch(0.982 0.007 68 / 72%);
+}
+
+html:root:not(.dark) .services-toolbar {
+  border-color: oklch(0.88 0.015 64);
+  background-color: oklch(0.97 0.01 68 / 78%);
+}
+
+html:root:not(.dark) .services-filter-active {
+  border-color: oklch(0.7 0.1 48);
+  background-color: oklch(0.95 0.038 51);
+  color: oklch(0.44 0.14 42);
+}
+
+html:root:not(.dark) .services-card {
+  background-color: oklch(0.994 0.003 70);
+}
+
+html:root:not(.dark) .services-card:hover {
+  background-color: oklch(0.98 0.011 67);
+}
+
+html:root:not(.dark) .services-card-icon {
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 80%);
+}
+
+html:root:not(.dark) .services-footprint,
+html:root:not(.dark) .services-start {
+  color: oklch(0.46 0.14 42);
+}
+
+html:root:not(.dark) .services-center .text-orange-300,
+html:root:not(.dark) .services-center .text-orange-200 {
+  color: oklch(0.47 0.14 42);
+}
+
+html:root:not(.dark) .services-center .text-gray-500 {
+  color: oklch(0.47 0.015 60);
+}
+
+html:root:not(.dark) .services-center .text-gray-600 {
+  color: oklch(0.54 0.015 60);
+}
+
+html:root:not(.dark) .services-center .text-gray-700 {
+  color: oklch(0.58 0.015 60);
+}
+
+/* Shared tool-page language. Home is the cockpit; these are its focused work
+   surfaces: clearer hierarchy, denser controls, and the same warm paper system. */
+.tool-page {
+  --tool-accent: oklch(0.61 0.16 43);
+  --tool-accent-soft: oklch(0.92 0.055 49);
+  --tool-line: oklch(0.87 0.014 65);
+  --tool-paper: oklch(0.992 0.004 70);
+  --tool-muted: oklch(0.48 0.018 60);
+  width: 100%;
+  min-width: 0;
+}
+
+.tool-page-hero {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 0.3rem 0 0.85rem;
+  border: 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--accent-500) 15%, var(--color-gray-800));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tool-page-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border: 1px solid color-mix(in oklab, var(--accent-500) 34%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in oklab, var(--accent-500) 13%, var(--color-gray-950));
+  color: color-mix(in oklab, var(--accent-500) 78%, white);
+}
+
+.tool-page-eyebrow,
+.tool-section-eyebrow {
+  color: color-mix(in oklab, var(--accent-500) 74%, var(--color-gray-400));
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.tool-page-title {
+  color: var(--color-gray-50);
+  font-size: clamp(1.35rem, 2vw, 1.7rem);
+  font-weight: 720;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.tool-page-description {
+  max-width: 48rem;
+  margin-top: 0.24rem;
+  color: var(--color-gray-400);
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.tool-page-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.55rem;
+  padding: 0.22rem 0.58rem;
+  border: 1px solid color-mix(in oklab, var(--accent-500) 25%, var(--color-gray-700));
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--accent-500) 9%, transparent);
+  color: var(--color-gray-300);
+  font-size: 0.65rem;
+  font-weight: 650;
+}
+
+.tool-page-chip.is-ready { color: var(--color-emerald-300); }
+.tool-page-chip.is-offline { color: var(--color-amber-300); }
+
+.tool-page-actions { margin-left: auto; }
+
+/* Image Studio is a workbench: the active task gets the large canvas while
+   model/runtime controls sit in a bounded rail. */
+.image-studio-grid {
+  display: grid;
+  grid-template-areas: "workbench runtime" "history history";
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 21rem);
+  align-items: start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.image-workbench { grid-area: workbench; min-width: 0; }
+.image-runtime-rail { grid-area: runtime; display: grid; gap: 1rem; min-width: 0; }
+.image-mode-nav,
+.image-mode-content,
+.image-model-panel,
+.image-service-panel { min-width: 0; }
+.image-mode-content { margin-top: 1rem; }
+.image-history-panel { grid-area: history; min-width: 0; }
+
+.image-view-switch,
+.image-mode-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--color-gray-800);
+  border-radius: 0.75rem;
+  background: color-mix(in oklab, var(--color-gray-900) 88%, transparent);
+}
+
+.image-view-switch button,
+.image-mode-tabs button {
+  min-height: 2rem;
+  padding: 0.35rem 0.72rem;
+  border-radius: 0.55rem;
+  color: var(--color-gray-400);
+  font-size: 0.75rem;
+  font-weight: 650;
+  transition: 140ms ease;
+}
+
+.image-view-switch button:hover,
+.image-mode-tabs button:hover { color: var(--color-gray-100); }
+.image-view-switch button.is-active,
+.image-mode-tabs button.is-active {
+  background: var(--accent-600);
+  color: white;
+  box-shadow: 0 5px 14px color-mix(in oklab, var(--accent-700) 26%, transparent);
+}
+.image-mode-tabs button:disabled { cursor: not-allowed; opacity: 0.38; }
+
+.image-mode-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid var(--color-gray-800);
+}
+
+.image-mode-tabs { flex: 0 0 auto; }
+.image-mode-hint { min-width: 0; color: var(--color-gray-500); font-size: 0.7rem; line-height: 1.35; }
+.image-tab-note,
+.image-tab-count {
+  margin-left: 0.28rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, currentColor 12%, transparent);
+  font-size: 0.56rem;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.image-model-panel {
+  padding: 0.85rem;
+  border: 1px solid var(--color-gray-800);
+  border-radius: 0.9rem;
+  background: color-mix(in oklab, var(--color-gray-900) 94%, transparent);
+  box-shadow: 0 8px 22px color-mix(in oklab, black 7%, transparent);
+}
+
+.image-model-panel > div:nth-child(2) { display: grid; grid-template-columns: 1fr; }
+.image-model-panel > div:nth-child(2) > button { width: 100%; }
+.image-model-panel > p { padding-left: 0; }
+.image-service-panel { padding: 0.85rem !important; box-shadow: none !important; }
+.image-service-panel details { margin-top: 0.65rem; }
+.image-mode-content > section:first-child { margin-top: 0; }
+
+.image-run-setup {
+  overflow: hidden;
+  border: 1px solid var(--color-gray-800);
+  border-radius: 0.95rem;
+  background: color-mix(in oklab, var(--color-gray-900) 94%, transparent);
+  box-shadow: 0 8px 22px color-mix(in oklab, black 7%, transparent);
+}
+
+.image-run-setup-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem 0.6rem;
+  border-bottom: 1px solid var(--color-gray-800);
+}
+
+.image-run-setup-heading p {
+  color: var(--color-gray-100);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.image-run-setup-heading div > span {
+  display: block;
+  margin-top: 0.08rem;
+  color: var(--color-gray-500);
+  font-size: 0.62rem;
+}
+
+.image-run-setup-heading > span {
+  padding: 0.16rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.image-run-setup-heading > span.is-ready { background: color-mix(in oklab, var(--color-emerald-500) 12%, transparent); color: var(--color-emerald-300); }
+.image-run-setup-heading > span.is-offline { background: color-mix(in oklab, var(--color-red-500) 10%, transparent); color: var(--color-red-300); }
+
+.image-run-setup-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3.7rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--color-gray-800);
+  transition: 140ms ease;
+}
+
+.image-run-setup-row:last-child { border-bottom: 0; }
+.image-run-setup-row:hover { background: color-mix(in oklab, var(--accent-500) 7%, transparent); }
+.image-run-setup-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--color-gray-800);
+  border-radius: 0.6rem;
+  background: var(--color-gray-950);
+  color: color-mix(in oklab, var(--accent-500) 72%, var(--color-gray-300));
+}
+
+.image-run-setup-label {
+  display: block;
+  margin-bottom: 0.05rem;
+  color: var(--color-gray-500);
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.image-run-setup-row strong {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow: hidden;
+  color: var(--color-gray-100);
+  font-size: 0.75rem;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-run-setup-row .text-left > span:last-child {
+  display: block;
+  overflow: hidden;
+  margin-top: 0.05rem;
+  color: var(--color-gray-500);
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-run-setup-action {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.1rem;
+  color: var(--color-gray-500);
+  font-size: 0.62rem;
+  font-weight: 650;
+}
+
+.image-run-setup-row:hover .image-run-setup-action { color: color-mix(in oklab, var(--accent-500) 74%, var(--color-gray-300)); }
+.image-run-setup-dot { width: 0.42rem; height: 0.42rem; flex: 0 0 auto; border-radius: 999px; }
+.image-run-setup-dot.is-ready { background: var(--color-emerald-500); }
+.image-run-setup-dot.is-busy { background: var(--color-amber-400); animation: pulse 1.8s ease-in-out infinite; }
+.image-run-setup-dot.is-offline { background: var(--color-red-500); }
+
+.image-setup-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: min(10vh, 5rem) 1rem 1rem;
+  background: color-mix(in oklab, black 58%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.image-setup-dialog {
+  width: min(42rem, 100%);
+  max-height: min(78vh, 46rem);
+  overflow: hidden;
+  border: 1px solid var(--color-gray-700);
+  border-radius: 1.1rem;
+  background: var(--color-gray-950);
+  box-shadow: 0 28px 80px color-mix(in oklab, black 45%, transparent);
+}
+
+.image-setup-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem 0.9rem;
+  border-bottom: 1px solid var(--color-gray-800);
+}
+
+.image-setup-dialog-header h2 { color: var(--color-gray-100); font-size: 1rem; font-weight: 720; }
+.image-setup-dialog-header p { margin-top: 0.22rem; color: var(--color-gray-500); font-size: 0.7rem; line-height: 1.45; }
+.image-setup-dialog-header button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--color-gray-800);
+  border-radius: 0.6rem;
+  color: var(--color-gray-500);
+}
+.image-setup-dialog-header button:hover { border-color: var(--color-gray-600); color: var(--color-gray-100); }
+.image-setup-dialog-body { max-height: calc(min(78vh, 46rem) - 5rem); overflow-y: auto; padding: 1rem; }
+.image-setup-dialog .image-model-panel { box-shadow: none; }
+.image-runtime-dialog-stack { display: grid; gap: 0.85rem; }
+
+.tool-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.tool-section-title {
+  margin-top: 0.3rem;
+  color: var(--color-gray-100);
+  font-size: 1rem;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+}
+
+.tool-section-description {
+  margin-top: 0.2rem;
+  color: var(--color-gray-500);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.tool-panel,
+.tool-page > .bg-gray-900,
+.tool-page > section.bg-gray-900 {
+  border-color: color-mix(in oklab, var(--accent-500) 12%, var(--color-gray-800));
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 3%, transparent), 0 10px 25px color-mix(in oklab, black 9%, transparent);
+}
+
+.chat-page-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+.chat-page-layout > .tool-page-hero { grid-column: 1 / -1; }
+
+.chat-model-picker {
+  align-self: start;
+  border-radius: 1rem !important;
+  padding: 1rem !important;
+}
+
+.chat-metrics { padding: 1rem; border-radius: 1rem; }
+.chat-metrics > .grid { gap: 0.6rem; }
+.chat-metrics > .grid > div { min-height: 5.4rem; box-shadow: none; }
+.chat-playground { min-width: 0; }
+.chat-canvas { overflow: hidden; border-radius: 1rem; }
+
+.chat-empty-mark {
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  margin: 0 auto 0.9rem;
+  border: 1px solid color-mix(in oklab, var(--accent-500) 28%, var(--color-gray-700));
+  border-radius: 1rem;
+  background: color-mix(in oklab, var(--accent-500) 10%, var(--color-gray-900));
+  color: color-mix(in oklab, var(--accent-500) 75%, white);
+}
+
+.chat-starter-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 1.1rem;
+}
+
+.chat-starter-row button {
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--color-gray-700);
+  border-radius: 999px;
+  color: var(--color-gray-400);
+  font-size: 0.68rem;
+  transition: 150ms ease;
+}
+
+.chat-starter-row button:hover { border-color: var(--accent-500); color: var(--color-gray-100); }
+
+.speech-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.speech-workspace {
+  min-width: 0;
+  padding: 1.15rem;
+  border: 1px solid var(--color-gray-800);
+  border-radius: 1.1rem;
+}
+
+.speech-workspace > h2 {
+  margin-bottom: 0.75rem;
+  color: color-mix(in oklab, var(--accent-500) 74%, var(--color-gray-400));
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+}
+
+.speech-workspace > .mb-4 { margin-bottom: 1rem; }
+.vision-workspace { min-height: 15rem; }
+
+.requests-table table tbody tr { transition: background-color 120ms ease; }
+.requests-table table tbody tr:hover { background: color-mix(in oklab, var(--accent-500) 6%, transparent); }
+.requests-toolbar { box-shadow: 0 9px 24px color-mix(in oklab, black 10%, transparent); }
+.models-page section[aria-label="Active model routing"] button { min-height: 6.5rem; }
+.models-page .grid > .rounded-xl { box-shadow: 0 7px 18px color-mix(in oklab, black 6%, transparent); }
+
+@media (min-width: 900px) {
+  .chat-page-layout { grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr); }
+  .chat-model-picker { grid-column: 1; grid-row: 2; }
+  .chat-metrics { grid-column: 1; grid-row: 3; align-self: start; }
+  .chat-playground { grid-column: 2; grid-row: 2 / span 2; }
+  .chat-metrics > .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .speech-workspace-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+
+@media (max-width: 640px) {
+  .tool-page-hero { align-items: flex-start; padding: 0 0 0.7rem; }
+  .tool-page-icon { width: 2.35rem; height: 2.35rem; border-radius: 0.75rem; }
+  .tool-page-title { font-size: 1.4rem; }
+  .tool-page-description { font-size: 0.76rem; }
+  .tool-page-chip { display: none; }
+  .tool-page-actions { flex: 0 0 auto; }
+  .image-view-switch button { padding-inline: 0.55rem; }
+  .image-mode-nav { align-items: flex-start; }
+  .image-mode-tabs { width: 100%; overflow-x: auto; }
+  .image-mode-tabs button { flex: 1 0 auto; padding-inline: 0.5rem; font-size: 0.68rem; }
+  .image-mode-hint { display: none; }
+  .image-setup-dialog-backdrop { align-items: flex-end; padding: 0.5rem; }
+  .image-setup-dialog { max-height: 88vh; border-radius: 1rem; }
+  .image-setup-dialog-body { max-height: calc(88vh - 5rem); padding: 0.75rem; }
+  .image-model-panel { padding: 0.7rem; }
+  .speech-workspace { padding: 0.85rem; }
+  .speech-workspace .flex.gap-4.items-stretch { flex-direction: column; }
+  .chat-canvas { height: 31rem; }
+  .chat-model-picker ul > li,
+  .speech-workspace .mb-4 ul > li { flex-wrap: wrap; }
+  .chat-model-picker ul > li > .min-w-0,
+  .speech-workspace .mb-4 ul > li > .min-w-0 { flex-basis: calc(100% - 1.25rem); }
+}
+
+@media (max-width: 899px) {
+  .image-studio-grid {
+    grid-template-areas: "workbench" "runtime" "history";
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Purpose-built light styling for every work surface. The original components
+   still express semantics through gray utility classes; this scope remaps them
+   to warm paper while preserving status and provider colours. */
+html:root:not(.dark) .tool-page {
+  color: oklch(0.22 0.012 55);
+}
+
+html:root:not(.dark) .tool-page-hero {
+  border-color: oklch(0.86 0.018 62);
+  background: transparent;
+  box-shadow: none;
+}
+
+html:root:not(.dark) .tool-page-icon {
+  border-color: oklch(0.79 0.08 48);
+  background: oklch(0.945 0.04 51);
+  color: oklch(0.48 0.15 42);
+}
+
+html:root:not(.dark) .tool-page-title,
+html:root:not(.dark) .tool-section-title { color: oklch(0.2 0.012 55); }
+html:root:not(.dark) .tool-page-eyebrow,
+html:root:not(.dark) .tool-section-eyebrow { color: oklch(0.5 0.15 42); }
+html:root:not(.dark) .tool-page-description,
+html:root:not(.dark) .tool-section-description { color: oklch(0.45 0.02 58); }
+
+html:root:not(.dark) .tool-page-chip {
+  border-color: oklch(0.8 0.07 52);
+  background: oklch(0.95 0.035 52);
+  color: oklch(0.43 0.12 43);
+}
+
+html:root:not(.dark) .tool-page-chip.is-ready { border-color: oklch(0.8 0.06 145); background: oklch(0.95 0.035 145); color: oklch(0.4 0.11 145); }
+html:root:not(.dark) .tool-page-chip.is-offline { border-color: oklch(0.82 0.065 78); background: oklch(0.96 0.035 82); color: oklch(0.48 0.11 72); }
+
+html:root:not(.dark) .image-view-switch,
+html:root:not(.dark) .image-mode-tabs,
+html:root:not(.dark) .image-model-panel {
+  border-color: oklch(0.86 0.016 64);
+  background: oklch(0.985 0.006 70);
+}
+
+html:root:not(.dark) .image-view-switch button.is-active,
+html:root:not(.dark) .image-mode-tabs button.is-active {
+  background: oklch(0.55 0.15 43);
+  color: white;
+}
+
+html:root:not(.dark) .image-mode-nav { border-color: oklch(0.87 0.014 64); }
+html:root:not(.dark) .image-model-panel [class*="text-amber-300"] { color: oklch(0.46 0.11 75); }
+html:root:not(.dark) .image-model-panel [class*="text-emerald-300"] { color: oklch(0.42 0.11 150); }
+html:root:not(.dark) .image-run-setup {
+  border-color: oklch(0.85 0.018 63);
+  background: oklch(0.991 0.004 70);
+  box-shadow: 0 10px 24px oklch(0.34 0.03 50 / 7%);
+}
+html:root:not(.dark) .image-run-setup-heading,
+html:root:not(.dark) .image-run-setup-row { border-color: oklch(0.89 0.012 65); }
+html:root:not(.dark) .image-run-setup-heading p,
+html:root:not(.dark) .image-run-setup-row strong { color: oklch(0.24 0.014 56); }
+html:root:not(.dark) .image-run-setup-heading > span.is-ready { background: oklch(0.95 0.035 145); color: oklch(0.4 0.11 145); }
+html:root:not(.dark) .image-run-setup-heading > span.is-offline { background: oklch(0.96 0.03 28); color: oklch(0.48 0.14 27); }
+html:root:not(.dark) .image-run-setup-row:hover { background: oklch(0.965 0.025 53); }
+html:root:not(.dark) .image-run-setup-icon { border-color: oklch(0.85 0.018 63); background: oklch(0.96 0.025 53); color: oklch(0.49 0.14 43); }
+html:root:not(.dark) .image-setup-dialog {
+  border-color: oklch(0.8 0.025 60);
+  background: oklch(0.985 0.006 70);
+  box-shadow: 0 28px 80px oklch(0.24 0.03 50 / 24%);
+}
+html:root:not(.dark) .image-setup-dialog-header { border-color: oklch(0.86 0.016 64); }
+html:root:not(.dark) .image-setup-dialog-header h2 { color: oklch(0.22 0.014 56); }
+html:root:not(.dark) .image-setup-dialog-header button { border-color: oklch(0.83 0.02 62); color: oklch(0.48 0.018 60); }
+
+html:root:not(.dark) .tool-page .bg-gray-950,
+html:root:not(.dark) .tool-page .bg-gray-950\/95 { background-color: oklch(0.968 0.009 68 / 96%); }
+html:root:not(.dark) .tool-page .bg-gray-950\/25 { background-color: oklch(0.965 0.01 68 / 42%); }
+html:root:not(.dark) .tool-page .bg-gray-900,
+html:root:not(.dark) .tool-page .bg-gray-900\/40 { background-color: var(--tool-paper); }
+html:root:not(.dark) .tool-page .bg-gray-800 { background-color: oklch(0.945 0.012 66); }
+html:root:not(.dark) .tool-page .bg-gray-800\/40,
+html:root:not(.dark) .tool-page .bg-gray-800\/30 { background-color: oklch(0.95 0.012 66 / 70%); }
+
+html:root:not(.dark) .tool-page .border-gray-800 { border-color: var(--tool-line); }
+html:root:not(.dark) .tool-page .border-gray-700 { border-color: oklch(0.81 0.018 62); }
+html:root:not(.dark) .tool-page .border-gray-600 { border-color: oklch(0.73 0.02 60); }
+html:root:not(.dark) .tool-page .divide-gray-800\/70 > :not(:last-child) { border-color: oklch(0.89 0.012 65); }
+
+html:root:not(.dark) .tool-page .text-gray-100,
+html:root:not(.dark) .tool-page .text-gray-200 { color: oklch(0.22 0.012 55); }
+html:root:not(.dark) .tool-page .text-gray-300 { color: oklch(0.31 0.016 58); }
+html:root:not(.dark) .tool-page .text-gray-400 { color: oklch(0.42 0.018 59); }
+html:root:not(.dark) .tool-page .text-gray-500 { color: oklch(0.49 0.017 60); }
+html:root:not(.dark) .tool-page .text-gray-600 { color: oklch(0.56 0.014 60); }
+
+html:root:not(.dark) .tool-panel,
+html:root:not(.dark) .tool-page > .bg-gray-900,
+html:root:not(.dark) .tool-page > section.bg-gray-900 {
+  border-color: var(--tool-line);
+  background: linear-gradient(145deg, oklch(0.998 0.002 70), var(--tool-paper));
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 95%), 0 12px 30px oklch(0.34 0.03 50 / 7%);
+}
+
+html:root:not(.dark) .tool-page input:not([type="checkbox"]):not([type="range"]),
+html:root:not(.dark) .tool-page textarea,
+html:root:not(.dark) .tool-page select {
+  border-color: oklch(0.79 0.025 60);
+  background-color: oklch(0.992 0.004 70);
+  color: oklch(0.24 0.014 56);
+}
+
+html:root:not(.dark) .tool-page input::placeholder,
+html:root:not(.dark) .tool-page textarea::placeholder { color: oklch(0.56 0.015 60); }
+
+html:root:not(.dark) .tool-page input:focus,
+html:root:not(.dark) .tool-page textarea:focus,
+html:root:not(.dark) .tool-page select:focus {
+  border-color: oklch(0.63 0.12 47);
+  box-shadow: 0 0 0 3px oklch(0.68 0.12 48 / 11%);
+}
+
+html:root:not(.dark) .chat-empty-mark {
+  border-color: oklch(0.8 0.07 50);
+  background: oklch(0.95 0.035 52);
+  color: oklch(0.48 0.15 42);
+}
+
+html:root:not(.dark) .chat-starter-row button { border-color: oklch(0.82 0.025 62); color: oklch(0.42 0.02 58); background: oklch(0.985 0.006 69); }
+html:root:not(.dark) .chat-starter-row button:hover { border-color: oklch(0.63 0.12 47); color: oklch(0.42 0.13 42); background: oklch(0.96 0.03 52); }
+html:root:not(.dark) .requests-table thead { background: oklch(0.95 0.014 66); color: oklch(0.45 0.018 58); }
+html:root:not(.dark) .requests-table tbody tr:hover { background: oklch(0.965 0.028 54); }
+
+.dark .tool-page .text-gray-400 { color: oklch(0.77 0.012 70); }
+.dark .tool-page .text-gray-500 { color: oklch(0.71 0.012 70); }
+.dark .tool-page .text-gray-600 { color: oklch(0.62 0.012 70); }
+.dark .tool-page-description { color: oklch(0.72 0.012 70); }
+.dark .tool-section-description { color: oklch(0.66 0.012 70); }
+.dark .tool-page-chip { color: oklch(0.76 0.014 70); }
+.dark .tool-page-chip.is-ready { color: oklch(0.73 0.12 150); }
+.dark .tool-page-chip.is-offline { color: oklch(0.76 0.12 80); }
+
+.tool-page :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent-500) 72%, white);
+  outline-offset: 2px;
+}
+
+.dark .services-center .text-gray-500 {
+  color: oklch(0.67 0.012 70);
+}
+
+.dark .services-center .text-gray-600 {
+  color: oklch(0.54 0.012 70);
+}
+
+.dark .services-center .text-gray-700 {
+  color: oklch(0.48 0.012 70);
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklab, var(--accent-500) 30%, transparent) transparent;
