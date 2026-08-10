@@ -11,6 +11,15 @@ export async function GET() {
   return NextResponse.json({ events, noise, noiseCount, hops, hopCount, services, count: events.length });
 }
 
+/**
+ * Cap on stored prompt/response text, per event.
+ *
+ * A memory budget: the live ring holds up to RING_MAX events in process. Kept
+ * in step with `_TEXT_MAX` in config/router_callback.py — the producer clips
+ * first, so raising this alone changes nothing.
+ */
+const TEXT_MAX = 8000;
+
 // POST — ingest one request event. Called by the console's own middleware and by
 // any backend service that opts into request logging (see AI/AGENTS.md).
 export async function POST(req: NextRequest) {
@@ -28,7 +37,15 @@ export async function POST(req: NextRequest) {
       model: b.model ? String(b.model).slice(0, 80) : null,
       costUsd: b.costUsd == null ? null : Number(b.costUsd),
       caller: b.caller ? String(b.caller).slice(0, 120) : null,
-      prompt: b.prompt ? String(b.prompt).slice(0, 400) : null,
+      // 8000, not the old 400. The detail panel is where you go to read what a
+      // call actually said, and 400 characters cut every real agent prompt off
+      // mid-sentence with no way to see the rest — the text was gone before it
+      // reached the ring. The producer sends the original length so the panel
+      // can say how much was dropped instead of just trailing off.
+      prompt: b.prompt ? String(b.prompt).slice(0, TEXT_MAX) : null,
+      promptChars: b.promptChars == null ? null : Number(b.promptChars),
+      response: b.response ? String(b.response).slice(0, TEXT_MAX) : null,
+      responseChars: b.responseChars == null ? null : Number(b.responseChars),
       tokensIn: b.tokensIn == null ? null : Number(b.tokensIn),
       tokensOut: b.tokensOut == null ? null : Number(b.tokensOut),
       error: b.error ? String(b.error).slice(0, 400) : null,

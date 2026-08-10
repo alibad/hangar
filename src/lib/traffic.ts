@@ -48,6 +48,20 @@ export type TrafficEvent = {
    */
   caller?: string | null;
   prompt?: string | null;
+  /**
+   * What the reply said. The router's success hook is handed the completion
+   * object, so this is free to capture — and it is the only way to see the
+   * answer at all: the detail panel's generic previewer works by re-fetching
+   * the URL, which it correctly refuses to do for a POST.
+   */
+  response?: string | null;
+  /**
+   * Original lengths, before the producer clipped to its text cap. Present so
+   * the panel can say "showing the first 8,000 of 21,430 characters" instead of
+   * trailing off into an ellipsis that looks like the whole story.
+   */
+  promptChars?: number | null;
+  responseChars?: number | null;
   tokensIn?: number | null;
   tokensOut?: number | null;
   error?: string | null;

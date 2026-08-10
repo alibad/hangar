@@ -20,6 +20,11 @@ type Ev = {
   costUsd?: number | null;
   caller?: string | null;
   prompt?: string | null;
+  /** The reply text, captured by the producer at log time — see TrafficEvent. */
+  response?: string | null;
+  /** Lengths before the producer's text cap, so the panel can say what it lost. */
+  promptChars?: number | null;
+  responseChars?: number | null;
   tokensIn?: number | null;
   tokensOut?: number | null;
   error?: string | null;
@@ -709,14 +714,7 @@ function DetailPanel({ ev, onClose }: { ev: Ev; onClose: () => void }) {
                 <DRow k="cost" v={`$${ev.costUsd < 0.01 ? ev.costUsd.toFixed(6) : ev.costUsd.toFixed(4)}`} />
               )}
             </dl>
-            {ev.prompt && (
-              <div>
-                <span className="text-[10px] text-gray-500 uppercase tracking-wider">prompt</span>
-                <p className="text-[11px] text-gray-300 leading-relaxed mt-0.5 whitespace-pre-wrap break-words">
-                  {ev.prompt}
-                </p>
-              </div>
-            )}
+            {ev.prompt && <ExpandableText label="prompt" text={ev.prompt} fullChars={ev.promptChars} />}
           </div>
         )}
 
@@ -759,6 +757,12 @@ function DetailPanel({ ev, onClose }: { ev: Ev; onClose: () => void }) {
               />
               <p className="text-[10px] text-gray-600 font-mono break-all">{ev.artifact.rel}</p>
             </div>
+          ) : ev.response ? (
+            // The reply as the router recorded it at log time. The previewer
+            // below can only show a body by re-fetching the URL, which it
+            // refuses to do for a POST — so without this, every chat completion
+            // read "not previewed" even though the text was already known.
+            <ExpandableText label="reply" text={ev.response} fullChars={ev.responseChars} tone="reply" />
           ) : (
             <ResponsePreview ev={ev} />
           )}
@@ -771,6 +775,68 @@ function DetailPanel({ ev, onClose }: { ev: Ev; onClose: () => void }) {
 // Fetches the request's URL and renders it by its ACTUAL content-type: images
 // inline, audio in a player, JSON/text formatted, anything else as a download.
 // Only auto-loads safe same-origin GETs; a POST/DELETE is never re-sent.
+/**
+ * Long text that starts clamped but can always be opened in full.
+ *
+ * Prompts and replies here run to thousands of characters. Dumping one whole
+ * makes the panel unnavigable; clamping it with no way out is precisely what
+ * made the old 300-character preview so useless — it looked like the text just
+ * ended. So: clamp, expand on demand, and be explicit about the difference
+ * between "collapsed for now" and "this is genuinely all we kept".
+ *
+ * The character count is always shown, because a trailing ellipsis cannot tell
+ * you whether you are missing ten characters or ten thousand.
+ */
+function ExpandableText({ label, text, fullChars, tone = "prompt" }: {
+  label: string;
+  text: string;
+  fullChars?: number | null;
+  tone?: "prompt" | "reply";
+}) {
+  const [open, setOpen] = useState(false);
+  // The producer clipped it: what we hold is genuinely shorter than what was said.
+  const clipped = typeof fullChars === "number" && fullChars > text.length;
+  // Below this a toggle is just noise — the whole thing already fits.
+  const worthCollapsing = text.length > 600;
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-wider text-gray-500">{label}</span>
+        <span className="shrink-0 text-[10px] tabular-nums text-gray-600">
+          {clipped
+            ? `first ${text.length.toLocaleString()} of ${fullChars.toLocaleString()} chars`
+            : `${text.length.toLocaleString()} chars`}
+        </span>
+      </div>
+      <p
+        className={`mt-0.5 whitespace-pre-wrap break-words text-[11px] leading-relaxed ${
+          tone === "reply" ? "text-gray-200" : "text-gray-300"
+        } ${open || !worthCollapsing ? "" : "max-h-32 overflow-hidden"}`}
+      >
+        {text}
+      </p>
+      {worthCollapsing && (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="mt-1 text-[10px] font-medium text-indigo-400 hover:text-indigo-300"
+        >
+          {open ? "Show less" : `Show all ${text.length.toLocaleString()} characters`}
+        </button>
+      )}
+      {clipped && open && (
+        <p className="mt-1 text-[10px] leading-relaxed text-gray-600">
+          {(fullChars - text.length).toLocaleString()} characters are not shown because they were
+          never sent: the router stores at most {text.length.toLocaleString()} per call, to bound
+          the console&apos;s in-memory feed.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ResponsePreview({ ev }: { ev: Ev }) {
   const { url, sameOrigin } = resolveUrl(ev);
   const isGet = ev.method === "GET";
