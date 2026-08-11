@@ -48,7 +48,7 @@
     "checkpoint": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
     "params": "30B (A3B MoE, ~3B active) · AWQ 4-bit",
     "docs": "https://hf.co/QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
-    "note": "32k context, gpu-memory-utilization 0.72.",
+    "note": "32k context with native Qwen3-Coder tool parsing for MCP agents; gpu-memory-utilization 0.72.",
     "service": "vllm",
     "footprint": {
       "vramGb": 22.9,
