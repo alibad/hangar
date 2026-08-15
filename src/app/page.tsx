@@ -20,6 +20,7 @@ import HomeCockpit from "@/components/home-cockpit";
 import ConsoleHeader from "@/components/console-header";
 import ResourcePulse from "@/components/resource-pulse";
 import ServicesControlCenter from "@/components/services-control-center";
+import StorageManager from "@/components/storage-manager";
 import { ToolPageHeader, ToolSectionHeading } from "@/components/tool-page";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { ChatCircleText, Waveform as WaveformIcon } from "@phosphor-icons/react";
@@ -321,7 +322,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const valid = new Set<ConsoleTab>(["stack", "services", "llm", "speech", "qwen", "requests", "usage", "sam3d", "sam3", "models"]);
+    const valid = new Set<ConsoleTab>(["stack", "services", "storage", "llm", "speech", "qwen", "requests", "usage", "sam3d", "sam3", "models"]);
     const resolve = () => {
       const hash = window.location.hash.slice(1) as ConsoleTab;
       const saved = window.localStorage.getItem("bt-active-tab") as ConsoleTab | null;
@@ -651,6 +652,7 @@ export default function Home() {
     // it belongs above the cards rather than in a tab of its own.
     { id: "stack" as const, label: "Stack", count: runningServices + "/" + managedServices.length },
     { id: "services" as const, label: "Services" },
+    { id: "storage" as const, label: "Storage" },
     { id: "llm" as const, label: "LLM" },
     { id: "speech" as const, label: "Speech" },
     // One tab for every image model on the box. "Creative" used to sit beside
@@ -816,6 +818,8 @@ export default function Home() {
             onSelectTab={selectTab}
           />
         )}
+
+        {tab === "storage" && <StorageManager />}
 
         {/* Kept hidden for one checkpoint so the former Stack markup remains a
             local rollback while the new Home cockpit settles. */}

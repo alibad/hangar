@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { CaretDown, Moon, Sun } from "@phosphor-icons/react";
-import { Activity, Gauge, Home, Network, RefreshCw, Server } from "lucide-react";
+import { Activity, Gauge, HardDrive, Home, Network, RefreshCw } from "lucide-react";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import { ThemePicker } from "@/components/theme-picker";
 import { useTheme } from "@/components/theme-provider";
@@ -33,6 +33,7 @@ const workstreams: Array<{ id: ConsoleTab; label: string; hint: string }> = [
 const insights: Array<{ id: ConsoleTab; label: string; hint: string }> = [
   { id: "requests", label: "Requests", hint: "Live traffic and failures" },
   { id: "usage", label: "Usage", hint: "Claude Code tokens and cost" },
+  { id: "storage", label: "Storage", hint: "Drive space, files and changes" },
 ];
 
 export default function ConsoleHeader({
@@ -160,7 +161,7 @@ export default function ConsoleHeader({
     </header>
     <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 rounded-2xl border border-gray-700 bg-gray-950/95 p-1.5 shadow-2xl backdrop-blur-xl md:hidden" aria-label="Mobile navigation">
         <MobileNavButton label="Home" active={active === "stack"} onClick={() => onSelect("stack")} icon={<Home className="h-4 w-4" />} />
-        <MobileNavButton label="Services" active={active === "services"} onClick={() => onSelect("services")} icon={<Server className="h-4 w-4" />} />
+        <MobileNavButton label="Storage" active={active === "storage"} onClick={() => onSelect("storage")} icon={<HardDrive className="h-4 w-4" />} />
         <MobileNavButton label="Requests" active={active === "requests"} onClick={() => onSelect("requests")} icon={<Activity className="h-4 w-4" />} />
         <MobileNavButton label="Usage" active={active === "usage"} onClick={() => onSelect("usage")} icon={<Gauge className="h-4 w-4" />} />
         <MobileNavButton label="Models" active={active === "models"} onClick={() => onSelect("models")} icon={<Network className="h-4 w-4" />} />
