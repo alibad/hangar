@@ -4,9 +4,18 @@ import { useCallback, useMemo, useState } from "react";
 import { ToolPageHeader } from "./tool-page";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { Circuitry } from "@phosphor-icons/react";
-import type { Entry, Payload } from "./models-page.types";
-import { buildEntries } from "./models-page.types";
-import { MachineStrip, RouteStrip, FilterBar, Lane, LaneTabs } from "./models-page.parts";
+import type { Entry, Payload, Sort } from "./models-page.types";
+import { buildEntries, sortEntries } from "./models-page.types";
+import {
+  MachineStrip,
+  RouteStrip,
+  FilterBar,
+  Lane,
+  LaneTabs,
+  ViewToggle,
+  ModelTable,
+  DetailPanel,
+} from "./models-page.parts";
 
 /**
  * Models — one page.
@@ -37,6 +46,11 @@ export default function ModelsPage() {
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(24);
   const [lane, setLane] = useState<"local" | "cloud">("local");
+  // List by default: the question here is comparative, and a grid of cards makes
+  // you hold numbers in your head between one card and the next.
+  const [view, setView] = useState<"list" | "cards">("list");
+  const [sort, setSort] = useState<Sort>({ key: "default", dir: "desc" });
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const refresh = useCallback(async (force = false) => {
     try {
@@ -123,8 +137,14 @@ export default function ModelsPage() {
     });
   }, [entries, runsHere, capability, query]);
 
-  const local = filtered.filter((e) => e.kind === "local");
-  const cloud = filtered.filter((e) => e.kind === "cloud");
+  const local = useMemo(() => sortEntries(filtered.filter((e) => e.kind === "local"), sort), [filtered, sort]);
+  const cloud = useMemo(() => sortEntries(filtered.filter((e) => e.kind === "cloud"), sort), [filtered, sort]);
+  const rows = lane === "local" ? local : cloud;
+
+  // Resolved from the live payload rather than held as an object, so an open
+  // panel keeps updating — a download's progress and a service coming up both
+  // land here without the panel going stale behind the list.
+  const selected = selectedKey ? entries.find((e) => e.key === selectedKey) ?? null : null;
 
   if (loading) return <p className="text-sm text-gray-500 py-16 text-center">Reading the machine…</p>;
   if (!data) return <p className="text-sm text-gray-500 py-16 text-center">Models unavailable.</p>;
@@ -183,49 +203,93 @@ export default function ModelsPage() {
         }
       />
 
-      <LaneTabs lane={lane} onLane={setLane} localCount={local.length} cloudCount={cloud.length} />
+      <div className="flex items-center gap-2 flex-wrap">
+        <LaneTabs lane={lane} onLane={setLane} localCount={local.length} cloudCount={cloud.length} />
+        <span className="text-[11px] text-gray-600 leading-relaxed hidden sm:inline">
+          {lane === "local"
+            ? "Sizes are what they cost on this card; downloads land on the weights drive."
+            : "Runs on the provider's hardware — money per call, no local memory."}
+        </span>
+        <span className="ml-auto">
+          <ViewToggle view={view} onView={setView} />
+        </span>
+      </div>
 
-      {lane === "local" ? (
-        <Lane
-          subtitle="Open weights. Sizes are what they cost on this card; downloads land on the weights drive."
-          tone="local"
-          entries={local}
-          limit={limit}
-          busy={busy}
-          capabilities={data.capabilities}
-          onMore={() => setLimit((n) => n + 24)}
-          onUse={use}
-          onService={(id, action) =>
-            act(`/api/services/${id}`, { action }, `svc:${id}:${action}`, `${id} ${action}ed.`)
-          }
-          onDownload={(repo) => act("/api/scout", { action: "download", repo }, `dl:${repo}`, `Downloading ${repo}.`)}
-          onCancelDownload={(repo) =>
-            act("/api/scout", { action: "cancel-download", repo }, `dl:${repo}`, `Cancelled ${repo}.`)
-          }
-        />
-      ) : (
-        <Lane
-          subtitle="Runs on the provider's hardware. Costs money per call, no local memory."
-          tone="cloud"
-          entries={cloud}
-          limit={limit}
-          busy={busy}
-          capabilities={data.capabilities}
-          onMore={() => setLimit((n) => n + 24)}
-          onUse={use}
-          onWire={(e) =>
-            act(
-              "/api/scout",
-              { action: "wire", alias: e.suggestedAlias, target: e.target, provider: e.org, mode: e.mode },
-              `wire:${e.key}`,
-              `${e.suggestedAlias} is wired and the router restarted.`,
-            )
-          }
-          onUnwire={(e) =>
-            act("/api/scout", { action: "unwire", alias: e.alias }, `unwire:${e.key}`, `${e.alias} removed.`)
-          }
-        />
-      )}
+      <div className={selected ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] items-start" : ""}>
+        <div className="min-w-0">
+          {view === "list" ? (
+            <ModelTable
+              entries={rows}
+              tone={lane}
+              limit={limit}
+              sort={sort}
+              onSort={setSort}
+              selectedKey={selected?.key}
+              onSelect={(e) => setSelectedKey((k) => (k === e.key ? null : e.key))}
+              onMore={() => setLimit((n) => n + 24)}
+            />
+          ) : (
+            <Lane
+              subtitle=""
+              tone={lane}
+              entries={rows}
+              limit={limit}
+              busy={busy}
+              capabilities={data.capabilities}
+              onMore={() => setLimit((n) => n + 24)}
+              onUse={use}
+              onService={(id, action) =>
+                act(`/api/services/${id}`, { action }, `svc:${id}:${action}`, `${id} ${action}ed.`)
+              }
+              onDownload={(repo) =>
+                act("/api/scout", { action: "download", repo }, `dl:${repo}`, `Downloading ${repo}.`)
+              }
+              onCancelDownload={(repo) =>
+                act("/api/scout", { action: "cancel-download", repo }, `dl:${repo}`, `Cancelled ${repo}.`)
+              }
+              onWire={(e) =>
+                act(
+                  "/api/scout",
+                  { action: "wire", alias: e.suggestedAlias, target: e.target, provider: e.org, mode: e.mode },
+                  `wire:${e.key}`,
+                  `${e.suggestedAlias} is wired and the router restarted.`,
+                )
+              }
+              onUnwire={(e) =>
+                act("/api/scout", { action: "unwire", alias: e.alias }, `unwire:${e.key}`, `${e.alias} removed.`)
+              }
+            />
+          )}
+        </div>
+
+        {selected && (
+          <DetailPanel
+            e={selected}
+            busy={busy}
+            capabilities={data.capabilities}
+            onClose={() => setSelectedKey(null)}
+            onUse={use}
+            onService={(id, action) =>
+              act(`/api/services/${id}`, { action }, `svc:${id}:${action}`, `${id} ${action}ed.`)
+            }
+            onDownload={(repo) => act("/api/scout", { action: "download", repo }, `dl:${repo}`, `Downloading ${repo}.`)}
+            onCancelDownload={(repo) =>
+              act("/api/scout", { action: "cancel-download", repo }, `dl:${repo}`, `Cancelled ${repo}.`)
+            }
+            onWire={(e) =>
+              act(
+                "/api/scout",
+                { action: "wire", alias: e.suggestedAlias, target: e.target, provider: e.org, mode: e.mode },
+                `wire:${e.key}`,
+                `${e.suggestedAlias} is wired and the router restarted.`,
+              )
+            }
+            onUnwire={(e) =>
+              act("/api/scout", { action: "unwire", alias: e.alias }, `unwire:${e.key}`, `${e.alias} removed.`)
+            }
+          />
+        )}
+      </div>
 
       <footer className="border-t border-gray-800 pt-3 space-y-1.5">
         <p className="text-[10px] text-gray-600 leading-relaxed">

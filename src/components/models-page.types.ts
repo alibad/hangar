@@ -62,6 +62,8 @@ export type CatalogModel = {
   footprint?: { vramGb?: number; ramGb?: number; idleVramGb?: number; kind?: string; basis?: string };
   costPerMTokIn?: number;
   costPerMTokOut?: number;
+  /** Leaderboard row, joined server-side. Present for cloud models. */
+  stats?: Stats;
 };
 
 export type DownloadJob = {
@@ -201,6 +203,67 @@ export type Entry = {
   supersedes?: string;
 };
 
+/**
+ * Sorting, for the list view.
+ *
+ * "default" is the server's own ranking — runnable first, then quality by
+ * percentile — and it stays the default because it already encodes the judgement
+ * a column sort cannot: that a model which does not fit is not a candidate
+ * however well it scores. Every other key is a plain column sort, so a reader
+ * can check the ordering against the number in front of them.
+ */
+export type SortKey =
+  | "default"
+  | "name"
+  | "size"
+  | "vram"
+  | "disk"
+  | "gpqa"
+  | "swe"
+  | "hle"
+  | "in"
+  | "out"
+  | "speed"
+  | "ctx";
+
+export type Sort = { key: SortKey; dir: "asc" | "desc" };
+
+const SORT_VALUE: Record<Exclude<SortKey, "default" | "name">, (e: Entry) => number | null | undefined> = {
+  size: (e) => e.paramsB,
+  vram: (e) => e.vramGb,
+  disk: (e) => e.diskGb,
+  gpqa: (e) => e.gpqa,
+  swe: (e) => e.swe,
+  hle: (e) => e.hle,
+  in: (e) => e.inPrice,
+  out: (e) => e.outPrice,
+  speed: (e) => e.throughput,
+  ctx: (e) => e.context,
+};
+
+export function sortEntries(entries: Entry[], sort: Sort): Entry[] {
+  if (sort.key === "default") return entries;
+  const out = [...entries];
+  const sign = sort.dir === "asc" ? 1 : -1;
+
+  if (sort.key === "name") {
+    return out.sort((a, b) => sign * a.name.localeCompare(b.name));
+  }
+
+  const read = SORT_VALUE[sort.key];
+  return out.sort((a, b) => {
+    const va = read(a);
+    const vb = read(b);
+    // Missing values sink in BOTH directions. A model with no GPQA score is not
+    // the cheapest or the best at anything — it is unmeasured, and floating it
+    // to the top of an ascending sort would read as a claim.
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+    return sign * (va - vb);
+  });
+}
+
 export function fmtGb(n?: number): string {
   if (n == null || !Number.isFinite(n)) return "—";
   return n < 1 ? `${Math.round(n * 1000)} MB` : `${Math.round(n * 10) / 10} GB`;
@@ -256,9 +319,13 @@ export function buildEntries(p: Payload): Entry[] {
   for (const m of p.catalogue) {
     const caps = CAP_OF_MODE[m.mode] ?? [];
     const active = activeFor(m.id);
-    const stats = m.checkpoint
-      ? [...statsByNorm.entries()].find(([k]) => matchesRepo(k, m.checkpoint!))?.[1]
-      : undefined;
+    // Cloud models are joined server-side by vendor id; local ones are matched
+    // here against the open-weights index by checkpoint name.
+    const stats =
+      m.stats ??
+      (m.checkpoint
+        ? [...statsByNorm.entries()].find(([k]) => matchesRepo(k, m.checkpoint!))?.[1]
+        : undefined);
 
     const status: EntryStatus =
       m.status === "ready"

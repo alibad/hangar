@@ -270,3 +270,29 @@ The index reports its last scan, so a model downloaded five minutes ago left "18
 weights" unchanged while the free-space figure beside it moved — two numbers about the same
 event disagreeing on screen. The index remains the fallback, and the two agree to within a
 gigabyte, which is a useful independent check on both.
+
+## 6. List, cards, and the details panel
+
+**List is the default.** The question this page answers is comparative — which of these is
+best for what it costs — and a grid of cards makes you hold numbers in your head between one
+card and the next. Cards remain for browsing, where the prose matters more than the columns.
+
+Columns differ by lane because the costs do: local shows size / quantisation / VRAM / disk,
+cloud shows price in / price out / throughput / context. Both end in GPQA, SWE-bench and HLE.
+
+Every column sorts. Two details that matter:
+
+- **Missing values sink in both directions.** A model with no GPQA score is not the cheapest
+  or the best at anything — it is unmeasured, and floating it to the top of an ascending sort
+  would read as a claim.
+- **A third click returns to the default ranking**, which is the server's: runnable first,
+  then quality by percentile. That ordering encodes a judgement a column sort cannot — that a
+  model which does not fit is not a candidate however well it scores — so it needs to be
+  reachable again without a reload.
+
+Clicking a row opens the **details panel**: the fit verdict with its reasons, the full
+quantisation ladder with the chosen rung marked, the arithmetic behind the estimate, and
+every action. Keeping those there is what lets the table stay narrow enough to read across.
+The panel resolves its model from the live payload on each render rather than holding a
+snapshot, so a download's progress and a service coming up both land in an open panel instead
+of leaving it stale behind the list.

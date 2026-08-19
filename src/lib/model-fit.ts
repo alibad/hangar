@@ -167,7 +167,10 @@ export function estimateFromParams(spec: ParamSpec): Requirement {
   const ramGb = kind === "diffusion" ? round1(spec.paramsB * bpp) : 1;
 
   const parts = [
-    `Estimated, not measured: ${spec.paramsB}B params x ${bpp} bytes/param (${spec.precision}) = ${round1(weightsGb)} GB of weights`,
+    // Rounded: a parameter count derived from a byte count arrives as
+    // 27.781427952, and printing that in an explanation of an ESTIMATE claims a
+    // precision the whole calculation does not have.
+    `Estimated, not measured: ${round1(spec.paramsB)}B params x ${bpp} bytes/param (${spec.precision}) = ${round1(weightsGb)} GB of weights`,
     `x ${RUNTIME_OVERHEAD} runtime overhead`,
     contextK ? `+ ${round1(kvGb)} GB KV cache for ${contextK}k context` : null,
     kind === "diffusion"

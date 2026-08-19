@@ -11,10 +11,12 @@ import {
   MagnifyingGlass,
   Memory,
   Plug,
+  Rows,
+  SquaresFour,
   Warning,
   X,
 } from "@phosphor-icons/react";
-import type { CatalogModel, Entry, EntryStatus, Machine, Occupant, Payload } from "./models-page.types";
+import type { CatalogModel, Entry, EntryStatus, Machine, Occupant, Payload, Sort, SortKey } from "./models-page.types";
 import { fmtGb } from "./models-page.types";
 
 /* ── shared vocabulary ─────────────────────────────────────────────────────
@@ -370,6 +372,454 @@ export function LaneTabs({
   );
 }
 
+/**
+ * List or cards.
+ *
+ * List is the default because the question this page answers is comparative —
+ * which of these is best for what it costs — and a grid of cards makes you hold
+ * numbers in your head between one card and the next. Cards stay for browsing,
+ * where the prose matters more than the columns.
+ */
+export function ViewToggle({
+  view,
+  onView,
+}: {
+  view: "list" | "cards";
+  onView: (v: "list" | "cards") => void;
+}) {
+  return (
+    <div className="inline-flex rounded-md border border-gray-800 bg-gray-900 p-0.5">
+      {([
+        ["list", "List", <Rows key="l" size={12} weight="bold" />],
+        ["cards", "Cards", <SquaresFour key="c" size={12} weight="bold" />],
+      ] as const).map(([id, label, icon]) => (
+        <button
+          key={id}
+          onClick={() => onView(id)}
+          aria-pressed={view === id}
+          title={
+            id === "list"
+              ? "Dense table, sortable — for comparing models against each other."
+              : "One card each, with the reasoning spelled out."
+          }
+          className={`inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded transition cursor-pointer ${
+            view === id ? "bg-gray-800 text-gray-100" : "text-gray-500 hover:text-gray-300"
+          }`}
+        >
+          {icon}
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type Col = {
+  key: SortKey;
+  label: string;
+  title?: string;
+  align?: "right";
+  render: (e: Entry) => ReactNode;
+};
+
+const BENCH_COLS: Col[] = [
+  { key: "gpqa", label: "GPQA", title: "GPQA Diamond, %", align: "right", render: (e) => pct(e.gpqa) },
+  { key: "swe", label: "SWE", title: "SWE-bench Verified, %", align: "right", render: (e) => pct(e.swe) },
+  { key: "hle", label: "HLE", title: "Humanity's Last Exam, %", align: "right", render: (e) => pct(e.hle) },
+];
+
+/** Columns differ by lane because the costs differ: memory here, money there. */
+function columnsFor(tone: "local" | "cloud"): Col[] {
+  if (tone === "local") {
+    return [
+      { key: "size", label: "Size", align: "right", render: (e) => (e.paramsB != null ? `${Math.round(e.paramsB)}B` : "—") },
+      {
+        key: "default",
+        label: "Runs at",
+        render: (e) =>
+          e.quant ? (
+            <span className={VERDICT_TEXT[e.verdict ?? ""] ?? "text-gray-400"}>{e.quant}</span>
+          ) : e.measured ? (
+            <span className="text-gray-500">installed</span>
+          ) : (
+            "—"
+          ),
+      },
+      { key: "vram", label: "VRAM", align: "right", render: (e) => fmtGb(e.vramGb) },
+      { key: "disk", label: "Disk", align: "right", render: (e) => (e.diskGb ? fmtGb(e.diskGb) : "—") },
+      ...BENCH_COLS,
+    ];
+  }
+  return [
+    { key: "in", label: "$ in", title: "USD per million input tokens", align: "right", render: (e) => (e.inPrice != null ? `${e.inPrice}` : "—") },
+    { key: "out", label: "$ out", title: "USD per million output tokens", align: "right", render: (e) => (e.outPrice != null ? `${e.outPrice}` : "—") },
+    { key: "speed", label: "tok/s", align: "right", render: (e) => (e.throughput != null ? String(Math.round(e.throughput)) : "—") },
+    { key: "ctx", label: "Ctx", align: "right", render: (e) => (e.context ? `${Math.round(e.context / 1024)}k` : "—") },
+    ...BENCH_COLS,
+  ];
+}
+
+export function ModelTable({
+  entries,
+  tone,
+  limit,
+  sort,
+  onSort,
+  selectedKey,
+  onSelect,
+  onMore,
+}: {
+  entries: Entry[];
+  tone: "local" | "cloud";
+  limit: number;
+  sort: Sort;
+  onSort: (s: Sort) => void;
+  selectedKey?: string;
+  onSelect: (e: Entry) => void;
+  onMore: () => void;
+}) {
+  const cols = columnsFor(tone);
+  const shown = entries.slice(0, limit);
+
+  const head = (c: Col) => {
+    const active = sort.key === c.key && c.key !== "default";
+    const sortable = c.key !== "default";
+    return (
+      <th
+        key={`${c.key}-${c.label}`}
+        title={c.title}
+        className={`px-2 py-1.5 font-medium ${c.align === "right" ? "text-right" : "text-left"} ${
+          sortable ? "cursor-pointer hover:text-gray-300" : ""
+        } ${active ? "text-gray-200" : ""}`}
+        onClick={
+          sortable
+            ? () =>
+                onSort(
+                  // Third click on the same column returns to the server's
+                  // ranking rather than leaving you stuck in a column sort you
+                  // cannot undo without reloading.
+                  active && sort.dir === "asc"
+                    ? { key: "default", dir: "desc" }
+                    : { key: c.key, dir: active && sort.dir === "desc" ? "asc" : "desc" },
+                )
+            : undefined
+        }
+      >
+        {c.label}
+        {active && <span className="ml-0.5 opacity-70">{sort.dir === "desc" ? "↓" : "↑"}</span>}
+      </th>
+    );
+  };
+
+  return (
+    <div className="space-y-2 min-w-0">
+      <div className="overflow-x-auto rounded-xl border border-gray-800">
+        <table className="w-full text-left border-collapse min-w-[680px]">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-wide text-gray-600 bg-gray-900/80">
+              <th
+                className={`px-2 py-1.5 font-medium cursor-pointer hover:text-gray-300 ${sort.key === "name" ? "text-gray-200" : ""}`}
+                onClick={() =>
+                  onSort(
+                    sort.key === "name" && sort.dir === "asc"
+                      ? { key: "default", dir: "desc" }
+                      : { key: "name", dir: sort.key === "name" && sort.dir === "desc" ? "asc" : "desc" },
+                  )
+                }
+              >
+                Model
+                {sort.key === "name" && <span className="ml-0.5 opacity-70">{sort.dir === "desc" ? "↓" : "↑"}</span>}
+              </th>
+              {cols.map(head)}
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((e) => {
+              const st = STATUS[e.status];
+              const isSel = e.key === selectedKey;
+              const isActive = e.activeFor.length > 0;
+              return (
+                <tr
+                  key={e.key}
+                  onClick={() => onSelect(e)}
+                  className={`border-t border-gray-800/70 cursor-pointer transition ${
+                    isSel
+                      ? "bg-indigo-500/10"
+                      : isActive
+                        ? "bg-violet-500/[0.06] hover:bg-violet-500/10"
+                        : "hover:bg-gray-900/60"
+                  }`}
+                >
+                  <td className="px-2 py-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {/* One dot carries the whole status vocabulary at a glance;
+                          the label is there for anyone who does not know it. */}
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${DOT[e.status]}`} title={st.label} />
+                      <span className="text-[12px] text-gray-200 truncate">{e.name}</span>
+                      {isActive && (
+                        <span className="text-[9px] px-1 rounded-full bg-violet-500/20 text-violet-200 shrink-0">
+                          {e.activeFor.join("·")}
+                        </span>
+                      )}
+                      {e.status === "downloading" && (
+                        <span className="text-[9px] text-sky-300 shrink-0 tabular-nums">
+                          {e.download?.percent ?? 0}%
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[9px] text-gray-600 truncate font-mono">{e.org ? `${e.org} · ` : ""}{e.sub}</div>
+                  </td>
+                  {cols.map((c) => (
+                    <td
+                      key={`${c.key}-${c.label}`}
+                      className={`px-2 py-1.5 text-[11px] tabular-nums text-gray-400 ${c.align === "right" ? "text-right" : ""}`}
+                    >
+                      {c.render(e)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {entries.length > shown.length && (
+        <button
+          onClick={onMore}
+          className="w-full text-[11px] text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 rounded-md py-1.5 transition cursor-pointer"
+        >
+          Show {Math.min(24, entries.length - shown.length)} more of {entries.length - shown.length}
+        </button>
+      )}
+    </div>
+  );
+}
+
+const DOT: Record<EntryStatus, string> = {
+  ready: "bg-emerald-400",
+  stopped: "bg-amber-400",
+  installed: "bg-sky-400",
+  downloading: "bg-sky-400 animate-pulse",
+  available: "bg-gray-600",
+  "no-key": "bg-amber-400",
+  "wont-fit": "bg-red-500/70",
+};
+
+/**
+ * Everything about one model, on click.
+ *
+ * The table deliberately shows only what compares. This is where the things
+ * that do not fit a column go: why a verdict came out the way it did, the whole
+ * quantisation ladder, the note, and every action. Keeping them here is what
+ * lets the table stay narrow enough to read across.
+ */
+export function DetailPanel({
+  e,
+  busy,
+  capabilities,
+  onClose,
+  onUse,
+  onService,
+  onDownload,
+  onCancelDownload,
+  onWire,
+  onUnwire,
+}: {
+  e: Entry;
+  busy: string | null;
+  capabilities: Payload["capabilities"];
+  onClose: () => void;
+  onUse: (e: Entry, cap: string) => void;
+  onService?: (serviceId: string, action: "start" | "stop" | "restart") => void;
+  onDownload?: (repo: string) => void;
+  onCancelDownload?: (repo: string) => void;
+  onWire?: (e: Entry) => void;
+  onUnwire?: (e: Entry) => void;
+}) {
+  const st = STATUS[e.status];
+  const usable = capabilities.filter((c) => e.capabilities.includes(c.id) && !e.activeFor.includes(c.id));
+
+  return (
+    <aside className="rounded-xl border border-gray-800 bg-gray-900 p-3 space-y-3 xl:sticky xl:top-3">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h3 className="text-[13px] font-semibold text-gray-100">{e.name}</h3>
+            <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${st.cls}`}>{st.label}</span>
+            {e.activeFor.length > 0 && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-200">
+                active for {e.activeFor.join(" · ")}
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] font-mono text-gray-600 break-all mt-0.5">
+            {e.org ? `${e.org} · ` : ""}
+            {e.sub}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          aria-label="Close details"
+          className="text-gray-600 hover:text-gray-300 cursor-pointer shrink-0"
+        >
+          <X size={14} weight="bold" />
+        </button>
+      </div>
+
+      {/* Actions first: this panel exists to be acted on, not read. */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {e.alias &&
+          usable.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => onUse(e, c.id)}
+              disabled={!!busy || e.status === "no-key"}
+              title={
+                e.status === "stopped"
+                  ? `Start ${e.serviceId}, wait for health, then route ${c.label} here.`
+                  : `Route ${c.label} to ${e.alias}.`
+              }
+              className="text-[10px] text-gray-200 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded px-2 py-1 transition disabled:opacity-40 cursor-pointer"
+            >
+              {busy === `use:${e.key}:${c.id}` ? "…" : `Use for ${c.label.toLowerCase()}`}
+            </button>
+          ))}
+        {e.serviceId && e.status === "ready" && onService && (
+          <button
+            onClick={() => onService(e.serviceId!, "stop")}
+            disabled={!!busy}
+            className="text-[10px] text-gray-400 hover:text-amber-300 border border-gray-800 hover:border-amber-500/40 rounded px-2 py-1 transition disabled:opacity-40 cursor-pointer"
+          >
+            Stop service
+          </button>
+        )}
+        {e.serviceId && e.status === "stopped" && onService && (
+          <button
+            onClick={() => onService(e.serviceId!, "start")}
+            disabled={!!busy}
+            className="text-[10px] text-gray-200 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded px-2 py-1 transition disabled:opacity-40 cursor-pointer"
+          >
+            {busy === `svc:${e.serviceId}:start` ? "Starting…" : "Start service"}
+          </button>
+        )}
+        {e.kind === "local" && e.status === "available" && onDownload && (
+          <DownloadButton entry={e} busy={busy} onDownload={onDownload} />
+        )}
+        {e.download?.status === "running" && onCancelDownload && (
+          <button
+            onClick={() => onCancelDownload(e.download!.repo)}
+            className="text-[10px] text-gray-500 hover:text-red-400 border border-gray-800 hover:border-red-500/40 rounded px-2 py-1 transition cursor-pointer"
+          >
+            Cancel download
+          </button>
+        )}
+        {e.kind === "cloud" && e.status === "available" && onWire && (
+          <button
+            onClick={() => onWire(e)}
+            disabled={!!busy}
+            className="inline-flex items-center gap-1 text-[10px] text-gray-200 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded px-2 py-1 transition disabled:opacity-40 cursor-pointer"
+          >
+            <Plug size={10} weight="bold" />
+            {busy === `wire:${e.key}` ? "Wiring…" : `Wire as ${e.suggestedAlias}`}
+          </button>
+        )}
+        {e.kind === "cloud" && e.alias && e.consoleWired && e.activeFor.length === 0 && onUnwire && (
+          <button
+            onClick={() => onUnwire(e)}
+            disabled={!!busy}
+            className="text-[10px] text-gray-500 hover:text-red-400 border border-gray-800 hover:border-red-500/40 rounded px-2 py-1 transition disabled:opacity-40 cursor-pointer"
+          >
+            Remove alias
+          </button>
+        )}
+      </div>
+
+      {e.download?.status === "running" && (
+        <div>
+          <div className="h-1.5 w-full rounded-full bg-gray-800 overflow-hidden">
+            <div className="h-full bg-sky-500 transition-all" style={{ width: `${e.download.percent ?? 3}%` }} />
+          </div>
+          <p className="mt-1 text-[10px] text-sky-300/80 break-all">{e.download.detail ?? "starting…"}</p>
+        </div>
+      )}
+
+      {e.detail && <p className="text-[10px] text-amber-400/85 leading-relaxed">{e.detail}</p>}
+      {e.note && <p className="text-[10px] text-gray-500 leading-relaxed">{e.note}</p>}
+
+      {/* Why the verdict is what it is. */}
+      {e.fit && (
+        <div className="space-y-1">
+          <p className={`text-[11px] leading-relaxed ${VERDICT_TEXT[e.fit.verdict] ?? "text-gray-400"}`}>
+            {e.fit.headline}
+          </p>
+          {e.fit.reasons.map((r, i) => (
+            <p key={i} className="text-[10px] text-gray-500 leading-relaxed">— {r}</p>
+          ))}
+        </div>
+      )}
+      {e.measured && (
+        <p className="text-[10px] text-emerald-400/80 leading-relaxed">
+          Footprint measured on this box — see config/model-meta.json.
+        </p>
+      )}
+
+      {e.rungs && e.rungs.length > 0 && (
+        <div className="space-y-0.5">
+          <p className="text-[9px] uppercase tracking-wide text-gray-600">Quantisation ladder</p>
+          {e.rungs.map((r) => (
+            <div
+              key={r.precision}
+              className={`flex items-center gap-2 text-[10px] tabular-nums ${
+                r.label === e.quant ? "text-gray-200" : ""
+              }`}
+              title={r.note}
+            >
+              <span className="w-16 text-gray-400">{r.label}</span>
+              <span className="w-16 text-gray-500">{fmtGb(r.requirement.vramGb)}</span>
+              <span className={VERDICT_TEXT[r.fit.verdict] ?? "text-gray-600"}>{r.fit.verdict}</span>
+              {r.label === e.quant && <span className="text-[9px] text-indigo-300">← best that fits</span>}
+            </div>
+          ))}
+          {e.fit?.basis && <p className="text-[9px] text-gray-600 leading-relaxed pt-1">{e.fit.basis}</p>}
+        </div>
+      )}
+
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] tabular-nums">
+        {e.paramsB != null && <Row k="Parameters" v={`${Math.round(e.paramsB)}B`} />}
+        {e.context != null && <Row k="Context" v={`${Math.round(e.context / 1024)}k`} />}
+        {e.inPrice != null && <Row k="Input" v={`$${e.inPrice}/Mtok`} />}
+        {e.outPrice != null && <Row k="Output" v={`$${e.outPrice}/Mtok`} />}
+        {e.throughput != null && <Row k="Throughput" v={`${Math.round(e.throughput)} tok/s`} />}
+        {e.gpqa != null && <Row k="GPQA" v={pct(e.gpqa)} />}
+        {e.swe != null && <Row k="SWE-bench" v={pct(e.swe)} />}
+        {e.hle != null && <Row k="HLE" v={pct(e.hle)} />}
+        {e.released && <Row k="Released" v={e.released} />}
+        {e.alias && <Row k="Alias" v={e.alias} />}
+      </dl>
+
+      {e.docs && (
+        <a
+          href={e.docs}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-block text-[10px] text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+        >
+          docs ↗
+        </a>
+      )}
+    </aside>
+  );
+}
+
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <>
+      <dt className="text-gray-600">{k}</dt>
+      <dd className="text-gray-300 truncate" title={v}>{v}</dd>
+    </>
+  );
+}
+
 export function Lane({
   subtitle,
   tone,
@@ -402,7 +852,7 @@ export function Lane({
   const shown = entries.slice(0, limit);
   return (
     <section className="space-y-2 min-w-0">
-      <p className="text-[11px] text-gray-600 leading-relaxed">{subtitle}</p>
+      {subtitle && <p className="text-[11px] text-gray-600 leading-relaxed">{subtitle}</p>}
 
       {shown.length === 0 ? (
         <p className="text-xs text-gray-600 py-6 text-center border border-dashed border-gray-800 rounded-xl">

@@ -671,7 +671,13 @@ export type ScoutPayload = {
    * different winner.
    */
   routerUp: boolean;
-  catalogue: CatalogModel[];
+  /**
+   * `stats` is joined on here too, not only onto unwired discoveries. Without
+   * it a model showed benchmarks and throughput right up until you wired it,
+   * at which point the columns went blank — the act of adopting a model made
+   * the page know less about it.
+   */
+  catalogue: (CatalogModel & { stats?: LlmStatsModel })[];
   routing: Record<string, string>;
   capabilities: { id: string; label: string; modes: readonly string[]; hint: string }[];
   downloads: DownloadJob[];
@@ -706,13 +712,19 @@ export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPay
   // "new" after you wired it says so instead of nagging. This is also the
   // catalogue the page renders, so it is read once and shared.
   let wiredAliasByTarget = new Map<string, string>();
-  let catalogue: CatalogModel[] = [];
+  let catalogue: (CatalogModel & { stats?: LlmStatsModel })[] = [];
   let routerUp = false;
   try {
     const cat = await getCatalogue();
-    catalogue = cat.models;
     routerUp = cat.routerUp;
-    wiredAliasByTarget = new Map(catalogue.map((m) => [m.target, m.id]));
+    wiredAliasByTarget = new Map(cat.models.map((m) => [m.target, m.id]));
+    catalogue = cat.models.map((m) => ({
+      ...m,
+      // Cloud targets are "provider/model-id"; the leaderboard keys on the
+      // model id alone. Local models are matched by checkpoint client-side,
+      // where the open-weights list is already indexed by name.
+      stats: m.local ? undefined : lookup(statsIndex, m.target.split("/").slice(1).join("/")),
+    }));
   } catch {
     /* router down */
   }
