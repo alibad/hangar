@@ -1514,3 +1514,69 @@ html:root:not(.dark) .storage-move-form > label > input { border-color: var(--st
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Models page ───────────────────────────────────────────────────────────
+   Selected states here were Tailwind alpha tints (bg-indigo-500/15 and
+   friends). On the dark shell they read fine; on the warm paper theme a 15%
+   tint over cream is barely a colour at all, so the active filter and the
+   selected lane tab washed out to a faint pink and the page looked like it had
+   no state. These carry both themes explicitly.                              */
+.models-page .ui-chip {
+  border-color: var(--color-gray-800);
+  background: var(--color-gray-900);
+  color: var(--color-gray-400);
+}
+.models-page .ui-chip:hover:not(.is-on) {
+  border-color: var(--color-gray-600);
+  color: var(--color-gray-200);
+}
+.models-page .ui-chip.is-on {
+  border-color: color-mix(in oklab, var(--accent-500) 55%, transparent);
+  background: color-mix(in oklab, var(--accent-500) 22%, var(--color-gray-950));
+  color: color-mix(in oklab, var(--accent-500) 40%, white);
+}
+.models-page .ui-chip .ui-count {
+  background: var(--color-gray-800);
+  color: var(--color-gray-500);
+}
+.models-page .ui-chip.is-on .ui-count {
+  background: color-mix(in oklab, var(--accent-500) 40%, transparent);
+  color: white;
+}
+
+html:root:not(.dark) .console-shell .models-page .ui-chip {
+  border-color: oklch(0.87 0.014 65);
+  background: oklch(0.995 0.003 70);
+  color: oklch(0.45 0.013 60);
+}
+html:root:not(.dark) .console-shell .models-page .ui-chip:hover:not(.is-on) {
+  border-color: oklch(0.75 0.02 60);
+  color: oklch(0.28 0.016 58);
+}
+/* Solid, not a tint: on paper the selected control has to be the darkest thing
+   in the row or it disappears next to the unselected ones. */
+html:root:not(.dark) .console-shell .models-page .ui-chip.is-on {
+  border-color: oklch(0.53 0.15 44);
+  background: oklch(0.57 0.15 44);
+  color: oklch(0.99 0.01 70);
+}
+html:root:not(.dark) .console-shell .models-page .ui-chip .ui-count {
+  background: oklch(0.93 0.008 68);
+  color: oklch(0.45 0.013 60);
+}
+html:root:not(.dark) .console-shell .models-page .ui-chip.is-on .ui-count {
+  background: oklch(0.99 0.01 70 / 0.25);
+  color: oklch(0.99 0.01 70);
+}
+
+/* The detail drawer sits above the shell, so it needs its own surface rather
+   than inheriting the page's translucent panel treatment. */
+html:root:not(.dark) .console-shell .models-drawer {
+  background: oklch(0.995 0.003 70);
+  border-color: oklch(0.87 0.014 65);
+}
+
+/* Table rows: hover and selection have to be visible on paper too. */
+html:root:not(.dark) .console-shell .models-page tbody tr:hover {
+  background: oklch(0.96 0.008 66);
+}

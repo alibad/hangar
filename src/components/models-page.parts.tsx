@@ -17,7 +17,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import type { CatalogModel, Entry, EntryStatus, Machine, Occupant, Payload, Sort, SortKey } from "./models-page.types";
-import { fmtGb } from "./models-page.types";
+import { fmtGb, fmtParams } from "./models-page.types";
 
 /* ── shared vocabulary ─────────────────────────────────────────────────────
    Status is the one thing every card shows, so it gets one definition. The
@@ -263,21 +263,17 @@ export function FilterBar({
       <button
         onClick={() => onRunsHere(!runsHere)}
         aria-pressed={runsHere}
-        title="Hide anything this card cannot run at any quantisation."
-        className={`inline-flex items-center gap-1.5 text-[11px] rounded-md px-2.5 py-1.5 border transition cursor-pointer ${
-          runsHere
-            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-            : "bg-gray-900 text-gray-400 border-gray-800 hover:border-gray-600"
-        }`}
+        title="Hide anything this card cannot run at any quantisation, down to 2-bit."
+        className={`ui-chip inline-flex items-center gap-1.5 text-[11px] rounded-md px-2.5 py-1.5 border transition cursor-pointer ${runsHere ? "is-on" : ""}`}
       >
         <Cpu size={12} weight="duotone" />
-        Runs on this machine
+        Fits this GPU
       </button>
 
       {capability && (
         <button
           onClick={onClearCapability}
-          className="inline-flex items-center gap-1 text-[11px] rounded-md px-2 py-1.5 border border-indigo-500/40 bg-indigo-500/10 text-indigo-200 cursor-pointer"
+          className="ui-chip is-on inline-flex items-center gap-1 text-[11px] rounded-md px-2 py-1.5 border cursor-pointer"
         >
           {capability}
           <X size={11} weight="bold" />
@@ -307,7 +303,7 @@ export function FilterBar({
           onClick={onWireAll}
           disabled={!!busy}
           title="Add every cloud model your providers offer as a router alias — one config write, one restart. Adding an alias changes no route."
-          className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-indigo-200 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/40 rounded-md px-2.5 py-1.5 transition disabled:opacity-50 cursor-pointer"
+          className="ui-chip is-on ml-auto inline-flex items-center gap-1.5 text-[11px] border rounded-md px-2.5 py-1.5 transition disabled:opacity-50 cursor-pointer"
         >
           <Lightning size={12} weight="fill" />
           {busy === "wire-all" ? "Wiring…" : `Wire all ${unwired} cloud`}
@@ -345,8 +341,12 @@ export function LaneTabs({
       role="tablist"
       aria-label="Where the model runs"
     >
+      {/* "Local" / "Cloud", not "On this machine" — that phrasing collided with
+          the "Fits this GPU" filter beside it and read as two controls for the
+          same thing. These pick WHERE a model runs; the filter picks whether it
+          CAN run here. */}
       {([
-        ["local", "On this machine", localCount],
+        ["local", "Local", localCount],
         ["cloud", "Cloud", cloudCount],
       ] as const).map(([id, label, count]) => (
         <button
@@ -354,16 +354,12 @@ export function LaneTabs({
           role="tab"
           aria-selected={lane === id}
           onClick={() => onLane(id)}
-          className={`inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-md transition cursor-pointer ${
-            lane === id ? "bg-indigo-500/15 text-indigo-200" : "text-gray-500 hover:text-gray-300"
+          className={`ui-chip inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-md transition cursor-pointer border-0 ${
+            lane === id ? "is-on" : ""
           }`}
         >
           {label}
-          <span
-            className={`tabular-nums text-[10px] px-1.5 rounded-full ${
-              lane === id ? "bg-indigo-500/25 text-indigo-100" : "bg-gray-800 text-gray-500"
-            }`}
-          >
+          <span className="ui-count tabular-nums text-[10px] px-1.5 rounded-full">
             {count}
           </span>
         </button>
@@ -402,8 +398,8 @@ export function ViewToggle({
               ? "Dense table, sortable — for comparing models against each other."
               : "One card each, with the reasoning spelled out."
           }
-          className={`inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded transition cursor-pointer ${
-            view === id ? "bg-gray-800 text-gray-100" : "text-gray-500 hover:text-gray-300"
+          className={`ui-chip inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded transition cursor-pointer border-0 ${
+            view === id ? "is-on" : ""
           }`}
         >
           {icon}
@@ -432,7 +428,7 @@ const BENCH_COLS: Col[] = [
 function columnsFor(tone: "local" | "cloud"): Col[] {
   if (tone === "local") {
     return [
-      { key: "size", label: "Size", align: "right", render: (e) => (e.paramsB != null ? `${Math.round(e.paramsB)}B` : "—") },
+      { key: "size", label: "Size", align: "right", render: (e) => fmtParams(e.paramsB) },
       {
         key: "default",
         label: "Runs at",
@@ -639,8 +635,26 @@ export function DetailPanel({
   const st = STATUS[e.status];
   const usable = capabilities.filter((c) => e.capabilities.includes(c.id) && !e.activeFor.includes(c.id));
 
+  /**
+   * A fixed side drawer, at every width.
+   *
+   * This was a grid column that only existed at the `xl` breakpoint, so on any
+   * narrower window it fell BELOW the table — click a row and the detail
+   * appeared off-screen underneath a hundred models. A side panel has to be a
+   * side panel unconditionally; there is no width at which "somewhere down the
+   * page" is the right answer to clicking a row.
+   */
   return (
-    <aside className="rounded-xl border border-gray-800 bg-gray-900 p-3 space-y-3 xl:sticky xl:top-3">
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="false" aria-label={`${e.name} details`}>
+      <button
+        aria-label="Close details"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40 backdrop-blur-[1px] cursor-default"
+      />
+      <aside
+        className="models-drawer relative z-10 h-full w-full max-w-[26rem] overflow-y-auto border-l border-gray-800 bg-gray-900 p-4 space-y-3 shadow-2xl"
+        onKeyDown={(ev) => ev.key === "Escape" && onClose()}
+      >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -785,7 +799,7 @@ export function DetailPanel({
       )}
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] tabular-nums">
-        {e.paramsB != null && <Row k="Parameters" v={`${Math.round(e.paramsB)}B`} />}
+        {e.paramsB != null && <Row k="Parameters" v={fmtParams(e.paramsB)} />}
         {e.context != null && <Row k="Context" v={`${Math.round(e.context / 1024)}k`} />}
         {e.inPrice != null && <Row k="Input" v={`$${e.inPrice}/Mtok`} />}
         {e.outPrice != null && <Row k="Output" v={`$${e.outPrice}/Mtok`} />}
@@ -807,7 +821,8 @@ export function DetailPanel({
           docs ↗
         </a>
       )}
-    </aside>
+      </aside>
+    </div>
   );
 }
 
@@ -959,7 +974,7 @@ function ModelCard({
       <div className="mt-2 flex items-center gap-x-3 gap-y-1 flex-wrap text-[10px] tabular-nums">
         {tone === "local" ? (
           <>
-            {e.paramsB != null && <Stat label="size" value={`${Math.round(e.paramsB)}B`} />}
+            {e.paramsB != null && <Stat label="size" value={fmtParams(e.paramsB)} />}
             {e.quant && <Stat label="quant" value={e.quant} />}
             {e.vramGb != null && (
               <Stat

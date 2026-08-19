@@ -264,6 +264,20 @@ export function sortEntries(entries: Entry[], sort: Sort): Entry[] {
   });
 }
 
+/**
+ * A parameter count, at a precision that does not lie.
+ *
+ * Math.round turned Kokoro's 82M into "0B" and Whisper's 1.5B into "2B" — the
+ * first says the model has no size, the second inflates it by a third. Sub-1B
+ * models get their real unit; single digits keep a decimal.
+ */
+export function fmtParams(b?: number): string {
+  if (b == null || !Number.isFinite(b) || b <= 0) return "—";
+  if (b < 1) return `${Math.round(b * 1000)}M`;
+  if (b < 10) return `${(Math.round(b * 10) / 10).toString()}B`;
+  return `${Math.round(b)}B`;
+}
+
 export function fmtGb(n?: number): string {
   if (n == null || !Number.isFinite(n)) return "—";
   return n < 1 ? `${Math.round(n * 1000)} MB` : `${Math.round(n * 10) / 10} GB`;
@@ -280,6 +294,28 @@ export function fmtGb(n?: number): string {
  */
 function norm(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Pull a number and a quantisation out of model-meta's prose `params` field.
+ *
+ * That field is written for humans — "30B (A3B MoE, ~3B active) · AWQ 4-bit",
+ * "20.4B denoiser · 28.8B loaded", "82M" — so the Size and Runs-at columns sat
+ * empty for every installed model while the string sat right there. Takes the
+ * FIRST magnitude, which is the model's own size; a second one is always a
+ * derived figure (loaded weights, active experts).
+ */
+export function parseParams(s?: string): { paramsB?: number; quant?: string } {
+  if (!s) return {};
+  let paramsB: number | undefined;
+  const b = s.match(/([\d.]+)\s*B\b/);
+  const m = s.match(/([\d.]+)\s*M\b/);
+  if (b) paramsB = Number(b[1]);
+  else if (m) paramsB = Number(m[1]) / 1000;
+  if (paramsB != null && !Number.isFinite(paramsB)) paramsB = undefined;
+
+  const q = s.match(/\b(NVFP4|AWQ 4-bit|AWQ|GPTQ|GGUF[\w-]*|fp8|int8|int4|4-bit|8-bit|bf16|fp16)/i);
+  return { paramsB, quant: q?.[0] };
 }
 
 /** Does an installed repo look like this leaderboard model? */
@@ -327,6 +363,12 @@ export function buildEntries(p: Payload): Entry[] {
         ? [...statsByNorm.entries()].find(([k]) => matchesRepo(k, m.checkpoint!))?.[1]
         : undefined);
 
+    const { paramsB, quant } = parseParams(m.params);
+    // What it actually occupies on the weights drive, when we can identify it.
+    const installedHere = m.checkpoint
+      ? p.installed.find((r) => matchesRepo(m.checkpoint!.split("/").pop() ?? "", r.repo))
+      : undefined;
+
     const status: EntryStatus =
       m.status === "ready"
         ? "ready"
@@ -359,7 +401,10 @@ export function buildEntries(p: Payload): Entry[] {
       measured: !!m.footprint,
       fit: undefined,
       verdict: m.local ? (m.footprint?.vramGb ? "fits" : undefined) : "off-box",
-      paramsB: undefined,
+      paramsB,
+      quant,
+      diskGb: installedHere ? Math.round((installedHere.bytes / 1024 ** 3) * 10) / 10 : undefined,
+      repo: installedHere?.repo,
       inPrice: m.costPerMTokIn,
       outPrice: m.costPerMTokOut,
       throughput: stats?.throughput ?? undefined,

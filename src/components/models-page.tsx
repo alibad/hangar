@@ -215,7 +215,7 @@ export default function ModelsPage() {
         </span>
       </div>
 
-      <div className={selected ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] items-start" : ""}>
+      <div>
         <div className="min-w-0">
           {view === "list" ? (
             <ModelTable
