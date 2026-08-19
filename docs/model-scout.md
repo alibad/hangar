@@ -71,19 +71,26 @@ silently presenting an old opinion as current.
 
 ### Scheduling it
 
-The routine runs as a **Claude Code scheduled routine**, not a local script: there is no
-`claude` CLI on this box's PATH, and the work needs web search and repo write access
-rather than a shell. Create or inspect it from Claude Code:
+It runs as a **Claude Code cloud routine**, not a local script. Two reasons: there is no
+`claude` CLI on this box's PATH, and the work wants web search plus repo write access
+rather than a shell on this machine. Running in the cloud means it cannot see the GPU —
+which costs nothing, because fit is computed locally at read time and the routine's job is
+judgment, not measurement.
 
-```bash
-claude --print "/schedule list"
-```
+| | |
+| --- | --- |
+| Routine | **BeTenshi model scout (weekly)** — [`trig_01DneSxh17mZUzNNcnvUf5s2`](https://claude.ai/code/routines/trig_01DneSxh17mZUzNNcnvUf5s2) |
+| Schedule | `47 5 * * 1` UTC — Mondays, 08:47 Asia/Riyadh |
+| Model | `claude-opus-5` |
+| Source | `github.com/alibad/betenshi-console`, commits `config/model-scout.json` to master |
 
-The prompt is one line — everything else lives here, on purpose, so the schedule does not
-carry a copy of the brief that drifts from this file:
+The routine's prompt deliberately does **not** restate the rules above. It says "read
+`docs/model-scout.md` and follow it exactly", so this file stays the single copy and the
+schedule cannot drift away from it. Change the brief here; the routine picks it up on its
+next run.
 
-> Run the BeTenshi model scout for `C:\Users\Admin\Code\AI\betenshi-console`. Follow
-> `docs/model-scout.md` exactly, rewrite `config/model-scout.json`, and commit to master.
+Manage it at <https://claude.ai/code/routines> — including **Run now**, which is how you
+force an off-schedule refresh.
 
 ## 3. Wiring a cloud model in
 
