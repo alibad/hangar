@@ -8,7 +8,7 @@ import RequestsView from "@/components/requests-view";
 import UsageView from "@/components/usage-view";
 import Sam3dView from "@/components/sam3d-view";
 import Sam3View from "@/components/sam3-view";
-import ProvidersView from "@/components/providers-view";
+import ModelsPage from "@/components/models-page";
 import ModelFootprint, { type Footprint } from "@/components/model-footprint";
 import Markdown from "@/components/markdown";
 import { ServiceLogsButton } from "@/components/service-control";
@@ -1716,7 +1716,7 @@ export default function Home() {
         {tab === "sam3" && <Sam3View />}
 
         {/* ── MODELS / AI ROUTER TAB ── */}
-        {tab === "models" && <ProvidersView />}
+        {tab === "models" && <ModelsPage />}
         </TabErrorBoundary>
 
 

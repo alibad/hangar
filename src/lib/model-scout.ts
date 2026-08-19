@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { getCatalogue } from "./providers";
+import { CAPABILITIES, getCatalogue, getRouting, type CatalogModel } from "./providers";
+import { installedRepos, listDownloads, type DownloadJob, type InstalledRepo } from "./hf-download";
 import { readMachineProfile, readOccupants } from "./machine";
 import {
   evaluateFit,
@@ -28,7 +29,7 @@ import { getLlmStats, indexByModelId, lookup, type LlmStatsModel } from "./llm-s
  *     needs no review.
  *
  *  2. THE SCOUT REPORT — judgment, written weekly by a Claude routine into
- *     config/model-scout.json (see docs/model-scout.md). Which local checkpoint
+ *     config/model-scout.json (see docs/models.md). Which local checkpoint
  *     is worth 20 GB of download, what a candidate actually needs to run, what it
  *     would replace. This half is reviewable, versioned in git, and carries a
  *     date so a stale opinion is visible as stale rather than silently trusted.
@@ -661,6 +662,21 @@ export type ScoutPayload = {
     /** How many of those actually run here, for the headline. */
     runnable: number;
   };
+  /**
+   * Everything the router serves today, plus what each capability is routed to.
+   *
+   * Carried here so the Models page can be ONE fetch. It used to be a second
+   * call to /api/providers, which meant the page could render a model as
+   * "active for text" in one panel while another panel, a beat behind, showed a
+   * different winner.
+   */
+  routerUp: boolean;
+  catalogue: CatalogModel[];
+  routing: Record<string, string>;
+  capabilities: { id: string; label: string; modes: readonly string[]; hint: string }[];
+  downloads: DownloadJob[];
+  /** Repos already under HF_HOME — the definitive "do I have this" list. */
+  installed: InstalledRepo[];
 };
 
 /** A report older than this is shown as stale — the routine runs weekly. */
@@ -687,11 +703,16 @@ export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPay
   const openWeights = openWeightsCandidates(stats.models, machine, occupants);
 
   // Aliases already in the router, so a candidate the report still lists as
-  // "new" after you wired it says so instead of nagging.
+  // "new" after you wired it says so instead of nagging. This is also the
+  // catalogue the page renders, so it is read once and shared.
   let wiredAliasByTarget = new Map<string, string>();
+  let catalogue: CatalogModel[] = [];
+  let routerUp = false;
   try {
-    const { models } = await getCatalogue();
-    wiredAliasByTarget = new Map(models.map((m) => [m.target, m.id]));
+    const cat = await getCatalogue();
+    catalogue = cat.models;
+    routerUp = cat.routerUp;
+    wiredAliasByTarget = new Map(catalogue.map((m) => [m.target, m.id]));
   } catch {
     /* router down */
   }
@@ -741,5 +762,11 @@ export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPay
       openWeights,
       runnable: openWeights.filter((c) => c.best).length,
     },
+    routerUp,
+    catalogue,
+    routing: getRouting(),
+    capabilities: CAPABILITIES.map((c) => ({ ...c })),
+    downloads: listDownloads(),
+    installed: installedRepos(),
   };
 }

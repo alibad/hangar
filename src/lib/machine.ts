@@ -5,6 +5,7 @@ import { promisify } from "util";
 import { SERVICE_REGISTRY, getServiceUrl } from "./services";
 import { getFootprintsByService } from "./providers";
 import { discoverDrives, type StorageDrive } from "./storage-index";
+import { installedRepos } from "./hf-download";
 import type { MachineProfile, Occupant } from "./model-fit";
 
 const execFileP = promisify(execFile);
@@ -121,6 +122,18 @@ async function readWeightsDrive(): Promise<
     weightsDiskTotalGb: round1(drive.totalBytes / 1024 ** 3),
     weightsIndexed: drive.status === "ready",
   };
+  // The Hugging Face cache, summed from the filesystem RIGHT NOW. Preferred over
+  // the storage index's figure for this one number: the index reports its last
+  // scan, so a model downloaded five minutes ago left "189.4 GB of weights"
+  // unchanged while the free-space figure beside it moved — two numbers about
+  // the same event disagreeing on screen.
+  try {
+    const live = installedRepos().reduce((a, r) => a + r.bytes, 0);
+    if (live > 0) return { ...out, weightsUsedGb: round1(live / 1024 ** 3) };
+  } catch {
+    /* fall through to the index */
+  }
+
   if (drive.status !== "ready") return out;
 
   try {

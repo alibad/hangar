@@ -1,9 +1,19 @@
-# Model scout
+# Models
 
-Keeps the Models tab aware of models that are **not on this box yet** — the question
-`config/model-meta.json` could never answer, because it only describes what is already wired.
+**One page.** It was briefly three — a routing tab, a scouting tab, a leaderboard tab — which
+was three answers to one question. Those surfaces were about the same objects, differing only
+in how far away they were: running here, wired but idle, buyable from a vendor, downloadable
+from the Hub. Making the reader pick a tab before seeing them meant they could never compare
+across that distance, which is the only comparison that matters when deciding what to run.
 
-Four parts, with different failure modes and different refresh rates.
+`src/components/models-page.tsx` is the page; `models-page.types.ts` flattens every source
+into one `Entry` list; `models-page.parts.tsx` draws it. Two lanes — this machine, cloud —
+because they are different kinds of commitment: one costs memory and a download, the other
+costs money per call, and ranking them against each other compares quantities that do not
+convert. Filtered by default to what actually runs on this card, because a console that opens
+on 200 models it cannot run is just a leaderboard.
+
+Four data sources feed it, with different failure modes and refresh rates.
 
 | | Source | Refreshes | Can it be wrong? |
 | --- | --- | --- | --- |
@@ -127,7 +137,7 @@ judgment, not measurement.
 | Source | `github.com/alibad/betenshi-console`, commits `config/model-scout.json` to master |
 
 The routine's prompt deliberately does **not** restate the rules above. It says "read
-`docs/model-scout.md` and follow it exactly", so this file stays the single copy and the
+`docs/models.md` and follow it exactly", so this file stays the single copy and the
 schedule cannot drift away from it. Change the brief here; the routine picks it up on its
 next run.
 
@@ -223,3 +233,40 @@ assumed a full disk would refuse every local candidate.
 Occupancy uses the **configured** footprint, not a live reading. A live number says what a
 service is using this instant; the fit question is what it will be using when the candidate
 also wants memory, and for Qwen-Image those differ by 20 GB.
+
+## 5. Downloading weights
+
+`src/lib/hf-download.ts`. The page can tell you a 27B fits and then leave you to go find the
+repo — which is where the decision gets lost, because llm-stats ids (`qwen3.8-27b`) are not
+Hub repo ids (`Qwen/Qwen3.8-27B`) and the useful repo is usually a sibling (`-FP8`, `-AWQ`,
+`-GGUF`) at a third the size.
+
+So Download resolves first and shows what it found, with real byte counts from the Hub's own
+`usedStorage`, before pulling anything. A 55 GB transfer is not something to start on a guess.
+Candidates are ranked by downloads rather than string similarity: the canonical repo is
+overwhelmingly the most-pulled one, while similarity happily picks somebody's fine-tune
+because the name is longer.
+
+Jobs run **detached**, via the `hf` CLI with `HF_HOME` set so weights land where the services
+that will load them expect. Detached because these run for tens of minutes and the console is
+a dev server that reloads on save — a child tied to this process would die halfway through and
+leave a half-populated cache. The pid goes to `var/downloads/state.json` so a reloaded server
+picks the job back up; progress is scraped from the CLI's own output (split on `\r`, since it
+draws progress bars rather than printing lines).
+
+Completion is decided by **whether the weights are on disk**, not by an exit code — a detached
+process's status is not ours to read, and "are the weights there" is the question that matters.
+
+### Sizing the cache
+
+`installedRepos()` walks each repo directory with `lstat` and skips symlinks. That is what
+makes it correct for both Hub layouts: the documented one puts real files in `blobs/` and
+symlinks in `snapshots/`, while on Windows without developer mode the CLI copies instead,
+leaving real files in `snapshots/` and `blobs/` nearly empty. Summing only `blobs/` reported
+5.4 GB for a cache holding 189 GB; following symlinks would double-count the other layout.
+
+This live sum is what the weights meter shows, in preference to the storage index's figure.
+The index reports its last scan, so a model downloaded five minutes ago left "189.4 GB of
+weights" unchanged while the free-space figure beside it moved — two numbers about the same
+event disagreeing on screen. The index remains the fallback, and the two agree to within a
+gigabyte, which is a useful independent check on both.

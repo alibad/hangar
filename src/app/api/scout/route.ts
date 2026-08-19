@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { discover, getScout } from "@/lib/model-scout";
 import { WireError, unwire, wire, wireMany } from "@/lib/wired-models";
+import {
+  DownloadError,
+  cancelDownload,
+  clearDownload,
+  resolveRepo,
+  startDownload,
+} from "@/lib/hf-download";
 
 const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
 
@@ -13,6 +20,20 @@ const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
  */
 export async function GET(req: NextRequest) {
   const force = req.nextUrl.searchParams.get("force") === "1";
+
+  // Resolving a name to a Hub repo is a separate, on-demand question — it costs
+  // up to nine calls to huggingface.co and is only asked when someone opens one
+  // model's detail. Folding it into the main payload would put that cost on
+  // every poll, for every model on screen.
+  const resolve = req.nextUrl.searchParams.get("resolve");
+  if (resolve) {
+    try {
+      return NextResponse.json(await resolveRepo(resolve));
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    }
+  }
+
   try {
     return NextResponse.json(await getScout({ force }));
   } catch (e) {
@@ -151,11 +172,29 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    /**
+     * Weights. Deliberately fire-and-forget: `hf download` on a 55 GB repo runs
+     * for tens of minutes, so the job is started detached and its progress read
+     * back through the normal GET. Holding the request open would tie a
+     * multi-hour transfer to one browser tab.
+     */
+    if (action === "download") {
+      return NextResponse.json({ ok: true, job: startDownload(String(body?.repo ?? "").trim()) });
+    }
+    if (action === "cancel-download") {
+      await cancelDownload(String(body?.repo ?? "").trim());
+      return NextResponse.json({ ok: true });
+    }
+    if (action === "clear-download") {
+      clearDownload(String(body?.repo ?? "").trim());
+      return NextResponse.json({ ok: true });
+    }
+
     return NextResponse.json({ error: `Unknown action "${action}"` }, { status: 400 });
   } catch (e) {
-    // A rejected alias or target is the user's mistake to fix, not a server
-    // fault — say which, and say why, rather than returning a bare 500.
-    if (e instanceof WireError) {
+    // A rejected alias, target or repo id is the user's mistake to fix, not a
+    // server fault — say which, and say why, rather than returning a bare 500.
+    if (e instanceof WireError || e instanceof DownloadError) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
     return NextResponse.json(
