@@ -1,0 +1,208 @@
+{
+  "_doc": "The weekly scout report: what exists out there that this box is not using. Written by the Claude routine described in docs/model-scout.md and read by src/lib/model-scout.ts. Judgment lives here; facts about which model ids a vendor currently sells are NOT — those are pulled live from each vendor's model-list endpoint at read time, because a list committed to git is out of date the day after it is written. Fit verdicts are likewise computed at read time against the live machine, never stored here: a verdict depends on what is running and how much disk is free, and both change hourly.",
+  "_schema": "candidates[]: { id, name, kind: local|cloud, capability, why, checkpoint?, provider?, target?, mode?, params?, released?, license?, docs?, paper?, requirement? { vramGb, ramGb, diskGb, basis, estimated }, spec? { paramsB, precision, contextK, kind }, pricing? }. Give `requirement` when the authors published usable numbers; give `spec` otherwise and let estimateFromParams() do the arithmetic with an honest basis string. upgrades[]: { alias, from, to, why } — a like-for-like repoint of an alias already in ai-router.yaml.",
+
+  "generatedAt": "2026-08-19",
+  "generatedBy": "initial run, by hand — Hugging Face hub search plus live vendor model lists",
+
+  "candidates": [
+    {
+      "id": "z-image-turbo",
+      "name": "Z-Image-Turbo",
+      "kind": "local",
+      "capability": "image",
+      "checkpoint": "Tongyi-MAI/Z-Image-Turbo",
+      "params": "6.2B",
+      "released": "2025-11",
+      "license": "apache-2.0",
+      "docs": "https://hf.co/Tongyi-MAI/Z-Image-Turbo",
+      "paper": "https://arxiv.org/abs/2511.22699",
+      "spec": { "paramsB": 6.2, "precision": "bf16", "kind": "diffusion" },
+      "why": "The single biggest win available to this box. local-qwen-image is 20.4B and holds ~28 GB of host RAM for as long as its service is loaded — the collision that has already killed it mid-load. Z-Image-Turbo is a third the size at 6.2B, Apache-2.0, and by far the most-pulled open image model on the hub (8.1M downloads), so it would leave room for a FLUX run or a 27B chat model beside it instead of owning the machine."
+    },
+    {
+      "id": "flux2-klein-4b",
+      "name": "FLUX.2 klein 4B",
+      "kind": "local",
+      "capability": "image",
+      "checkpoint": "black-forest-labs/FLUX.2-klein-4B",
+      "params": "3.9B transformer",
+      "released": "2026-01",
+      "license": "apache-2.0",
+      "docs": "https://hf.co/black-forest-labs/FLUX.2-klein-4B",
+      "requirement": {
+        "vramGb": 15,
+        "ramGb": 8,
+        "diskGb": 14,
+        "estimated": true,
+        "basis": "Estimated, and deliberately generous. The 3.9B on the model card is the TRANSFORMER only: 3.9B x 2 bytes = 7.8 GB at bf16. FLUX.2 klein also loads a Qwen3-based text encoder that the card does not size, and the community's uncensored-encoder repos for the klein family are large enough that ignoring it would understate this badly — so ~6 GB is allowed for the encoder plus VAE on top. Verify against a real run before trusting the number.",
+        "estimatedNote": "Replace this whole block with a measurement once it has been run once."
+      },
+      "why": "Direct replacement for local-flux-schnell, which measured 31.7 GB of a 31.8 GB card during a 512x512 run — it effectively IS the card, and nothing fits beside it. klein-4B is Apache-2.0, does text-to-image and image editing in one checkpoint, and is a fifth of the size. 2.3M downloads."
+    },
+    {
+      "id": "qwen3.8-27b-nvfp4",
+      "name": "Qwen3.8-27B (NVFP4, MTP)",
+      "kind": "local",
+      "capability": "text",
+      "checkpoint": "sakamakismile/Qwen3.8-27B-MTP-NVFP4",
+      "params": "27.4B · NVFP4",
+      "released": "2026-08",
+      "license": "apache-2.0",
+      "docs": "https://hf.co/sakamakismile/Qwen3.8-27B-MTP-NVFP4",
+      "spec": { "paramsB": 27.4, "precision": "nvfp4", "contextK": 32, "kind": "llm" },
+      "why": "The successor generation to local-coder's Qwen3-Coder-30B, and the quantisation is the point: NVFP4 is Blackwell's native 4-bit format, so an RTX 5090 (sm_120) executes it in hardware instead of dequantising first. Ships as a vLLM repo with multi-token-prediction speculative decoding already configured. Base model is Apache-2.0 and multimodal, so it could serve the vision capability too — which nothing local does today."
+    },
+    {
+      "id": "nemotron-3.5-lightning-30b-a3b-nvfp4",
+      "name": "NVIDIA Nemotron 3.5 Lightning 30B-A3B (NVFP4)",
+      "kind": "local",
+      "capability": "text",
+      "checkpoint": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4",
+      "params": "30B MoE, ~3B active · NVFP4",
+      "released": "2026-08",
+      "license": "nvidia-open-model",
+      "docs": "https://hf.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4",
+      "spec": { "paramsB": 18, "precision": "nvfp4", "contextK": 32, "kind": "llm" },
+      "why": "Same 30B-A3B MoE shape as local-coder, so the speed characteristics are familiar, but NVFP4 and NVIDIA's own kernels on NVIDIA's own card. 269K downloads in two weeks. Licence is NVIDIA's open model licence, not Apache — read it before this goes anywhere near a client project."
+    },
+    {
+      "id": "qwen3.8-9b",
+      "name": "Qwen3.8-9B",
+      "kind": "local",
+      "capability": "text",
+      "checkpoint": "empero-ai/Qwen3.8-9B",
+      "params": "9.7B",
+      "released": "2026-08",
+      "license": "apache-2.0",
+      "docs": "https://hf.co/empero-ai/Qwen3.8-9B",
+      "spec": { "paramsB": 9.7, "precision": "awq4", "contextK": 32, "kind": "llm" },
+      "why": "Replacement tier for local-small, which is still Qwen2.5-7B from 2024 and reserves 17.5 GB for 16k of context. A 9.7B from the current generation with native function-calling would cost less and do more — and local-small exists precisely to be the model that fits BESIDE something else."
+    },
+    {
+      "id": "ling-3.0-tiny",
+      "name": "Ling 3.0 tiny",
+      "kind": "local",
+      "capability": "text",
+      "checkpoint": "inclusionAI/Ling-3.0-tiny",
+      "params": "7.9B hybrid MoE",
+      "released": "2026-08",
+      "license": "mit",
+      "docs": "https://hf.co/inclusionAI/Ling-3.0-tiny",
+      "spec": { "paramsB": 7.9, "precision": "bf16", "contextK": 32, "kind": "llm" },
+      "why": "MIT-licensed, which none of the other candidates here are, and a hybrid-attention MoE small enough to sit permanently resident next to an image model. Worth a look as the always-on model behind batch prompt variation, where the current answer is a cloud call."
+    },
+    {
+      "id": "qwen3-asr-1.7b",
+      "name": "Qwen3-ASR 1.7B",
+      "kind": "local",
+      "capability": "stt",
+      "checkpoint": "Qwen/Qwen3-ASR-1.7B",
+      "params": "1.7B",
+      "released": "2026-01",
+      "license": "apache-2.0",
+      "docs": "https://hf.co/Qwen/Qwen3-ASR-1.7B",
+      "spec": { "paramsB": 1.7, "precision": "fp16", "kind": "audio" },
+      "why": "local-whisper is large-v3, released November 2023 and the oldest checkpoint on this box. Qwen3-ASR is current, Apache-2.0, similar size, and pulled 4.4M times. The local STT path exists so sensitive audio never leaves the machine, which makes its accuracy worth keeping current."
+    },
+    {
+      "id": "nemotron-3.5-asr-streaming-0.6b",
+      "name": "Nemotron 3.5 ASR streaming 0.6B",
+      "kind": "local",
+      "capability": "stt",
+      "checkpoint": "nvidia/nemotron-3.5-asr-streaming-0.6b",
+      "params": "0.6B",
+      "released": "2026-05",
+      "license": "nvidia-open-model",
+      "docs": "https://hf.co/nvidia/nemotron-3.5-asr-streaming-0.6b",
+      "spec": { "paramsB": 0.6, "precision": "fp16", "kind": "audio" },
+      "why": "Cache-aware streaming, which whisper-large-v3 cannot do at all — it transcribes finished audio. Rounding error on this card at 0.6B, so it could run permanently alongside everything else and give the console live transcription rather than batch."
+    },
+    {
+      "id": "higgs-tts-3-4b",
+      "name": "Higgs TTS 3 (4B)",
+      "kind": "local",
+      "capability": "tts",
+      "checkpoint": "bosonai/higgs-tts-3-4b",
+      "params": "4B",
+      "released": "2026-06",
+      "license": "apache-2.0",
+      "docs": "https://hf.co/bosonai/higgs-tts-3-4b",
+      "spec": { "paramsB": 4, "precision": "bf16", "kind": "audio" },
+      "why": "local-kokoro is 82M and sounds like it. Higgs 3 is expressive, controllable and does voice cloning across ~100 languages at 4B — still small enough to co-reside with an image model. The upgrade to make if anything on this box is meant to be listened to rather than checked."
+    },
+    {
+      "id": "gpt-5.6-terra",
+      "name": "GPT-5.6 Terra",
+      "kind": "cloud",
+      "capability": "text",
+      "provider": "openai",
+      "target": "openai/gpt-5.6-terra",
+      "mode": "chat",
+      "released": "2026-06-23",
+      "docs": "https://openai.com/index/gpt-5-6/",
+      "pricing": { "inPerMTok": 2.5, "outPerMTok": 15 },
+      "why": "OpenAI positions Terra as competitive with gpt-5.5 — the model this console routes text and vision to today — at a lower price. If that holds on your own prompts it is a straight cost cut for the default route; the compare view exists to check it rather than take their word."
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "name": "GPT-5.6 Sol",
+      "kind": "cloud",
+      "capability": "text",
+      "provider": "openai",
+      "target": "openai/gpt-5.6-sol",
+      "mode": "chat",
+      "released": "2026-06-23",
+      "docs": "https://openai.com/index/gpt-5-6/",
+      "pricing": { "inPerMTok": 5, "outPerMTok": 30 },
+      "why": "The flagship tier of the 5.6 generation, aimed at long-horizon work that persists across files and follow-up fixes. Wire it as its own alias rather than repointing gpt-5.5: it costs roughly double, and the point of a stable alias is that a route's price does not change under callers who did not ask for it."
+    },
+    {
+      "id": "gpt-5.6-luna",
+      "name": "GPT-5.6 Luna",
+      "kind": "cloud",
+      "capability": "text",
+      "provider": "openai",
+      "target": "openai/gpt-5.6-luna",
+      "mode": "chat",
+      "released": "2026-06-23",
+      "docs": "https://openai.com/index/gpt-5-6/",
+      "pricing": { "inPerMTok": 1, "outPerMTok": 6 },
+      "why": "The cheap high-volume lane. Nothing on this box currently has one: batch prompt variation and quote-forge's generators all run through gpt-5.5 at $5/$30-class pricing for work that does not need it."
+    }
+  ],
+
+  "upgrades": [
+    {
+      "alias": "claude-opus",
+      "from": "anthropic/claude-opus-4-8",
+      "to": "anthropic/claude-opus-5",
+      "why": "claude-opus-5 shipped 2026-07-24 and claude-opus-4-8 on 2026-05-28. Same tier, same alias, two generations on — a like-for-like repoint."
+    },
+    {
+      "alias": "claude-sonnet",
+      "from": "anthropic/claude-sonnet-4-6",
+      "to": "anthropic/claude-sonnet-5",
+      "why": "claude-sonnet-5 shipped 2026-06-29; the wired claude-sonnet-4-6 dates from 2026-02-17. The sonnet alias has been four months stale."
+    },
+    {
+      "alias": "gemini-flash",
+      "from": "gemini/gemini-3.6-flash",
+      "to": "gemini/gemini-3.7-flash",
+      "why": "gemini-3.7-flash is live on the v1beta ListModels endpoint. Google publishes no release dates, so this is a version-number judgement rather than a dated one — but the flash line moves fast and the wired version is one behind."
+    },
+    {
+      "alias": "openai-transcribe",
+      "from": "openai/gpt-4o-transcribe",
+      "to": "openai/gpt-transcribe",
+      "why": "gpt-transcribe appeared 2026-07-27, dropping the 4o generation marker the way gpt-image did. gpt-4o-transcribe dates from 2025-03. Note gpt-live-transcribe shipped the same day for streaming, which the router's audio_transcription mode does not front."
+    }
+  ],
+
+  "notes": [
+    "gemini-pro stays pinned to gemini-3.1-pro-preview on purpose. Google publishes gemini-pro-latest as a moving alias, and ai-router.yaml pins explicit versions so an archived result records which model actually produced it. Do not 'upgrade' it to a -latest id.",
+    "Both wired Gemini image models still report the 429 quota error recorded in model-meta.json. That is a billing state on the key, not a model choice — no scouting will fix it.",
+    "The image candidates here are both about the same thing: local-qwen-image and local-flux-schnell each need most of this machine, so the console can only ever run one at a time. Two 4-6B models would change what the box can do more than any single upgrade would.",
+    "Krea-2-Turbo (12.8B) is trending hard and would fit, but the repo is gated and the licence is bespoke. Left off the candidate list until someone has actually read the terms."
+  ]
+}

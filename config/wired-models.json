@@ -1,0 +1,13 @@
+{
+  "_doc": "Cloud models wired in from the console's Models page. Rendered into a managed block inside ai-router.yaml — edit through the console, or edit here and the block re-renders on the next sync. Models written directly into ai-router.yaml by hand are NOT listed here and are never touched.",
+  "models": [
+    {
+      "alias": "claude-opus-5",
+      "target": "anthropic/claude-opus-5",
+      "provider": "anthropic",
+      "mode": "chat",
+      "addedAt": "2026-08-19T07:56:06.614Z",
+      "source": "scout upgrade for claude-opus"
+    }
+  ]
+}

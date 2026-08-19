@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ModelFootprint, { type Footprint } from "./model-footprint";
+import ModelScoutView from "./model-scout-view";
 import { ServiceControl, ServiceControls, ServiceStartupNote, useServiceLifecycle } from "./service-control";
 import { ToolPageHeader } from "./tool-page";
 import { Circuitry } from "@phosphor-icons/react";
@@ -83,6 +84,13 @@ export default function ProvidersView() {
   const [busy, setBusy] = useState<string | null>(null);   // model id being switched
   const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null);
   const [selectedCapability, setSelectedCapability] = useState("text");
+  /**
+   * Two questions, deliberately separated. "Which model serves this capability"
+   * is a decision about what is already here; "what exists that I'm not using"
+   * is a different one, with a different rhythm — you make it every few weeks,
+   * not every session. Stacking both on one scroll buried the routing controls.
+   */
+  const [view, setView] = useState<"routing" | "scout">("routing");
 
   // Resolves to whether the router is up, so the lifecycle control can poll it.
   const refresh = useCallback(async (): Promise<boolean> => {
@@ -191,6 +199,31 @@ export default function ProvidersView() {
         icon={<Circuitry size={24} weight="duotone" />}
         meta={<span className={`tool-page-chip ${routerUp ? "is-ready" : "is-offline"}`}>{routerUp ? "Router online" : "Router offline"}</span>}
       />
+
+      <div className="inline-flex rounded-lg border border-gray-800 bg-gray-900 p-0.5" role="tablist" aria-label="Models view">
+        {([
+          ["routing", "Routing", "Which model serves each capability"],
+          ["scout", "Scout", "What exists that this box isn't using"],
+        ] as const).map(([id, label, hint]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={view === id}
+            title={hint}
+            onClick={() => setView(id)}
+            className={`text-[11px] px-3 py-1.5 rounded-md transition cursor-pointer ${
+              view === id ? "bg-indigo-500/15 text-indigo-200" : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === "scout" && <ModelScoutView />}
+
+      {view === "routing" && (
+        <>
       {/* header */}
       <section className="tool-panel models-router-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
         <div className="flex items-center gap-3 flex-wrap">
@@ -280,6 +313,8 @@ export default function ProvidersView() {
           onSelect={setActive}
           onProbeService={probeService}
         />
+      )}
+        </>
       )}
     </div>
   );

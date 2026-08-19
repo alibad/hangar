@@ -7,7 +7,7 @@
     "dev": "next dev -p 8003",
     "build": "next build --webpack",
     "start": "next start -p 8003",
-    "test": "node --test scripts/*.test.cjs"
+    "test": "node --test scripts/*.test.cjs scripts/*.test.mjs"
   },
   "keywords": [],
   "author": "",

@@ -205,6 +205,19 @@ model_list:
     model_info:
       mode: image_generation
 
+  # ─── BEGIN console-managed models — generated from config/wired-models.json ───
+  # Added from the console's Models page. Safe to delete an entry here, but
+  # config/wired-models.json is the source of truth and will re-render it.
+
+  - model_name: claude-opus-5
+    litellm_params:
+      model: anthropic/claude-opus-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — scout upgrade for claude-opus
+  # ─── END console-managed models ───────────────────────────────────────────────
+
 litellm_settings:
   # Report every call (model + latency + cost) to the console's Requests view.
   # Path is relative to the process cwd, which the manager sets to the console dir.
