@@ -6,7 +6,7 @@ import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { Circuitry } from "@phosphor-icons/react";
 import type { Entry, Payload } from "./models-page.types";
 import { buildEntries } from "./models-page.types";
-import { MachineStrip, RouteStrip, FilterBar, Lane } from "./models-page.parts";
+import { MachineStrip, RouteStrip, FilterBar, Lane, LaneTabs } from "./models-page.parts";
 
 /**
  * Models — one page.
@@ -36,6 +36,7 @@ export default function ModelsPage() {
   const [capability, setCapability] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [limit, setLimit] = useState(24);
+  const [lane, setLane] = useState<"local" | "cloud">("local");
 
   const refresh = useCallback(async (force = false) => {
     try {
@@ -174,8 +175,6 @@ export default function ModelsPage() {
         onQuery={setQuery}
         capability={capability}
         onClearCapability={() => setCapability(null)}
-        localCount={local.length}
-        cloudCount={cloud.length}
         hiddenCount={entries.length - filtered.length}
         unwired={data.discovery.reduce((n, p) => n + p.models.filter((m) => !m.wiredAs).length, 0)}
         busy={busy}
@@ -184,9 +183,10 @@ export default function ModelsPage() {
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-2 items-start">
+      <LaneTabs lane={lane} onLane={setLane} localCount={local.length} cloudCount={cloud.length} />
+
+      {lane === "local" ? (
         <Lane
-          title="On this machine"
           subtitle="Open weights. Sizes are what they cost on this card; downloads land on the weights drive."
           tone="local"
           entries={local}
@@ -203,8 +203,8 @@ export default function ModelsPage() {
             act("/api/scout", { action: "cancel-download", repo }, `dl:${repo}`, `Cancelled ${repo}.`)
           }
         />
+      ) : (
         <Lane
-          title="Cloud"
           subtitle="Runs on the provider's hardware. Costs money per call, no local memory."
           tone="cloud"
           entries={cloud}
@@ -225,7 +225,7 @@ export default function ModelsPage() {
             act("/api/scout", { action: "unwire", alias: e.alias }, `unwire:${e.key}`, `${e.alias} removed.`)
           }
         />
-      </div>
+      )}
 
       <footer className="border-t border-gray-800 pt-3 space-y-1.5">
         <p className="text-[10px] text-gray-600 leading-relaxed">

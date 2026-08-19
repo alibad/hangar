@@ -240,8 +240,6 @@ export function FilterBar({
   onQuery,
   capability,
   onClearCapability,
-  localCount,
-  cloudCount,
   hiddenCount,
   unwired,
   busy,
@@ -253,8 +251,6 @@ export function FilterBar({
   onQuery: (v: string) => void;
   capability: string | null;
   onClearCapability: () => void;
-  localCount: number;
-  cloudCount: number;
   hiddenCount: number;
   unwired: number;
   busy: string | null;
@@ -296,10 +292,13 @@ export function FilterBar({
         />
       </label>
 
-      <span className="text-[11px] text-gray-600">
-        {localCount} local · {cloudCount} cloud
-        {hiddenCount > 0 && ` · ${hiddenCount} hidden`}
-      </span>
+      {/* Counts per lane live on the lane tabs. What belongs here is what the
+          filters are REMOVING, which is otherwise invisible. */}
+      {hiddenCount > 0 && (
+        <span className="text-[11px] text-gray-600" title="Models excluded by the filters above.">
+          {hiddenCount} hidden
+        </span>
+      )}
 
       {unwired > 0 && (
         <button
@@ -316,14 +315,62 @@ export function FilterBar({
   );
 }
 
-/* ── a lane ────────────────────────────────────────────────────────────────
+/* ── lanes ─────────────────────────────────────────────────────────────────
    Two lanes rather than one list, because "on this machine" and "cloud" are
    different kinds of commitment: one costs memory and a download, the other
    costs money per call. Ranking them against each other would be comparing
-   quantities that do not convert.                                            */
+   quantities that do not convert.
+
+   Tabs rather than two stacked sections: side by side they only fitted on a very
+   wide screen and stacked everywhere else, which buried the cloud lane under a
+   hundred local cards. One at a time also gives each card the full width, so the
+   numbers that decide a model fit on one line instead of wrapping.            */
+
+export function LaneTabs({
+  lane,
+  onLane,
+  localCount,
+  cloudCount,
+}: {
+  lane: "local" | "cloud";
+  onLane: (l: "local" | "cloud") => void;
+  localCount: number;
+  cloudCount: number;
+}) {
+  return (
+    <div
+      className="inline-flex rounded-lg border border-gray-800 bg-gray-900 p-0.5"
+      role="tablist"
+      aria-label="Where the model runs"
+    >
+      {([
+        ["local", "On this machine", localCount],
+        ["cloud", "Cloud", cloudCount],
+      ] as const).map(([id, label, count]) => (
+        <button
+          key={id}
+          role="tab"
+          aria-selected={lane === id}
+          onClick={() => onLane(id)}
+          className={`inline-flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-md transition cursor-pointer ${
+            lane === id ? "bg-indigo-500/15 text-indigo-200" : "text-gray-500 hover:text-gray-300"
+          }`}
+        >
+          {label}
+          <span
+            className={`tabular-nums text-[10px] px-1.5 rounded-full ${
+              lane === id ? "bg-indigo-500/25 text-indigo-100" : "bg-gray-800 text-gray-500"
+            }`}
+          >
+            {count}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function Lane({
-  title,
   subtitle,
   tone,
   entries,
@@ -338,7 +385,6 @@ export function Lane({
   onWire,
   onUnwire,
 }: {
-  title: string;
   subtitle: string;
   tone: "local" | "cloud";
   entries: Entry[];
@@ -356,10 +402,6 @@ export function Lane({
   const shown = entries.slice(0, limit);
   return (
     <section className="space-y-2 min-w-0">
-      <div className="flex items-baseline gap-2 flex-wrap">
-        <h2 className="text-sm font-semibold text-gray-200">{title}</h2>
-        <span className="text-[11px] text-gray-600 tabular-nums">{entries.length}</span>
-      </div>
       <p className="text-[11px] text-gray-600 leading-relaxed">{subtitle}</p>
 
       {shown.length === 0 ? (
@@ -367,7 +409,9 @@ export function Lane({
           Nothing matches those filters.
         </p>
       ) : (
-        <div className="space-y-2">
+        // Two columns once there is room. A full-width lane at one card per row
+        // makes a hundred models an very long scroll for no gain.
+        <div className="grid gap-2 lg:grid-cols-2 items-start">
           {shown.map((e) => (
             <ModelCard
               key={e.key}
