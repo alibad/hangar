@@ -2,8 +2,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { ToolSectionHeading } from "./tool-page";
+import LeaderboardView, { type LeaderboardPayload } from "./leaderboard-view";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
-import { ArrowsClockwise, Binoculars, Plug, TrendUp, Warning } from "@phosphor-icons/react";
+import { ArrowsClockwise, Binoculars, Lightning, Plug, TrendUp, Warning } from "@phosphor-icons/react";
 
 /**
  * "What am I missing, and would it even run here?"
@@ -55,6 +56,15 @@ type Candidate = {
   alreadyWired?: string;
 };
 
+type Stats = {
+  input_price: number | null;
+  output_price: number | null;
+  throughput: number | null;
+  gpqa_score: number | null;
+  hle_score: number | null;
+  context: number | null;
+};
+
 type Discovered = {
   provider: string;
   modelId: string;
@@ -63,6 +73,7 @@ type Discovered = {
   released?: string;
   supersedes?: string;
   newerThanWired: boolean;
+  stats?: Stats;
 };
 
 type Payload = {
@@ -74,6 +85,10 @@ type Payload = {
     ramFreeGb: number;
     weightsDiskFreeGb: number;
     weightsDiskLabel: string;
+    weightsDiskTotalGb?: number;
+    weightsUsedGb?: number;
+    weightsPath?: string;
+    weightsIndexed?: boolean;
   };
   occupants: { serviceId: string; name: string; vramGb: number; ramGb: number }[];
   report: {
@@ -88,6 +103,7 @@ type Payload = {
   discovery: { provider: string; keyEnv: string; reachable: boolean; error?: string; models: Discovered[] }[];
   wired: { alias: string; target: string; provider: string; mode: string; addedAt: string; source?: string }[];
   handWritten: string[];
+  leaderboard: LeaderboardPayload;
 };
 
 const VERDICT_STYLE: Record<Fit["verdict"], string> = {
@@ -123,7 +139,7 @@ function defaultAlias(modelId: string): string {
   return modelId.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 64);
 }
 
-export default function ModelScoutView() {
+export default function ModelScoutView({ view = "scout" }: { view?: "scout" | "leaderboard" }) {
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -199,6 +215,17 @@ export default function ModelScoutView() {
   if (loading) return <p className="text-sm text-gray-500 py-8 text-center">Scouting…</p>;
   if (!data) return <p className="text-sm text-gray-500 py-8 text-center">Scout unavailable.</p>;
 
+  // Both tabs are fed by the same /api/scout call, so switching between them
+  // costs nothing and neither can show a machine reading the other disagrees
+  // with — the failure mode of giving each its own endpoint.
+  if (view === "leaderboard") {
+    return data.leaderboard ? (
+      <LeaderboardView leaderboard={data.leaderboard} machine={data.machine} />
+    ) : (
+      <p className="text-sm text-gray-500 py-8 text-center">Leaderboard unavailable.</p>
+    );
+  }
+
   const { machine, report } = data;
   const visibleCandidates = showAll ? data.candidates : data.candidates.filter((c) => c.fit.verdict !== "no");
 
@@ -232,6 +259,20 @@ export default function ModelScoutView() {
               {machine.ramTotalGb} GB RAM ({machine.ramFreeGb} GB free now) ·{" "}
               {machine.weightsDiskFreeGb} GB free on {machine.weightsDiskLabel} for weights
             </p>
+            {/* Free space alone does not say whether a 20 GB download is a
+                rounding error or the thing that fills the drive. The storage
+                index knows what is already down there, so say it. */}
+            {machine.weightsUsedGb != null && (
+              <p className="text-[11px] text-gray-600 mt-0.5 tabular-nums" title={machine.weightsPath}>
+                {machine.weightsUsedGb} GB of model weights already downloaded
+                {machine.weightsDiskTotalGb ? ` · drive is ${machine.weightsDiskTotalGb} GB` : ""}
+              </p>
+            )}
+            {machine.weightsIndexed === false && (
+              <p className="text-[11px] text-gray-600 mt-0.5">
+                Storage index has not scanned {machine.weightsDiskLabel}, so what is already downloaded is unknown.
+              </p>
+            )}
             {data.occupants.length > 0 && (
               <p className="text-[11px] text-gray-600 mt-1">
                 Holding memory right now: {data.occupants.map((o) => `${o.name} (${o.vramGb} GB VRAM)`).join(" · ")}
@@ -377,7 +418,27 @@ export default function ModelScoutView() {
             {totals.discovered} model{totals.discovered === 1 ? "" : "s"} you can already pay for and are not using
             {totals.superseding > 0 && ` · ${totals.superseding} supersede something wired`}
           </span>
+          {totals.discovered > 0 && (
+            <button
+              onClick={() =>
+                post(
+                  { action: "wire-all" },
+                  `Wired ${totals.discovered} model${totals.discovered === 1 ? "" : "s"}`,
+                )
+              }
+              disabled={!!busy}
+              title="Add every one of these as a router alias, in one config write and one restart. Adding an alias does not change any route — the routing cards above still decide what gets used."
+              className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-indigo-200 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/40 rounded-md px-2.5 py-1.5 transition disabled:opacity-50 cursor-pointer"
+            >
+              <Lightning size={12} weight="fill" />
+              {busy?.startsWith("Wired ") ? "Wiring…" : `Wire all ${totals.discovered}`}
+            </button>
+          )}
         </div>
+        <p className="text-[11px] text-gray-600 leading-relaxed">
+          Wiring only makes a model reachable under an alias — it changes no route and costs nothing until something
+          calls it. Price and speed below come from llm-stats.com, matched to each vendor id.
+        </p>
         <div className="space-y-3">
           {data.discovery.map((p) => (
             <div key={p.provider} className="rounded-xl border border-gray-800 bg-gray-900 p-3">
@@ -416,6 +477,23 @@ export default function ModelScoutView() {
                         )}
                         <span className="text-[10px] text-gray-600">{m.mode.replace("_", " ")}</span>
                         {m.released && <span className="text-[10px] text-gray-600 tabular-nums">{m.released}</span>}
+                        {/* What it costs and how fast — the two facts that decide
+                            whether a newer id is actually an upgrade. */}
+                        {m.stats?.input_price != null && (
+                          <span className="text-[10px] text-gray-500 tabular-nums" title="USD per million tokens, in / out">
+                            ${m.stats.input_price}/${m.stats.output_price ?? "?"}
+                          </span>
+                        )}
+                        {m.stats?.throughput != null && (
+                          <span className="text-[10px] text-gray-600 tabular-nums" title="Output tokens per second">
+                            {Math.round(m.stats.throughput)} tok/s
+                          </span>
+                        )}
+                        {m.stats?.gpqa_score != null && (
+                          <span className="text-[10px] text-gray-500 tabular-nums" title="GPQA Diamond">
+                            gpqa {Math.round(m.stats.gpqa_score * 100)}
+                          </span>
+                        )}
                         {already ? (
                           <span className="ml-auto text-[10px] text-green-400">wired</span>
                         ) : (

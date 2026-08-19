@@ -90,7 +90,7 @@ export default function ProvidersView() {
    * is a different one, with a different rhythm — you make it every few weeks,
    * not every session. Stacking both on one scroll buried the routing controls.
    */
-  const [view, setView] = useState<"routing" | "scout">("routing");
+  const [view, setView] = useState<"routing" | "scout" | "leaderboard">("routing");
 
   // Resolves to whether the router is up, so the lifecycle control can poll it.
   const refresh = useCallback(async (): Promise<boolean> => {
@@ -204,6 +204,7 @@ export default function ProvidersView() {
         {([
           ["routing", "Routing", "Which model serves each capability"],
           ["scout", "Scout", "What exists that this box isn't using"],
+          ["leaderboard", "Leaderboard", "Every open-weights model, ranked by what this card can run"],
         ] as const).map(([id, label, hint]) => (
           <button
             key={id}
@@ -220,7 +221,8 @@ export default function ProvidersView() {
         ))}
       </div>
 
-      {view === "scout" && <ModelScoutView />}
+      {view === "scout" && <ModelScoutView view="scout" />}
+      {view === "leaderboard" && <ModelScoutView view="leaderboard" />}
 
       {view === "routing" && (
         <>

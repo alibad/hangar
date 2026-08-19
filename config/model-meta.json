@@ -7,7 +7,7 @@
       "url": "https://artificialanalysis.ai/image/leaderboard/text-to-image"
     },
     "text": {
-      "label": "LLM leaderboard (intelligence / speed / price)",
+      "label": "LLM leaderboard — now pulled whole into the Models > Leaderboard tab, where every open-weights model is sized against this card",
       "url": "https://llm-stats.com/"
     }
   },

@@ -209,6 +209,22 @@ model_list:
   # Added from the console's Models page. Safe to delete an entry here, but
   # config/wired-models.json is the source of truth and will re-render it.
 
+  - model_name: chat-latest
+    litellm_params:
+      model: openai/chat-latest
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: claude-fable-5
+    litellm_params:
+      model: anthropic/claude-fable-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
   - model_name: claude-opus-5
     litellm_params:
       model: anthropic/claude-opus-5
@@ -216,6 +232,150 @@ model_list:
     model_info:
       mode: chat
     # wired 2026-08-19 — scout upgrade for claude-opus
+
+  - model_name: claude-sonnet-5
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-2.5-flash-preview-tts
+    litellm_params:
+      model: gemini/gemini-2.5-flash-preview-tts
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: audio_speech
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-2.5-pro-preview-tts
+    litellm_params:
+      model: gemini/gemini-2.5-pro-preview-tts
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: audio_speech
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-3.1-flash-lite-image
+    litellm_params:
+      model: gemini/gemini-3.1-flash-lite-image
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: image_generation
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-3.1-flash-tts-preview
+    litellm_params:
+      model: gemini/gemini-3.1-flash-tts-preview
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: audio_speech
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-3.7-flash
+    litellm_params:
+      model: gemini/gemini-3.7-flash
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-flash-latest
+    litellm_params:
+      model: gemini/gemini-flash-latest
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-flash-lite-latest
+    litellm_params:
+      model: gemini/gemini-flash-lite-latest
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-omni-flash-preview
+    litellm_params:
+      model: gemini/gemini-omni-flash-preview
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-pro-latest
+    litellm_params:
+      model: gemini/gemini-pro-latest
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemma-4-26b-a4b-it
+    litellm_params:
+      model: gemini/gemma-4-26b-a4b-it
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gemma-4-31b-it
+    litellm_params:
+      model: gemini/gemma-4-31b-it
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gpt-5.5-pro
+    litellm_params:
+      model: openai/gpt-5.5-pro
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gpt-5.6-luna
+    litellm_params:
+      model: openai/gpt-5.6-luna
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gpt-5.6-sol
+    litellm_params:
+      model: openai/gpt-5.6-sol
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gpt-5.6-terra
+    litellm_params:
+      model: openai/gpt-5.6-terra
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-08-19 — wire-all
+
+  - model_name: gpt-transcribe
+    litellm_params:
+      model: openai/gpt-transcribe
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: audio_transcription
+    # wired 2026-08-19 — wire-all
+
+  - model_name: nano-banana-pro-preview
+    litellm_params:
+      model: gemini/nano-banana-pro-preview
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: image_generation
+    # wired 2026-08-19 — wire-all
   # ─── END console-managed models ───────────────────────────────────────────────
 
 litellm_settings:

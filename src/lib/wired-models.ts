@@ -65,6 +65,23 @@ export type WiredModel = {
 
 type WiredFile = { _doc?: string; models: WiredModel[] };
 
+/**
+ * What callers hand in, before validation.
+ *
+ * Deliberately `unknown` per field rather than `Partial<WiredModel>`: these
+ * values arrive from a JSON request body or a scraped vendor list, and typing
+ * them as already-correct would let a `mode` the router cannot serve past the
+ * compiler on its way to validate(), which is the one place that should decide.
+ */
+export type WireInput = {
+  alias?: unknown;
+  target?: unknown;
+  provider?: unknown;
+  mode?: unknown;
+  addedAt?: unknown;
+  source?: unknown;
+};
+
 const DOC =
   "Cloud models wired in from the console's Models page. Rendered into a managed block inside ai-router.yaml — edit through the console, or edit here and the block re-renders on the next sync. Models written directly into ai-router.yaml by hand are NOT listed here and are never touched.";
 
@@ -116,7 +133,7 @@ export class WireError extends Error {}
  * refused outright — there is no input a user could give that we should be
  * guessing the intent of.
  */
-export function validate(entry: Partial<WiredModel>): WiredModel {
+export function validate(entry: WireInput): WiredModel {
   const alias = String(entry.alias ?? "").trim();
   const target = String(entry.target ?? "").trim();
   const provider = String(entry.provider ?? "").trim();
@@ -149,13 +166,13 @@ export function validate(entry: Partial<WiredModel>): WiredModel {
     target,
     provider,
     mode: mode as WiredModel["mode"],
-    addedAt: entry.addedAt ?? new Date().toISOString(),
+    addedAt: typeof entry.addedAt === "string" && entry.addedAt ? entry.addedAt : new Date().toISOString(),
     source: entry.source ? String(entry.source).slice(0, 200) : undefined,
   };
 }
 
 /** Add or replace one alias, then re-render the managed block. Returns the new list. */
-export function wire(entry: Partial<WiredModel>): WiredModel[] {
+export function wire(entry: WireInput): WiredModel[] {
   const model = validate(entry);
   if (handWrittenAliases().includes(model.alias)) {
     throw new WireError(
@@ -168,6 +185,59 @@ export function wire(entry: Partial<WiredModel>): WiredModel[] {
   saveWired(models);
   syncRouterConfig(models);
   return models;
+}
+
+/**
+ * Wire a batch in ONE config write.
+ *
+ * Not a loop over wire(). Each wire() rewrites ai-router.yaml, and the caller
+ * restarts the router afterwards — doing that twenty-one times means twenty-one
+ * restarts, most of a minute each, with the router unusable throughout. This
+ * writes once and lets the caller restart once.
+ *
+ * Partial success is the normal outcome, so it is reported rather than thrown:
+ * one bad alias in a bulk wire should not discard the twenty that were fine.
+ */
+export function wireMany(entries: WireInput[]): {
+  wired: WiredModel[];
+  added: string[];
+  skipped: { alias: string; reason: string }[];
+} {
+  const hand = new Set(handWrittenAliases());
+  const models = listWired();
+  const byAlias = new Map(models.map((m) => [m.alias, m]));
+  const added: string[] = [];
+  const skipped: { alias: string; reason: string }[] = [];
+
+  for (const entry of entries) {
+    let model: WiredModel;
+    try {
+      model = validate(entry);
+    } catch (e) {
+      skipped.push({
+        alias: String(entry.alias ?? entry.target ?? "?"),
+        reason: e instanceof Error ? e.message : String(e),
+      });
+      continue;
+    }
+    if (hand.has(model.alias)) {
+      skipped.push({ alias: model.alias, reason: "already defined by hand in ai-router.yaml" });
+      continue;
+    }
+    if (byAlias.has(model.alias)) {
+      skipped.push({ alias: model.alias, reason: "already wired" });
+      continue;
+    }
+    byAlias.set(model.alias, model);
+    added.push(model.alias);
+  }
+
+  const next = [...byAlias.values()].sort((a, b) => a.alias.localeCompare(b.alias));
+  if (added.length) {
+    saveWired(next);
+    syncRouterConfig(next);
+  }
+  return { wired: next, added, skipped };
 }
 
 /** Remove one alias. Silently succeeds when it was never wired. */

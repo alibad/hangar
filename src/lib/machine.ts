@@ -1,8 +1,10 @@
 import os from "os";
+import path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { SERVICE_REGISTRY, getServiceUrl } from "./services";
 import { getFootprintsByService } from "./providers";
+import { discoverDrives, type StorageDrive } from "./storage-index";
 import type { MachineProfile, Occupant } from "./model-fit";
 
 const execFileP = promisify(execFile);
@@ -21,10 +23,13 @@ const execFileP = promisify(execFile);
 
 /**
  * Hugging Face weights are pinned to D: by HF_HOME on every service that loads
- * them. Checking C: instead would have said "260 GB free" while the drive that
- * matters was the one about to fill.
+ * them (see `_models-doc` in scripts/service-commands.json). Checking C: instead
+ * would have said "260 GB free" while the drive that matters was the one about
+ * to fill.
  */
 const WEIGHTS_DRIVE = (process.env.WEIGHTS_DRIVE ?? "D:").toUpperCase();
+/** The HF_HOME every service is given. Used to size what is already downloaded. */
+const WEIGHTS_PATH = process.env.HF_HOME ?? `${WEIGHTS_DRIVE}\\AI Models\\huggingface`;
 
 let cache: { at: number; profile: MachineProfile } | null = null;
 const CACHE_MS = 5000;
@@ -32,15 +37,14 @@ const CACHE_MS = 5000;
 export async function readMachineProfile(): Promise<MachineProfile> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.profile;
 
-  const [gpu, disk] = await Promise.all([readGpu(), readDiskFreeGb(WEIGHTS_DRIVE)]);
+  const [gpu, disk] = await Promise.all([readGpu(), readWeightsDrive()]);
   const profile: MachineProfile = {
     gpuName: gpu.name,
     vramTotalGb: gpu.totalGb,
     vramFreeGb: gpu.freeGb,
     ramTotalGb: round1(os.totalmem() / 1024 ** 3),
     ramFreeGb: round1(os.freemem() / 1024 ** 3),
-    weightsDiskFreeGb: disk,
-    weightsDiskLabel: `${WEIGHTS_DRIVE}\\`,
+    ...disk,
   };
   cache = { at: Date.now(), profile };
   return profile;
@@ -66,18 +70,96 @@ async function readGpu(): Promise<{ name: string; totalGb: number; freeGb: numbe
   }
 }
 
-async function readDiskFreeGb(drive: string): Promise<number> {
+/**
+ * The weights drive, read through the STORAGE MODULE rather than a private
+ * probe of its own.
+ *
+ * This module used to shell out to Win32_LogicalDisk itself, which answered
+ * "how many bytes are free" and nothing else. The console already has a storage
+ * index that has walked these drives — it knows that D: holds 189 GB of Hugging
+ * Face weights under `D:\AI Models\huggingface`, and which folders they are. A
+ * "won't fit, no disk" verdict is far more useful when the same surface can say
+ * what is already down there taking up the room.
+ *
+ * Two failure modes are kept distinct on purpose: a drive the indexer has never
+ * scanned reports `weightsIndexed: false` and NO usage figure, rather than 0 GB.
+ * Zero would read as "nothing downloaded yet", which is the opposite of unknown.
+ */
+async function readWeightsDrive(): Promise<
+  Pick<
+    MachineProfile,
+    | "weightsDiskFreeGb"
+    | "weightsDiskLabel"
+    | "weightsDiskTotalGb"
+    | "weightsUsedGb"
+    | "weightsPath"
+    | "weightsIndexed"
+  >
+> {
+  const root = `${WEIGHTS_DRIVE}\\`;
+  const base = {
+    weightsDiskFreeGb: 0,
+    weightsDiskLabel: root,
+    weightsPath: WEIGHTS_PATH,
+    weightsIndexed: false,
+  };
+
+  let drive: StorageDrive | undefined;
   try {
-    const ps = `(Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='${drive}'").FreeSpace`;
+    const drives = await discoverDrives();
+    drive = drives.find((d) => d.root.toUpperCase() === root.toUpperCase());
+  } catch {
+    // The storage index is optional infrastructure; the fit verdicts are not.
+    return { ...base, ...(await fallbackFreeGb()) };
+  }
+  if (!drive) return { ...base, ...(await fallbackFreeGb()) };
+
+  const out = {
+    ...base,
+    weightsDiskFreeGb: round1(drive.freeBytes / 1024 ** 3),
+    weightsDiskLabel: `${drive.root} (${drive.label})`,
+    weightsDiskTotalGb: round1(drive.totalBytes / 1024 ** 3),
+    weightsIndexed: drive.status === "ready",
+  };
+  if (drive.status !== "ready") return out;
+
+  try {
+    const used = await folderBytes(WEIGHTS_PATH);
+    return used == null ? out : { ...out, weightsUsedGb: round1(used / 1024 ** 3) };
+  } catch {
+    return out;
+  }
+}
+
+/** Size of one indexed folder, straight from the storage index's own database. */
+async function folderBytes(target: string): Promise<number | null> {
+  const { browseStorage } = await import("./storage-index");
+  const parent = path.win32.dirname(target);
+  const listing = await browseStorage(parent);
+  const name = path.win32.basename(target).toLowerCase();
+  const hit = listing.items?.find(
+    (i) => i.kind === "folder" && i.name.toLowerCase() === name,
+  );
+  return hit ? hit.size : null;
+}
+
+/**
+ * Free space without the storage index. Kept because a fit verdict that silently
+ * assumed a full disk would refuse every local candidate on a box where the
+ * indexer simply has not been set up.
+ */
+async function fallbackFreeGb(): Promise<{ weightsDiskFreeGb: number }> {
+  try {
+    const ps = `(Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='${WEIGHTS_DRIVE}'").FreeSpace`;
     const { stdout } = await execFileP(
       "powershell.exe",
       ["-NoProfile", "-NonInteractive", "-Command", ps],
       { timeout: 8000, windowsHide: true },
     );
     const bytes = Number(stdout.trim());
-    return Number.isFinite(bytes) && bytes > 0 ? round1(bytes / 1024 ** 3) : 0;
+    return { weightsDiskFreeGb: Number.isFinite(bytes) && bytes > 0 ? round1(bytes / 1024 ** 3) : 0 };
   } catch {
-    return 0;
+    return { weightsDiskFreeGb: 0 };
   }
 }
 

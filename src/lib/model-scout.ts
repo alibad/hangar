@@ -2,8 +2,18 @@ import fs from "fs";
 import path from "path";
 import { getCatalogue } from "./providers";
 import { readMachineProfile, readOccupants } from "./machine";
-import { evaluateFit, estimateFromParams, VERDICT_RANK, type Fit, type Requirement, type ParamSpec } from "./model-fit";
+import {
+  evaluateFit,
+  estimateFromParams,
+  bestPrecisionFor,
+  VERDICT_RANK,
+  type Fit,
+  type Requirement,
+  type ParamSpec,
+  type PrecisionFit,
+} from "./model-fit";
 import { listWired, handWrittenAliases, WIRABLE_PROVIDERS } from "./wired-models";
+import { getLlmStats, indexByModelId, lookup, type LlmStatsModel } from "./llm-stats";
 
 /**
  * The Models page's answer to "what am I missing?"
@@ -109,6 +119,8 @@ export type DiscoveredModel = {
   supersedes?: string;
   /** Shipped after the newest model wired for this provider. */
   newerThanWired: boolean;
+  /** Leaderboard row, when llm-stats.com has one for this id. */
+  stats?: LlmStatsModel;
 };
 
 export type ProviderDiscovery = {
@@ -126,6 +138,14 @@ export type ProviderDiscovery = {
  * three ids that actually matter.
  */
 const DISCOVERY_HORIZON_DAYS = 400;
+
+/**
+ * How recent a model in an unwired family has to be to surface on its own merit,
+ * regardless of what is already wired. One quarter: long enough that a launch
+ * cannot be missed between two visits to this page, short enough that a vendor's
+ * back catalogue stays out.
+ */
+const NEW_FAMILY_WINDOW_DAYS = 120;
 
 /** Modes the router can serve. Everything else is filtered out of discovery. */
 const KEEP_MODES = new Set(["chat", "image_generation", "audio_transcription", "audio_speech"]);
@@ -409,10 +429,18 @@ export async function discover(opts: { force?: boolean } = {}): Promise<Provider
           if (!later) continue;
           m.supersedes = sibling.wiredAs;
         } else if (newestWired && m.released) {
-          // A family nothing here uses. Worth surfacing only if it shipped no
-          // earlier than the newest model already wired for this provider —
-          // that is what makes it news rather than history.
-          if (m.released < newestWired) continue;
+          // A family nothing here uses. Two ways to earn a place: it shipped no
+          // earlier than the newest model already wired for this provider, or
+          // it is simply recent.
+          //
+          // The second clause is not redundant. Without it, wiring one new model
+          // silently buried every OTHER new family behind it — wiring
+          // claude-opus-5 (2026-07-24) hid claude-fable-5 (2026-06-07), which is
+          // a distinct tier rather than an older version of anything here. The
+          // date bar is meant to cut back-catalogue (gpt-5-mini, a year old),
+          // not to cut this quarter's launches.
+          const recent = new Date(m.released).getTime() >= Date.now() - NEW_FAMILY_WINDOW_DAYS * 86400_000;
+          if (m.released < newestWired && !recent) continue;
           m.newerThanWired = m.released > newestWired;
         } else if (m.released && new Date(m.released).getTime() < horizon) {
           // No wired model to compare against (a provider wired for nothing
@@ -433,6 +461,169 @@ export async function discover(opts: { force?: boolean } = {}): Promise<Provider
 
   discoveryCache = { at: Date.now(), value: out };
   return out;
+}
+
+// ── open-weights catalogue, fitted to this card ─────────────────────────────
+
+export type OpenWeightsCandidate = {
+  stats: LlmStatsModel;
+  /** Billions, from param_count. The whole reason this list can be fitted at all. */
+  paramsB: number;
+  /** Best precision that runs here, or null when nothing on the ladder does. */
+  best: PrecisionFit | null;
+  /** Every rung, so the UI can show what fitting cost in quality. */
+  rungs: PrecisionFit[];
+  /** Has at least one benchmark score. Drives which ranking bucket it lands in. */
+  scored: boolean;
+};
+
+/**
+ * Every open-weights model on the leaderboard, sorted by what this box can
+ * actually run.
+ *
+ * This is the half of the leaderboard the console can act on in a way no cloud
+ * dashboard can: llm-stats publishes `param_count` for open models, and a
+ * parameter count plus a 32 GB card is enough to answer "could I run this, and
+ * at what quantisation" for all ~200 of them at once. Sorted by capability
+ * WITHIN what fits, not by capability overall — a 2.4T model topping the chart
+ * is not information, it is noise, on a machine that cannot load it.
+ *
+ * Models with no `param_count` are dropped rather than guessed at. An unfitted
+ * row in a list whose entire purpose is fit would be worse than absent.
+ */
+export function openWeightsCandidates(
+  models: LlmStatsModel[],
+  machine: Awaited<ReturnType<typeof readMachineProfile>>,
+  occupants: Awaited<ReturnType<typeof readOccupants>>,
+): OpenWeightsCandidate[] {
+  // Scaled against the WHOLE leaderboard, not just the open-weights subset —
+  // "good" should mean the same thing here as it does for the cloud models on
+  // the same page.
+  const scales = buildQualityScales(models);
+  const out: OpenWeightsCandidate[] = [];
+  for (const stats of models) {
+    if (!stats.is_open_source || !stats.param_count) continue;
+    const paramsB = stats.param_count / 1e9;
+    // Context drives the KV cache, and the KV cache is what turns a model that
+    // fits into one that doesn't. 32k is the working default on this box (see
+    // local-coder's launch flags); a model advertising less gets judged at what
+    // it actually offers rather than at a number it cannot reach.
+    const contextK = stats.context ? Math.min(32, Math.round(stats.context / 1000)) : 32;
+    const { best, rungs } = bestPrecisionFor({ paramsB, machine, contextK, occupants });
+    out.push({ stats, paramsB, best, rungs, scored: quality(stats, scales) > 0 });
+  }
+
+  /**
+   * Ranked the way the question is actually asked: "what is the BEST model this
+   * card can run", not "what is the smallest".
+   *
+   * Sorting by fit verdict first put qwen3.5-0.8b, which fits trivially and
+   * scores 0.119 on GPQA, above qwen3-vl-32b-thinking at 0.731 — the exact
+   * inversion of what the list is for. Runnable-vs-not stays the hard gate,
+   * because an unrunnable model is not a choice; within runnable, quality leads
+   * and the verdict is only a tiebreak.
+   *
+   * Unscored models are a third bucket rather than a zero score. The newest
+   * checkpoints have no benchmark numbers yet — that is what makes them new, and
+   * scoring them zero would bury the very models worth knowing about beneath a
+   * two-year-old 1B that happens to have a GPQA entry.
+   */
+  const bucket = (c: OpenWeightsCandidate) => (!c.best ? 2 : c.scored ? 0 : 1);
+  return out.sort((a, b) => {
+    const ba = bucket(a);
+    const bb = bucket(b);
+    if (ba !== bb) return ba - bb;
+    if (ba === 1) {
+      // Unscored and runnable: newest first, since recency is the only signal
+      // available and it is the one that matters for a model with no numbers.
+      return (b.stats.release_date ?? "").localeCompare(a.stats.release_date ?? "");
+    }
+    const qa = quality(a.stats, scales);
+    const qb = quality(b.stats, scales);
+    if (qa !== qb) return qb - qa;
+    const ra = a.best ? VERDICT_RANK[a.best.fit.verdict] : 99;
+    const rb = b.best ? VERDICT_RANK[b.best.fit.verdict] : 99;
+    if (ra !== rb) return ra - rb;
+    return (b.stats.release_date ?? "").localeCompare(a.stats.release_date ?? "");
+  });
+}
+
+/** The metrics that feed the ranking, in the order they are read off a row. */
+const METRICS: ((m: LlmStatsModel) => number | null)[] = [
+  (m) => m.gpqa_score,
+  (m) => m.swe_bench_verified_score,
+  (m) => m.hle_score,
+  (m) => {
+    const a = m.arena_scores ? Object.values(m.arena_scores) : [];
+    return a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
+  },
+];
+
+/** Sorted observed values per metric, for percentile lookup. */
+type QualityScales = number[][];
+
+/**
+ * Per-benchmark distributions across the whole leaderboard.
+ *
+ * The benchmarks are not on one scale and their coverage is patchy, which makes
+ * naive averaging wrong in two separate ways. Raw averaging punishes documented
+ * models: HLE tops out near 0.65 where GPQA reaches 0.89, so a model with GPQA
+ * 0.855 AND an HLE score averaged below one with GPQA 0.817 and nothing else.
+ * Min-max normalising fixes the scale but not the coverage — a model with a
+ * mediocre HLE still pays a penalty that a model with no HLE at all escapes.
+ *
+ * Percentile ranks fix the scale (and are robust to the outliers a min-max is
+ * not); imputing a missing metric at the median fixes the coverage, because "no
+ * score" then means "no information" rather than "free pass".
+ */
+function buildQualityScales(models: LlmStatsModel[]): QualityScales {
+  return METRICS.map((read) => {
+    const values: number[] = [];
+    for (const m of models) {
+      const v = read(m);
+      if (typeof v === "number") values.push(v);
+    }
+    return values.sort((a, b) => a - b);
+  });
+}
+
+/** Share of observed values at or below `v`, in 0-1. */
+function percentile(sorted: number[], v: number): number {
+  if (sorted.length < 2) return 0.5;
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sorted[mid] <= v) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo / sorted.length;
+}
+
+/**
+ * One number for "how good is this", with benchmark coverage made neutral.
+ *
+ * Never shown as a score — it only decides row order among models that already
+ * fit. A composite of four benchmarks with this much missing data is not a
+ * number to put in front of a reader; the row shows the underlying scores
+ * instead, so the ordering can be checked against them.
+ */
+function quality(m: LlmStatsModel, scales?: QualityScales): number {
+  if (!scales) return 0;
+  let sum = 0;
+  let seen = 0;
+  METRICS.forEach((read, i) => {
+    const v = read(m);
+    if (typeof v !== "number") {
+      sum += 0.5;             // median — this benchmark says nothing either way
+      return;
+    }
+    seen++;
+    sum += percentile(scales[i], v);
+  });
+  // Zero means "no benchmark at all", which the caller reads as unscored and
+  // routes into its own bucket rather than ranking against measured models.
+  return seen ? sum / METRICS.length : 0;
 }
 
 // ── the merged view ─────────────────────────────────────────────────────────
@@ -459,6 +650,17 @@ export type ScoutPayload = {
   discovery: ProviderDiscovery[];
   wired: ReturnType<typeof listWired>;
   handWritten: string[];
+  leaderboard: {
+    fetchedAt: string;
+    source: string;
+    stale?: boolean;
+    error?: string;
+    total: number;
+    /** Open-weights models with a parameter count, fitted to this card. */
+    openWeights: OpenWeightsCandidate[];
+    /** How many of those actually run here, for the headline. */
+    runnable: number;
+  };
 };
 
 /** A report older than this is shown as stale — the routine runs weekly. */
@@ -466,11 +668,23 @@ const STALE_AFTER_DAYS = 10;
 
 export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPayload> {
   const report = loadReport();
-  const [machine, occupants, discovery] = await Promise.all([
+  const [machine, occupants, discovery, stats] = await Promise.all([
     readMachineProfile(),
     readOccupants(),
     discover(opts),
+    getLlmStats(opts),
   ]);
+
+  // Attach the leaderboard row to each discovered vendor model, so "wire this"
+  // can be decided on price and benchmark rather than on the id looking newer.
+  const statsIndex = indexByModelId(stats.models);
+  for (const provider of discovery) {
+    for (const m of provider.models) {
+      m.stats = lookup(statsIndex, m.modelId);
+    }
+  }
+
+  const openWeights = openWeightsCandidates(stats.models, machine, occupants);
 
   // Aliases already in the router, so a candidate the report still lists as
   // "new" after you wired it says so instead of nagging.
@@ -518,5 +732,14 @@ export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPay
     discovery,
     wired: listWired(),
     handWritten: handWrittenAliases(),
+    leaderboard: {
+      fetchedAt: stats.fetchedAt,
+      source: stats.source,
+      stale: stats.stale,
+      error: stats.error,
+      total: stats.models.length,
+      openWeights,
+      runnable: openWeights.filter((c) => c.best).length,
+    },
   };
 }

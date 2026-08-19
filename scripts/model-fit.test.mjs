@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { evaluateFit, estimateFromParams, BYTES_PER_PARAM } from "../src/lib/model-fit.ts";
+import {
+  evaluateFit,
+  estimateFromParams,
+  bestPrecisionFor,
+  BYTES_PER_PARAM,
+  PRECISION_LADDER,
+} from "../src/lib/model-fit.ts";
 
 /**
  * The fit arithmetic decides whether a 20 GB download is worth starting, and it
@@ -97,6 +103,62 @@ test("a diffusion model's host RAM cost is counted, an LLM's is not", () => {
   assert.equal(llm.ramGb, 1);
   // ...and only the LLM pays for context.
   assert.ok(llm.vramGb > diffusion.vramGb);
+});
+
+test("the KV estimate matches published GQA geometry within a factor of two", () => {
+  // Qwen2.5-7B: 28 layers x 4 kv heads x 128 dims x 2 (K,V) x 2 bytes
+  //   = 56 KB/token -> 0.9 GB at 16k. The estimator must land near that, since
+  //   an over-reservation here is what pushed 32B models onto Q3 quantisation.
+  const weights7b = 7 * BYTES_PER_PARAM.awq4 * 1.15;
+  const kv7b = estimateFromParams({ paramsB: 7, precision: "awq4", contextK: 16 }).vramGb - weights7b;
+  assert.ok(kv7b > 0.45 && kv7b < 1.8, `7B @16k KV estimate off: ${kv7b.toFixed(2)} GB vs ~0.9 measured`);
+
+  // Qwen3-32B: 64 layers x 8 kv heads x 128 x 2 x 2 = 256 KB/token -> 8.0 GB at 32k.
+  const weights32b = 32 * BYTES_PER_PARAM.nvfp4 * 1.15;
+  const kv32b = estimateFromParams({ paramsB: 32, precision: "nvfp4", contextK: 32 }).vramGb - weights32b;
+  assert.ok(kv32b > 4 && kv32b < 16, `32B @32k KV estimate off: ${kv32b.toFixed(2)} GB vs ~8.0 measured`);
+});
+
+test("a 32B runs on this card at 4-bit, not only at Q3", () => {
+  // The regression that motivated re-deriving the KV constant: a 32B at NVFP4
+  // is roughly 20 GB of weights plus 6 GB of KV, which fits a 31.8 GB card with
+  // room. Reporting it as Q3-only understates the machine by a whole tier.
+  const { best } = bestPrecisionFor({ paramsB: 32, machine: BOX, contextK: 32 });
+  assert.ok(best, "a 32B must be runnable here at some precision");
+  assert.ok(
+    ["bf16", "fp8", "nvfp4", "awq4"].includes(best.precision),
+    `expected 4-bit or better, got ${best.precision}`,
+  );
+});
+
+test("the precision ladder is ordered best-quality first and stops at the first fit", () => {
+  // 45B is the interesting size on this card: too big for 4-bit once a 32k KV
+  // cache is counted, small enough that a heavier quantisation rescues it. A
+  // 70B does not fit here at ANY rung, which is the correct answer and a
+  // useless test case.
+  const { best, rungs } = bestPrecisionFor({ paramsB: 45, machine: BOX, contextK: 32 });
+  assert.ok(best, "a 45B should be runnable at some quantisation on a 32 GB card");
+  assert.equal(rungs.length, PRECISION_LADDER.length);
+  // Every rung above the chosen one must genuinely not fit, or the ladder is
+  // handing back a worse model than the machine can run.
+  const at = rungs.findIndex((r) => r.precision === best?.precision);
+  assert.ok(at >= 0);
+  for (const r of rungs.slice(0, at)) assert.equal(r.fit.verdict, "no");
+  // ...and each step down must actually be smaller.
+  for (let i = 1; i < rungs.length; i++) {
+    assert.ok(
+      rungs[i].requirement.vramGb <= rungs[i - 1].requirement.vramGb,
+      `${rungs[i].precision} is not smaller than ${rungs[i - 1].precision}`,
+    );
+  }
+});
+
+test("a frontier-scale model is unrunnable at every rung", () => {
+  // 744B (GLM-5) is 260 GB even at Q2. There must be no precision that claims
+  // otherwise — a false "fits" here would send someone after a 260 GB download.
+  const { best, rungs } = bestPrecisionFor({ paramsB: 744, machine: BOX, contextK: 32 });
+  assert.equal(best, null);
+  assert.ok(rungs.every((r) => r.fit.verdict === "no"));
 });
 
 test("4-bit schemes are not priced at a clean half byte", () => {

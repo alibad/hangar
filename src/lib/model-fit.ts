@@ -60,19 +60,30 @@ export type Precision = keyof typeof BYTES_PER_PARAM | string;
 const RUNTIME_OVERHEAD = 1.15;
 
 /**
- * KV cache, per 1k tokens of context, per billion parameters, at fp16.
+ * KV cache, in GB per 1k tokens of context per billion parameters, at fp16.
  *
- * Derived from this box rather than from a general formula, because a general
- * formula needs layer/head/head_dim counts that a scouting report will not have.
- * local-small is the anchor: Qwen2.5-7B-AWQ at 16k context runs under
- * --gpu-memory-utilization 0.55 (17.5 GB) holding ~4.3 GB of weights, so the KV
- * allocation is roughly 13 GB — but vLLM claims the whole utilisation figure
- * whatever it needs, so that is an upper bound, not a measurement. The 0.0125
- * below is the conservative middle: it puts a 7B at 16k near 1.4 GB of KV, which
- * matches what modern GQA models actually report. Treat it as an order of
- * magnitude, which is all a "will it fit" verdict needs.
+ * A single constant cannot be right, because KV size scales with layers and
+ * key/value heads, not with parameter count — but a scouting report has a
+ * parameter count and nothing else, so a constant is what there is. These are
+ * the numbers it is calibrated against, all grouped-query at fp16:
+ *
+ *   Qwen2.5-7B   28 layers,  4 kv heads, d=128 → 56 KB/token → 0.9 GB at 16k
+ *                                                        → 0.0077 per k per B
+ *   Qwen3-32B    64 layers,  8 kv heads, d=128 → 256 KB/token → 8.0 GB at 32k
+ *                                                        → 0.0078 per k per B
+ *   Qwen3-30B-A3B 48 layers, 4 kv heads, d=128 → 96 KB/token → 3.0 GB at 32k
+ *                                                        → 0.0031 per k per B
+ *
+ * Dense models land near 0.0078 and MoE models near half that, since an MoE's
+ * parameters are mostly experts that add no KV at all. 0.006 sits between them:
+ * it slightly over-reserves for MoE and slightly under-reserves for dense, and
+ * the safety margins below absorb the difference.
+ *
+ * The earlier value here was 0.0125, guessed from vLLM's --gpu-memory-utilization
+ * flag — which is a number vLLM CLAIMS, not one it needs. It over-reserved by
+ * ~6 GB on a 32B and pushed models onto Q3 quantisation that run fine at 4-bit.
  */
-const KV_GB_PER_K_PER_B = 0.0125;
+const KV_GB_PER_K_PER_B = 0.006;
 
 export type MachineProfile = {
   gpuName: string;
@@ -83,6 +94,14 @@ export type MachineProfile = {
   /** Free space on the drive Hugging Face weights land on (D: here). */
   weightsDiskFreeGb: number;
   weightsDiskLabel: string;
+  /** Capacity of that drive, for the "x of y" the free figure alone can't give. */
+  weightsDiskTotalGb?: number;
+  /** What the weights already there occupy, per the storage index. */
+  weightsUsedGb?: number;
+  /** Where they live, so a full drive names the folder to go clear out. */
+  weightsPath?: string;
+  /** False when the storage index has never scanned that drive — then weightsUsedGb is unknown, not zero. */
+  weightsIndexed?: boolean;
 };
 
 /** What a model needs to run. Numbers only — provenance lives in `basis`. */
@@ -348,6 +367,71 @@ export function evaluateFit(opts: {
     basis: requirement.basis,
     estimated: !!requirement.estimated,
   };
+}
+
+/**
+ * Quantisations worth trying, best quality first.
+ *
+ * The order is the trade you actually make: every step down is smaller and
+ * worse, so the useful answer to "does this 235B run here" is not yes/no but
+ * "at which precision, and what did that cost you". bf16 is the reference;
+ * fp8 is near-lossless on modern checkpoints; 4-bit is a real but usually
+ * acceptable hit; 3-bit and below are included because on a 32 GB card they are
+ * sometimes the difference between running a model and not, and the UI should
+ * say so rather than pretend the option does not exist.
+ */
+export const PRECISION_LADDER: { id: Precision; label: string; note: string }[] = [
+  { id: "bf16", label: "bf16", note: "Full precision — the reference the model was released at." },
+  { id: "fp8", label: "fp8", note: "Half the weights, close to lossless on checkpoints trained for it." },
+  { id: "nvfp4", label: "NVFP4", note: "Blackwell's native 4-bit — this card executes it in hardware. Small quality cost." },
+  { id: "awq4", label: "AWQ 4-bit", note: "Widely available 4-bit. Small quality cost, large memory win." },
+  { id: "gguf-q3", label: "GGUF Q3", note: "Noticeably degraded. Worth it only to fit a model that otherwise cannot run." },
+  { id: "gguf-q2", label: "GGUF Q2", note: "Heavily degraded. A curiosity on this card, not a working configuration." },
+];
+
+export type PrecisionFit = {
+  precision: Precision;
+  label: string;
+  note: string;
+  requirement: Requirement;
+  fit: Fit;
+};
+
+/**
+ * The best precision this machine can actually run a model at, if any.
+ *
+ * Answers the question a parameter count alone cannot: a 235B is hopeless here
+ * at any quantisation, a 30B is comfortable at 4-bit and impossible at bf16, and
+ * only walking the ladder distinguishes those. Returns the first rung that fits
+ * on an idle machine, plus every rung evaluated so the UI can show what was
+ * given up to get there.
+ */
+export function bestPrecisionFor(opts: {
+  paramsB: number;
+  machine: MachineProfile;
+  contextK?: number;
+  kind?: ParamSpec["kind"];
+  occupants?: Occupant[];
+}): { best: PrecisionFit | null; rungs: PrecisionFit[] } {
+  const rungs = PRECISION_LADDER.map(({ id, label, note }) => {
+    const requirement = estimateFromParams({
+      paramsB: opts.paramsB,
+      precision: id,
+      contextK: opts.contextK,
+      kind: opts.kind,
+    });
+    return {
+      precision: id,
+      label,
+      note,
+      requirement,
+      fit: evaluateFit({ requirement, machine: opts.machine, occupants: opts.occupants }),
+    };
+  });
+  // "swap" counts as fitting: it means the model runs here once something else
+  // stops, which is a scheduling decision, not a hardware limit.
+  const best = rungs.find((r) => r.fit.verdict !== "no") ?? null;
+  return { best, rungs };
 }
 
 export const VERDICT_LABEL: Record<FitVerdict, string> = {

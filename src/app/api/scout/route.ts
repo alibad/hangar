@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getScout } from "@/lib/model-scout";
-import { WireError, unwire, wire } from "@/lib/wired-models";
+import { discover, getScout } from "@/lib/model-scout";
+import { WireError, unwire, wire, wireMany } from "@/lib/wired-models";
 
 const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
 
@@ -46,6 +46,18 @@ async function restartRouter(): Promise<{ ok: boolean; detail?: string }> {
   }
 }
 
+/**
+ * The alias a vendor id gets when wired in bulk.
+ *
+ * Vendor ids are already alias-shaped, so the id itself is the least surprising
+ * name. Mirrors defaultAlias() in the Scout view — the button and the bulk
+ * action must agree, or "wire all" would create a second copy of every model a
+ * user had already wired one at a time.
+ */
+function aliasFor(modelId: string): string {
+  return modelId.toLowerCase().replace(/[^a-z0-9._-]/g, "-").slice(0, 64);
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const action = body?.action;
@@ -68,6 +80,59 @@ export async function POST(req: NextRequest) {
         warning: restart.ok
           ? undefined
           : `Wired, but the router did not restart (${restart.detail}). It will pick the model up on its next start.`,
+      });
+    }
+
+    /**
+     * Wire every cloud model the configured vendors offer and the router does
+     * not already serve.
+     *
+     * The candidate list comes from discover() server-side rather than from the
+     * request body: a client posting a list it read a minute ago would wire
+     * whatever that snapshot happened to contain, and the point of "all" is that
+     * it means all of them as of now. One config write, one router restart.
+     */
+    if (action === "wire-all") {
+      const providers = await discover({ force: true });
+      const entries = providers
+        .filter((p) => p.reachable)
+        .flatMap((p) =>
+          p.models
+            .filter((m) => !m.wiredAs)
+            .map((m) => ({
+              alias: aliasFor(m.modelId),
+              target: m.target,
+              provider: p.provider,
+              mode: m.mode,
+              source: "wire-all",
+            })),
+        );
+
+      const { wired, added, skipped } = wireMany(entries);
+      // Nothing changed on disk, so the router has nothing new to read. Skipping
+      // the restart here is what keeps a second click from taking the gateway
+      // down for a minute to accomplish nothing.
+      if (!added.length) {
+        return NextResponse.json({
+          ok: true,
+          wired,
+          added,
+          skipped,
+          restarted: false,
+          message: "Every cloud model your providers offer is already wired.",
+        });
+      }
+
+      const restart = await restartRouter();
+      return NextResponse.json({
+        ok: true,
+        wired,
+        added,
+        skipped,
+        restarted: restart.ok,
+        warning: restart.ok
+          ? undefined
+          : `Wired ${added.length}, but the router did not restart (${restart.detail}). It will pick them up on its next start.`,
       });
     }
 

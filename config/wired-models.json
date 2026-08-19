@@ -2,12 +2,172 @@
   "_doc": "Cloud models wired in from the console's Models page. Rendered into a managed block inside ai-router.yaml — edit through the console, or edit here and the block re-renders on the next sync. Models written directly into ai-router.yaml by hand are NOT listed here and are never touched.",
   "models": [
     {
+      "alias": "chat-latest",
+      "target": "openai/chat-latest",
+      "provider": "openai",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "claude-fable-5",
+      "target": "anthropic/claude-fable-5",
+      "provider": "anthropic",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:49.758Z",
+      "source": "wire-all"
+    },
+    {
       "alias": "claude-opus-5",
       "target": "anthropic/claude-opus-5",
       "provider": "anthropic",
       "mode": "chat",
       "addedAt": "2026-08-19T07:56:06.614Z",
       "source": "scout upgrade for claude-opus"
+    },
+    {
+      "alias": "claude-sonnet-5",
+      "target": "anthropic/claude-sonnet-5",
+      "provider": "anthropic",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemini-2.5-flash-preview-tts",
+      "target": "gemini/gemini-2.5-flash-preview-tts",
+      "provider": "gemini",
+      "mode": "audio_speech",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemini-2.5-pro-preview-tts",
+      "target": "gemini/gemini-2.5-pro-preview-tts",
+      "provider": "gemini",
+      "mode": "audio_speech",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemini-3.1-flash-lite-image",
+      "target": "gemini/gemini-3.1-flash-lite-image",
+      "provider": "gemini",
+      "mode": "image_generation",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemini-3.1-flash-tts-preview",
+      "target": "gemini/gemini-3.1-flash-tts-preview",
+      "provider": "gemini",
+      "mode": "audio_speech",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemini-3.7-flash",
+      "target": "gemini/gemini-3.7-flash",
+      "provider": "gemini",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemini-flash-latest",
+      "target": "gemini/gemini-flash-latest",
+      "provider": "gemini",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemini-flash-lite-latest",
+      "target": "gemini/gemini-flash-lite-latest",
+      "provider": "gemini",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemini-omni-flash-preview",
+      "target": "gemini/gemini-omni-flash-preview",
+      "provider": "gemini",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemini-pro-latest",
+      "target": "gemini/gemini-pro-latest",
+      "provider": "gemini",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemma-4-26b-a4b-it",
+      "target": "gemini/gemma-4-26b-a4b-it",
+      "provider": "gemini",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemma-4-31b-it",
+      "target": "gemini/gemma-4-31b-it",
+      "provider": "gemini",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gpt-5.5-pro",
+      "target": "openai/gpt-5.5-pro",
+      "provider": "openai",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gpt-5.6-luna",
+      "target": "openai/gpt-5.6-luna",
+      "provider": "openai",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gpt-5.6-sol",
+      "target": "openai/gpt-5.6-sol",
+      "provider": "openai",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gpt-5.6-terra",
+      "target": "openai/gpt-5.6-terra",
+      "provider": "openai",
+      "mode": "chat",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gpt-transcribe",
+      "target": "openai/gpt-transcribe",
+      "provider": "openai",
+      "mode": "audio_transcription",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "nano-banana-pro-preview",
+      "target": "gemini/nano-banana-pro-preview",
+      "provider": "gemini",
+      "mode": "image_generation",
+      "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
     }
   ]
 }
