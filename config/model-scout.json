@@ -1,26 +1,28 @@
 {
   "_doc": "The weekly scout report: what exists out there that this box is not using. Written by the Claude routine described in docs/models.md and read by src/lib/model-scout.ts. Judgment lives here; facts about which model ids a vendor currently sells are NOT — those are pulled live from each vendor's model-list endpoint at read time, because a list committed to git is out of date the day after it is written. Fit verdicts are likewise computed at read time against the live machine, never stored here: a verdict depends on what is running and how much disk is free, and both change hourly.",
   "_schema": "candidates[]: { id, name, kind: local|cloud, capability, why, checkpoint?, provider?, target?, mode?, params?, released?, license?, docs?, paper?, requirement? { vramGb, ramGb, diskGb, basis, estimated }, spec? { paramsB, precision, contextK, kind }, pricing? }. Give `requirement` when the authors published usable numbers; give `spec` otherwise and let estimateFromParams() do the arithmetic with an honest basis string. upgrades[]: { alias, from, to, why } — a like-for-like repoint of an alias already in ai-router.yaml.",
-  "generatedAt": "2026-08-19",
-  "generatedBy": "initial run, by hand — Hugging Face hub search plus live vendor model lists; text models delegated to the Leaderboard tab",
+  "generatedAt": "2026-09-07",
+  "generatedBy": "weekly scout, 2026-09-07 — Microsoft shipped VibeVoice-ASR-Streaming under MIT, which settles the streaming-ASR licence problem this report has carried for three weeks and retires the English-only Granite pick. The week's other finding is negative: LLaDA-Image, the top new Apache-2.0 image model, is '6.54B' and ships 49.2 GB (27.6 GB at fp8) because its text encoder is a 17 GB MoE — it stays out.",
   "candidates": [
     {
-      "id": "z-image-turbo",
-      "name": "Z-Image-Turbo",
+      "id": "z-image-turbo-nvfp4",
+      "name": "Z-Image-Turbo (ComfyUI NVFP4 build)",
       "kind": "local",
       "capability": "image",
-      "checkpoint": "Tongyi-MAI/Z-Image-Turbo",
-      "params": "6.2B",
+      "checkpoint": "Comfy-Org/z_image_turbo",
+      "params": "6.15B transformer + 4B Qwen3 text encoder",
       "released": "2025-11",
       "license": "apache-2.0",
-      "docs": "https://hf.co/Tongyi-MAI/Z-Image-Turbo",
+      "docs": "https://hf.co/Comfy-Org/z_image_turbo",
       "paper": "https://arxiv.org/abs/2511.22699",
-      "spec": {
-        "paramsB": 6.2,
-        "precision": "bf16",
-        "kind": "diffusion"
+      "requirement": {
+        "vramGb": 9.6,
+        "ramGb": 8.3,
+        "diskGb": 8.3,
+        "estimated": true,
+        "basis": "Disk is EXACT, re-read off the repo's file listing this week and unchanged: z_image_turbo_nvfp4.safetensors 4,509,509,600 B + qwen_3_4b_fp4_mixed.safetensors 3,479,416,193 B + ae.safetensors 335,304,388 B = 8.32 GB for the three files ComfyUI actually loads. Do NOT clone the whole repo — it also carries bf16, int8 and fp8 copies of the same two models and totals 40.7 GB. VRAM is that weight total x 1.15 runtime overhead, not measured. ramGb follows the convention config/model-meta.json already applies to local-flux-schnell: the host-RAM cost of an actual run, estimated from the weight total, since ComfyUI loads lazily and evicts after (measured idle: 0.13 GB resident). The bf16 stack in the same repo is 20.7 GB (12.31 + 8.04 + 0.34) if quality at 4-bit disappoints."
       },
-      "why": "The single biggest win available to this box. local-qwen-image is 20.4B and holds ~28 GB of host RAM for as long as its service is loaded — the collision that has already killed it mid-load. Z-Image-Turbo is a third the size at 6.2B, Apache-2.0, and by far the most-pulled open image model on the hub (8.1M downloads), so it would leave room for a FLUX run or a 27B chat model beside it instead of owning the machine."
+      "why": "Still the single biggest win available to this box, and still not adopted — third week on this list. Against local-flux-schnell's MEASURED 31.7 GB of a 31.8 GB card it is a 3.8x reduction on the same ComfyUI service, so there is no new service to write; against local-qwen-image's standing 28 GB of host RAM it frees ~20 GB. NVFP4 is this card's native 4-bit format — sm_120 executes it in hardware rather than dequantising first. Nothing shipped this week that beats it: the trending Apache-2.0 image releases were the LLaDA-Image family, which is 3.3x this size even at fp8 (see notes), and everything above it on the hub trending list is Krea-2, which is gated. Apache-2.0, and the Comfy-Org build is the most-pulled conversion of it on the hub."
     },
     {
       "id": "flux2-klein-4b",
@@ -28,103 +30,121 @@
       "kind": "local",
       "capability": "image",
       "checkpoint": "black-forest-labs/FLUX.2-klein-4B",
-      "params": "3.9B transformer",
+      "params": "3.88B transformer + 4B Qwen3 text encoder",
       "released": "2026-01",
       "license": "apache-2.0",
       "docs": "https://hf.co/black-forest-labs/FLUX.2-klein-4B",
       "requirement": {
-        "vramGb": 15,
-        "ramGb": 8,
-        "diskGb": 14,
+        "vramGb": 18.4,
+        "ramGb": 16,
+        "diskGb": 23.7,
         "estimated": true,
-        "basis": "Estimated, and deliberately generous. The 3.9B on the model card is the TRANSFORMER only: 3.9B x 2 bytes = 7.8 GB at bf16. FLUX.2 klein also loads a Qwen3-based text encoder that the card does not size, and the community's uncensored-encoder repos for the klein family are large enough that ignoring it would understate this badly — so ~6 GB is allowed for the encoder plus VAE on top. Verify against a real run before trusting the number.",
-        "estimatedNote": "Replace this whole block with a measurement once it has been run once."
+        "basis": "Re-read off the repo's file listing this week, byte-for-byte unchanged. The diffusers pipeline is transformer/diffusion_pytorch_model.safetensors 7,751,109,744 B + text_encoder shards 4,967,215,360 + 3,077,766,632 B + vae 168,120,878 B = 15.96 GB of weights — the text encoder is HALF the model and the 3.88B transformer param count hides it entirely. diskGb is 23.7 because the repo ALSO carries flux-2-klein-4b.safetensors, a 7.75 GB single-file duplicate of the transformer for ComfyUI; excluding it brings the download to 16.0 GB. VRAM is 15.96 x 1.15 runtime overhead; ramGb assumes CPU offload keeps the weight set resident. Not measured — verify against a real run."
       },
-      "why": "Direct replacement for local-flux-schnell, which measured 31.7 GB of a 31.8 GB card during a 512x512 run — it effectively IS the card, and nothing fits beside it. klein-4B is Apache-2.0, does text-to-image and image editing in one checkpoint, and is a fifth of the size. 2.3M downloads."
+      "why": "The editing lane Z-Image-Turbo does not cover: klein-4B does text-to-image AND image editing from one Apache-2.0 checkpoint. It replaces local-flux-schnell, which measured 31.7 GB of a 31.8 GB card during a 512x512 run and so effectively IS the card — 16.0 GB of pipeline weights against schnell's 31.81 GB is the difference between owning the machine and sharing it. It survives this week specifically because the model that looked like it would displace it did not: LLaDA-Image ships the same unified generate-plus-edit story under Apache-2.0 and needs 27.6 GB at fp8 against klein's 16.0 GB at bf16, so klein remains the cheapest clean-licensed editing checkpoint that fits here."
     },
     {
-      "id": "qwen3-asr-1.7b",
-      "name": "Qwen3-ASR 1.7B",
+      "id": "qwen3-asr-1.7b-hf",
+      "name": "Qwen3-ASR 1.7B (transformers build)",
       "kind": "local",
       "capability": "stt",
-      "checkpoint": "Qwen/Qwen3-ASR-1.7B",
-      "params": "1.7B",
+      "checkpoint": "Qwen/Qwen3-ASR-1.7B-hf",
+      "params": "2.04B",
       "released": "2026-01",
       "license": "apache-2.0",
-      "docs": "https://hf.co/Qwen/Qwen3-ASR-1.7B",
-      "spec": {
-        "paramsB": 1.7,
-        "precision": "fp16",
-        "kind": "audio"
+      "docs": "https://hf.co/Qwen/Qwen3-ASR-1.7B-hf",
+      "paper": "https://arxiv.org/abs/2601.21337",
+      "requirement": {
+        "vramGb": 4.7,
+        "ramGb": 1,
+        "diskGb": 4.1,
+        "estimated": true,
+        "basis": "Disk exact from the repo listing, re-read and unchanged: model.safetensors 4,076,193,080 B plus an 11 MB tokenizer. That file size divided by the 2,038.1M params HF reports is exactly 2 bytes/param, so the release is bf16 and there is no hidden encoder — unlike the image models above. VRAM is 4.08 x 1.15 runtime overhead, not measured; host RAM is the server process only, since an ASR model this size stays on the card."
       },
-      "why": "local-whisper is large-v3, released November 2023 and the oldest checkpoint on this box. Qwen3-ASR is current, Apache-2.0, similar size, and pulled 4.4M times. The local STT path exists so sensitive audio never leaves the machine, which makes its accuracy worth keeping current."
+      "why": "The drop-in replacement for local-whisper on the path that already exists. whisper large-v3 shipped November 2023 and is the oldest checkpoint on this box; Qwen3-ASR is Apache-2.0, current, and its repo now enumerates 30 languages in metadata (zh, en, yue, ar, de, fr, es, pt, id, it, ko, ru, th, vi, ja, tr, hi, ms, nl, sv, da, fi, pl, cs, fil, fa, el, hu, mk, ro). It costs ~4.7 GB against whisper's measured 1.5 GB, which is rounding error on a 32 GB card. The `-hf` repo rather than the base one because the base ships custom code and cannot be served through the OpenAI audio API the way local-whisper is wired. If only one ASR model gets installed this week, this is the one — it is the accuracy upgrade to a path that already works, where VibeVoice below is a new service."
     },
     {
-      "id": "nemotron-3.5-asr-streaming-0.6b",
-      "name": "Nemotron 3.5 ASR streaming 0.6B",
+      "id": "vibevoice-asr-streaming-1.5b",
+      "name": "VibeVoice-ASR-Streaming 1.5B",
       "kind": "local",
       "capability": "stt",
-      "checkpoint": "nvidia/nemotron-3.5-asr-streaming-0.6b",
-      "params": "0.6B",
-      "released": "2026-05",
-      "license": "nvidia-open-model",
-      "docs": "https://hf.co/nvidia/nemotron-3.5-asr-streaming-0.6b",
-      "spec": {
-        "paramsB": 0.6,
-        "precision": "fp16",
-        "kind": "audio"
+      "checkpoint": "microsoft/VibeVoice-ASR-Streaming-1.5B",
+      "params": "2.81B (the '1.5B' in the name is the LLM backbone only)",
+      "released": "2026-09-02",
+      "license": "mit",
+      "docs": "https://hf.co/microsoft/VibeVoice-ASR-Streaming-1.5B",
+      "paper": "https://arxiv.org/abs/2609.02812",
+      "requirement": {
+        "vramGb": 6.5,
+        "ramGb": 1,
+        "diskGb": 5.6,
+        "estimated": true,
+        "basis": "Disk exact from the repo listing: model-0000{1,2,3}-of-00003.safetensors 2,498,354,152 + 2,486,576,066 + 643,458,072 B = 5.63 GB, plus an 11 MB tokenizer. Against the 2,814.1M params HF reports that is exactly 2 bytes/param, so it is a bf16 release with no separate codec or tokenizer weights outside the count — unlike Qwen3-TTS below. Note the name understates it: '1.5B' is the language backbone, the checkpoint is 2.81B. VRAM is 5.63 x 1.15 runtime overhead, not measured; host RAM is the server process only. The 7B sibling is 17.35 GB of weights (8.67B params, same 2 bytes/param) — it fits this card alone but leaves nothing beside it, so the 1.5B is the one to run here."
       },
-      "why": "Cache-aware streaming, which whisper-large-v3 cannot do at all — it transcribes finished audio. Rounding error on this card at 0.6B, so it could run permanently alongside everything else and give the console live transcription rather than batch."
+      "why": "Replaces last week's Granite TurboCTC pick and closes the licence question this report has carried for three weeks. Granite was chosen only because the strongest streaming ASR, NVIDIA's nemotron-3.5, is tagged `license:other`; the price was that Granite is ENGLISH ONLY against whisper's 99 languages. VibeVoice-ASR-Streaming is plain MIT from Microsoft Research, covers 10 languages (en, zh, es, pt, de, ja, ko, fr, ru, it), and does two things neither Granite nor whisper can: it streams speaker-attributed transcription — who said what, as the audio arrives — and it takes user-supplied hotwords for names and jargon. local-whisper transcribes finished audio, so the console can never show live text from it, and it does not diarise at all. The cost is 5.63 GB against Granite's 0.95 GB and whisper's measured 1.5 GB, which buys 9 extra languages plus diarisation on a card with room for it. Six days old with a Microsoft demo space and a technical report; verify WER against whisper before repointing anything."
     },
     {
-      "id": "higgs-tts-3-4b",
-      "name": "Higgs TTS 3 (4B)",
+      "id": "qwen3-tts-1.7b",
+      "name": "Qwen3-TTS 12Hz (1.7B CustomVoice)",
       "kind": "local",
       "capability": "tts",
-      "checkpoint": "bosonai/higgs-tts-3-4b",
-      "params": "4B",
-      "released": "2026-06",
+      "checkpoint": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+      "params": "1.92B + 0.68 GB speech tokenizer",
+      "released": "2026-01",
       "license": "apache-2.0",
-      "docs": "https://hf.co/bosonai/higgs-tts-3-4b",
-      "spec": {
-        "paramsB": 4,
-        "precision": "bf16",
-        "kind": "audio"
+      "docs": "https://hf.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+      "paper": "https://arxiv.org/abs/2601.15621",
+      "requirement": {
+        "vramGb": 5.2,
+        "ramGb": 1,
+        "diskGb": 4.6,
+        "estimated": true,
+        "basis": "Disk exact from the repo listing, re-read and unchanged: model.safetensors 3,833,402,552 B (= 1,916.7M params x 2 bytes, so bf16) PLUS speech_tokenizer/model.safetensors 682,293,092 B, which the 1.7B in the name does not include — 4.52 GB of weights in total. VRAM is that x 1.15 runtime overhead. Not measured."
       },
-      "why": "local-kokoro is 82M and sounds like it. Higgs 3 is expressive, controllable and does voice cloning across ~100 languages at 4B — still small enough to co-reside with an image model. The upgrade to make if anything on this box is meant to be listened to rather than checked."
+      "why": "local-kokoro is 82M and sounds like it. Qwen3-TTS-12Hz is Apache-2.0, expressive and controllable with custom-voice support, and at 13.9M downloads it is the most-pulled clean-licensed TTS on the hub by an order of magnitude. Its real footprint is 4.52 GB rather than the 3.83 GB the parameter count implies, because of the separate speech tokenizer; either way it is roughly half of what Z-Image-Turbo's NVFP4 build needs, so the two co-reside comfortably. It holds its place this week against a crowded field — Breeze-TTS-2 is the runaway trending model in TTS but is licensed `other`, and the cheap Apache alternative Audio8-TTS-Preview-0.6b turns out to be 2.55 GB rather than the 1.2 GB its name implies once its codec is counted. See notes."
     }
   ],
   "upgrades": [
     {
+      "alias": "gpt-5.5",
+      "from": "openai/gpt-5.5",
+      "to": "openai/gpt-5.6-terra",
+      "why": "New this week, and the most urgent of the five because the current target is being retired: gpt-5.5 is no longer carried in OpenAI's published pricing table, while the 5.6 line is. OpenAI positions gpt-5.6-terra explicitly as 'performance competitive with GPT-5.5' at a lower price — $2/$12 per 1M input/output tokens against gpt-5.5's $5/$30, so the like-for-like repoint is also a 2.5x cost cut on both sides of the meter. Terra, not sol or luna: sol is the flagship at $4/$20 and luna the cheap tier at $0.20/$1.20, so both change what the alias means, and this alias is the stable one applications call. This is exactly the repoint docs/models.md says the console cannot make for you — familyKey() strips version tokens and cannot see that 'terra' is a tier name, so gpt-5.5 -> gpt-5.6-terra never gets the `supersedes` label. All three 5.6 ids are already wired under their own names from the 2026-08-19 wire-all; only the hand-written `gpt-5.5` alias is stale."
+    },
+    {
       "alias": "claude-opus",
       "from": "anthropic/claude-opus-4-8",
       "to": "anthropic/claude-opus-5",
-      "why": "claude-opus-5 shipped 2026-07-24 and claude-opus-4-8 on 2026-05-28. Same tier, same alias, two generations on — a like-for-like repoint."
+      "why": "Unchanged and now three weeks outstanding. claude-opus-5 shipped 2026-07-24 and claude-opus-4-8 on 2026-05-28 — two generations on, same tier, same alias. The wire-all on 2026-08-19 added a separate `claude-opus-5` alias, but the stable hand-written `claude-opus` alias that applications call still points at 4-8. Repointing it is a one-line edit to ai-router.yaml that nothing in the console will do for you."
     },
     {
       "alias": "claude-sonnet",
       "from": "anthropic/claude-sonnet-4-6",
       "to": "anthropic/claude-sonnet-5",
-      "why": "claude-sonnet-5 shipped 2026-06-29; the wired claude-sonnet-4-6 dates from 2026-02-17. The sonnet alias has been four months stale."
+      "why": "Unchanged and now three weeks outstanding. claude-sonnet-5 shipped 2026-06-29; the wired claude-sonnet-4-6 dates from 2026-02-17. As with claude-opus, a parallel `claude-sonnet-5` alias exists from wire-all, but the stable `claude-sonnet` alias is now over six months behind."
     },
     {
       "alias": "gemini-flash",
       "from": "gemini/gemini-3.6-flash",
       "to": "gemini/gemini-3.7-flash",
-      "why": "gemini-3.7-flash is live on the v1beta ListModels endpoint. Google publishes no release dates, so this is a version-number judgement rather than a dated one — but the flash line moves fast and the wired version is one behind."
+      "why": "Unchanged and now three weeks outstanding. gemini-3.7-flash is live on the v1beta ListModels endpoint and already wired under its own id, but the stable `gemini-flash` alias still points at 3.6. Google publishes no release dates, so this is a version-number judgement rather than a dated one — but the flash line moves fast and the wired alias is one behind."
     },
     {
       "alias": "openai-transcribe",
       "from": "openai/gpt-4o-transcribe",
       "to": "openai/gpt-transcribe",
-      "why": "gpt-transcribe appeared 2026-07-27, dropping the 4o generation marker the way gpt-image did. gpt-4o-transcribe dates from 2025-03. Note gpt-live-transcribe shipped the same day for streaming, which the router's audio_transcription mode does not front."
+      "why": "Unchanged and now three weeks outstanding. gpt-transcribe appeared 2026-07-27, dropping the 4o generation marker the way gpt-image did; gpt-4o-transcribe dates from 2025-03. It is wired under its own id already, but the `openai-transcribe` alias still fronts the 4o model. Note gpt-live-transcribe shipped the same day for streaming, which the router's audio_transcription mode does not front — and which the VibeVoice candidate above is the local answer to."
     }
   ],
   "notes": [
-    "gemini-pro stays pinned to gemini-3.1-pro-preview on purpose. Google publishes gemini-pro-latest as a moving alias, and ai-router.yaml pins explicit versions so an archived result records which model actually produced it. Do not 'upgrade' it to a -latest id.",
+    "THIS WEEK'S TRAP: inclusionAI/LLaDA-Image (28 Aug) and LLaDA-Image-Turbo are the top new Apache-2.0 image models on the hub — unified generation, editing and image-to-image from one checkpoint, which is exactly what this box wants — and they do not fit. HF reports 6,540.2M params. The bf16 repo is 49.24 GB on disk and the FP8 build (LLaDA-Image-Turbo-FP8, 3 Sep) is 27.58 GB, because the '6.5B' counts only the transformer: text_encoder is a llada2uni MoE at 32.65 GB bf16 / 17.35 GB fp8 across nine shards, five times the transformer's own 13.08 / 6.71 GB. Add sigvq 2.59, text_projection 0.65, queryformer 0.10, vae 0.17. Even the fp8 build needs ~31.7 GB of VRAM at 1.15x overhead, i.e. more than this card has, and CPU-offloading it means a standing 27.6 GB of host RAM — a dead heat with local-qwen-image's 28 GB, which is the figure that already collides with a FLUX run on a 63 GB box. So it buys nothing here. Watch realrebelai/LLaDa-Image-Turbo_ComfyUI (4 Sep), an int8/GGUF ComfyUI conversion that could change this arithmetic, but it publishes no licence tag of its own yet.",
+    "THE PATTERN WORTH REMEMBERING, and the reason this report exists beside the Leaderboard tab: for anything that is not a plain LLM, the parameter count is not the footprint, and the gap is usually a text encoder or a codec sitting outside the count. LLaDA-Image is '6.54B' and ships 49.2 GB. Z-Image-Turbo is '6.15B' and ships 32.8 GB from the diffusers repo. FLUX.2-klein-4B is '3.88B' and ships 23.7 GB, half of it a Qwen3 text encoder. Qwen3-TTS-12Hz-1.7B carries a 0.68 GB speech tokenizer the name omits. Audio8-TTS-Preview-0.6b hides a 1.35 GB codec — larger than the 1.20 GB model. VibeVoice-ASR-Streaming-1.5B is really 2.81B. Every requirement in this report is built from the repo's actual file byte counts; do not let estimateFromParams() size one of these when the file listing is one API call away.",
+    "DROPPED this week: ibm-granite/granite-speech-5.0-470m-turboctc, last week's streaming-ASR pick, is overtaken by the VibeVoice candidate above on the axis it was weakest — it is English-only, where VibeVoice covers 10 languages and adds speaker attribution, both under equally clean licences. Granite is not a bad model and it is still the cheapest way to get live transcription onto this card at 0.95 GB of weights against VibeVoice's 5.63 GB, so if English-only is genuinely all this box needs, prefer it and save 4.7 GB. It comes out of candidates because two entries answering one question is a longer list, not a better one.",
+    "nvidia/nemotron-3.5-asr-streaming-0.6b remains tagged `license:other` — the NVIDIA Open Model License, which nobody here has read — so it stays out of candidates per docs/models.md. It is no longer the best-on-merit streaming pick it was two weeks ago: 638M params and 35 languages still beats VibeVoice's 2.81B and 10 on both coverage and size, but VibeVoice adds speaker attribution and hotwords and is MIT, so the licence question is no longer worth the read unless the extra 25 languages matter to you specifically. Note the recent community conversions of it are tagged `license:openmdw-1.1`, which is a different licence again.",
+    "Image models seen and held out on licence, all still blocked: krea/Krea-2-Turbo (12.82B) is GATED as well as `license:other` and is still the #1 trending image model on the hub, with the largest LoRA and conversion ecosystem in open image generation around it — worth a human clicking through the gate once to read the terms. Also `other`: Gazingstars123/Anima-2.9B, briaai/Fibo-1.5 (gated too), ideogram-ai/ideogram-4-fp8, lodestones/Kroma. sensenova/SenseNova-U1.5-8B-MoT is Apache-2.0 and unified image+edit+chat, but HF reports it at 17.53B against its '8B' name — the same trap as the LLaDA entry — which saves only ~3B over local-qwen-image's 20.4B and is not worth a swap.",
+    "TTS alternatives seen and not adopted. openbmb/VoxCPM2 remains the near miss: Apache-2.0, 2.29B, 4.96 GB from its file listing, 2.5M downloads, voice cloning and voice design across 30 declared languages — where Qwen3-TTS's repo declares no languages at all. It is held out only because it is 0.44 GB larger than Qwen3-TTS for the same job; if multilingual TTS is the actual need, swap them. Audio8/Audio8-TTS-Preview-0.6b is Apache-2.0, 11 languages, and has doubled its downloads to 26.2K with a live inference provider, but its real footprint is 2.55 GB (model.safetensors 1,202,342,528 B + codec.pth 1,349,857,559 B), not the 1.2 GB the 601M param count implies — a 1.8x saving over Qwen3-TTS rather than the 3.8x it looks like, and still a 'Preview' with custom code. samuel-vitorino/sopro-v2-turbo (25 Aug, Apache-2.0, 121.6M, streaming, voice cloning, en/pt/fr/de) is the interesting like-for-like Kokoro replacement at nearly Kokoro's size, but 619 downloads is too little evidence to recommend a swap on. Held out on licence: BreezeBlue/Breeze-TTS-2 (3.47B, `other`, and by a wide margin the top trending TTS model this week at score 237), fishaudio/s2-pro, IndexTeam/IndexTTS-2.5, Supertone/supertonic-3, darkps/ice-012-audio (cc-by-nc). k2-fsa/OmniVoice (600+ languages, 2.5M downloads) still publishes no licence tag at all, so it stays out entirely.",
     "Both wired Gemini image models still report the 429 quota error recorded in model-meta.json. That is a billing state on the key, not a model choice — no scouting will fix it.",
-    "The image candidates here are both about the same thing: local-qwen-image and local-flux-schnell each need most of this machine, so the console can only ever run one at a time. Two 4-6B models would change what the box can do more than any single upgrade would.",
-    "Krea-2-Turbo (12.8B) is trending hard and would fit, but the repo is gated and the licence is bespoke. Left off the candidate list until someone has actually read the terms.",
-    "Text LLMs are deliberately absent from this list. The Leaderboard tab ranks every open-weights text model with a published parameter count against this card automatically, and cloud discovery carries live prices — a hand-written candidate there would go stale beside data that does not. What remains is what llm-stats.com does not track: image, speech-to-text and text-to-speech."
+    "gemini-pro stays pinned to gemini-3.1-pro-preview on purpose. Google publishes gemini-pro-latest as a moving alias, and ai-router.yaml pins explicit versions so an archived result records which model actually produced it. Do not 'upgrade' it to a -latest id.",
+    "Text LLMs are deliberately absent from candidates. The Leaderboard tab ranks every open-weights text model with a published parameter count against this card automatically, and cloud discovery carries live prices — a hand-written candidate there would go stale beside data that does not. The one thing this report adds in the text lane is the gpt-5.5 upgrade above, which discovery cannot make because OpenAI's tier names look like ordinary words to familyKey(). (superwhisper/s1-mini is still the #1 trending model under the ASR tag, but it remains a Qwen3-0.6B text post-processor for punctuation and casing rather than a transcription model — not a whisper replacement, and licence `other` besides.)"
   ]
 }
