@@ -2,8 +2,8 @@ node_modules/
 .next/
 .env.local
 .env
-generated/
-archive/
+/generated/
+/archive/
 *.tsbuildinfo
 
 # Runtime state, not source

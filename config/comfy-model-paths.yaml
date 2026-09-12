@@ -1,0 +1,6 @@
+# Additional weights stay on D:. Hardlinks into the HF cache avoid extra copies.
+betenshi:
+  base_path: D:/AI Models/comfyui
+  checkpoints: checkpoints
+  diffusion_models: diffusion_models
+  vae: vae

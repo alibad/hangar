@@ -7,6 +7,7 @@
 // feed. This returns the PNG bytes instead, so the caller can persist it.
 
 import { getServiceUrl } from "@/lib/services";
+import { buildComfyImageWorkflow, type ComfyGraph } from "./comfy-image-workflows";
 
 /** ComfyUI graph for text→image on FLUX.1-schnell. Node ids are arbitrary but
  *  must match the wiring references below. */
@@ -45,16 +46,35 @@ function detail(err: unknown): string {
 /**
  * Queue a FLUX generation and return the finished PNG. Throws on error/timeout.
  *
- * `signal` lets the batch queue cancel a job mid-generation; without it a Stop
- * only took effect between images.
+ * `signal` cancels before queue admission. Once ComfyUI accepts a prompt, finish
+ * collecting it so a disconnected browser cannot orphan its image or GPU lease.
  */
 export async function generateFlux(
   params: FluxParams,
   timeoutMs = 180_000,
   signal?: AbortSignal,
 ): Promise<Buffer> {
-  const base = getServiceUrl("comfyui");
   const workflow = buildFluxWorkflow(params.prompt, params.width, params.height, params.seed, params.steps);
+  return runComfyWorkflow(workflow, timeoutMs, signal);
+}
+
+export async function generateComfyImage(model: string, params: FluxParams, signal?: AbortSignal, references: string[] = []): Promise<Buffer> {
+  const filenames: string[] = [];
+  for (const reference of references) {
+    const match = /^data:(image\/(?:png|jpeg|webp));base64,([\s\S]+)$/.exec(reference);
+    if (!match) throw new Error("Input must be a PNG, JPEG or WebP image");
+    const form = new FormData();
+    form.set("image", new Blob([Buffer.from(match[2], "base64")], { type: match[1] }), `betenshi-edit-${crypto.randomUUID()}.${match[1].split("/")[1]}`);
+    const upload = await fetch(getServiceUrl("comfyui") + "/upload/image", { method: "POST", body: form, signal });
+    if (!upload.ok) throw new Error(`Reference upload failed: ${upload.status}`);
+    const file = await upload.json();
+    filenames.push(file.subfolder ? `${file.subfolder}/${file.name}` : file.name);
+  }
+  return runComfyWorkflow(buildComfyImageWorkflow(model, params, filenames), 900_000, signal);
+}
+
+async function runComfyWorkflow(workflow: ComfyGraph, timeoutMs: number, signal?: AbortSignal): Promise<Buffer> {
+  const base = getServiceUrl("comfyui");
 
   const queueRes = await fetch(`${base}/prompt`, {
     method: "POST",
@@ -66,6 +86,9 @@ export async function generateFlux(
     throw new Error(`ComfyUI queue error: ${(await queueRes.text()).slice(0, 300)}`);
   }
   const { prompt_id: promptId } = await queueRes.json();
+  // Stop waiting is a client action, not a global ComfyUI interrupt. Persist the
+  // accepted job even if that client goes away; the lease lives until we finish.
+  signal = undefined;
 
   // A poll that fails is not a generation that failed. ComfyUI drops
   // connections while it is swapping ~30 GB of weights, and treating the first
@@ -76,7 +99,6 @@ export async function generateFlux(
 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (signal?.aborted) throw new Error("Cancelled");
     await new Promise(r => setTimeout(r, 1000));
 
     let history: Record<string, { status?: { status_str?: string; messages?: [string, Record<string, string>][] }; outputs?: Record<string, { images?: { filename: string; subfolder?: string; type?: string }[] }> }>;
@@ -84,7 +106,6 @@ export async function generateFlux(
       history = await fetch(`${base}/history/${promptId}`, { signal }).then(r => r.json());
       pollFailures = 0;
     } catch (err) {
-      if (signal?.aborted) throw new Error("Cancelled");
       if (++pollFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
         throw new Error(`ComfyUI stopped responding after ${pollFailures} polls: ${detail(err)}`);
       }
@@ -99,7 +120,7 @@ export async function generateFlux(
     if (status === "error") {
       const msgs: [string, Record<string, string>][] = entry.status?.messages || [];
       const err = msgs.find(m => m[0] === "execution_error");
-      throw new Error(err?.[1]?.exception_message || "FLUX generation failed");
+      throw new Error(err?.[1]?.exception_message || "ComfyUI generation failed");
     }
 
     if (status !== "success") continue;
@@ -120,9 +141,18 @@ export async function generateFlux(
         try {
           const imgRes = await fetch(`${base}/view?${q}`, { signal });
           if (!imgRes.ok) throw new Error(`HTTP ${imgRes.status}`);
-          return Buffer.from(await imgRes.arrayBuffer());
+          const png = Buffer.from(await imgRes.arrayBuffer());
+          // Release cached weights before our lease ends. Otherwise the next
+          // model's admission counts both its estimate and our retained cache.
+          // Never interrupt another ComfyUI caller's queued/running work.
+          try {
+            const queue = await fetch(`${base}/queue`).then(r => r.json());
+            if (!queue.queue_running?.length && !queue.queue_pending?.length) {
+              await fetch(`${base}/free`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unload_models: true, free_memory: true }) });
+            }
+          } catch { /* The image is already complete; cleanup cannot lose it. */ }
+          return png;
         } catch (err) {
-          if (signal?.aborted) throw new Error("Cancelled");
           if (attempt >= 2) {
             throw new Error(`ComfyUI produced an image but it could not be read back: ${detail(err)}`);
           }
@@ -130,8 +160,8 @@ export async function generateFlux(
         }
       }
     }
-    throw new Error("FLUX finished with no image output");
+    throw new Error("ComfyUI finished with no image output");
   }
 
-  throw new Error(`FLUX generation timed out after ${Math.round(timeoutMs / 1000)}s`);
+  throw new Error(`ComfyUI generation timed out after ${Math.round(timeoutMs / 1000)}s`);
 }

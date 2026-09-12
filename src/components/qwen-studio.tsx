@@ -4,11 +4,13 @@ import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } fro
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Star, Trash2, ChevronDown, ChevronUp, Mic, Square, X, ChevronRight, SlidersHorizontal, ServerCog } from "lucide-react";
 import { DIM_POOLS, type DimKey } from "@/lib/prompt-variations";
-import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, type ImageModelId } from "@/lib/image-models";
+import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, isImageModelId, type ImageModelId } from "@/lib/image-models";
 import { useLocalFootprints } from "@/lib/use-local-footprints";
 import ModelFootprint from "./model-footprint";
+import { imageFootprint } from "@/lib/image-footprints";
 import { ServiceControls, ServiceStartupNote, useServiceLifecycle } from "./service-control";
 import CompareView from "./compare-view";
+import { qwenCheckpointState } from "@/lib/qwen-checkpoint";
 
 // ── types ───────────────────────────────────────────────────────────────────
 type QwenHealth = {
@@ -17,9 +19,16 @@ type QwenHealth = {
   statusCode?: number;
   model?: string;
   loaded?: boolean;
+  load?: { state?: string; error?: string | null };
   mode?: string | null;
   edit?: { enabled: boolean; model: string; loaded: boolean };
   error?: string;
+};
+
+type ResourceSnapshot = {
+  queue?: Array<{ owner?: string; workload?: string; lastDenial?: { message?: string } | null }>;
+  leases?: Array<{ owner?: string; workload?: string }>;
+  lastEvent?: { message?: string; type?: string } | null;
 };
 
 type GalleryItem = {
@@ -45,7 +54,9 @@ type GalleryItem = {
 };
 
 const SIZE_PRESETS = [
+  { label: "512×512 · fast draft", w: 512, h: 512 },
   { label: "1024×1024 · 1:1", w: 1024, h: 1024 },
+  { label: "2048×2048 · HiDream native", w: 2048, h: 2048 },
   { label: "1024×768 · 4:3", w: 1024, h: 768 },
   { label: "768×1024 · 3:4", w: 768, h: 1024 },
   { label: "1280×720 · 16:9", w: 1280, h: 720 },
@@ -157,6 +168,21 @@ export default function QwenStudio() {
   // A cloud pick stores the ROUTER ALIAS here — generateAndSave treats anything
   // outside the local registry as one, so it needs no special case downstream.
   const [imageModel, setImageModel] = useState<string>(DEFAULT_IMAGE_MODEL);
+  const [choiceRestored, setChoiceRestored] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("betenshi:image-studio:model");
+      if (isImageModelId(saved)) setImageModel(saved);
+    } catch { /* Storage may be disabled. */ }
+    setChoiceRestored(true);
+  }, []);
+  useEffect(() => {
+    if (!choiceRestored) return;
+    try {
+      if (isImageModelId(imageModel)) localStorage.setItem("betenshi:image-studio:model", imageModel);
+      else localStorage.removeItem("betenshi:image-studio:model");
+    } catch { /* The active selection still works. */ }
+  }, [imageModel, choiceRestored]);
   const [modelTab, setModelTab] = useState<"local" | "cloud">("local");
   /**
    * The router's image catalogue, for the Cloud side of the picker.
@@ -238,6 +264,13 @@ export default function QwenStudio() {
 
   // run state
   const [busy, setBusy] = useState(false);
+  const requestRef = useRef<{ id: string; started: number; controller: AbortController } | null>(null);
+  const [lastResult, setLastResult] = useState<{ image: string; saved: string | null; latency: number; folder: string } | null>(null);
+  const [galleryPicker, setGalleryPicker] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [pickerFolder, setPickerFolder] = useState<string>("__all__");
+  const [loadingReference, setLoadingReference] = useState(false);
+  const outputFolder = selectedFolder && selectedFolder !== "__fav__" ? selectedFolder : "";
   const homeDraftApplied = useRef(false);
 
   // Home's multimodal composer hands image prompts to the studio through a
@@ -255,7 +288,10 @@ export default function QwenStudio() {
   const [editNotice, setEditNotice] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   // live denoising progress from the server (step X/Y)
-  const [serverProgress, setServerProgress] = useState<{ running: boolean; step: number; total: number; elapsed?: number } | null>(null);
+  const [serverProgress, setServerProgress] = useState<{ running: boolean; phase?: string; step: number; total: number; elapsed?: number; started?: number } | null>(null);
+  const [resourceSnapshot, setResourceSnapshot] = useState<ResourceSnapshot | null>(null);
+  const ownQueue = resourceSnapshot?.queue?.find((q) => q.owner === "console:image:" + requestRef.current?.id);
+  const ownLease = resourceSnapshot?.leases?.find((q) => q.owner === "console:image:" + requestRef.current?.id);
 
   // edit inputs
   const [editImages, setEditImages] = useState<string[]>([]);
@@ -332,7 +368,8 @@ export default function QwenStudio() {
 
   const refreshGallery = useCallback(async () => {
     try {
-      const res = await fetch("/api/qwen/images");
+      const res = await fetch("/api/qwen/images", { cache: "no-store", signal: AbortSignal.timeout(10000) });
+      if (!res.ok) throw new Error("Gallery refresh failed");
       const data = await res.json();
       setGallery(Array.isArray(data.images) ? data.images : []);
       setFolders(Array.isArray(data.folders) ? data.folders : []);
@@ -421,11 +458,11 @@ export default function QwenStudio() {
   // Only poll ComfyUI while it's the selected backend — it's a heavyweight app
   // and there's no reason to probe it while every generation is going to Qwen.
   useEffect(() => {
-    if (activeModel.serviceId !== "comfyui") return;
+    if (activeModel.serviceId !== "comfyui" && setupDialog !== "model") return;
     checkComfy();
     const t = setInterval(checkComfy, comfyHealth?.up ? 30000 : 8000);
     return () => clearInterval(t);
-  }, [activeModel.serviceId, checkComfy, comfyHealth?.up]);
+  }, [activeModel.serviceId, checkComfy, comfyHealth?.up, setupDialog]);
 
   // Batch and Edit are Qwen-only (the queue drives :8021 directly, and FLUX
   // schnell has no edit endpoint), so selecting FLUX from one of those modes
@@ -445,6 +482,8 @@ export default function QwenStudio() {
     prevModelRef.current = imageModel;
     setSteps(activeModel.steps[0]);
     setCfg(activeModel.defaultCfg);
+    setWidth(imageModel === "hidream-o1-dev" ? 2048 : 1024);
+    setHeight(imageModel === "hidream-o1-dev" ? 2048 : 1024);
   }, [imageModel, activeModel.steps, activeModel.defaultCfg]);
 
   useEffect(() => {
@@ -452,8 +491,11 @@ export default function QwenStudio() {
     refreshGallery();
     // poll fast while loading, slow otherwise
     const interval = svcStatus?.status === "starting" ? 3000 : 15000;
-    const t = setInterval(checkHealth, interval);
-    return () => clearInterval(t);
+    const refreshVisible = () => { if (!document.hidden) { void checkHealth(); void refreshGallery(); } };
+    const t = setInterval(refreshVisible, interval);
+    window.addEventListener("focus", refreshVisible);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => { clearInterval(t); window.removeEventListener("focus", refreshVisible); document.removeEventListener("visibilitychange", refreshVisible); };
   }, [checkHealth, refreshGallery, svcStatus?.status]);
 
   // poll the server's live denoising progress while a generation or batch is running
@@ -618,6 +660,33 @@ export default function QwenStudio() {
   function stopTimer() {
     if (timerRef.current) clearInterval(timerRef.current);
   }
+  useEffect(() => () => { requestRef.current?.controller.abort(); }, []);
+
+  function beginImageRequest() {
+    const request = { id: crypto.randomUUID(), started: Date.now(), controller: new AbortController() };
+    requestRef.current = request;
+    setResourceSnapshot(null);
+    setServerProgress(null);
+    setLastResult(null);
+    return request;
+  }
+
+  // Surface resource admission while a request is waiting. Without this, a
+  // valid GPU-capacity denial looks identical to a cold model start.
+  useEffect(() => {
+    if (!busy) return;
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const r = await fetch("/api/resources", { cache: "no-store" });
+        const data = await r.json();
+        if (!stopped) setResourceSnapshot(data);
+      } catch { /* the existing server-progress message remains useful */ }
+    };
+    poll();
+    const timer = setInterval(poll, 2000);
+    return () => { stopped = true; clearInterval(timer); };
+  }, [busy]);
 
   async function addFiles(files: FileList | File[]) {
     const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -641,58 +710,53 @@ export default function QwenStudio() {
 
   async function runGenerate() {
     if (!prompt.trim() || busy || !modelUp) return;
-    setBusy(true);
-    setError(null);
-    startTimer();
-    try {
-      // Model-agnostic endpoint: it dispatches to Qwen on :8021 or ComfyUI on
-      // :8188 and persists either result the same way, so both land in the
-      // gallery below.
-      const res = await fetch("/api/image/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: imageModel, prompt, negative_prompt: negative, width, height, steps, cfg, seed: resolveSeed() }),
-      });
-      const data = await res.json();
-      if (data.status === "success") {
-        if (!lockSeed) setSeed(String(data.seed));
-        await refreshGallery();
-      } else {
-        setError(data.detail ? `${data.error}: ${data.detail}` : data.error || "Generation failed");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-    stopTimer();
-    setBusy(false);
+    await runImageRequest("generate");
   }
 
   async function runEdit() {
-    if (!prompt.trim() || editImages.length === 0 || busy) return;
+    if (!prompt.trim() || !editImages.length || busy || !modelUp) return;
+    await runImageRequest("edit");
+  }
+
+  async function runImageRequest(kind: "generate" | "edit") {
+    const request = beginImageRequest();
+    const folder = outputFolder;
     setBusy(true);
     setError(null);
     setEditNotice(null);
     startTimer();
     try {
-      const res = await fetch("/api/qwen/edit", {
+      const res = await fetch(kind === "generate" ? "/api/image/generate" : activeModel.serviceId === "comfyui" ? "/api/image/edit" : "/api/qwen/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, images: editImages, negative_prompt: negative, steps, cfg, seed: resolveSeed() }),
+        signal: request.controller.signal,
+        body: JSON.stringify({ model: imageModel, prompt, images: kind === "edit" ? editImages : undefined,
+          negative_prompt: negative, width, height, steps, cfg, seed: resolveSeed(), folder, requestId: request.id }),
       });
       const data = await res.json();
-      if (data.status === "success") {
+      if (res.ok && data.status === "success") {
         if (!lockSeed) setSeed(String(data.seed));
-        await refreshGallery();
+        setLastResult({ image: data.image, saved: data.saved, latency: data.latency, folder });
+        setSelectedFolder(folder);
+        setGalleryBatchFilter(null);
+        setPage(1);
+        if (!data.saved) setError("The image was generated, but saving failed. Download the result below.");
+        // Rendering the result must not wait for a gallery refresh.
+        void refreshGallery();
+        void checkHealth();
       } else if (data.enabled === false) {
-        setEditNotice(data.message || "Image-edit is not installed yet.");
+        setEditNotice(data.message || "Image editing is not enabled.");
       } else {
-        setError(data.detail ? `${data.error}: ${data.detail}` : data.error || "Edit failed");
+        setError(data.error || "Generation failed");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(request.controller.signal.aborted ? "Stopped waiting. If inference already started, it may finish in Generation History." : err instanceof Error ? err.message : String(err));
+    } finally {
+      stopTimer();
+      setBusy(false);
+      setResourceSnapshot(null);
+      requestRef.current = null;
     }
-    stopTimer();
-    setBusy(false);
   }
 
   // Build the prompt list for a batch — template/AI variation, seed-only, or manual list.
@@ -751,8 +815,10 @@ export default function QwenStudio() {
 
   // Pull a saved image back in as an edit reference (edit needs base64).
   async function sendToEdit(item: GalleryItem) {
+    setLoadingReference(true);
     try {
       const res = await fetch(item.url);
+      if (!res.ok) throw new Error("Image could not be loaded");
       const blob = await res.blob();
       const dataUrl = await new Promise<string>((resolve) => {
         const r = new FileReader();
@@ -761,9 +827,14 @@ export default function QwenStudio() {
       });
       setEditImages((prev) => [...prev, dataUrl]);
       setMode("edit");
+      if (!activeModel.supportsEdit) setImageModel("flux2-klein-4b");
+      setGalleryPicker(false);
+      setPrompt("");
       setLightbox(null);
     } catch {
       setError("Couldn't load that image into the editor.");
+    } finally {
+      setLoadingReference(false);
     }
   }
 
@@ -1264,11 +1335,21 @@ export default function QwenStudio() {
   // Live server-side denoising progress ("step 12/24" + thin bar + elapsed).
   function renderStepProgress() {
     const p = serverProgress;
+    if (busy && ownQueue) return <p className="text-xs text-amber-400 mt-2">Waiting for capacity: {ownQueue.lastDenial?.message || "Checking available resources…"}</p>;
+    if (busy && activeModel.serviceId === "comfyui") return <p className="text-xs text-gray-400 mt-2">{ownLease ? `${activeModel.name} is loading or rendering in ComfyUI. The result will be saved to your selected gallery.` : "Checking capacity…"}</p>;
+    // /progress is shared by all callers. An old 24/24 or another app's job
+    // cannot be attributed to this UI request.
+    if (busy && (!ownLease || !p?.started || p.started * 1000 < (requestRef.current?.started || 0))) {
+      return <p className="text-xs text-gray-400 mt-2">{ownLease ? (mode === "edit" ? "Preparing the edit model; the generation model is unloaded automatically…" : "Preparing the image model…") : "Checking capacity…"}</p>;
+    }
+    if (p?.running && (p.phase === "load-model" || p.phase === "load-edit")) {
+      return <p className="text-xs text-gray-400 mt-2">Loading {p.phase === "load-edit" ? "edit" : "generation"} checkpoint · {p.elapsed ?? 0}s. The other checkpoint is unloaded to make room.</p>;
+    }
     if (!p || !p.running || !p.total) {
       return busy ? (
         <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-500">
           <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-          waiting on the server (cold start / queued)…
+          Completing and saving the image…
         </div>
       ) : null;
     }
@@ -1292,17 +1373,16 @@ export default function QwenStudio() {
   }
 
   const editAvailable = health?.edit?.enabled ?? false;
-  // BOTH checkpoints are always named in the header, not just the one the current
-  // mode uses: showing a single name that silently changed when you switched to
-  // Edit read as one model whose status happened to differ. One process, two
-  // checkpoints, one of them in VRAM — that's what the header now says outright.
+  // The selected checkpoint and the shared process have independent statuses.
   const inEditMode = mode === "edit";
   const genModel = health?.model || "Qwen-Image";
   const editModel = health?.edit?.model || "Qwen-Image-Edit";
-  const genResident = !!health?.loaded;
-  const editResident = !!health?.edit?.loaded;
-  // Resident = the weights are actually on the card for this mode right now.
+  const genResident = !!health?.up && !!health.loaded;
+  const editResident = !!health?.up && !!health.edit?.loaded;
+  // Loaded weights may be CPU-offloaded; this is not GPU residency.
   const activeResident = inEditMode ? editResident : genResident;
+  const checkpoint = qwenCheckpointState(inEditMode, health,
+    !!serverProgress?.running && serverProgress.phase === "load-edit");
   // Merges our own in-flight click with the manager reporting the process alive
   // while :8021 is still closed — see useServiceLifecycle for why both matter.
   const busyVerb = lifecycle.busyVerb;
@@ -1310,11 +1390,9 @@ export default function QwenStudio() {
     ? "bg-amber-400"
     : !health
     ? "bg-gray-600"
-    : health.up && health.loaded
+    : health.up
       ? "bg-green-500"
-      : health.up
-        ? "bg-yellow-500"
-        : "bg-red-500";
+      : "bg-red-500";
   const closeSetupDialog = useCallback(() => setSetupDialog(null), []);
   const runtimeName =
     activeModel.serviceId === "qwen"
@@ -1339,8 +1417,8 @@ export default function QwenStudio() {
       ? runtimeBusy
         ? runtimeBusy === "stop" ? "Stopping…" : runtimeBusy === "restart" ? "Restarting…" : "Starting…"
         : health?.up
-          ? `${health.latency}ms · 2 checkpoints`
-          : "Offline"
+          ? `Service online · ${health.latency}ms`
+          : health ? "Service unavailable · Generate and Edit" : "Checking service…"
       : activeModel.serviceId === "comfyui"
         ? runtimeBusy
           ? runtimeBusy === "stop" ? "Stopping…" : runtimeBusy === "restart" ? "Restarting…" : "Starting…"
@@ -1358,30 +1436,32 @@ export default function QwenStudio() {
           <div className="image-run-setup-heading">
             <div>
               <p>Run setup</p>
-              <span>Model and runtime</span>
+              <span>{inEditMode ? "Edit checkpoint and shared service" : "Generation model and service"}</span>
             </div>
-            <span className={runtimeReady ? "is-ready" : "is-offline"}>
-              {runtimeBusy ? "Working" : runtimeReady ? "Ready" : "Offline"}
+            <span className="is-mode">
+              {inEditMode ? "Edit" : mode === "compare" ? "Compare" : "Generate"}
             </span>
           </div>
           <button type="button" className="image-run-setup-row" onClick={() => setSetupDialog("model")}>
             <span className="image-run-setup-icon" aria-hidden="true"><SlidersHorizontal className="h-4 w-4" /></span>
             <span className="min-w-0 flex-1 text-left">
-              <span className="image-run-setup-label">Model</span>
-              <strong>{activeModel.name}</strong>
-              <span>{activeModel.tier}</span>
+              <span className="image-run-setup-label">{inEditMode ? "Edit checkpoint" : "Generation model"}</span>
+              <strong>{activeModel.serviceId === "qwen" ? checkpoint.name : activeModel.name}</strong>
+              <span>{activeModel.serviceId === "qwen" ? checkpoint.status : activeModel.tier}</span>
             </span>
             <span className="image-run-setup-action">Change <ChevronRight className="h-3.5 w-3.5" /></span>
           </button>
           <button type="button" className="image-run-setup-row" onClick={() => setSetupDialog("runtime")}>
             <span className="image-run-setup-icon" aria-hidden="true"><ServerCog className="h-4 w-4" /></span>
             <span className="min-w-0 flex-1 text-left">
-              <span className="image-run-setup-label">Runtime</span>
+              <span className="image-run-setup-label">{activeModel.serviceId === "qwen" ? "Shared service" : "Runtime"}</span>
               <strong><span className={`image-run-setup-dot ${runtimeBusy ? "is-busy" : runtimeReady ? "is-ready" : "is-offline"}`} />{runtimeName}</strong>
               <span>{runtimeDetail}</span>
             </span>
             <span className="image-run-setup-action">Manage <ChevronRight className="h-3.5 w-3.5" /></span>
           </button>
+          {activeModel.serviceId === "qwen" && <p className="image-run-setup-note">{checkpoint.note}</p>}
+          {activeModel.serviceId === "comfyui" && <p className="image-run-setup-note">Weights load when you run and are released afterward when ComfyUI is idle. If capacity is unavailable, stop another GPU model in Services.</p>}
         </section>
       </aside>
 
@@ -1423,7 +1503,7 @@ export default function QwenStudio() {
         {modelTab === "local" && (
           <div className="flex gap-2 flex-wrap">
             {IMAGE_MODELS.map((m) => {
-              const up = m.serviceId === "comfyui" ? !!comfyHealth?.up : !!health?.up;
+              const up = m.serviceId === "comfyui" ? comfyHealth?.up : health?.up;
               const active = m.id === imageModel;
               // Qwen is the router's local image model; FLUX has no alias, so
               // picking it moves the studio without moving the box.
@@ -1441,7 +1521,7 @@ export default function QwenStudio() {
                   }`}
                 >
                   <span
-                    title={up ? "running" : "not running"}
+                    title={up == null ? "checking service" : up ? "service running" : "service stopped"}
                     className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${up ? "bg-emerald-500" : "bg-gray-600"}`}
                   />
                   <span>
@@ -1450,8 +1530,8 @@ export default function QwenStudio() {
                     {/* One card, two models that can't both be resident — what each
                         costs belongs at the point you choose between them. */}
                     <ModelFootprint
-                      footprint={m.serviceId ? footprints.get(m.serviceId) : undefined}
-                      liveVramMb={m.serviceId ? liveMb.get(m.serviceId) : undefined}
+                      footprint={imageFootprint(m.id)}
+                      liveVramMb={m.serviceId === "qwen" ? liveMb.get(m.serviceId) : undefined}
                       className="mt-1"
                     />
                   </span>
@@ -1553,7 +1633,7 @@ export default function QwenStudio() {
             <ServiceControls
               lifecycle={lifecycle}
               onRefresh={checkHealth}
-              stopTitle="Stop the Qwen-Image service — frees ~36 GB VRAM. Queued jobs hold and resume when it's back."
+              stopTitle="Stop the shared service and unload its image checkpoint. Both Generate and Edit become unavailable."
               className="ml-auto"
             />
           </div>
@@ -1580,8 +1660,8 @@ export default function QwenStudio() {
                 detail: !health?.up
                   ? "unknown — service offline"
                   : genResident
-                    ? `in VRAM${health.mode ? ` · ${health.mode}` : ""}`
-                    : "not in VRAM — loads on first run",
+                    ? `loaded${health.mode ? ` · ${health.mode}` : ""}`
+                    : "not loaded — loads on first run",
               },
               {
                 name: editModel,
@@ -1593,10 +1673,10 @@ export default function QwenStudio() {
                 detail: !health?.up
                   ? "unknown — service offline"
                   : !editAvailable
-                    ? "not installed on the server"
+                    ? "editing disabled on the server"
                     : editResident
-                      ? "in VRAM"
-                      : "not in VRAM — loads on first edit",
+                      ? "loaded · CPU offload"
+                      : "not loaded — loads on first edit",
               },
             ] as const).map((c) => (
               <div
@@ -1629,7 +1709,7 @@ export default function QwenStudio() {
             ))}
           </div>
           <p className="px-3 pb-3 text-[11px] text-gray-600">
-            One process on :8021 serves both, but only one fits in VRAM — switching between Generate and Edit
+            One process on :8021 serves both, keeping one checkpoint loaded with CPU offload — switching between Generate and Edit
             swaps the checkpoint on the next run, which is why the first request after a switch is slow.
           </p>
           </details>
@@ -1723,7 +1803,7 @@ export default function QwenStudio() {
                 className={mode === mm ? "is-active" : undefined}
               >
                 <span className="capitalize">{mm}</span>
-                {mm === "edit" && health?.up && !editAvailable && <span className="image-tab-note">Stub</span>}
+                {mm === "edit" && activeModel.serviceId === "qwen" && health?.up && !editAvailable && <span className="image-tab-note">Unavailable</span>}
                 {mm === "jobs" && activeJobCount > 0 && <span className="image-tab-count">{activeJobCount}</span>}
               </button>
             );
@@ -1731,7 +1811,7 @@ export default function QwenStudio() {
         </div>
         <p className="image-mode-hint">
           {mode === "edit"
-            ? "Edit loads the separate Qwen-Image-Edit checkpoint on first run."
+            ? activeModel.serviceId === "qwen" ? "Edit loads the separate Qwen-Image-Edit checkpoint on first run." : "FLUX.2 Klein uses the same checkpoint for generation and reference-image editing."
             : mode === "compare"
               ? "Run one prompt across several local and cloud models."
               : mode === "batch" || mode === "jobs"
@@ -1749,7 +1829,9 @@ export default function QwenStudio() {
       <section className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-4">
         {mode === "edit" && (
           <div>
-            <label className="text-xs text-gray-500 mb-2 block">Input images (one or more — Qwen blends/edits across them)</label>
+            <label className="text-xs text-gray-500 mb-2 block">Input images (choose gallery images or upload references)</label>
+            <button type="button" onClick={() => { setGalleryPicker(true); setPickerFolder("__all__"); setPickerSearch(""); }} className="mb-3 border border-purple-600 rounded-lg px-3 py-2 text-sm text-purple-300">Choose from gallery</button>
+            <p className="text-xs text-gray-500 mb-3">{activeModel.serviceId === "qwen" ? `Editing switches to ${health?.edit?.model || "Qwen-Image-Edit"} and unloads the generation model to make room.` : "Choose up to four reference images. Klein edits with its generation checkpoint; no second model is needed."}</p>
             <div
               className={`rounded-xl border-2 border-dashed transition p-4 text-center cursor-pointer ${
                 dragOver ? "border-pink-500 bg-pink-500/5" : "border-gray-700 hover:border-gray-500"
@@ -1865,7 +1947,21 @@ export default function QwenStudio() {
           </div>
         )}
 
+        <label className="flex items-center gap-3 text-xs text-gray-400">Save to gallery
+          <select aria-label="Save to gallery" disabled={busy} value={outputFolder} onChange={(e) => { setSelectedFolder(e.target.value); setGalleryBatchFilter(null); }} className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-200">
+            <option value="">Unfiled</option>
+            {folders.map((folder) => <option key={folder} value={folder}>{folder}</option>)}
+          </select>
+        </label>
+        {busy && <button onClick={() => requestRef.current?.controller.abort()} className="text-xs text-gray-400 underline">Stop waiting</button>}
         {busy && renderStepProgress()}
+        {lastResult && <section aria-label="Latest image result" className="space-y-2 border border-gray-700 rounded-xl p-3">
+          <p className="text-sm text-green-400">{lastResult.saved ? "Saved to " + (lastResult.folder || "Unfiled") : "Image generated"} · {(lastResult.latency / 1000).toFixed(1)}s</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={lastResult.image} alt="Latest generated result" className="max-h-80 rounded-lg" />
+          <a href={lastResult.image} download="betenshi-image.png" className="text-xs underline">Download image</a>
+          <button onClick={() => { setEditImages([lastResult.image]); if (!activeModel.supportsEdit) setImageModel("flux2-klein-4b"); setMode("edit"); setPrompt(""); }} className="ml-4 text-sm text-purple-300">Edit this image</button>
+        </section>}
         {error && <div className="text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">{error}</div>}
         {mode === "edit" && editNotice && (
           <div className="text-xs px-3 py-2.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 leading-relaxed">
@@ -2418,6 +2514,26 @@ export default function QwenStudio() {
         </section>
       )}
 
+      {galleryPicker && <div role="dialog" aria-modal="true" aria-label="Choose an image to edit" className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6">
+        <section className="bg-gray-900 border border-gray-700 rounded-xl p-5 w-full max-w-4xl max-h-[85vh] overflow-auto space-y-4">
+          <div className="flex justify-between"><h2>Choose an image to edit</h2><button onClick={() => setGalleryPicker(false)}>Close picker</button></div>
+          <div className="flex gap-3">
+            <input aria-label="Search gallery images" placeholder="Search prompts…" value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} className="bg-gray-800 rounded px-3 py-2 flex-1" />
+            <select aria-label="Input gallery" value={pickerFolder} onChange={(e) => setPickerFolder(e.target.value)} className="bg-gray-800 rounded px-3 py-2">
+              <option value="__all__">All images</option><option value="">Unfiled</option>
+              {folders.map((folder) => <option key={folder} value={folder}>{folder}</option>)}
+            </select>
+          </div>
+          {loadingReference && <p>Loading image…</p>}
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            {gallery.filter((item) => (pickerFolder === "__all__" || item.folder === pickerFolder) && item.prompt.toLowerCase().includes(pickerSearch.toLowerCase())).slice(0, 100).map((item) => <button key={item.rel} disabled={loadingReference} onClick={() => void sendToEdit(item)} className="text-left text-xs space-y-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img loading="lazy" src={item.url} alt={item.prompt || item.file} className="aspect-square object-cover rounded" /><span className="line-clamp-2">{item.prompt || item.file}</span>
+            </button>)}
+          </div>
+          <p className="text-xs text-gray-500">Showing up to 100 matches. Search or choose a gallery to narrow the list.</p>
+        </section>
+      </div>}
       {/* ── HISTORY GALLERY (disk-backed, foldered) ── */}
       </div>
       </main>
@@ -2641,6 +2757,7 @@ export default function QwenStudio() {
 
                             <div className="p-2">
                               <p className="text-[11px] text-gray-400 line-clamp-1" title={it.prompt}>{it.prompt || <span className="italic text-gray-600">no prompt</span>}</p>
+                              {it.model && <p className="text-[11px] font-medium mt-1">{IMAGE_MODELS.find(m => m.id === it.model)?.name || it.model}{it.latency != null ? ` · ${(it.latency / 1000).toFixed(1)}s` : ""}</p>}
                               <div className="flex items-center gap-2 text-[10px] text-gray-600 mt-0.5 tabular-nums">
                                 <span className={it.kind === "edit" ? "text-purple-400" : "text-pink-400"}>{it.kind}</span>
                                 {it.width && it.height && <span>{it.width}×{it.height}</span>}
@@ -2687,7 +2804,7 @@ export default function QwenStudio() {
               <div className="flex items-center gap-3 flex-wrap text-[11px] text-gray-500 mt-2 tabular-nums">
                 <span className={`px-1.5 py-0.5 rounded ${lightbox.kind === "edit" ? "bg-purple-500/15 text-purple-300" : "bg-pink-500/15 text-pink-300"}`}>{lightbox.kind}</span>
                 {/* The gallery mixes models now, so a bare "28st · cfg4" is ambiguous. */}
-                <span className="text-gray-400">{getImageModel(lightbox.model).name}</span>
+                <span className="text-gray-400">{lightbox.kind === "edit" ? lightbox.model : getImageModel(lightbox.model).name}</span>
                 {lightbox.width && lightbox.height && <span>{lightbox.width}×{lightbox.height}</span>}
                 {lightbox.seed != null && <span>seed {lightbox.seed}</span>}
                 {lightbox.steps != null && (

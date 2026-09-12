@@ -13,7 +13,7 @@ async function handlePOST(req: NextRequest) {
   // caller (single generation, compare, legacy aliases, and the batch queue's
   // equivalent shared helper). There must not be a second RAM decision here:
   // free RAM already excludes resident weights and would double-count Qwen.
-  const result = await generateAndSave(raw);
+  const result = await generateAndSave(raw, undefined, req.signal);
   const res = NextResponse.json(result.body, result.ok ? undefined : { status: result.status });
   res.headers.set(TARGET_HEADER, result.target);
   return res;

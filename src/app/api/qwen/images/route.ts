@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { readdir } from "fs/promises";
+import path from "path";
+import { outputDir } from "@/lib/save-image";
 
 type DbImageRow = {
   id: string; rel: string; folder: string; filename: string; kind: string;
@@ -42,6 +45,17 @@ export async function GET() {
   for (const img of images) {
     if (img.folder) folderSet.add(img.folder);
   }
+  // Empty galleries must remain selectable immediately after creating them.
+  async function collectFolders(dir: string, prefix = "") {
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const rel = prefix ? prefix + "/" + entry.name : entry.name;
+      folderSet.add(rel);
+      await collectFolders(path.join(dir, entry.name), rel);
+    }
+  }
+  await collectFolders(outputDir());
   const folders = [...folderSet].sort();
 
   return NextResponse.json({ images, folders, count: images.length });

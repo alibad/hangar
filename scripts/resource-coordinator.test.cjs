@@ -8,6 +8,28 @@ const productionModelMeta = require("../config/model-meta.json");
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
+test("live free VRAM admits Qwen beside an overestimated resident footprint", async () => {
+  const coordinator = new ResourceCoordinator({
+    profiles: buildResourceProfiles(productionPolicy, productionModelMeta),
+    capacityProvider: async () => ({ ram: { totalGb: 63.3, freeGb: 25 }, vram: { totalGb: 31.84, freeGb: 22 } }),
+  });
+  coordinator.setActiveServices(["qwen", "vllm-small"]);
+  const lease = await coordinator.acquire("qwen-generate", { waitMs: 1000 });
+  assert.equal(lease.workload, "qwen-generate");
+  coordinator.release(lease.id);
+});
+
+test("a second service start cannot spend the first start's unmaterialized reservation", async () => {
+  const coordinator = fixtures({ ram: { totalGb: 64, freeGb: 40 }, vram: { totalGb: 32, freeGb: 32 } });
+  const first = await coordinator.reserveServiceStart("qwen");
+  assert.equal(first.ok, true);
+  coordinator.profiles.services.other = { resident: { ramGb: 28, vramGb: 0.1 } };
+  const second = await coordinator.reserveServiceStart("other");
+  assert.equal(second.ok, false);
+  assert.equal(second.denial.kind, "capacity");
+  coordinator.releaseServiceStart(first.reservationId);
+});
+
 function fixtures(capacity = { ram: { totalGb: 64, freeGb: 64 }, vram: { totalGb: 32, freeGb: 32 } }) {
   const policy = {
     budgets: { ramSafetyGb: 4, vramSafetyGb: 0.2 },

@@ -227,7 +227,7 @@ function FootprintMeter({ label, estGb, actualMb, running, kind, basis }: {
   /** null means NO reading is available — which is not the same as a reading of zero. */
   actualMb: number | null;
   running: boolean;
-  kind?: "reserved" | "peak";
+  kind?: "reserved" | "peak" | "estimate";
   basis?: string;
 }) {
   const hasEst = typeof estGb === "number" && estGb > 0;

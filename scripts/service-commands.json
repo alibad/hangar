@@ -48,8 +48,9 @@
 
   "comfyui": {
     "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
-    "args": ["main.py", "--port", "8188"],
-    "cwd": "C:\\Users\\Admin\\Code\\AI\\creative-lab\\image\\ComfyUI"
+    "args": ["main.py", "--port", "8188", "--extra-model-paths-config", "C:\\Users\\Admin\\Code\\AI\\betenshi-console\\config\\comfy-model-paths.yaml"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\creative-lab\\image\\ComfyUI",
+    "env": { "HF_HOME": "D:\\AI Models\\huggingface" }
   },
 
   "sam3d": {

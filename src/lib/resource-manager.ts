@@ -56,7 +56,7 @@ async function acquireResourceLease(
         workload,
         owner: options.owner,
         lane: options.lane ?? "interactive",
-        waitMs: options.waitMs ?? (options.lane === "background" ? 0 : 15 * 60 * 1000),
+        waitMs: options.waitMs ?? (options.lane === "background" ? 0 : 15000),
         ttlMs: options.ttlMs,
       }),
       cache: "no-store",

@@ -127,12 +127,23 @@ class ResourceCoordinator {
     const reasons = [];
     for (const [label, key, available, safety] of checks) {
       if (!available.totalGb) continue;
-      if (next[key] + safety > available.totalGb + 0.001) {
-        reasons.push(`${label} model requires ${round(next[key] + safety)} GB including safety, but capacity is ${available.totalGb} GB`);
+      // Live usage already includes resident services. Only commitments that
+      // have not necessarily materialized yet must be added to the live sample.
+      const committed = new Map();
+      for (const start of this.startReservations.values()) {
+        if (!this.activeServices.has(start.serviceId)) committed.set(start.serviceId, this.profiles.services[start.serviceId]?.resident?.[key] || 0);
+      }
+      for (const lease of this.leases.values()) {
+        const resident = this.activeServices.has(lease.serviceId) ? this.profiles.services[lease.serviceId]?.resident?.[key] || 0 : 0;
+        committed.set(lease.serviceId, Math.max(committed.get(lease.serviceId) || 0, lease.resources[key] - resident));
+      }
+      const reserved = [...committed.values()].reduce((sum, value) => sum + Math.max(0, value), 0);
+      if (Math.max(0, next[key] - current[key]) + reserved + safety > available.totalGb + 0.001) {
+        reasons.push(`${label} pending allocations require ${round(Math.max(0, next[key] - current[key]) + reserved + safety)} GB including safety, but capacity is ${available.totalGb} GB`);
       }
       const delta = Math.max(0, next[key] - current[key]);
-      if (delta + safety > available.freeGb + 0.001) {
-        reasons.push(`${label} needs ${round(delta)} GB more plus ${safety} GB safety, but only ${available.freeGb} GB is currently free`);
+      if (delta + reserved + safety > available.freeGb + 0.001) {
+        reasons.push(`${label} needs ${round(delta)} GB more plus ${round(reserved)} GB reserved and ${safety} GB safety, but only ${available.freeGb} GB is currently free`);
       }
     }
     if (!reasons.length) return null;

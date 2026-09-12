@@ -29,13 +29,14 @@ export type Footprint = {
    */
   idleVramGb?: number;
   idleRamGb?: number;
-  kind?: "reserved" | "peak";
+  kind?: "reserved" | "peak" | "estimate";
   basis?: string;
 };
 
 const KIND_NOTE: Record<string, string> = {
   reserved: "Reserved at startup and held for as long as the service runs — idle costs the same as busy.",
   peak: "Transient peak while working.",
+  estimate: "Initial estimate, not a measured peak.",
 };
 
 function gb(n: number): string {

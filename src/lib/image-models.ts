@@ -9,7 +9,7 @@
 // The real axis between them is speed, not capability: FLUX schnell is a 4-step
 // distilled model, Qwen-Image is a 28-step 20B. Keep both.
 
-export type ImageModelId = "qwen-image" | "flux-schnell";
+export type ImageModelId = "qwen-image" | "flux-schnell" | "flux2-klein-4b" | "hidream-o1-dev" | "z-image-turbo";
 
 export type ImageModel = {
   /** A local id, or a router alias when this is a cloud model. */
@@ -43,6 +43,9 @@ export type ImageModel = {
 export type LocalImageModel = ImageModel & { serviceId: "qwen" | "comfyui" };
 
 export const IMAGE_MODELS: LocalImageModel[] = [
+  { id: "flux2-klein-4b", name: "FLUX.2 Klein 4B", tier: "4-step · generate + edit", serviceId: "comfyui", steps: [4], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: true, supportsBatch: false },
+  { id: "hidream-o1-dev", name: "HiDream-O1 Dev", tier: "8B FP8 · native 2K · experimental", serviceId: "comfyui", steps: [28], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: false, supportsBatch: false },
+  { id: "z-image-turbo", name: "Z-Image Turbo", tier: "6B NVFP4 · 8-step fast draft", serviceId: "comfyui", steps: [8, 9], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: false, supportsBatch: false },
   {
     id: "qwen-image",
     name: "Qwen-Image",
@@ -102,7 +105,7 @@ export function cloudImageModel(alias: string, provider?: string): ImageModel {
 /** Resolve a LOCAL model. Unknown ids fall back to Qwen-Image — callers that may
  *  be holding a router alias must check isImageModelId() first (image-gen does). */
 export function getImageModel(id: string | null | undefined): LocalImageModel {
-  return IMAGE_MODELS.find(m => m.id === id) ?? IMAGE_MODELS[0];
+  return IMAGE_MODELS.find(m => m.id === id) ?? IMAGE_MODELS.find(m => m.id === DEFAULT_IMAGE_MODEL)!;
 }
 
 export function isImageModelId(v: unknown): v is ImageModelId {

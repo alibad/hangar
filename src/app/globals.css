@@ -773,6 +773,8 @@ html:root:not(.dark) .services-center .text-gray-700 {
 
 .image-run-setup-heading > span.is-ready { background: color-mix(in oklab, var(--color-emerald-500) 12%, transparent); color: var(--color-emerald-300); }
 .image-run-setup-heading > span.is-offline { background: color-mix(in oklab, var(--color-red-500) 10%, transparent); color: var(--color-red-300); }
+.image-run-setup-heading > span.is-mode { background: color-mix(in oklab, var(--accent-500) 12%, transparent); color: var(--color-gray-400); }
+.image-run-setup-note { padding: 0.7rem 0.85rem; font-size: 0.65rem; line-height: 1.5; color: var(--color-gray-500); }
 
 .image-run-setup-row {
   display: flex;
@@ -818,7 +820,8 @@ html:root:not(.dark) .services-center .text-gray-700 {
   font-size: 0.75rem;
   font-weight: 680;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .image-run-setup-row .text-left > span:last-child {
@@ -828,7 +831,7 @@ html:root:not(.dark) .services-center .text-gray-700 {
   color: var(--color-gray-500);
   font-size: 0.62rem;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .image-run-setup-action {

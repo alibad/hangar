@@ -63,7 +63,7 @@ export type SavedImage = { file: string; dir: string; path: string };
 
 /**
  * Write a PNG to the output dir alongside a `.json` sidecar of its metadata,
- * and insert a record into the DuckDB images table. Returns the bare filename
+ * and insert a record into the DuckDB images table. Returns the gallery-relative filename
  * + absolute path. Never throws — a disk problem must not fail an otherwise-
  * successful generation; callers get `null` instead.
  */
@@ -73,13 +73,16 @@ export async function saveImage(
   batchJobId?: string,
 ): Promise<SavedImage | null> {
   try {
-    const dir = outputDir();
+    const folder = safeFolder(meta.folder == null ? "" : String(meta.folder));
+    if (folder === null) throw new Error("Invalid destination gallery");
+    const dir = path.join(outputDir(), folder);
     await mkdir(dir, { recursive: true });
     const base = [stamp(new Date()), meta.kind, meta.seed, slug(String(meta.prompt ?? ""))]
       .filter(Boolean)
       .join("-");
     const file = `${base}.png`;
     const full = path.join(dir, file);
+    const rel = folder ? folder + "/" + file : file;
     await writeFile(full, buf);
 
     const sidecarMeta: Record<string, unknown> = {
@@ -103,7 +106,7 @@ export async function saveImage(
         `INSERT INTO images (id, rel, folder, filename, kind, prompt, negative_prompt, seed, width, height, steps, cfg, latency, input_count, bytes, favorite, saved_at, batch_job_id, model)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          id, file, "", file,
+          id, rel, folder, file,
           meta.kind,
           String(meta.prompt || ""),
           String(meta.negative_prompt || ""),
@@ -125,7 +128,7 @@ export async function saveImage(
       console.error("[qwen] saveImage DB insert failed:", dbErr);
     }
 
-    return { file, dir, path: full };
+    return { file: rel, dir, path: full };
   } catch (err) {
     console.error("[qwen] saveImage failed:", err);
     return null;

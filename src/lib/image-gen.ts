@@ -7,11 +7,12 @@
 // external callers (quote-forge, scripts) are unaffected.
 
 import { getServiceUrl, getServiceHeaders } from "@/lib/services";
-import { saveImage } from "@/lib/save-image";
+import { saveImage, safeFolder } from "@/lib/save-image";
 import { nodePost } from "@/lib/qwen-http";
-import { generateFlux } from "@/lib/flux";
+import { generateFlux, generateComfyImage } from "@/lib/flux";
 import { getImageModel, isImageModelId, type ImageModelId } from "@/lib/image-models";
 import { routerUrl } from "@/lib/providers";
+import { mirrorImageHistory } from "@/lib/image-history";
 import { ResourceLeaseError, withResourceLease, workloadForImageModel } from "@/lib/resource-manager";
 
 /**
@@ -81,6 +82,7 @@ async function generateViaRouter(alias: string, p: GenPayload): Promise<Buffer> 
 export async function generateAndSave(
   raw: Record<string, unknown>,
   forceModel?: ImageModelId,
+  signal?: AbortSignal,
 ): Promise<GenerateResult> {
   const start = Date.now();
   const requested = forceModel ?? (raw.model as string);
@@ -110,9 +112,12 @@ export async function generateAndSave(
     return { ok: false, target, status: 400, body: { error: "Prompt is required" } };
   }
 
+  const folder = safeFolder(raw.folder == null ? "" : String(raw.folder));
+  if (folder === null) return { ok: false, target, status: 400, body: { error: "Invalid destination gallery" } };
   try {
     const generate = async () => {
       if (viaRouter) return generateViaRouter(requested, payload);
+      if (model.serviceId === "comfyui" && model.id !== "flux-schnell") return generateComfyImage(model.id, payload, signal);
       if (model.id === "flux-schnell") {
         return generateFlux({
           prompt: payload.prompt,
@@ -120,23 +125,24 @@ export async function generateAndSave(
           height: payload.height,
           steps: payload.steps,
           seed,
-        });
+        }, 900_000, signal);
       }
       const base = getServiceUrl("qwen");
       const headers = getServiceHeaders("qwen", { "Content-Type": "application/json", "X-Source": "console" });
-      return nodePost(`${base}/generate`, JSON.stringify(payload), headers);
+      return nodePost(base + "/generate", JSON.stringify(payload), headers, signal);
     };
 
     const modelId = viaRouter ? requested : model.id;
     const workload = workloadForImageModel(modelId);
     const buf = workload
-      ? await withResourceLease(workload, { owner: `console:image:${modelId}`, lane: "interactive" }, generate)
+      ? await withResourceLease(workload, { owner: "console:image:" + String(raw.requestId || modelId).slice(0, 100), lane: "interactive", signal }, generate)
       : await generate();
 
     const latency = Date.now() - start;
     // Record the alias that was actually asked for, not the local fallback —
     // otherwise every cloud comparison would archive as "qwen-image".
-    const saved = await saveImage(buf, { kind: "generate", model: modelId, ...payload, latency });
+    const saved = await saveImage(buf, { kind: "generate", model: modelId, ...payload, latency, folder });
+    if (target === "comfyui") await mirrorImageHistory(buf, { kind: "generate", model: modelId, ...payload, ms: latency, folder });
 
     return {
       ok: true,

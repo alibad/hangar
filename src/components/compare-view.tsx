@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IMAGE_MODELS } from "@/lib/image-models";
+import { imageFootprint } from "@/lib/image-footprints";
 import { projectHostRam } from "@/lib/ram-budget";
 import { useLocalFootprints } from "@/lib/use-local-footprints";
 import ModelFootprint, { type Footprint } from "./model-footprint";
@@ -131,8 +132,8 @@ export default function CompareView() {
         // What it costs on the card. The only figure that matters for a local
         // model, and it used to be the one thing this list didn't say.
         // serviceId is null for a cloud entry — it has no local process to cost.
-        footprint: (m.serviceId ? footprints.get(m.serviceId) : undefined) as Footprint | undefined,
-        liveMb: m.serviceId ? liveMb.get(m.serviceId) : undefined,
+        footprint: imageFootprint(m.id),
+        liveMb: m.serviceId === "qwen" ? liveMb.get(m.serviceId) : undefined,
       })),
       ...cloud.map((m) => ({
         id: m.id, label: m.id, sub: m.provider, local: false, cost: m.costPerImage,
@@ -202,7 +203,7 @@ export default function CompareView() {
           res = await fetch("/api/image/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model, prompt, width: size.w, height: size.h, seed: runSeed }),
+            body: JSON.stringify({ model, prompt, width: model === "hidream-o1-dev" ? 2048 : size.w, height: model === "hidream-o1-dev" ? 2048 : size.h, seed: runSeed }),
             signal: ac.signal,
           });
           j = await res.json();
@@ -286,7 +287,8 @@ export default function CompareView() {
     setRuns((rs) => rs.map((r) => (r.state === "queued" || r.state === "running" ? { ...r, state: "cancelled" } : r)));
   }, []);
 
-  const canRun = prompt.trim().length > 0 && picked.length >= 2 && !running && !ramBlocked;
+  // The manager samples live available memory before each sequential run.
+  const canRun = prompt.trim().length > 0 && picked.length >= 2 && !running;
 
   const doneCount = runs.filter((r) => r.state === "done").length;
   const spent = runs.filter((r) => r.state === "done" && !r.local).reduce((s, r) => s + (r.costUsd ?? 0), 0);
@@ -392,14 +394,12 @@ export default function CompareView() {
         {ramBlocked && ramBudget && (
           <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 space-y-1">
             <p className="text-xs text-red-300">
-              Won&apos;t fit in system RAM — needs{" "}
+              Conservative shared-service estimate: {" "}
               <span className="tabular-nums font-medium">~{ramBudget.requiredGb} GB</span> with only{" "}
               <span className="tabular-nums font-medium">{ramBudget.freeGb} GB</span> free.
             </p>
             <p className="text-[11px] text-red-300/70">
-              {ramBudget.parts.map((p) => `${p.serviceId} ~${p.ramGb} GB`).join(" + ")} — these keep their
-              weights in host RAM and don&apos;t release them between runs. Run them separately, or stop one
-              service first.
+              The manager checks live capacity for each model. ComfyUI models run sequentially and can swap weights; this estimate does not block starting the comparison.
             </p>
           </div>
         )}

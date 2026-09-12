@@ -30,6 +30,8 @@ export function nodePost(
         headers: { ...headers, "Content-Length": Buffer.byteLength(body) },
       },
       (res) => {
+        res.on("error", reject);
+        res.on("aborted", () => reject(new Error(`${label} response interrupted`)));
         if (res.statusCode !== 200) {
           let msg = "";
           res.on("data", (c: Buffer) => (msg += c.toString()));
@@ -39,17 +41,18 @@ export function nodePost(
         const chunks: Buffer[] = [];
         res.on("data", (c: Buffer) => chunks.push(c));
         res.on("end", () => resolve(Buffer.concat(chunks)));
-        res.on("error", reject);
       },
     );
     req.on("error", reject);
 
-    if (signal) {
-      signal.addEventListener("abort", () => {
-        req.destroy();
-        reject(new Error("Cancelled"));
-      }, { once: true });
-    }
+    const abort = () => req.destroy(new Error("Cancelled"));
+    signal?.addEventListener("abort", abort, { once: true });
+    // Bound a dead upstream while allowing cold checkpoint loads and inference.
+    const timeout = setTimeout(() => req.destroy(new Error(`${label} timed out after 15 minutes`)), 900_000);
+    req.on("close", () => {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+    });
 
     req.write(body);
     req.end();

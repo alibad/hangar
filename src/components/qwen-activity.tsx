@@ -58,7 +58,7 @@ export default function QwenActivity() {
   const [loading, setLoading] = useState(true);
   const [dir, setDir] = useState<string>("");
   const [lightbox, setLightbox] = useState<Item | null>(null);
-  // Paging is server-side: filter + offset are applied across the WHOLE archive,
+  // Paging is server-side: filter + offset are applied across the whole history,
   // so every page costs the same and the oldest image is always reachable.
   const [offset, setOffset] = useState(0);
   const [pageSize, setPageSize] = useState(200);
@@ -89,14 +89,38 @@ export default function QwenActivity() {
 
   useEffect(() => { setLoading(true); }, [offset, pageSize, filter, modelFilter]);
 
-  // Poll while mounted — this is a live firehose, so it should feel current. Only
-  // the newest page auto-refreshes: re-fetching while you're reading page 7 of
-  // history would shuffle items under the cursor for no benefit.
+  // Poll only while the Activity surface is actually visible. This keeps the
+  // newest page live without spending requests while the browser is hidden or
+  // the user is reading older history. Returning to the tab/focusing the window
+  // refreshes immediately so a completed generation is visible right away.
   useEffect(() => {
-    refresh();
-    if (offset !== 0) return;
-    const t = setInterval(refresh, 15000);
-    return () => clearInterval(t);
+    if (offset !== 0) { void refresh(); return; }
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const stop = () => {
+      if (timer) { clearInterval(timer); timer = null; }
+    };
+    const start = () => {
+      stop();
+      if (document.visibilityState !== "visible") return;
+      void refresh();
+      timer = setInterval(() => {
+        if (document.visibilityState === "visible") void refresh();
+      }, 15000);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") start();
+      else stop();
+    };
+
+    start();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", start);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", start);
+    };
   }, [refresh, offset]);
 
   // Changing the filter restarts at the newest page — offset is meaningless across filters.
@@ -193,7 +217,7 @@ export default function QwenActivity() {
       <section className="bg-gray-900 rounded-xl border border-gray-800 p-4">
         <div className="flex items-center gap-3 flex-wrap">
           <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
-          <span className="font-semibold text-sm">Activity</span>
+          <span className="font-semibold text-sm">Generation History</span>
           <span className="text-xs text-gray-500">every image this box generates — console, quote-forge, scripts</span>
           {total > 0 && (
             <span className="text-[11px] text-gray-500 tabular-nums">
@@ -208,7 +232,7 @@ export default function QwenActivity() {
         {dir && <p className="text-[11px] text-gray-600 mt-2 font-mono truncate" title={dir}>{dir}</p>}
       </section>
 
-      {/* source filter — counts are whole-archive, not page-local */}
+      {/* source filter — counts are history-wide, not page-local */}
       <div className="flex items-center gap-2 flex-wrap">
         <Chip label="All" count={total} active={filter === "all"} onClick={() => pickFilter("all")} />
         {sources.map((s) => (
@@ -375,8 +399,8 @@ export default function QwenActivity() {
                 {lightbox.via && <Row k="via" v={lightbox.via} />}
               </dl>
 
-              {/* Where this actually lives on disk — the whole point of the archive
-                  view is that these are real files you can go open. */}
+              {/* Where this actually lives on disk — these are real generated files
+                  you can open or copy elsewhere. */}
               <div className="space-y-1 pt-1 border-t border-gray-800">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-gray-600">path</span>
