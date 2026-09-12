@@ -58,18 +58,22 @@ const shortDate = (iso: string | null) =>
 // transcripts) and what your own AI Router served (recorded per call). They share
 // almost no columns — cache tokens vs latency and local/cloud split — so they get
 // a source switch rather than one merged table that fits neither.
-type Source = "claude" | "router";
+type Source = "overview" | "router" | "claude" | "openai";
 
 export default function UsageView() {
-  const [source, setSource] = useState<Source>("claude");
+  // The router is the operational source of truth for BeTenshi, so land here
+  // by default. Overview and provider-specific views remain one click away.
+  const [source, setSource] = useState<Source>("router");
 
   return (
     <div className="space-y-4">
       <div className="inline-flex overflow-hidden rounded-lg border border-gray-800">
         {(
           [
-            { id: "claude" as const, label: "Claude Code" },
+            { id: "overview" as const, label: "Overall AI" },
             { id: "router" as const, label: "AI Router" },
+            { id: "claude" as const, label: "Claude Code" },
+            { id: "openai" as const, label: "ChatGPT / Codex" },
           ]
         ).map((s) => (
           <button
@@ -84,9 +88,54 @@ export default function UsageView() {
           </button>
         ))}
       </div>
-      {source === "claude" ? <ClaudeUsage /> : <RouterUsageView />}
+      {source === "overview" ? <OverallAI onFocus={setSource} /> : source === "claude" ? <ClaudeUsage /> : source === "openai" ? <OpenAICodexUsage /> : <RouterUsageView />}
     </div>
   );
+}
+
+function OverallAI({ onFocus }: { onFocus: (source: Source) => void }) {
+  const [router, setRouter] = useState<{ totals?: { cost?: number; calls?: number; tokensIn?: number; tokensOut?: number } } | null>(null);
+  const [claude, setClaude] = useState<Snapshot | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const [routerRes, claudeRes] = await Promise.all([fetch("/api/router-usage"), fetch("/api/claude-usage")]);
+      const [routerJson, claudeJson] = await Promise.all([routerRes.json(), claudeRes.json()]);
+      if (!cancelled) { setRouter(routerJson); setClaude(claudeJson); }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 30_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+
+  const routerCost = Number(router?.totals?.cost) || 0;
+  const claudeCost = Number(claude?.totals.cost) || 0;
+  const routerTokens = (Number(router?.totals?.tokensIn) || 0) + (Number(router?.totals?.tokensOut) || 0);
+  return (
+    <div className="space-y-4">
+      <div><h2 className="text-sm font-semibold text-gray-100">Overall AI usage</h2><p className="text-[11px] text-gray-600">A provider-aware view of measured local activity and API-rate-equivalent cost.</p></div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Kpi label="Measured cost" value={usd0(routerCost + claudeCost)} note="Router + Claude Code" />
+        <Kpi label="Measured tokens" value={tok(routerTokens + (claude?.totals.totalTokens || 0))} note="Router + Claude Code" />
+        <Kpi label="Router calls" value={num(Number(router?.totals?.calls) || 0)} note="local + cloud" />
+        <Kpi label="Providers" value="3" note="Router · Claude · OpenAI" />
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <FocusCard title="AI Router" value={usd(routerCost)} detail={`${num(Number(router?.totals?.calls) || 0)} calls · ${tok(routerTokens)} tokens`} onClick={() => onFocus("router")} />
+        <FocusCard title="Claude Code" value={usd(claudeCost)} detail={`${num(claude?.totals.messages || 0)} messages · ${tok(claude?.totals.totalTokens || 0)} tokens`} onClick={() => onFocus("claude")} />
+        <FocusCard title="ChatGPT / Codex" value="Unavailable" detail="Local session logs do not expose billable usage" onClick={() => onFocus("openai")} />
+      </div>
+    </div>
+  );
+}
+
+function FocusCard({ title, value, detail, onClick }: { title: string; value: string; detail: string; onClick: () => void }) {
+  return <button type="button" onClick={onClick} className="rounded-xl border border-gray-800 bg-gray-950 p-4 text-left transition hover:border-orange-500/50"><div className="text-xs text-gray-500">{title}</div><div className="mt-2 text-xl font-semibold text-gray-100">{value}</div><div className="mt-1 text-[11px] text-gray-600">{detail}</div><div className="mt-3 text-[11px] text-orange-300">Focus view →</div></button>;
+}
+
+function OpenAICodexUsage() {
+  return <div className="rounded-xl border border-gray-800 bg-gray-950 p-5"><h2 className="text-sm font-semibold text-gray-100">ChatGPT / Codex usage</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400">BeTenshi cannot currently read billable ChatGPT or Codex cost from this machine. Local Codex session databases and rollout logs contain activity history, but not authoritative input/output tokens or billing amounts. This view intentionally shows unavailable instead of estimating.</p><p className="mt-4 text-xs text-gray-600">To add real tracking, connect an OpenAI usage export or record API responses with usage metadata at the point of use.</p></div>;
 }
 
 function ClaudeUsage() {

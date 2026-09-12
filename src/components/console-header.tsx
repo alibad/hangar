@@ -32,7 +32,7 @@ const workstreams: Array<{ id: ConsoleTab; label: string; hint: string }> = [
 // What is flowing through the stack, and what it costs.
 const insights: Array<{ id: ConsoleTab; label: string; hint: string }> = [
   { id: "requests", label: "Requests", hint: "Live traffic and failures" },
-  { id: "usage", label: "Usage", hint: "Claude Code tokens and cost" },
+  { id: "usage", label: "AI Usage", hint: "Router, providers and cost" },
   { id: "storage", label: "Storage", hint: "Drive space, files and changes" },
 ];
 
