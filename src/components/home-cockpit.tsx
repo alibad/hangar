@@ -27,6 +27,7 @@ import {
 } from "@phosphor-icons/react";
 import type { ConsoleTab } from "@/components/command-palette";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { getWorkstreams, declaredMemoryGb, type Workstream, type WorkstreamKind } from "@/lib/host";
 
 type ManagedService = {
   id: string;
@@ -106,7 +107,7 @@ type TrafficEvent = {
   pending?: boolean;
 };
 
-type WorkflowKind = "text" | "image" | "audio" | "files";
+type WorkflowKind = WorkstreamKind;
 
 type Props = {
   managedServices: ManagedService[];
@@ -127,67 +128,33 @@ type Props = {
   openResourceMapSignal?: number;
 };
 
-const workflowConfig = {
-  text: {
-    label: "Chat & Code",
-    description: "Think, code, debug, and refactor",
-    model: "Qwen2.5-7B",
-    serviceId: "vllm-small",
-    tab: "llm" as ConsoleTab,
-    vramGb: 7.6,
-    ramGb: 8.2,
-    icon: Code,
-    color: "orange",
-    action: "Open chat",
-  },
-  image: {
-    label: "Image Studio",
-    description: "Generate and edit local images",
-    model: "Qwen-Image",
-    serviceId: "qwen",
-    tab: "qwen" as ConsoleTab,
-    vramGb: 20,
-    ramGb: 28,
-    icon: ImageSquare,
-    color: "violet",
-    action: "Generate",
-  },
-  audio: {
-    label: "Speech",
-    description: "Transcribe and synthesize voice",
-    model: "Whisper STT + Kokoro TTS",
-    serviceId: "whisper",
-    tab: "speech" as ConsoleTab,
-    vramGb: 1.5,
-    ramGb: 2.1,
-    icon: Waveform,
-    color: "blue",
-    action: "Open speech",
-  },
-  files: {
-    label: "Vision & 3D",
-    description: "Segment, inspect, and recover pose",
-    model: "SAM 3 + SAM 3D Body",
-    serviceId: "sam3",
-    tab: "sam3" as ConsoleTab,
-    vramGb: 8.1,
-    ramGb: 10,
-    icon: Cube,
-    color: "emerald",
-    action: "Analyze",
-  },
-} satisfies Record<WorkflowKind, {
-  label: string;
-  description: string;
-  model: string;
-  serviceId: string;
-  tab: ConsoleTab;
-  vramGb: number;
-  ramGb: number;
-  icon: typeof Code;
-  color: "orange" | "violet" | "blue" | "emerald";
-  action: string;
-}>;
+/**
+ * What this machine offers, from its host profile — not a hardcoded list.
+ *
+ * These four cards used to be BeTenshi's services spelled out in this file, so
+ * on any other host the Home page advertised an Image Studio, a Speech tab and
+ * a 3D pose recovery that did not exist there, each linking to a tab that had
+ * been hidden. A host now declares only the workstreams its own services back
+ * (config/hosts/<id>.json), and the icon per slot is chosen here because a
+ * component cannot be serialised into JSON.
+ */
+const workflowIcons: Record<WorkflowKind, typeof Code> = {
+  text: Code,
+  image: ImageSquare,
+  audio: Waveform,
+  files: Cube,
+};
+
+const hostWorkstreams = getWorkstreams();
+
+const workflowConfig = Object.fromEntries(
+  (Object.entries(hostWorkstreams) as [WorkflowKind, Workstream][])
+    .map(([kind, w]) => [kind, { ...w, tab: w.tab as ConsoleTab, icon: workflowIcons[kind] }]),
+) as Partial<Record<WorkflowKind, Workstream & { tab: ConsoleTab; icon: typeof Code }>>;
+
+/** The slots this host actually has, in the canonical order. */
+const WORKFLOW_KINDS = (["text", "image", "audio", "files"] as WorkflowKind[])
+  .filter((k) => workflowConfig[k]);
 
 const modeCopy: Record<WorkflowKind, { label: string; placeholder: string }> = {
   text: { label: "Text", placeholder: "Ask, plan, debug, or build something with your local models…" },
@@ -356,7 +323,8 @@ export default function HomeCockpit({
   onTranscribeFile,
   openResourceMapSignal = 0,
 }: Props) {
-  const [mode, setMode] = useState<WorkflowKind>("text");
+  // First slot this host has, so the composer never opens on a workstream that is not here.
+  const [mode, setMode] = useState<WorkflowKind>(WORKFLOW_KINDS[0] ?? "text");
   const [prompt, setPrompt] = useState("");
   const [resourceOpen, setResourceOpen] = useState(false);
   const [backstageOpen, setBackstageOpen] = useState(false);
@@ -398,15 +366,15 @@ export default function HomeCockpit({
 
   useLiveRefresh(refreshEvents, { intervalMs: 5000 });
 
-  const selected = workflowConfig[mode];
-  const selectedService = managedServices.find((service) => service.id === selected.serviceId);
+  const selected = workflowConfig[mode];   // may be undefined if this host lacks the slot
+  const selectedService = managedServices.find((service) => service.id === selected?.serviceId);
   const alreadyResident = selectedService?.status === "running";
-  const vramTotal = gpu?.mem_total ? gpu.mem_total / 1024 : resourceControl?.capacity.vram.totalGb ?? 31.8;
+  const vramTotal = gpu?.mem_total ? gpu.mem_total / 1024 : resourceControl?.capacity.vram.totalGb ?? declaredMemoryGb().vramGb;
   const vramUsed = gpu?.mem_used ? gpu.mem_used / 1024 : Math.max(0, vramTotal - (resourceControl?.capacity.vram.freeGb ?? vramTotal));
-  const ramTotal = gpu?.host_ram?.total_gb ?? resourceControl?.capacity.ram.totalGb ?? 63.3;
+  const ramTotal = gpu?.host_ram?.total_gb ?? resourceControl?.capacity.ram.totalGb ?? declaredMemoryGb().ramGb;
   const ramUsed = gpu?.host_ram?.used_gb ?? Math.max(0, ramTotal - (resourceControl?.capacity.ram.freeGb ?? ramTotal));
-  const addedVram = alreadyResident ? 0 : selected.vramGb;
-  const addedRam = alreadyResident ? 0 : selected.ramGb;
+  const addedVram = alreadyResident || !selected ? 0 : selected.vramGb;
+  const addedRam = alreadyResident || !selected ? 0 : selected.ramGb;
   const predictedVram = Math.min(vramTotal, vramUsed + addedVram);
   const predictedRam = Math.min(ramTotal, ramUsed + addedRam);
   const vramSafety = resourceControl?.budgets.vramSafetyGb ?? 1.5;
@@ -419,7 +387,7 @@ export default function HomeCockpit({
   const stalledRequests = events.filter((event) => event.pending && event.ts != null && Date.now() - event.ts > 120_000);
   const unattributedSpend = events.filter((event) => !event.caller && (event.costUsd ?? 0) > 0);
   const issueCount = attentionCount + recentFailures.length + stalledRequests.length + unattributedSpend.length;
-  const residentModel = selected.model;
+  const residentModel = selected?.model ?? "—";
   const gpuConsumerRows = useMemo(() => {
     const rows = gpu?.gpu_processes ?? [];
     if (rows.length <= 6) return rows;
@@ -439,6 +407,7 @@ export default function HomeCockpit({
 
   const openWorkflow = (kind: WorkflowKind, usePrompt = false) => {
     const workflow = workflowConfig[kind];
+    if (!workflow) return;
     if (kind === "text" && usePrompt && prompt.trim()) onPrefillChat(prompt.trim());
     if (kind === "image" && usePrompt && prompt.trim()) {
       window.localStorage.setItem("bt-qwen-draft", prompt.trim());
@@ -535,7 +504,7 @@ export default function HomeCockpit({
                 className="min-h-14 w-full resize-none bg-transparent text-[15px] leading-6 text-gray-100 outline-none placeholder:text-gray-600"
               />
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-800/80 pt-3">
-                {(["text", "image", "audio", "files"] as WorkflowKind[]).map((kind) => {
+                {WORKFLOW_KINDS.map((kind) => {
                   const Icon = kind === "text" ? FileText : kind === "image" ? ImageSquare : kind === "audio" ? Microphone : Paperclip;
                   return (
                     <button
@@ -604,7 +573,7 @@ export default function HomeCockpit({
           <dl className="mt-3 divide-y divide-gray-800 text-xs">
             <div className="flex items-center justify-between gap-4 py-1.5">
               <dt className="text-gray-500">Workflow</dt>
-              <dd className="truncate text-right font-medium text-gray-200">{selected.label}</dd>
+              <dd className="truncate text-right font-medium text-gray-200">{selected?.label ?? "—"}</dd>
             </div>
             <div className="flex items-center justify-between gap-4 py-1.5">
               <dt className="text-gray-500">Predicted VRAM</dt>
@@ -663,8 +632,8 @@ export default function HomeCockpit({
             <button type="button" onClick={() => onSelectTab("models")} className="cockpit-accent-text text-xs font-medium text-orange-300 hover:text-orange-200">View routing</button>
           </div>
           <div className="divide-y divide-gray-800/80">
-            {(Object.keys(workflowConfig) as WorkflowKind[]).map((kind) => {
-              const workflow = workflowConfig[kind];
+            {WORKFLOW_KINDS.map((kind) => {
+              const workflow = workflowConfig[kind]!;
               const Icon = workflow.icon;
               const service = managedServices.find((item) => item.id === workflow.serviceId);
               const ready = service?.status === "running" && service.healthy;

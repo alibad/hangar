@@ -30,28 +30,70 @@ import type { ServiceEntry } from "./services";
 
 export type MemoryKind = "discrete" | "unified";
 
+/** The console's four fixed workstream slots. Icons are chosen in code. */
+export type WorkstreamKind = "text" | "image" | "audio" | "files";
+
+/**
+ * What this machine can be asked to DO, as the Home page offers it.
+ *
+ * Declared per host because the Home page used to hardcode BeTenshi's four —
+ * Chat & Code, Image Studio, Speech, Vision & 3D — so on any other machine it
+ * advertised work that host cannot do and offered buttons into tabs that are
+ * not there. A host lists only the workstreams its own services back.
+ */
+export type Workstream = {
+  label: string;
+  description: string;
+  /** Human-facing model name for the card and the pre-flight panel. */
+  model: string;
+  /** The service that must be up. Must exist in this profile's `services`. */
+  serviceId: string;
+  /** Tab the card's action opens. */
+  tab: string;
+  vramGb: number;
+  ramGb: number;
+  color: "orange" | "violet" | "blue" | "emerald";
+  action: string;
+};
+
 export type HostProfile = {
   id: string;
   name: string;
   platform: "win32" | "darwin" | "linux";
   gpu: "nvidia" | "apple" | "none";
-  memory: { kind: MemoryKind };
+  /**
+   * `kind` decides whether VRAM and RAM are one budget or two. The totals are
+   * this machine's specs, used only as a last-resort label when live telemetry
+   * has not arrived — previously two magic numbers (31.8 / 63.3) hardcoded in
+   * the UI, which printed BeTenshi's card size on a Mac.
+   */
+  memory: { kind: MemoryKind; totalGb?: number; vramTotalGb?: number; ramTotalGb?: number };
   /** Where per-service uvicorn access logs live (traffic tail). `~` is expanded. */
   logsDir: string | null;
   /** scripts/<file> the manager reads start commands from. */
   commandsFile: string;
   services: ServiceEntry[];
+  workstreams: Partial<Record<WorkstreamKind, Workstream>>;
 };
 
 // JSON carries `_doc` / `note` fields that the runtime type does not need; strip
 // the profile-level ones and let ServiceEntry's optional `note` keep the rest.
 function asProfile(raw: unknown): HostProfile {
-  const { _doc: _ignored, memory, ...rest } = raw as HostProfile & {
+  const { _doc: _ignored, memory, workstreams, ...rest } = raw as HostProfile & {
     _doc?: string;
-    memory: { kind: MemoryKind; _doc?: string };
+    memory: { kind: MemoryKind; _doc?: string; totalGb?: number; vramTotalGb?: number; ramTotalGb?: number };
+    workstreams?: Record<string, Workstream & { _doc?: string }>;
   };
   void _ignored;
-  return { ...rest, memory: { kind: memory.kind } } as HostProfile;
+  // Strip the `_doc` keys the JSON carries for humans; everything else is data.
+  const ws: Partial<Record<WorkstreamKind, Workstream>> = {};
+  for (const [k, v] of Object.entries(workstreams ?? {})) {
+    if (k.startsWith("_")) continue;
+    ws[k as WorkstreamKind] = v as Workstream;
+  }
+  const { _doc: _m, ...mem } = memory;
+  void _m;
+  return { ...rest, memory: mem, workstreams: ws } as HostProfile;
 }
 
 export const HOST_PROFILES: Record<string, HostProfile> = {
@@ -99,4 +141,47 @@ export function isUnifiedMemory(): boolean {
 /** What the UI should call the GPU's memory bar. */
 export function memoryLabel(): string {
   return isUnifiedMemory() ? "Memory" : "VRAM";
+}
+
+/**
+ * Which services a console tab needs to be worth showing.
+ *
+ * One rule, used by BOTH the tab bar and the header's Workstreams menu — those
+ * were two hardcoded lists of BeTenshi's surfaces, so a host without SAM or
+ * Qwen-Image still offered "Segment", "3D Body" and "Image Studio" in the menu
+ * and linked to tabs that were not there. A tab with no entry here (Home,
+ * Services, Models, Requests, Usage, Storage) is host-independent.
+ */
+const TAB_SERVICES: Record<string, string[]> = {
+  speech: ["whisper", "tts"],
+  qwen: ["qwen", "comfyui"],
+  sam3d: ["sam3d"],
+  sam3: ["sam3"],
+};
+
+/** Can this host back the given tab? Resolved from the build-time profile, so
+ *  the answer is right on the first paint rather than after /api/host lands. */
+export function hostHasTab(tab: string): boolean {
+  const needs = TAB_SERVICES[tab];
+  if (!needs?.length) return true;
+  const have = new Set(getHost().services.map((s) => s.id));
+  return needs.some((id) => have.has(id));
+}
+
+/** Workstreams this host can actually offer, in a stable order. */
+export function getWorkstreams(): Partial<Record<WorkstreamKind, Workstream>> {
+  return getHost().workstreams;
+}
+
+/**
+ * Declared totals, for labelling a meter before telemetry arrives. On a unified
+ * host both answers are the same pool by definition.
+ */
+export function declaredMemoryGb(): { vramGb: number; ramGb: number } {
+  const m = getHost().memory;
+  if (m.kind === "unified") {
+    const t = m.totalGb ?? 0;
+    return { vramGb: t, ramGb: t };
+  }
+  return { vramGb: m.vramTotalGb ?? 0, ramGb: m.ramTotalGb ?? 0 };
 }

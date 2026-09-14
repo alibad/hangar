@@ -6,7 +6,8 @@
   "gpu": "apple",
   "memory": {
     "kind": "unified",
-    "_doc": "ONE pool shared by CPU and GPU. There is no VRAM/RAM distinction to budget across: a model's weights are simply resident memory. The console shows a single Memory bar here and hides the separate System RAM section, and the fit check treats a model's full footprint as one number."
+    "_doc": "ONE pool shared by CPU and GPU. There is no VRAM/RAM distinction to budget across: a model's weights are simply resident memory. The console shows a single Memory bar here and hides the separate System RAM section, and the fit check treats a model's full footprint as one number.",
+    "totalGb": 128
   },
   "logsDir": "~/LocalAI/logs",
   "commandsFile": "service-commands.b5.json",
@@ -31,8 +32,24 @@
       "healthPath": "/api/tags",
       "category": "ai",
       "authRequired": false,
-      "llm": { "model": "qwen3.8:27b-mlx" },
+      "llm": {
+        "model": "qwen3.8:27b-mlx"
+      },
       "note": "Every text and vision model on this box is served here, on Ollama's OpenAI-compatible /v1 surface. `llm.model` is the default the LLM tab talks to; the other pulled checkpoints (gemma4:31b-mlx, qwen3-vl:32b-instruct) are one `model` field away. Usually owned by Ollama.app (menu bar), in which case the manager adopts the process rather than spawning its own. Cloud is disabled in ~/.ollama/server.json and it listens on loopback only."
     }
-  ]
+  ],
+  "workstreams": {
+    "_doc": "One service, so one workstream. Ollama also serves vision (qwen3-vl, gemma4) but the console has no vision surface pointed at it yet, so offering an Image or Vision card here would advertise work this host cannot actually do.",
+    "text": {
+      "label": "Chat & Code",
+      "description": "Think, code, debug, and refactor",
+      "model": "qwen3.8:27b-mlx",
+      "serviceId": "ollama",
+      "tab": "llm",
+      "vramGb": 18.2,
+      "ramGb": 18.2,
+      "color": "orange",
+      "action": "Open chat"
+    }
+  }
 }

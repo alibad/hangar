@@ -5,76 +5,32 @@
     "vramSafetyGb": 0.02
   },
   "services": {
-    "vllm": {
-      "model": "local-coder"
-    },
-    "vllm-small": {
-      "model": "local-small"
-    },
-    "whisper": {
-      "model": "local-whisper"
-    },
-    "tts": {
-      "model": "local-kokoro"
-    },
-    "qwen": {
-      "model": "local-qwen-image"
-    },
-    "comfyui": {
-      "model": "local-flux-schnell"
-    },
+    "vllm": { "model": "local-coder" },
+    "vllm-small": { "model": "local-small" },
+    "whisper": { "model": "local-whisper" },
+    "tts": { "model": "local-kokoro" },
+    "qwen": { "model": "local-qwen-image" },
+    "comfyui": { "model": "local-flux-schnell" },
     "sam3": {},
     "sam3d": {},
-    "ollama": {
-      "model": "local-ollama"
-    }
+    "ollama": { "model": "local-ollama" }
   },
   "workloads": {
-    "flux2-klein-generate": {
-      "service": "comfyui",
-      "model": "local-flux2-klein-4b",
-      "slot": "gpu-heavy",
-      "aliases": [
-        "flux2-klein-4b"
-      ],
-      "ttlMs": 900000
-    },
-    "hidream-o1-generate": {
-      "service": "comfyui",
-      "model": "local-hidream-o1-dev",
-      "slot": "gpu-heavy",
-      "aliases": [
-        "hidream-o1-dev"
-      ],
-      "ttlMs": 900000
-    },
-    "z-image-generate": {
-      "service": "comfyui",
-      "model": "local-z-image-turbo",
-      "slot": "gpu-heavy",
-      "aliases": [
-        "z-image-turbo"
-      ],
-      "ttlMs": 900000
-    },
+    "flux2-klein-generate": { "service": "comfyui", "model": "local-flux2-klein-4b", "slot": "gpu-heavy", "aliases": ["flux2-klein-4b"], "ttlMs": 900000 },
+    "hidream-o1-generate": { "service": "comfyui", "model": "local-hidream-o1-dev", "slot": "gpu-heavy", "aliases": ["hidream-o1-dev"], "ttlMs": 900000 },
+    "z-image-generate": { "service": "comfyui", "model": "local-z-image-turbo", "slot": "gpu-heavy", "aliases": ["z-image-turbo"], "ttlMs": 900000 },
     "qwen-generate": {
       "service": "qwen",
       "model": "local-qwen-image",
       "slot": "gpu-heavy",
-      "aliases": [
-        "qwen-image",
-        "local-qwen-image"
-      ],
+      "aliases": ["qwen-image", "local-qwen-image"],
       "ttlMs": 900000
     },
     "flux-generate": {
       "service": "comfyui",
       "model": "local-flux-schnell",
       "slot": "gpu-heavy",
-      "aliases": [
-        "flux-schnell",
-        "local-flux-schnell"
-      ],
+      "aliases": ["flux-schnell", "local-flux-schnell"],
       "ttlMs": 900000
     },
     "qwen-edit": {

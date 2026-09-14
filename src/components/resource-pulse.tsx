@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, CheckCircle, Cpu, WarningCircle } from "@phosphor-icons/react";
+import { declaredMemoryGb } from "@/lib/host";
 
 type GpuSnapshot = {
   name: string;
@@ -36,9 +37,9 @@ type Props = {
 const clampPercent = (value: number, total: number) => Math.min(100, Math.max(0, total > 0 ? (value / total) * 100 : 0));
 
 export default function ResourcePulse({ gpu, resources, onOpenDetails }: Props) {
-  const vramTotal = gpu?.mem_total ? gpu.mem_total / 1024 : resources?.capacity.vram.totalGb ?? 31.8;
+  const vramTotal = gpu?.mem_total ? gpu.mem_total / 1024 : resources?.capacity.vram.totalGb ?? declaredMemoryGb().vramGb;
   const vramUsed = gpu?.mem_used ? gpu.mem_used / 1024 : Math.max(0, vramTotal - (resources?.capacity.vram.freeGb ?? vramTotal));
-  const ramTotal = gpu?.host_ram?.total_gb ?? resources?.capacity.ram.totalGb ?? 63.3;
+  const ramTotal = gpu?.host_ram?.total_gb ?? resources?.capacity.ram.totalGb ?? declaredMemoryGb().ramGb;
   const ramUsed = gpu?.host_ram?.used_gb ?? Math.max(0, ramTotal - (resources?.capacity.ram.freeGb ?? ramTotal));
   const vramFree = Math.max(0, vramTotal - vramUsed);
   const ramFree = Math.max(0, ramTotal - ramUsed);

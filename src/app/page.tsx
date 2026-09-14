@@ -30,8 +30,14 @@ import {
   Sparkles, Layers, ScanLine, Scan, Server, ExternalLink, Cpu, RefreshCw,
   Sun, Moon, LayoutGrid, List, AlertTriangle, type LucideIcon,
 } from "lucide-react";
+import { hostHasTab } from "@/lib/host";
 
 // Small inline spinner shown while a service action (start/stop/restart) is in flight.
+/** Service id → the tab it backs, for the tab-visibility check. */
+const TAB_OF: Record<string, string> = {
+  whisper: "speech", tts: "speech", qwen: "qwen", comfyui: "qwen", sam3d: "sam3d", sam3: "sam3",
+};
+
 function Spinner() {
   return <span className="inline-block w-3 h-3 rounded-full border-[1.5px] border-current border-t-transparent animate-spin align-[-2px]" />;
 }
@@ -682,8 +688,10 @@ export default function Home() {
   const queueDepth = (resourceControl?.queue.length ?? 0) + (resourceControl?.starts.length ?? 0);
 
   /** A tab for a service that is not registered on this host would be a permanent
-   *  "unavailable" — hide it instead. */
-  const has = hostHas;
+   *  "unavailable" — hide it instead. Resolved from the build-time host profile
+   *  (not the /api/host fetch) so the tab bar is correct on the first paint
+   *  rather than briefly showing tabs that then vanish. */
+  const has = (...ids: string[]) => ids.some((id) => hostHasTab(TAB_OF[id] ?? id));
   const tabs = [
     // Services and GPU were two views of the same local processes — one listing
     // them, one duplicating their controls under a GPU header. Merged into
@@ -721,6 +729,7 @@ export default function Home() {
         onRefresh={refreshAll}
         autoRefresh={autoRefresh}
         onAutoRefresh={setAutoRefresh}
+        hostName={host?.name ?? gpu?.host?.name}
       />
       <ResourcePulse
         gpu={gpu}
@@ -744,7 +753,7 @@ export default function Home() {
                 <path d="M48 18 Q55 41 78 48 Q55 55 48 78 Q41 55 18 48 Q41 41 48 18 Z" fill="#31439b"/>
                 <path d="M60.02 35.98 Q52 48 60.02 60.02 Q48 52 35.98 60.02 Q44 48 35.98 35.98 Q48 44 60.02 35.98 Z" fill="#7b85c7"/>
               </svg>
-              <h1 className="text-lg font-semibold tracking-tight">{host?.name ?? gpu?.host?.name ?? "Console"}</h1>
+              <h1 className="text-lg font-semibold tracking-tight">BeTenshi</h1>
               <div role="status" aria-label={`Stack ${overallStatus}`} className={`w-2 h-2 rounded-full flex-shrink-0 ${
                 overallStatus === "operational"
                   ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]"
