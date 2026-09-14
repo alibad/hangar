@@ -70,6 +70,19 @@
     }
   },
 
+  "_ollama-doc": "Second LLM runtime beside vLLM, for models vLLM 0.17.1 cannot load (Gemma 4 needs vLLM >= 0.19) and for on-demand vision. Normally already running from the Ollama tray app, which is fine: the manager adopts the external process and reports it as externally owned. OLLAMA_KEEP_ALIVE is short on purpose - one 31B model is ~20 GB of a 32 GB card, so an idle model left resident is what blocks the next image generation. OLLAMA_MAX_LOADED_MODELS=1 for the same reason: two of these do not coexist.",
+  "ollama": {
+    "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Ollama\\ollama.exe",
+    "args": [
+      "serve"
+    ],
+    "env": {
+      "OLLAMA_KEEP_ALIVE": "5m",
+      "OLLAMA_MAX_LOADED_MODELS": "1",
+      "OLLAMA_HOST": "127.0.0.1:11434"
+    }
+  },
+
   "_ai-router-doc": "LiteLLM proxy. --host 127.0.0.1 is a HARD requirement: this gateway must never be reachable off-box. Cloud API keys come from the environment (OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_KEY); a missing key leaves that model listed but reporting 'no key configured'.",
   "ai-router": {
     "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\litellm.exe",

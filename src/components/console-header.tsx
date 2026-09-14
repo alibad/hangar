@@ -23,6 +23,9 @@ type Props = {
 
 const workstreams: Array<{ id: ConsoleTab; label: string; hint: string }> = [
   { id: "llm", label: "Chat & Code", hint: "Local text models" },
+  // Directly under Chat & Code: it answers the question that tab provokes —
+  // "is this model the right one?" — rather than being a separate kind of work.
+  { id: "arena", label: "Arena", hint: "Compare models on one prompt" },
   { id: "qwen", label: "Image Studio", hint: "Generate and edit" },
   { id: "speech", label: "Speech", hint: "Transcribe and synthesize" },
   { id: "sam3d", label: "3D Body", hint: "Human mesh and pose" },

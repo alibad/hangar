@@ -1,7 +1,46 @@
 {
-  "local-flux2-klein-4b": { "checkpoint": "black-forest-labs/FLUX.2-klein-4B", "service": "comfyui", "params": "4B denoiser", "docs": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B", "footprint": { "ramGb": 12, "vramGb": 15, "idleRamGb": 0.13, "idleVramGb": 0.1, "kind": "estimate", "basis": "Initial admission estimate: 7.22 GiB BF16 denoiser plus existing mixed-FP8 4B encoder and overhead; official model card quotes approximately 13 GB VRAM. Not a measured peak." } },
-  "local-hidream-o1-dev": { "checkpoint": "Comfy-Org/HiDream-O1-Image", "service": "comfyui", "params": "8B unified · FP8 Dev", "docs": "https://huggingface.co/HiDream-ai/HiDream-O1-Image", "footprint": { "ramGb": 12, "vramGb": 22, "idleRamGb": 0.13, "idleVramGb": 0.1, "kind": "estimate", "basis": "Initial admission estimate: 7.51 GiB unified FP8 checkpoint plus loading/activation headroom for native 2048x2048. No separate prompt-refining LLM. Not a measured peak." } },
-  "local-z-image-turbo": { "checkpoint": "Z-Image-Turbo (local NVFP4)", "service": "comfyui", "params": "6B denoiser · NVFP4", "docs": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo", "footprint": { "ramGb": 8, "vramGb": 12, "idleRamGb": 0.13, "idleVramGb": 0.1, "kind": "estimate", "basis": "Initial admission estimate: existing NVFP4 6B denoiser plus mixed-FP8 4B encoder and inference overhead. Not a measured peak." } },
+  "local-flux2-klein-4b": {
+    "checkpoint": "black-forest-labs/FLUX.2-klein-4B",
+    "service": "comfyui",
+    "params": "4B denoiser",
+    "docs": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B",
+    "footprint": {
+      "ramGb": 12,
+      "vramGb": 15,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "estimate",
+      "basis": "Initial admission estimate: 7.22 GiB BF16 denoiser plus existing mixed-FP8 4B encoder and overhead; official model card quotes approximately 13 GB VRAM. Not a measured peak."
+    }
+  },
+  "local-hidream-o1-dev": {
+    "checkpoint": "Comfy-Org/HiDream-O1-Image",
+    "service": "comfyui",
+    "params": "8B unified · FP8 Dev",
+    "docs": "https://huggingface.co/HiDream-ai/HiDream-O1-Image",
+    "footprint": {
+      "ramGb": 12,
+      "vramGb": 22,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "estimate",
+      "basis": "Initial admission estimate: 7.51 GiB unified FP8 checkpoint plus loading/activation headroom for native 2048x2048. No separate prompt-refining LLM. Not a measured peak."
+    }
+  },
+  "local-z-image-turbo": {
+    "checkpoint": "Z-Image-Turbo (local NVFP4)",
+    "service": "comfyui",
+    "params": "6B denoiser · NVFP4",
+    "docs": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
+    "footprint": {
+      "ramGb": 8,
+      "vramGb": 12,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "estimate",
+      "basis": "Initial admission estimate: existing NVFP4 6B denoiser plus mixed-FP8 4B encoder and inference overhead. Not a measured peak."
+    }
+  },
   "_doc": "Human-facing facts about each router alias: real checkpoint, parameter count, and where to read more. Kept OUT of ai-router.yaml because LiteLLM does not pass custom model_info keys through /model/info (verified) — it returns only its own standard fields. Keyed by the alias in ai-router.yaml. Every field is optional; the UI degrades gracefully. Params for local models are exact counts from the Hugging Face repo; cloud vendors do not publish parameter counts, so those are intentionally absent rather than guessed.",
   "_footprint_doc": "`footprint` answers the only question that matters on a single 32 GB card: what does this model COST to have running, and what else can sit beside it. vramGb/ramGb are approximate by nature, so every entry carries a `basis` saying where the number came from — measured, or read off the launch flags. Do not add a footprint you cannot source in `basis`. Two different meanings are deliberately not averaged: vLLM RESERVES its share up front (the number is a floor you pay the moment it starts), while Qwen-Image PEAKS transiently and idles near zero because its weights live in host RAM. `service` is the BeTenshi service id, duplicated here so footprints still render when the router is down — the surface that most needs them. Cloud models have no footprint: they run off-box and cost money, not memory. Card total is 31.8 GB (32607 MiB).",
   "_benchmarks": {
@@ -58,7 +97,8 @@
       "ramGb": 1,
       "kind": "reserved",
       "basis": "Read off the container's launch flags: --gpu-memory-utilization 0.72 of a 31.8 GB card. vLLM claims all of it at startup whatever the weights need (~16 GB AWQ 4-bit); the remainder is KV cache for 32k context. This is a floor you pay the moment it starts, not a peak."
-    }
+    },
+    "vision": false
   },
   "local-small": {
     "checkpoint": "Qwen/Qwen2.5-7B-Instruct-AWQ",
@@ -71,7 +111,8 @@
       "ramGb": 1,
       "kind": "reserved",
       "basis": "Read off the OpenRA tool-enabled container launch flags: --gpu-memory-utilization 0.55 of a 31.8 GB card, with KV cache for 16k context."
-    }
+    },
+    "vision": false
   },
   "local-whisper": {
     "checkpoint": "openai/whisper large-v3 (local service on :8001)",
@@ -135,5 +176,57 @@
   "gemini-image-fast": {
     "docs": "https://ai.google.dev/gemini-api/docs/image-generation",
     "note": "Cheaper/faster image tier; same 429 quota caveat."
+  },
+  "local-gemma4": {
+    "checkpoint": "google/gemma-4-31B-it (Ollama gemma4:31b-it-qat)",
+    "params": "31.3B dense - QAT int4",
+    "released": "2026-04",
+    "docs": "https://hf.co/google/gemma-4-31B-it",
+    "paper": "https://arxiv.org/abs/2607.02770",
+    "note": "Multimodal (text + image), 256K context, Apache-2.0. QAT weights rather than post-training AWQ: Google quantisation-aware-trains these, so the int4 build loses less than a naive 4-bit cast. Served by Ollama because the vLLM image here is 0.17.1 and has no gemma4 architecture (needs >= 0.19).",
+    "service": "ollama",
+    "vision": true,
+    "footprint": {
+      "vramGb": 22.6,
+      "ramGb": 2,
+      "idleVramGb": 0.1,
+      "idleRamGb": 0.3,
+      "kind": "peak",
+      "basis": "Measured on this box 2026-09-14 during the Arabic experiment, at num_ctx 16384 (scripts/experiment-arabic.mjs samples nvidia-smi every 500 ms). Whole-card figure, so it includes the ~1.1 GiB the desktop was already holding; it is an upper bound, not a model-only allocation. kind=peak, NOT reserved: unlike vLLM, Ollama loads a model on demand and evicts it after OLLAMA_KEEP_ALIVE (5m here), so the card is free between uses - which is exactly why idleVramGb is ~0. The catch is that the peak is large enough that NOTHING else substantial fits while a model is resident, and OLLAMA_MAX_LOADED_MODELS=1 makes that explicit."
+    }
+  },
+  "local-qwen3-vl": {
+    "checkpoint": "Qwen/Qwen3-VL-32B-Instruct (Ollama qwen3-vl:32b)",
+    "params": "33.4B dense - Q4_K_M",
+    "released": "2025-10",
+    "docs": "https://hf.co/Qwen/Qwen3-VL-32B-Instruct",
+    "paper": "https://arxiv.org/abs/2505.09388",
+    "note": "Multimodal, 256K context, Apache-2.0. Costs ~4 GiB more on the card than Gemma 4 31B for a comparable parameter count, because Q4_K_M is a post-training quantisation of a slightly larger model rather than a QAT build.",
+    "service": "ollama",
+    "vision": true,
+    "footprint": {
+      "vramGb": 26.3,
+      "ramGb": 2,
+      "idleVramGb": 0.1,
+      "idleRamGb": 0.3,
+      "kind": "peak",
+      "basis": "Measured on this box 2026-09-14 during the Arabic experiment, at num_ctx 16384 (scripts/experiment-arabic.mjs samples nvidia-smi every 500 ms). Whole-card figure, so it includes the ~1.1 GiB the desktop was already holding; it is an upper bound, not a model-only allocation. kind=peak, NOT reserved: unlike vLLM, Ollama loads a model on demand and evicts it after OLLAMA_KEEP_ALIVE (5m here), so the card is free between uses - which is exactly why idleVramGb is ~0. The catch is that the peak is large enough that NOTHING else substantial fits while a model is resident, and OLLAMA_MAX_LOADED_MODELS=1 makes that explicit. Ollama's own /api/ps reported 24.5 GB for the model itself at the same moment."
+    }
+  },
+  "local-qwen3": {
+    "checkpoint": "Qwen/Qwen3-32B (Ollama qwen3:32b)",
+    "params": "32.8B dense - Q4_K_M",
+    "released": "2025-04",
+    "docs": "https://ollama.com/library/qwen3",
+    "note": "Text only, and a reasoning model - it emits <think> blocks that the console and the experiment harness both split off before scoring. Kept as the same-runtime text-only control for the vision models above.",
+    "service": "ollama",
+    "footprint": {
+      "vramGb": 24.0,
+      "ramGb": 2,
+      "idleVramGb": 0.1,
+      "idleRamGb": 0.3,
+      "kind": "peak",
+      "basis": "Measured on this box 2026-09-14 during the Arabic experiment, at num_ctx 16384 (scripts/experiment-arabic.mjs samples nvidia-smi every 500 ms). Whole-card figure, so it includes the ~1.1 GiB the desktop was already holding; it is an upper bound, not a model-only allocation. kind=peak, NOT reserved: unlike vLLM, Ollama loads a model on demand and evicts it after OLLAMA_KEEP_ALIVE (5m here), so the card is free between uses - which is exactly why idleVramGb is ~0. The catch is that the peak is large enough that NOTHING else substantial fits while a model is resident, and OLLAMA_MAX_LOADED_MODELS=1 makes that explicit. Estimated from the 20.2 GB checkpoint plus the same overhead the two measured siblings showed; not separately sampled."
+    }
   }
 }

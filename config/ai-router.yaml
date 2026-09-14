@@ -44,6 +44,76 @@ model_list:
     model_info:
       mode: chat
 
+  # ── text + vision · local, served by Ollama ───────────────────────────────
+  # A SECOND local runtime, beside the two vLLM containers. Not redundancy:
+  #
+  #   vLLM   — one model, pinned resident, VRAM reserved at startup, high
+  #            throughput. The right shape for something called all day.
+  #   Ollama — many models, ONE resident at a time, loaded on demand and evicted
+  #            after OLLAMA_KEEP_ALIVE. The right shape for evaluation and for
+  #            capabilities used occasionally, which is what vision is here.
+  #
+  # It exists at all because vLLM cannot serve these: the vLLM image on this box
+  # is 0.17.1 and has no `gemma4` architecture (that needs >= 0.19, a ~30 GB
+  # image pull). Verified directly against the running container rather than
+  # assumed — ModelRegistry.get_supported_archs() lists Gemma3 and Qwen3VL but
+  # no Gemma4.
+  #
+  # Ollama speaks the OpenAI API at /v1, so these register like any other
+  # provider. `api_key: none` because it has no auth at all, which is also why
+  # the service is localOnly in SERVICE_REGISTRY and must never get a tunnel.
+  #
+  # NOTE on Requests: unlike the FastAPI services, Ollama is third-party code we
+  # cannot instrument, and it does not write a uvicorn access log to
+  # AI/logs/ollama.log, so the access-log tail in src/lib/traffic.ts sees
+  # nothing. Calls through THIS router are still recorded by the router callback
+  # (model alias, latency, tokens), which is the row that carries the useful
+  # data anyway. Calls made directly to :11434, bypassing the router, are
+  # invisible to the Requests view — worth knowing before debugging a "missing"
+  # request. `x-betenshi-hop` is therefore NOT set here: nothing downstream
+  # echoes it, so there is no duplicate row to fold away, and setting it would
+  # imply an instrumented service that does not exist.
+  #
+  # timeout absorbs a cold load: these are ~20 GB checkpoints and the first call
+  # after eviction pays the full read from disk (measured: ~50 s for Gemma 4
+  # 31B from warm page cache; budget more from cold). num_retries: 0 for the
+  # same reason as local-qwen-image — retrying a slow load only piles more work
+  # onto a box that is already busy loading.
+
+  - model_name: local-gemma4
+    litellm_params:
+      model: openai/gemma4:31b-it-qat
+      api_base: http://localhost:11434/v1
+      api_key: none
+      timeout: 600
+      num_retries: 0
+    model_info:
+      mode: chat
+
+  - model_name: local-qwen3-vl
+    litellm_params:
+      model: openai/qwen3-vl:32b
+      api_base: http://localhost:11434/v1
+      api_key: none
+      timeout: 600
+      num_retries: 0
+    model_info:
+      mode: chat
+
+  # Text-only, and deliberately kept: it is the baseline the two multimodal
+  # models above are measured against in docs/arabic-model-experiment-2026-09-14.md.
+  # Without a same-runtime text-only control, a vision model's text scores have
+  # nothing to be compared to.
+  - model_name: local-qwen3
+    litellm_params:
+      model: openai/qwen3:32b
+      api_base: http://localhost:11434/v1
+      api_key: none
+      timeout: 600
+      num_retries: 0
+    model_info:
+      mode: chat
+
   # ── text · cloud ──────────────────────────────────────────────────────────
   - model_name: gpt-5.5
     litellm_params:

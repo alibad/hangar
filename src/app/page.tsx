@@ -9,6 +9,7 @@ import UsageView from "@/components/usage-view";
 import Sam3dView from "@/components/sam3d-view";
 import Sam3View from "@/components/sam3-view";
 import ModelsPage from "@/components/models-page";
+import ArenaView from "@/components/arena-view";
 import ModelFootprint, { type Footprint } from "@/components/model-footprint";
 import Markdown from "@/components/markdown";
 import { ServiceLogsButton } from "@/components/service-control";
@@ -322,7 +323,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const valid = new Set<ConsoleTab>(["stack", "services", "storage", "llm", "speech", "qwen", "requests", "usage", "sam3d", "sam3", "models"]);
+    const valid = new Set<ConsoleTab>(["stack", "services", "storage", "llm", "arena", "speech", "qwen", "requests", "usage", "sam3d", "sam3", "models"]);
     const resolve = () => {
       const hash = window.location.hash.slice(1) as ConsoleTab;
       const saved = window.localStorage.getItem("bt-active-tab") as ConsoleTab | null;
@@ -659,6 +660,7 @@ export default function Home() {
     // this as a second, weaker generator for FLUX; the model is a picker inside
     // the studio now, so both share its gallery, queue and Activity feed.
     { id: "qwen" as const, label: "Image" },
+    { id: "arena" as const, label: "Arena" },
     { id: "requests" as const, label: "Requests" },
     { id: "usage" as const, label: "Usage" },
     { id: "sam3d" as const, label: "3D Body" },
@@ -1704,6 +1706,9 @@ export default function Home() {
 
         {/* ── IMAGE TAB — Qwen-Image + FLUX, model picked inside the studio ── */}
         {tab === "qwen" && <QwenTab />}
+
+        {/* Arena — one prompt across several chat/vision models, scored. */}
+        {tab === "arena" && <ArenaView />}
 
         {/* ── REQUESTS TAB ── */}
         {tab === "requests" && <RequestsView />}

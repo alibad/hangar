@@ -103,6 +103,39 @@ export default function ModelPicker({
     setProvider(activeModel && !activeModel.local ? activeModel.provider : providers[0]);
   }, [provider, providers, activeModel]);
 
+  /** Free the card without stopping the runtime. See /api/ollama/unload. */
+  const unload = async (id: string) => {
+    setBusy(id);
+    setError(null);
+    try {
+      const r = await fetch("/api/ollama/unload", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ model: id }),
+      });
+      const j = await r.json();
+      if (!r.ok) setError(j.error ?? "Could not unload");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(null);
+      load();
+    }
+  };
+
+  /**
+   * How many local models sit on the single most-shared runtime. Greater than one
+   * means this lane is showing mutually exclusive options, not additive ones.
+   */
+  const sharedRuntimeCount = (() => {
+    const byService = new Map<string, number>();
+    for (const m of local) {
+      if (!m.serviceId) continue;
+      byService.set(m.serviceId, (byService.get(m.serviceId) ?? 0) + 1);
+    }
+    return Math.max(0, ...byService.values());
+  })();
+
   const select = async (id: string) => {
     setBusy(id);
     setError(null);
@@ -113,7 +146,15 @@ export default function ModelPicker({
       // side by side, so that tab leaves this off.
       const picked = eligible.find((m) => m.id === id);
       if (exclusiveLocal && picked?.local) {
-        const others = local.filter((m) => m.id !== id && m.serviceId && m.status === "ready");
+        // Never stop a service that also hosts the model being selected. Three
+        // Ollama aliases share one `ollama` service, so "stop the others" used to
+        // resolve to stopping the runtime behind the model just chosen — the user
+        // pressed Use and the thing they picked went down. Models on a SHARED
+        // runtime are excluded here and displaced by that runtime instead: Ollama
+        // runs one model at a time and evicts the previous on load.
+        const others = local.filter(
+          (m) => m.id !== id && m.serviceId && m.serviceId !== picked.serviceId && m.status === "ready",
+        );
         await Promise.all(
           others.map((m) =>
             fetch(`/api/services/${m.serviceId}`, {
@@ -193,11 +234,32 @@ export default function ModelPicker({
             No local {cap?.label.toLowerCase()} model. Cloud is the only option here.
           </p>
         ) : (
-          // Every local model for this capability gets its own row, so a tab with
-          // two of them (Whisper + Kokoro, two vLLMs) is managed in one place.
+          <>
+          {/* Footprints are per-model, so a lane of three 20+ GB models shows
+              ~73 GB of VRAM on a 31.8 GB card and reads as though they coexist.
+              They do not: models sharing one runtime are mutually exclusive, and
+              saying so once here is clearer than repeating it on every row. */}
+          {sharedRuntimeCount > 1 && (
+            <p className="mb-1.5 text-[10px] leading-snug text-gray-500">
+              {sharedRuntimeCount} of these share one runtime and run{" "}
+              <strong className="font-medium text-gray-400">one at a time</strong> — loading one evicts the last. The
+              VRAM figures below are each model&apos;s own cost, not a total.
+            </p>
+          )}
+          {/* Every local model for this capability gets its own row, so a tab with
+              two of them (Whisper + Kokoro, two vLLMs) is managed in one place. */}
           <ul className="space-y-1.5">
             {local.map((m) => {
-              const on = m.status === "ready";
+              const serviceUp = m.status === "ready";
+              // `loaded` is only defined for on-demand runtimes (Ollama). For a
+              // pinned service like vLLM, the service being up IS the model being
+              // up, and there is no separate question to ask.
+              const onDemand = m.loaded !== undefined;
+              const on = onDemand ? m.loaded === true : serviceUp;
+              const stateLabel = !onDemand
+                ? serviceUp ? "running" : "stopped"
+                : !serviceUp ? "runtime stopped"
+                : m.loaded ? "loaded" : "ready to load";
               const chosen = m.id === active;
               return (
                 <li
@@ -213,12 +275,12 @@ export default function ModelPicker({
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-medium text-gray-100">
-                      {m.id} <span className="font-normal text-gray-500">{on ? "· running" : "· stopped"}</span>
+                      {m.id} <span className="font-normal text-gray-500">· {stateLabel}</span>
                     </p>
                     <p className="truncate text-[10px] text-gray-500">
                       {m.target}
                       {m.params ? ` · ${m.params}` : ""}
-                      {!on && m.detail ? ` · ${m.detail}` : ""}
+                      {!serviceUp && m.detail ? ` · ${m.detail}` : ""}
                     </p>
                     {/* Start/Stop sits right there — say what starting it costs. */}
                     <ModelFootprint footprint={m.footprint} className="mt-1" />
@@ -226,13 +288,28 @@ export default function ModelPicker({
                   {/* Shared lifecycle: adds the in-progress state and failure
                       reporting this row used to swallow. Restart is left out —
                       a model you're about to use wants Start or Stop, not a bounce. */}
-                  {m.serviceId && (
-                    <ServiceControl
-                      id={m.serviceId}
-                      up={on}
-                      probe={() => probeService(m.serviceId!)}
-                      actions={["stop"]}
-                    />
+                  {/* On a shared runtime, Stop means "unload this model" — the
+                      service-level Stop would take every sibling alias down with
+                      it. On a pinned service it still means stop the service. */}
+                  {onDemand ? (
+                    <button
+                      type="button"
+                      disabled={!on || busy === m.id}
+                      onClick={() => unload(m.id)}
+                      title={on ? "Unload this model and free the card" : "Not loaded"}
+                      className="rounded-md border border-gray-700 px-2 py-1 text-[11px] text-gray-300 disabled:opacity-30"
+                    >
+                      Unload
+                    </button>
+                  ) : (
+                    m.serviceId && (
+                      <ServiceControl
+                        id={m.serviceId}
+                        up={on}
+                        probe={() => probeService(m.serviceId!)}
+                        actions={["stop"]}
+                      />
+                    )
                   )}
                   <button
                     disabled={chosen || busy === m.id}
@@ -245,6 +322,7 @@ export default function ModelPicker({
               );
             })}
           </ul>
+          </>
         )
       )}
 

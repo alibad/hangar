@@ -164,6 +164,37 @@ export const SERVICE_REGISTRY: ServiceEntry[] = [
     authRequired: false,
   },
   {
+    // Ollama — the box's second LLM runtime, beside vLLM. It exists because
+    // vLLM cannot serve everything: the vLLM image here is 0.17.1 and has no
+    // `gemma4` architecture at all (that needs >= 0.19, a ~30 GB image pull),
+    // while Ollama runs Gemma 4, Qwen3-VL and Qwen3 today under one engine.
+    //
+    // The division of labour is deliberate, not redundancy:
+    //   vLLM   — one model, pinned resident, reserved VRAM, high throughput.
+    //            The right shape for a service something calls all day.
+    //   Ollama — many models, one resident at a time, loaded on demand and
+    //            evicted after keep_alive. The right shape for evaluation and
+    //            for capabilities used occasionally (vision).
+    //
+    // localOnly for the same reason as the router: this is a bare HTTP API with
+    // no auth on a machine-local port, and it must never acquire a tunnel
+    // hostname. Its models are reachable from off-box only by going through a
+    // system that is itself exposed, never directly.
+    //
+    // Usually started by the Ollama tray app rather than by the manager. That is
+    // fine and needs no change: `externalPid()` adopts the running process, so
+    // the card reports it as externally owned and Stop still works.
+    id: "ollama",
+    name: "Ollama (Gemma 4 / Qwen3-VL)",
+    localPort: 11434,
+    localUrl: "http://localhost:11434",
+    publicUrl: "http://localhost:11434", // intentionally not a public hostname
+    healthPath: "/api/tags",
+    category: "ai",
+    authRequired: false,
+    localOnly: true,
+  },
+  {
     // AI Router — a LiteLLM proxy giving one OpenAI-compatible endpoint for
     // every model this box can reach: local (vLLM, Qwen-Image) and cloud
     // (OpenAI, Gemini, Anthropic). Model aliases live in config/ai-router.yaml,

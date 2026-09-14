@@ -29,6 +29,7 @@ const SERVICES = [
   { id: "comfyui",    name: "ComfyUI",        port: 8188, healthPath: "/system_stats", category: "ai" },
   { id: "sam3d",      name: "SAM 3D Body",    port: 8009, healthPath: "/health",       category: "ai" },
   { id: "sam3",       name: "SAM 3",          port: 8010, healthPath: "/health",       category: "ai" },
+  { id: "ollama",     name: "Ollama",         port: 11434, healthPath: "/api/tags",      category: "ai" },
   { id: "ai-router",  name: "AI Router",      port: 4000, healthPath: "/health/liveliness", category: "ai" },
 ];
 

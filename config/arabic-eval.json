@@ -1,0 +1,187 @@
+{
+  "_doc": "Arabic LLM + OCR evaluation corpus. Read by scripts/arabic-fixtures.py (which renders the OCR images) and scripts/experiment-arabic.mjs (which runs the models and scores them). Every Arabic passage here is ORIGINAL text written for this corpus, not quoted from a published source: a benchmark built from famous text measures memorisation rather than reading, and a corpus built from copyrighted text cannot be committed. References for the translation items are likewise written by hand so chrF has something defensible to score against.",
+
+  "_scoring_doc": "Each item names the checks that apply to it. `cer` reports strict AND normalized character/word error rates (see src/lib/text-scoring.ts for why both). `chrf` scores a translation against `reference`. `fields` scores extracted JSON against `expectFields`. `arabic` asserts the reply is actually in Arabic. `bullets` counts list items. Nothing here scores style — that is what the optional cloud judge in the Arena is for.",
+
+  "version": "2026-09-14",
+
+  "ocr": [
+    {
+      "id": "ocr-arial-plain",
+      "title": "Clean MSA paragraph, Arial 34px",
+      "kind": "render",
+      "font": "arial.ttf",
+      "size": 34,
+      "why": "The control. Everything else is this passage made harder, so a model's score here is the ceiling its other OCR scores are read against.",
+      "text": "تقع المدينة على ساحل طويل تحيط به الجبال من جهة الشرق. يعمل معظم سكانها في صيد الأسماك والتجارة البحرية. وقد شهدت في السنوات الأخيرة نموا عمرانيا واسعا، فارتفعت المباني الحديثة بجوار البيوت القديمة.",
+      "prompt": "Transcribe all the Arabic text in this image exactly as written. Output only the transcription, with no commentary, no translation, and no explanation.",
+      "checks": ["cer"]
+    },
+    {
+      "id": "ocr-times-serif",
+      "title": "Same passage, Times New Roman 34px",
+      "kind": "render",
+      "font": "times.ttf",
+      "size": 34,
+      "why": "Isolates typeface sensitivity: identical characters, different letterforms. A model that drops only here is reading shapes it has not seen, not failing at Arabic.",
+      "text": "تقع المدينة على ساحل طويل تحيط به الجبال من جهة الشرق. يعمل معظم سكانها في صيد الأسماك والتجارة البحرية. وقد شهدت في السنوات الأخيرة نموا عمرانيا واسعا، فارتفعت المباني الحديثة بجوار البيوت القديمة.",
+      "prompt": "Transcribe all the Arabic text in this image exactly as written. Output only the transcription, with no commentary, no translation, and no explanation.",
+      "checks": ["cer"]
+    },
+    {
+      "id": "ocr-tahoma-small",
+      "title": "Same passage, Tahoma 17px",
+      "kind": "render",
+      "font": "tahoma.ttf",
+      "size": 17,
+      "why": "Resolution stress. Arabic loses legibility faster than Latin at small sizes because letters differ only by dot count and position, and dots are the first thing to blur away.",
+      "text": "تقع المدينة على ساحل طويل تحيط به الجبال من جهة الشرق. يعمل معظم سكانها في صيد الأسماك والتجارة البحرية. وقد شهدت في السنوات الأخيرة نموا عمرانيا واسعا، فارتفعت المباني الحديثة بجوار البيوت القديمة.",
+      "prompt": "Transcribe all the Arabic text in this image exactly as written. Output only the transcription, with no commentary, no translation, and no explanation.",
+      "checks": ["cer"]
+    },
+    {
+      "id": "ocr-tashkeel",
+      "title": "Fully vocalised text with diacritics, Arial 38px",
+      "kind": "render",
+      "font": "arial.ttf",
+      "size": 38,
+      "why": "The one item where the strict/normalized gap is the whole point. Reproducing harakat is a genuinely harder task than reading the consonantal skeleton, and the two numbers separate those abilities.",
+      "text": "العِلْمُ نُورٌ يُضِيءُ طَرِيقَ الإِنْسَانِ، وَالجَهْلُ ظَلَامٌ يُحِيطُ بِهِ مِنْ كُلِّ جَانِبٍ. فَاطْلُبِ المَعْرِفَةَ مَا دُمْتَ حَيًّا.",
+      "prompt": "Transcribe all the Arabic text in this image exactly as written, including every diacritical mark (tashkeel). Output only the transcription, with no commentary.",
+      "checks": ["cer"]
+    },
+    {
+      "id": "ocr-digits",
+      "title": "Arabic-Indic digits, percentages and a date, Arial 34px",
+      "kind": "render",
+      "font": "arial.ttf",
+      "size": 34,
+      "why": "Digits run left-to-right inside right-to-left text, so this tests bidirectional layout handling rather than letter recognition. A model that reads the words but reverses the numbers fails in a way a paragraph test cannot see.",
+      "text": "صدر التقرير بتاريخ ١٢ مارس ٢٠٢٦، وبلغ إجمالي المبيعات ٤٥٧٨٠ ريالا، بزيادة قدرها ١٧٪ عن العام الماضي. وسجل الفرع الشمالي ٩٨٦ طلبا خلال ٣٠ يوما.",
+      "prompt": "Transcribe all the Arabic text in this image exactly as written, keeping every number exactly as it appears. Output only the transcription, with no commentary.",
+      "checks": ["cer"]
+    },
+    {
+      "id": "ocr-degraded",
+      "title": "Control passage, degraded: rotated, blurred, JPEG-compressed, noisy",
+      "kind": "render",
+      "font": "arial.ttf",
+      "size": 34,
+      "degrade": true,
+      "why": "The only item resembling a real scan or phone photo. Clean-render scores flatter every model; this is the one that predicts behaviour on a document somebody actually photographed.",
+      "text": "تقع المدينة على ساحل طويل تحيط به الجبال من جهة الشرق. يعمل معظم سكانها في صيد الأسماك والتجارة البحرية. وقد شهدت في السنوات الأخيرة نموا عمرانيا واسعا، فارتفعت المباني الحديثة بجوار البيوت القديمة.",
+      "prompt": "Transcribe all the Arabic text in this image exactly as written. The image is low quality; transcribe what you can read. Output only the transcription, with no commentary.",
+      "checks": ["cer"]
+    },
+    {
+      "id": "ocr-degraded-heavy",
+      "title": "Control passage, heavily degraded: downscaled, skewed, uneven lighting, JPEG q18",
+      "kind": "render",
+      "font": "arial.ttf",
+      "size": 34,
+      "degrade": "heavy",
+      "why": "Added after the first run, because the mild degradation did not discriminate: Gemma 4 read it at 0% CER, and a corpus every model aces measures nothing. This is a deliberately harsh simulation of a phone photo of a printed page — half resolution, 3.5 degrees of skew, a lighting gradient and heavy compression. It is kept ALONGSIDE ocr-degraded rather than replacing it, so the pair shows where each model's reading actually breaks down.",
+      "text": "تقع المدينة على ساحل طويل تحيط به الجبال من جهة الشرق. يعمل معظم سكانها في صيد الأسماك والتجارة البحرية. وقد شهدت في السنوات الأخيرة نموا عمرانيا واسعا، فارتفعت المباني الحديثة بجوار البيوت القديمة.",
+      "prompt": "Transcribe all the Arabic text in this image exactly as written. The image is low quality; transcribe what you can read. Output only the transcription, with no commentary.",
+      "checks": ["cer"]
+    },
+    {
+      "id": "ocr-invoice-json",
+      "title": "Rendered Arabic invoice, extracted to JSON",
+      "kind": "render",
+      "font": "arial.ttf",
+      "size": 28,
+      "layout": "invoice",
+      "why": "Reading is necessary but not sufficient for document work. This needs spatial understanding of a table plus arithmetic-free field association, and it is scored on extracted values rather than on a transcription, so a model that reads well but cannot structure is separated out.",
+      "text": "فاتورة\nرقم الفاتورة: INV-2026-0412\nالتاريخ: ١٤ سبتمبر ٢٠٢٦\nالعميل: شركة الواحة للتجارة\n\nالبند | الكمية | السعر\nأجهزة حاسوب محمولة | ٥ | ١٢٠٠٠\nشاشات عرض | ٨ | ٢٤٠٠\nطابعات ليزر | ٣ | ١٨٠٠\n\nالإجمالي: ٨١٦٠٠ ريال",
+      "prompt": "Read this Arabic invoice and return ONLY a JSON object with exactly these keys: invoice_number, date, customer, total, line_item_count. Use the values printed in the document. Write numbers using Western digits. No commentary, no markdown fence.",
+      "expectFields": {
+        "invoice_number": "INV-2026-0412",
+        "customer": "شركة الواحة للتجارة",
+        "total": "81600",
+        "line_item_count": "3"
+      },
+      "checks": ["fields"]
+    },
+    {
+      "id": "ocr-specimen-bahrain",
+      "title": "Bahrain ID data page (Wikimedia specimen)",
+      "kind": "specimen",
+      "file": "038_bhr_data_page_2023.png",
+      "why": "A real bilingual government layout with Arabic and Latin side by side, small print and security patterning. No ground truth exists for it, so it is scored by hand rather than by CER — included because the rendered fixtures cannot reproduce this kind of visual noise.",
+      "prompt": "Transcribe all the text visible in this identity document, listing the Arabic text and the Latin text separately. Output only the transcription.",
+      "checks": ["qualitative"]
+    },
+    {
+      "id": "ocr-specimen-palestinian",
+      "title": "Palestinian passport data page (Wikimedia specimen)",
+      "kind": "specimen",
+      "file": "026_palestinian_passpot_specimen.jpg",
+      "why": "Low-resolution bilingual passport page with an MRZ. Tests whether a model degrades gracefully on a genuinely poor scan. Qualitative, for the same reason as the Bahrain page.",
+      "prompt": "Transcribe all the text visible in this passport data page, listing the Arabic text and the Latin text separately. Output only the transcription.",
+      "checks": ["qualitative"]
+    }
+  ],
+
+  "text": [
+    {
+      "id": "txt-translate-ar-en",
+      "title": "MSA to English",
+      "why": "Comprehension without the confound of Arabic generation. A model can understand Arabic and write it poorly; this half isolates the understanding.",
+      "prompt": "Translate the following Arabic text into natural English. Output only the translation.\n\nتقع المدينة على ساحل طويل تحيط به الجبال من جهة الشرق. يعمل معظم سكانها في صيد الأسماك والتجارة البحرية. وقد شهدت في السنوات الأخيرة نموا عمرانيا واسعا، فارتفعت المباني الحديثة بجوار البيوت القديمة.",
+      "reference": "The city lies on a long coastline surrounded by mountains to the east. Most of its residents work in fishing and maritime trade. In recent years it has seen extensive urban growth, and modern buildings have risen alongside the old houses.",
+      "checks": ["chrf"]
+    },
+    {
+      "id": "txt-translate-en-ar",
+      "title": "English to MSA",
+      "why": "The generation half. Fluent Arabic output is where smaller and less multilingual models usually break first, producing calques or drifting into dialect.",
+      "prompt": "Translate the following English text into formal Modern Standard Arabic. Output only the translation.\n\nThe committee agreed to postpone the decision until the next meeting, after the finance department submits its report on the cost of the project.",
+      "reference": "وافقت اللجنة على تأجيل القرار حتى الاجتماع المقبل، بعد أن تقدم إدارة الشؤون المالية تقريرها عن تكلفة المشروع.",
+      "checks": ["chrf", "arabic"]
+    },
+    {
+      "id": "txt-dialect-to-msa",
+      "title": "Levantine dialect to MSA",
+      "why": "Dialect handling is the clearest separator between a model trained on Arabic and one trained on translated Arabic. Dialect is most of what Arabic speakers actually write online and almost none of what standard corpora contain.",
+      "prompt": "Rewrite the following colloquial Levantine Arabic sentence in formal Modern Standard Arabic. Output only the rewritten sentence.\n\nشو رأيك نروح ع المطعم اللي فتح جنب البيت، سمعت إنو أكلو كتير طيب وأسعارو مش غالية.",
+      "reference": "ما رأيك أن نذهب إلى المطعم الذي افتتح بجوار المنزل، فقد سمعت أن طعامه لذيذ جدا وأسعاره ليست مرتفعة.",
+      "checks": ["chrf", "arabic"]
+    },
+    {
+      "id": "txt-grammar",
+      "title": "Correct grammatical errors in MSA",
+      "why": "Requires knowing the rules rather than recognising a familiar string. The errors planted here are agreement and case, which a model producing plausible-sounding Arabic will often reproduce instead of fixing.",
+      "prompt": "The following Arabic sentence contains grammatical errors. Rewrite it correctly in Modern Standard Arabic. Output only the corrected sentence.\n\nذهب الطالبان إلى المكتبة وقرأ ثلاثة كتب، ثم كتبوا تقريرا عن ما قرأه.",
+      "reference": "ذهب الطالبان إلى المكتبة وقرآ ثلاثة كتب، ثم كتبا تقريرا عما قرآه.",
+      "checks": ["chrf", "arabic"]
+    },
+    {
+      "id": "txt-json-extract",
+      "title": "Structured extraction from an Arabic notice",
+      "why": "The shape of most real work: Arabic in, machine-readable out. It also tests instruction compliance under a format constraint, which models often abandon when the content language is not English.",
+      "prompt": "Extract the details from the following Arabic notice and return ONLY a JSON object with exactly these keys: applicant_name, national_id, amount, city. Write numbers using Western digits. No commentary, no markdown fence.\n\nتقدم السيد خالد بن عمر المنصوري، حامل الهوية الوطنية رقم ٢٨٤٥١٧٠٩٣، بطلب لصرف مبلغ قدره ٧٥٠٠ ريال، وذلك من فرع مدينة الدمام.",
+      "expectFields": {
+        "applicant_name": "خالد بن عمر المنصوري",
+        "national_id": "284517093",
+        "amount": "7500",
+        "city": "الدمام"
+      },
+      "checks": ["fields"]
+    },
+    {
+      "id": "txt-summarize",
+      "title": "Two-sentence Arabic summary",
+      "why": "Scored on compliance, not prose: did it answer in Arabic, and did it honour a hard length constraint. Whether the summary is GOOD is a judgment call, which is what the Arena's judge button is for.",
+      "prompt": "لخص النص التالي في جملتين اثنتين فقط باللغة العربية الفصحى. لا تكتب أي شيء آخر.\n\nشهدت صناعة النقل البحري تحولا كبيرا خلال العقد الماضي، إذ دفعت اللوائح البيئية الجديدة شركات الشحن إلى تجديد أساطيلها واستخدام وقود أقل تلويثا. وقد رفع ذلك تكاليف التشغيل في المدى القصير، غير أن كثيرا من الشركات ترى أن الاستثمار سيؤتي ثماره مع ارتفاع رسوم الانبعاثات. وفي الوقت نفسه، أدى ازدحام الموانئ الرئيسية إلى تأخيرات متكررة، مما دفع بعض المصدرين إلى البحث عن موانئ بديلة أصغر حجما.",
+      "checks": ["arabic", "sentences:2"]
+    },
+    {
+      "id": "txt-instruct-bullets",
+      "title": "Hard format constraint in Arabic",
+      "why": "Deterministically checkable instruction following. A model that writes four bullets, or slips into English, has failed in a way no quality score would catch.",
+      "prompt": "اذكر بالضبط ثلاث فوائد للنقل العام، كل فائدة في سطر مستقل يبدأ بعلامة ناقص (-). اكتب بالعربية فقط ولا تضف مقدمة أو خاتمة.",
+      "checks": ["arabic", "bullets:3"]
+    }
+  ]
+}

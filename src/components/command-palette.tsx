@@ -15,9 +15,10 @@ import {
   Settings2,
   X,
   type LucideIcon,
+  Swords,
 } from "lucide-react";
 
-export type ConsoleTab = "stack" | "services" | "storage" | "llm" | "speech" | "qwen" | "requests" | "usage" | "sam3d" | "sam3" | "models";
+export type ConsoleTab = "stack" | "services" | "storage" | "llm" | "arena" | "speech" | "qwen" | "requests" | "usage" | "sam3d" | "sam3" | "models";
 
 type Destination = {
   id: ConsoleTab;
@@ -32,6 +33,7 @@ const DESTINATIONS: Destination[] = [
   { id: "services", label: "Services", hint: "Inspect and control every local process", keywords: "start stop restart logs ports health infrastructure", icon: Settings2 },
   { id: "storage", label: "Storage", hint: "Map drives, find large files and manage moves", keywords: "disk drive files folders space duplicates cache watch move explorer", icon: HardDrive },
   { id: "llm", label: "LLM", hint: "Chat with the active text model", keywords: "chat text vllm qwen", icon: Brain },
+  { id: "arena", label: "Arena", hint: "Compare several models on one prompt", keywords: "compare benchmark arabic ocr vision judge side by side", icon: Swords },
   { id: "speech", label: "Speech", hint: "Transcribe and synthesize audio", keywords: "whisper stt tts voice audio", icon: Mic },
   { id: "qwen", label: "Image", hint: "Generate, edit, queue and browse", keywords: "qwen flux creative gallery", icon: Image },
   { id: "requests", label: "Requests", hint: "Inspect traffic, failures and spend", keywords: "logs activity api traffic errors", icon: Activity },
