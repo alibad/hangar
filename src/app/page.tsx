@@ -31,13 +31,9 @@ import {
   Sun, Moon, LayoutGrid, List, AlertTriangle, type LucideIcon,
 } from "lucide-react";
 import { hostHasTab } from "@/lib/host";
+import HostUnavailable from "@/components/host-unavailable";
 
 // Small inline spinner shown while a service action (start/stop/restart) is in flight.
-/** Service id → the tab it backs, for the tab-visibility check. */
-const TAB_OF: Record<string, string> = {
-  whisper: "speech", tts: "speech", qwen: "qwen", comfyui: "qwen", sam3d: "sam3d", sam3: "sam3",
-};
-
 function Spinner() {
   return <span className="inline-block w-3 h-3 rounded-full border-[1.5px] border-current border-t-transparent animate-spin align-[-2px]" />;
 }
@@ -687,11 +683,6 @@ export default function Home() {
   );
   const queueDepth = (resourceControl?.queue.length ?? 0) + (resourceControl?.starts.length ?? 0);
 
-  /** A tab for a service that is not registered on this host would be a permanent
-   *  "unavailable" — hide it instead. Resolved from the build-time host profile
-   *  (not the /api/host fetch) so the tab bar is correct on the first paint
-   *  rather than briefly showing tabs that then vanish. */
-  const has = (...ids: string[]) => ids.some((id) => hostHasTab(TAB_OF[id] ?? id));
   const tabs = [
     // Services and GPU were two views of the same local processes — one listing
     // them, one duplicating their controls under a GPU header. Merged into
@@ -701,18 +692,18 @@ export default function Home() {
     { id: "services" as const, label: "Services" },
     { id: "storage" as const, label: "Storage" },
     { id: "llm" as const, label: "LLM" },
-    ...(has("whisper", "tts") ? [{ id: "speech" as const, label: "Speech" }] : []),
+    { id: "speech" as const, label: "Speech" },
     // One tab for every image model on the box. "Creative" used to sit beside
     // this as a second, weaker generator for FLUX; the model is a picker inside
     // the studio now, so both share its gallery, queue and Activity feed.
-    ...(has("qwen", "comfyui") ? [{ id: "qwen" as const, label: "Image" }] : []),
+    { id: "qwen" as const, label: "Image" },
     // Not gated on a service: the Arena compares cloud models too, so it is
     // useful on a host running no local models at all.
     { id: "arena" as const, label: "Arena" },
     { id: "requests" as const, label: "Requests" },
     { id: "usage" as const, label: "Usage" },
-    ...(has("sam3d") ? [{ id: "sam3d" as const, label: "3D Body" }] : []),
-    ...(has("sam3") ? [{ id: "sam3" as const, label: "Segment" }] : []),
+    { id: "sam3d" as const, label: "3D Body" },
+    { id: "sam3" as const, label: "Segment" },
     { id: "models" as const, label: "Models" },
   ];
 
@@ -1620,7 +1611,8 @@ export default function Home() {
         )}
 
         {/* ── SPEECH TAB ── */}
-        {tab === "speech" && (
+        {tab === "speech" && !hostHasTab("speech") && <HostUnavailable tab="speech" title="Speech" />}
+        {tab === "speech" && hostHasTab("speech") && (
           <div className="tool-page speech-page">
             <ToolPageHeader
               eyebrow="Voice workstream"
@@ -1755,7 +1747,7 @@ export default function Home() {
         {/* ── CREATIVE TAB ── */}
 
         {/* ── IMAGE TAB — Qwen-Image + FLUX, model picked inside the studio ── */}
-        {tab === "qwen" && <QwenTab />}
+        {tab === "qwen" && (hostHasTab("qwen") ? <QwenTab /> : <HostUnavailable tab="qwen" title="Image Studio" />)}
 
         {/* Arena — one prompt across several chat/vision models, scored. */}
         {tab === "arena" && <ArenaView />}
@@ -1767,8 +1759,8 @@ export default function Home() {
         {tab === "usage" && <UsageView />}
 
         {/* ── SAM3D TAB ── */}
-        {tab === "sam3d" && <Sam3dView />}
-        {tab === "sam3" && <Sam3View />}
+        {tab === "sam3d" && (hostHasTab("sam3d") ? <Sam3dView /> : <HostUnavailable tab="sam3d" title="3D Body" />)}
+        {tab === "sam3" && (hostHasTab("sam3") ? <Sam3View /> : <HostUnavailable tab="sam3" title="Segment" />)}
 
         {/* ── MODELS / AI ROUTER TAB ── */}
         {tab === "models" && <ModelsPage />}

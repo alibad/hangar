@@ -28,6 +28,9 @@ type Props = {
 // Filtered to what this machine can actually back — the same rule the tab bar
 // uses. Unfiltered, a Mac with only Ollama still listed Image Studio, Speech,
 // 3D Body and Segment here, every one of them opening a tab that is hidden.
+// Every workstream, on every machine. Availability is SHOWN, never used to hide:
+// a console that drops entries on one box reads as a different, smaller product
+// and conceals exactly what that box cannot do.
 const workstreams = ([
   { id: "llm", label: "Chat & Code", hint: "Local text models" },
   // Directly under Chat & Code: it answers the question that tab provokes —
@@ -37,7 +40,12 @@ const workstreams = ([
   { id: "speech", label: "Speech", hint: "Transcribe and synthesize" },
   { id: "sam3d", label: "3D Body", hint: "Human mesh and pose" },
   { id: "sam3", label: "Segment", hint: "Open-vocabulary masks" },
-] as Array<{ id: ConsoleTab; label: string; hint: string }>).filter((item) => hostHasTab(item.id));
+] as Array<{ id: ConsoleTab; label: string; hint: string }>).map((item) => ({
+  ...item,
+  // Present on every machine; a host that cannot back it is marked here and
+  // explains itself on the page, rather than the entry disappearing.
+  available: hostHasTab(item.id),
+}));
 
 // What is flowing through the stack, and what it costs.
 const insights: Array<{ id: ConsoleTab; label: string; hint: string }> = [
@@ -119,7 +127,14 @@ export default function ConsoleHeader({
             <div className="absolute left-0 top-[54px] w-56 overflow-hidden rounded-xl border border-gray-700 bg-gray-950 p-1.5 shadow-2xl">
               {workstreams.map((item) => (
                 <button key={item.id} type="button" onClick={() => selectWorkstream(item.id)} className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-gray-800">
-                  <span className="block text-xs font-medium text-gray-200">{item.label}</span>
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-gray-200">
+                    {item.label}
+                    {!item.available && (
+                      <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 text-[9px] font-medium text-amber-300">
+                        not on this machine
+                      </span>
+                    )}
+                  </span>
                   <span className="block text-[10px] text-gray-600">{item.hint}</span>
                 </button>
               ))}

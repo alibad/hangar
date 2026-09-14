@@ -144,13 +144,16 @@ export function memoryLabel(): string {
 }
 
 /**
- * Which services a console tab needs to be worth showing.
+ * Which services a console tab needs before it can do anything.
  *
- * One rule, used by BOTH the tab bar and the header's Workstreams menu — those
- * were two hardcoded lists of BeTenshi's surfaces, so a host without SAM or
- * Qwen-Image still offered "Segment", "3D Body" and "Image Studio" in the menu
- * and linked to tabs that were not there. A tab with no entry here (Home,
- * Services, Models, Requests, Usage, Storage) is host-independent.
+ * These tabs are NEVER hidden. A console that drops half its navigation on one
+ * machine reads as a different, smaller product, and it hides the very thing
+ * you want to know — what this box can and cannot do. Every surface is present
+ * on every host; one that has nothing behind it here says so, in place, and
+ * names what is missing.
+ *
+ * A tab absent from this map (Home, Services, Models, Requests, Usage, Storage,
+ * Arena) is host-independent and always usable.
  */
 const TAB_SERVICES: Record<string, string[]> = {
   speech: ["whisper", "tts"],
@@ -159,18 +162,42 @@ const TAB_SERVICES: Record<string, string[]> = {
   sam3: ["sam3"],
 };
 
-/** Can this host back the given tab? Resolved from the build-time profile, so
- *  the answer is right on the first paint rather than after /api/host lands. */
-export function hostHasTab(tab: string): boolean {
-  const needs = TAB_SERVICES[tab];
-  if (!needs?.length) return true;
+export type TabSupport = {
+  /** Is at least one backing service registered on this host? */
+  available: boolean;
+  /** Every service that could back this tab. Empty for host-independent tabs. */
+  needs: string[];
+  /** Those this host does not have. */
+  missing: string[];
+};
+
+/**
+ * What this host can do for a tab. Resolved from the build-time profile, so the
+ * answer is right on the first paint rather than after /api/host lands.
+ */
+export function tabSupport(tab: string): TabSupport {
+  const needs = TAB_SERVICES[tab] ?? [];
+  if (!needs.length) return { available: true, needs, missing: [] };
   const have = new Set(getHost().services.map((s) => s.id));
-  return needs.some((id) => have.has(id));
+  const missing = needs.filter((id) => !have.has(id));
+  return { available: missing.length < needs.length, needs, missing };
 }
 
-/** Workstreams this host can actually offer, in a stable order. */
-export function getWorkstreams(): Partial<Record<WorkstreamKind, Workstream>> {
-  return getHost().workstreams;
+/** Convenience: can this host back the tab at all? */
+export function hostHasTab(tab: string): boolean {
+  return tabSupport(tab).available;
+}
+
+/**
+ * Per-host OVERRIDES for the canonical workstreams, not a replacement list.
+ *
+ * The four cards (Chat & Code, Image Studio, Speech, Vision & 3D) exist on every
+ * host; a profile only says where THIS machine differs — B5 backs Chat & Code
+ * with Ollama rather than vLLM, so it overrides the model and service for that
+ * one slot and says nothing about the rest.
+ */
+export function getWorkstreamOverrides(): Partial<Record<WorkstreamKind, Partial<Workstream>>> {
+  return getHost().workstreams as Partial<Record<WorkstreamKind, Partial<Workstream>>>;
 }
 
 /**
