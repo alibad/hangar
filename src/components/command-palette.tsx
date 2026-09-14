@@ -35,7 +35,7 @@ const DESTINATIONS: Destination[] = [
   { id: "speech", label: "Speech", hint: "Transcribe and synthesize audio", keywords: "whisper stt tts voice audio", icon: Mic },
   { id: "qwen", label: "Image", hint: "Generate, edit, queue and browse", keywords: "qwen flux creative gallery", icon: Image },
   { id: "requests", label: "Requests", hint: "Inspect traffic, failures and spend", keywords: "logs activity api traffic errors", icon: Activity },
-  { id: "usage", label: "Usage", hint: "Claude Code tokens and cost over time", keywords: "claude tokens cost spend billing hourly daily monthly quarterly", icon: Gauge },
+  { id: "usage", label: "AI Usage", hint: "Router, Codex GPT and Claude token usage", keywords: "claude codex chatgpt gpt openai tokens cost spend billing daily monthly", icon: Gauge },
   { id: "sam3d", label: "3D Body", hint: "Recover human mesh and pose", keywords: "sam 3d pose body mesh", icon: Box },
   { id: "sam3", label: "Segment", hint: "Segment images and track video", keywords: "sam mask boxes tracking", icon: Scan },
   { id: "models", label: "Models", hint: "Choose routing by capability", keywords: "router providers configuration aliases", icon: Settings2 },

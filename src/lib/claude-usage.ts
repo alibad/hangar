@@ -76,6 +76,7 @@ type Event = {
   t: number;
   model: string;
   project: string;
+  projectPath?: string;
   session: string;
   input: number;
   output: number;
@@ -150,6 +151,7 @@ function parseFile(text: string): Array<Event & { key: string }> {
       t,
       model,
       project,
+      projectPath: typeof j.cwd === "string" ? j.cwd : undefined,
       session: j.sessionId || "",
       input,
       output,
@@ -162,7 +164,7 @@ function parseFile(text: string): Array<Event & { key: string }> {
   return rows;
 }
 
-async function loadEvents(): Promise<Event[]> {
+export async function loadEvents(): Promise<Event[]> {
   const paths = await listJsonl(PROJECTS_DIR);
   const live = new Set(paths);
   for (const k of fileCache.keys()) if (!live.has(k)) fileCache.delete(k);

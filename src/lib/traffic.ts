@@ -428,6 +428,7 @@ const EXTRA_LOG_SERVICES = ["manager"];
 // in sync with the set there; filtered here too so any already sitting in the
 // ring don't crowd out real traffic.
 const DASHBOARD_POLLS = new Set([
+  "/api/assistant-usage", "/api/claude-usage", "/api/router-usage",
   "/api/health", "/api/gpu", "/api/metrics", "/api/services", "/api/resources", "/api/routing", "/api/llm",
   "/api/qwen/health", "/api/qwen/progress", "/api/qwen/archive", "/api/qwen/images", "/api/qwen/prompts",
   "/api/sam3d/health", "/api/sam3/health", "/api/providers",
