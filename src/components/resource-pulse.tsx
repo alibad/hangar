@@ -4,11 +4,14 @@ import { ArrowRight, CheckCircle, Cpu, WarningCircle } from "@phosphor-icons/rea
 
 type GpuSnapshot = {
   name: string;
-  temperature: number;
-  gpu_util: number;
+  /** Null where the GPU exposes no such counter (Apple silicon). */
+  temperature: number | null;
+  gpu_util: number | null;
   mem_total: number;
   mem_used: number;
-  power_draw: number;
+  power_draw: number | null;
+  /** "unified" means the GPU meter and the RAM meter would be the same pool. */
+  memory_model?: "discrete" | "unified";
   host_ram?: { total_gb: number; free_gb: number; used_gb: number; pct_used: number };
   impact: "ok" | "good" | "warning" | "critical" | "busy";
   error?: string;
@@ -42,6 +45,7 @@ export default function ResourcePulse({ gpu, resources, onOpenDetails }: Props) 
   const queueDepth = (resources?.queue.length ?? 0) + (resources?.starts.length ?? 0);
   const constrained = gpu?.impact === "critical" || gpu?.impact === "warning";
   const unavailable = !gpu || Boolean(gpu.error);
+  const unified = gpu?.memory_model === "unified";
 
   return (
     <section className="resource-pulse sticky top-16 z-20 border-b border-gray-800 bg-gray-950/88 backdrop-blur-xl" aria-label="Live machine capacity">
@@ -66,15 +70,22 @@ export default function ResourcePulse({ gpu, resources, onOpenDetails }: Props) 
           </span>
 
           <span className="grid min-w-0 gap-1.5 lg:grid-cols-2 lg:gap-5">
-            <CapacityMeter label="GPU" used={vramUsed} free={vramFree} total={vramTotal} tone="vram" />
-            <CapacityMeter label="RAM" used={ramUsed} free={ramFree} total={ramTotal} tone="ram" />
+            {/* One pool on a unified-memory host: two meters would show the same number twice. */}
+            {unified ? (
+              <CapacityMeter label="Memory" used={ramUsed} free={ramFree} total={ramTotal} tone="ram" />
+            ) : (
+              <>
+                <CapacityMeter label="GPU" used={vramUsed} free={vramFree} total={vramTotal} tone="vram" />
+                <CapacityMeter label="RAM" used={ramUsed} free={ramFree} total={ramTotal} tone="ram" />
+              </>
+            )}
           </span>
 
           <span className="flex shrink-0 items-center gap-3">
             <span className="hidden items-center gap-3 border-l border-gray-800 pl-4 xl:flex">
-              <Metric label="Util" value={`${gpu?.gpu_util ?? 0}%`} />
-              <Metric label="Temp" value={`${gpu?.temperature ?? 0}°C`} />
-              <Metric label="Power" value={`${Math.round(gpu?.power_draw ?? 0)}W`} />
+              {gpu?.gpu_util != null && <Metric label="Util" value={`${gpu.gpu_util}%`} />}
+              {gpu?.temperature != null && <Metric label="Temp" value={`${gpu.temperature}°C`} />}
+              {gpu?.power_draw != null && <Metric label="Power" value={`${Math.round(gpu.power_draw)}W`} />}
               <Metric label="Queue" value={String(queueDepth)} />
             </span>
             <span className="resource-pulse-details hidden items-center gap-1 text-[11px] font-medium text-orange-300 sm:flex">

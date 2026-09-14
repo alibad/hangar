@@ -1,6 +1,33 @@
 import type { NextConfig } from "next";
+import os from "os";
+
+/**
+ * Decide which host profile this console runs as — ONCE, here, at config load.
+ *
+ * Published as NEXT_PUBLIC_HOST_ID so that server routes and client components
+ * read the same string, and no module below needs `os` (two client components
+ * import the service registry, and `os` does not bundle for the browser).
+ *
+ * Rule (mirrors resolveHostId in src/lib/host.ts, kept inline because config
+ * cannot import from src): explicit HOST_ID wins; then a hostname that names a
+ * profile; then a Mac is B5; everything else — including a Vercel build box,
+ * which is Linux with a random hostname — is BeTenshi, so the deployed console
+ * keeps its public targets exactly as before.
+ */
+function detectHostId(): string {
+  const known = new Set(["betenshi", "b5"]);
+  const env = (process.env.HOST_ID ?? "").trim().toLowerCase();
+  if (known.has(env)) return env;
+  const host = os.hostname().trim().toLowerCase().replace(/\.local$/, "");
+  if (known.has(host)) return host;
+  if (process.platform === "darwin") return "b5";
+  return "betenshi";
+}
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_HOST_ID: detectHostId(),
+  },
   // duckdb is a native addon — never bundle it, `require` it at runtime.
   //
   // This alone isn't enough for `next build`: Next 16 builds with Turbopack by

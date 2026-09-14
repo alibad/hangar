@@ -4,14 +4,17 @@ import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_THEME, THEME_IDS } from "@/lib/themes";
+import { getHost } from "@/lib/host";
+
+const HOST = getHost();
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: "BeTenshi Console",
-  description: "Monitor and test BeTenshi AI services",
+  title: `${HOST.name} Console`,
+  description: `Monitor and test ${HOST.name} AI services`,
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "BeTenshi" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: HOST.name },
   icons: {
     icon: "/icons/icon.svg",
     apple: "/icons/icon-192.png",

@@ -59,13 +59,16 @@ type GpuProcessConsumer = {
 
 type GpuStatus = {
   name: string;
-  temperature: number;
-  gpu_util: number;
+  /** Null where the GPU exposes no such counter (Apple silicon). */
+  temperature: number | null;
+  gpu_util: number | null;
   mem_total: number;
   mem_used: number;
   mem_free: number;
-  power_draw: number;
-  power_limit: number;
+  power_draw: number | null;
+  power_limit: number | null;
+  /** "unified": the VRAM figures below ARE system memory. */
+  memory_model?: "discrete" | "unified";
   service_vram: Record<string, { name: string; used_mb: number; pct_of_total: number; model?: string | null }>;
   gpu_processes?: GpuProcessConsumer[];
   vram_summary: { accounted_mb: number; unaccounted_mb: number; unaccounted_note: string };
@@ -784,9 +787,15 @@ export default function HomeCockpit({
               <div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
                   <span className="font-semibold text-gray-200">GPU</span>
-                  <span className="text-gray-500">{gpu?.name ?? "NVIDIA GPU"} · {vramTotal.toFixed(1)} GB VRAM</span>
+                  <span className="text-gray-500">{gpu?.name ?? "GPU"} · {vramTotal.toFixed(1)} GB {gpu?.memory_model === "unified" ? "unified memory" : "VRAM"}</span>
                   <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-300">{gpu?.impact === "critical" ? "Constrained" : "Healthy"}</span>
-                  <span className="ml-auto tabular-nums text-gray-500">Util {gpu?.gpu_util ?? 0}% · {gpu?.temperature ?? 0}°C · {Math.round(gpu?.power_draw ?? 0)}W</span>
+                  <span className="ml-auto tabular-nums text-gray-500">
+                    {[
+                      gpu?.gpu_util != null ? `Util ${gpu.gpu_util}%` : null,
+                      gpu?.temperature != null ? `${gpu.temperature}°C` : null,
+                      gpu?.power_draw != null ? `${Math.round(gpu.power_draw)}W` : null,
+                    ].filter(Boolean).join(" · ")}
+                  </span>
                 </div>
                 <div className="mt-2 flex h-10 overflow-hidden rounded-lg border border-gray-700 bg-gray-800">
                   {gpuConsumerRows.length > 0 ? gpuConsumerRows.map((process) => (
@@ -819,7 +828,7 @@ export default function HomeCockpit({
                 {gpuConsumerRows.length > 0 && (
                   <div className="mt-3">
                     <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase tracking-wider text-gray-600">
-                      <span className="font-semibold text-gray-400">VRAM consumers</span>
+                      <span className="font-semibold text-gray-400">{gpu?.memory_model === "unified" ? "GPU memory consumers" : "VRAM consumers"}</span>
                       <span className="normal-case tracking-normal">live Windows process counters</span>
                     </div>
                     <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -841,7 +850,7 @@ export default function HomeCockpit({
 
               <div>
                 <div className="flex items-center gap-3 text-[11px]">
-                  <span className="font-semibold text-gray-200">System RAM</span>
+                  <span className="font-semibold text-gray-200">{gpu?.memory_model === "unified" ? "System memory (the same pool as the GPU above)" : "System RAM"}</span>
                   <span className="text-gray-500">{ramTotal.toFixed(1)} GB</span>
                   <span className="ml-auto tabular-nums text-gray-500">{ramUsed.toFixed(1)} GB committed · {Math.max(0, ramTotal - ramUsed).toFixed(1)} GB free</span>
                 </div>

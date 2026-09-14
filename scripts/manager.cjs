@@ -1,7 +1,12 @@
-// BeTenshi Service Manager — lightweight HTTP server on :8099
-// Handles start/stop/restart for all AI services.
-// Run: node scripts/manager.js
-// Configure start commands in: scripts/service-commands.json
+// Service Manager — lightweight HTTP server on :8099
+// Handles start/stop/restart for every service on THIS host.
+// Run: node scripts/manager.cjs
+//
+// Host-aware. The service list and the commands file both come from the host
+// profile in config/hosts/<id>.json — the same file the console reads — so the
+// two can no longer drift (the hand-copied list that used to live here had
+// already diverged from the console's once). Resolution mirrors next.config.ts:
+// HOST_ID env, then hostname, then a Mac is "b5", else "betenshi".
 
 "use strict";
 const http = require("http");
@@ -12,25 +17,29 @@ const path = require("path");
 const os = require("os");
 const { ResourceAdmissionError, ResourceCoordinator, buildResourceProfiles } = require("./resource-coordinator.cjs");
 
+const IS_WIN = process.platform === "win32";
+
+function resolveHostId() {
+  const known = new Set(["betenshi", "b5"]);
+  const env = (process.env.HOST_ID || "").trim().toLowerCase();
+  if (known.has(env)) return env;
+  const host = os.hostname().trim().toLowerCase().replace(/\.local$/, "");
+  if (known.has(host)) return host;
+  return process.platform === "darwin" ? "b5" : "betenshi";
+}
+
+const HOST_ID = resolveHostId();
+const HOST = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "config", "hosts", `${HOST_ID}.json`), "utf8"));
+
 const PORT = parseInt(process.env.MANAGER_PORT || "8099");
-const COMMANDS_FILE = path.join(__dirname, "service-commands.json");
+const COMMANDS_FILE = path.join(__dirname, HOST.commandsFile || "service-commands.json");
 const RESOURCE_POLICY_FILE = path.join(__dirname, "..", "config", "resource-policy.json");
 const MODEL_META_FILE = path.join(__dirname, "..", "config", "model-meta.json");
 
-const SERVICES = [
-  { id: "vllm",       name: "vLLM",          port: 8005, healthPath: "/models",       category: "ai" },
-  { id: "vllm-small", name: "vLLM Small",    port: 8006, healthPath: "/models",       category: "ai" },
-  { id: "whisper",    name: "Whisper STT",    port: 8001, healthPath: "/health",       category: "ai" },
-  { id: "tts",        name: "Kokoro TTS",     port: 8002, healthPath: "/health",       category: "ai" },
-  { id: "webui",      name: "Open WebUI",     port: 3001, healthPath: "/",             category: "app" },
-  { id: "grafana",    name: "Grafana",        port: 3002, healthPath: "/api/health",   category: "monitoring" },
-  { id: "prometheus", name: "Prometheus",     port: 9090, healthPath: "/-/healthy",    category: "monitoring" },
-  { id: "qwen",       name: "Qwen-Image",     port: 8021, healthPath: "/health",       category: "ai" },
-  { id: "comfyui",    name: "ComfyUI",        port: 8188, healthPath: "/system_stats", category: "ai" },
-  { id: "sam3d",      name: "SAM 3D Body",    port: 8009, healthPath: "/health",       category: "ai" },
-  { id: "sam3",       name: "SAM 3",          port: 8010, healthPath: "/health",       category: "ai" },
-  { id: "ai-router",  name: "AI Router",      port: 4000, healthPath: "/health/liveliness", category: "ai" },
-];
+// The manager never supervises itself.
+const SERVICES = HOST.services
+  .filter((s) => s.id !== "manager")
+  .map((s) => ({ id: s.id, name: s.name, port: s.localPort, healthPath: s.healthPath, category: s.category }));
 
 // id -> { proc, logs: string[], startedAt }
 const managed = new Map();
@@ -45,6 +54,17 @@ let gpuCapacityCache = { at: 0, value: null };
 function readGpuCapacity() {
   if (gpuCapacityCache.value && Date.now() - gpuCapacityCache.at < 1000) {
     return Promise.resolve(gpuCapacityCache.value);
+  }
+  if (HOST.gpu !== "nvidia") {
+    // Unified memory (Apple silicon): the GPU's budget IS system memory. Hand the
+    // coordinator the same numbers on both sides so a model's vramGb and ramGb —
+    // which model-meta.json records as equal for these hosts — are checked
+    // against a real pool instead of an imaginary empty card.
+    return readHostRam().then((ram) => {
+      const value = { totalGb: ram.totalGb, freeGb: ram.freeGb };
+      gpuCapacityCache = { at: Date.now(), value };
+      return value;
+    });
   }
   return new Promise((resolve) => {
     execFile(
@@ -65,12 +85,29 @@ function readGpuCapacity() {
   });
 }
 
+/**
+ * Free RAM meaning "what a new model could take without swapping". os.freemem()
+ * is that on Windows; on macOS it counts only literally-free pages and ignores
+ * tens of GB of reclaimable cache, so vm_stat's reclaimable classes are summed.
+ */
+function readHostRam() {
+  const totalGb = os.totalmem() / (1024 ** 3);
+  if (process.platform !== "darwin") return Promise.resolve({ totalGb, freeGb: os.freemem() / (1024 ** 3) });
+  return new Promise((resolve) => {
+    execFile("vm_stat", [], (err, stdout) => {
+      if (err) return resolve({ totalGb, freeGb: os.freemem() / (1024 ** 3) });
+      const out = String(stdout);
+      const page = Number((/page size of (\d+)/.exec(out) || [])[1] || 16384);
+      const pages = (label) => Number((new RegExp(`${label}:\\s+(\\d+)`).exec(out) || [])[1] || 0);
+      const reclaimable = pages("Pages free") + pages("Pages inactive") + pages("Pages speculative") + pages("Pages purgeable");
+      resolve({ totalGb, freeGb: (reclaimable * page) / (1024 ** 3) });
+    });
+  });
+}
+
 async function readCapacity() {
   return {
-    ram: {
-      totalGb: os.totalmem() / (1024 ** 3),
-      freeGb: os.freemem() / (1024 ** 3),
-    },
+    ram: await readHostRam(),
     vram: await readGpuCapacity(),
     sampledAt: Date.now(),
   };
@@ -181,6 +218,15 @@ function isProcAlive(entry) {
  * back fully managed, with env and log capture.
  */
 function pidOnPort(port) {
+  if (!IS_WIN) {
+    return new Promise((resolve) => {
+      // -t prints bare pids, one per line; exit code 1 just means "no listener".
+      execFile("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], (err, stdout) => {
+        const pid = Number(String(stdout || "").trim().split(/\s+/)[0]);
+        resolve(pid > 1 ? pid : null);
+      });
+    });
+  }
   return new Promise((resolve) => {
     // -ano: numeric, all connections, owning PID. Listing listeners needs no admin.
     execFile("netstat", ["-ano", "-p", "tcp"], { windowsHide: true }, (err, stdout) => {
@@ -211,6 +257,15 @@ const SHARED_BROKERS = [
 ];
 
 function processName(pid) {
+  if (!IS_WIN) {
+    return new Promise((resolve) => {
+      execFile("ps", ["-o", "comm=", "-p", String(pid)], (err, stdout) => {
+        if (err) return resolve(null);
+        const full = String(stdout).trim();
+        resolve(full ? path.basename(full) : null);
+      });
+    });
+  }
   return new Promise((resolve) => {
     execFile("tasklist", ["/FI", `PID eq ${pid}`, "/NH", "/FO", "CSV"], { windowsHide: true }, (err, stdout) => {
       if (err) return resolve(null);
@@ -246,6 +301,23 @@ async function externalPid(svc) {
 /** taskkill the whole tree — Windows has no SIGTERM, and a python server that
  *  spawned workers must not leave them holding the port. */
 function killTree(pid, force) {
+  if (!IS_WIN) {
+    // POSIX: TERM the process group (a manager-spawned service is its own group
+    // leader — see `detached` below), escalate to KILL after a grace period.
+    return new Promise((resolve) => {
+      const sig = force ? "SIGKILL" : "SIGTERM";
+      try {
+        try { process.kill(-pid, sig); } catch { process.kill(pid, sig); }
+      } catch (e) {
+        return resolve(e.code === "ESRCH" ? { ok: true } : { error: e.message });
+      }
+      if (force) return resolve({ ok: true });
+      setTimeout(() => {
+        try { process.kill(pid, 0); } catch { return resolve({ ok: true }); }
+        resolve(killTree(pid, true));
+      }, 4000);
+    });
+  }
   return new Promise((resolve) => {
     const args = ["/PID", String(pid), "/T"];
     if (force) args.push("/F");
@@ -373,6 +445,8 @@ async function startServiceRaw(id) {
     cwd: cfg.cwd || process.cwd(),
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
+    // Own process group on POSIX so a stop can signal the whole tree.
+    detached: !IS_WIN,
   };
 
   let proc;
@@ -635,7 +709,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`BeTenshi Manager listening on :${PORT}`);
+  console.log(`${HOST.name} Manager listening on :${PORT}  (host profile: ${HOST_ID}, commands: ${path.basename(COMMANDS_FILE)})`);
   const commands = loadCommands();
   const configured = Object.entries(commands)
     .filter(([k, v]) => !v.skip && (v.cmd || v.windowsService || v.docker))
