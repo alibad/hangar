@@ -103,6 +103,17 @@ type CatalogEntry = {
   footprint?: Footprint;
 };
 
+/** /api/host — which box this is, so the page names itself and hides tabs for
+ *  services that do not exist here. */
+type HostInfo = {
+  id: string;
+  name: string;
+  platform: string;
+  gpu: string;
+  memory: { kind: "discrete" | "unified" };
+  services: string[];
+};
+
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
@@ -164,17 +175,21 @@ const VRAM_COLORS: Record<string, string> = {
 const vramColor = (id: string) => VRAM_COLORS[id] ?? "bg-slate-500";
 
 type GpuStatus = {
+  /** Which machine answered, and whether VRAM and RAM are one pool or two. */
+  host?: { id: string; name: string };
+  memory_model?: "discrete" | "unified";
   name: string;
-  temperature: number;
-  gpu_util: number;
-  mem_util: number;
+  /** Null on hosts whose GPU exposes no such counter (Apple silicon). */
+  temperature: number | null;
+  gpu_util: number | null;
+  mem_util: number | null;
   mem_total: number;
   mem_used: number;
   mem_free: number;
-  power_draw: number;
-  power_limit: number;
+  power_draw: number | null;
+  power_limit: number | null;
   fan_speed: number | null;
-  pstate: string;
+  pstate: string | null;
   /** Per-service VRAM, self-reported by each service (nvidia-smi can't on Windows). */
   service_vram: Record<string, {
     name: string;
@@ -278,6 +293,13 @@ export default function Home() {
   const [actionInProgress, setActionInProgress] = useState<{ id: string; action: "start" | "stop" | "restart" } | null>(null);
   const [actionMessage, setActionMessage] = useState<{ id: string; text: string; type: "success" | "error" } | null>(null);
   const [gpu, setGpu] = useState<GpuStatus | null>(null);
+  const [host, setHost] = useState<HostInfo | null>(null);
+  /** Is this service registered on the host we are running on? Unknown host
+   *  (before /api/host answers) counts as yes, so nothing is hidden by a race. */
+  const hostHas = useCallback(
+    (...ids: string[]) => !host || ids.some((id) => host.services.includes(id)),
+    [host],
+  );
   const [resourceControl, setResourceControl] = useState<ResourceControlSnapshot | null>(null);
   const [routing, setRouting] = useState<RoutingInfo | null>(null);
   /**
@@ -380,6 +402,13 @@ export default function Home() {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchHost = useCallback(async () => {
+    try {
+      const res = await fetch("/api/host");
+      if (res.ok) setHost(await res.json());
+    } catch { /* fall back to the generic labels */ }
+  }, []);
+
   const fetchGpu = useCallback(async () => {
     try {
       const res = await fetch("/api/gpu");
@@ -431,11 +460,17 @@ export default function Home() {
   const refreshAll = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([checkHealth(), fetchMetrics(), fetchServices(), fetchRouting(), fetchGpu(), fetchResourceControl(), fetchCatalog(), fetchQwenHealth()]);
+      await Promise.all([
+        fetchHost(), checkHealth(), fetchServices(), fetchRouting(), fetchGpu(), fetchResourceControl(), fetchCatalog(),
+        // BeTenshi-only backends: skip the poll where the service is not registered,
+        // rather than logging a guaranteed 502 every tick on another host.
+        ...(hostHas("prometheus") ? [fetchMetrics()] : []),
+        ...(hostHas("qwen") ? [fetchQwenHealth()] : []),
+      ]);
     } finally {
       setRefreshing(false);
     }
-  }, [checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchResourceControl, fetchCatalog, fetchQwenHealth]);
+  }, [fetchHost, hostHas, checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchResourceControl, fetchCatalog, fetchQwenHealth]);
 
   async function serviceAction(id: string, action: "start" | "stop" | "restart") {
     setActionInProgress({ id, action });
@@ -646,6 +681,9 @@ export default function Home() {
   );
   const queueDepth = (resourceControl?.queue.length ?? 0) + (resourceControl?.starts.length ?? 0);
 
+  /** A tab for a service that is not registered on this host would be a permanent
+   *  "unavailable" — hide it instead. */
+  const has = hostHas;
   const tabs = [
     // Services and GPU were two views of the same local processes — one listing
     // them, one duplicating their controls under a GPU header. Merged into
@@ -655,16 +693,18 @@ export default function Home() {
     { id: "services" as const, label: "Services" },
     { id: "storage" as const, label: "Storage" },
     { id: "llm" as const, label: "LLM" },
-    { id: "speech" as const, label: "Speech" },
+    ...(has("whisper", "tts") ? [{ id: "speech" as const, label: "Speech" }] : []),
     // One tab for every image model on the box. "Creative" used to sit beside
     // this as a second, weaker generator for FLUX; the model is a picker inside
     // the studio now, so both share its gallery, queue and Activity feed.
-    { id: "qwen" as const, label: "Image" },
+    ...(has("qwen", "comfyui") ? [{ id: "qwen" as const, label: "Image" }] : []),
+    // Not gated on a service: the Arena compares cloud models too, so it is
+    // useful on a host running no local models at all.
     { id: "arena" as const, label: "Arena" },
     { id: "requests" as const, label: "Requests" },
     { id: "usage" as const, label: "Usage" },
-    { id: "sam3d" as const, label: "3D Body" },
-    { id: "sam3" as const, label: "Segment" },
+    ...(has("sam3d") ? [{ id: "sam3d" as const, label: "3D Body" }] : []),
+    ...(has("sam3") ? [{ id: "sam3" as const, label: "Segment" }] : []),
     { id: "models" as const, label: "Models" },
   ];
 
@@ -704,7 +744,7 @@ export default function Home() {
                 <path d="M48 18 Q55 41 78 48 Q55 55 48 78 Q41 55 18 48 Q41 41 48 18 Z" fill="#31439b"/>
                 <path d="M60.02 35.98 Q52 48 60.02 60.02 Q48 52 35.98 60.02 Q44 48 35.98 35.98 Q48 44 60.02 35.98 Z" fill="#7b85c7"/>
               </svg>
-              <h1 className="text-lg font-semibold tracking-tight">BeTenshi</h1>
+              <h1 className="text-lg font-semibold tracking-tight">{host?.name ?? gpu?.host?.name ?? "Console"}</h1>
               <div role="status" aria-label={`Stack ${overallStatus}`} className={`w-2 h-2 rounded-full flex-shrink-0 ${
                 overallStatus === "operational"
                   ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]"
@@ -867,15 +907,15 @@ export default function Home() {
                     "bg-green-500/15 text-green-400"
                   }`}>{gpu.impact_msg}</span>
                   <span className="ml-auto flex items-center gap-4 text-[11px] text-gray-500 tabular-nums">
-                    <span>util <span className="text-gray-200 font-semibold">{gpu.gpu_util}%</span></span>
-                    <span>temp <span className={`font-semibold ${gpu.temperature > 85 ? "text-red-400" : gpu.temperature > 70 ? "text-yellow-400" : "text-gray-200"}`}>{gpu.temperature}°C</span></span>
-                    <span>power <span className="text-gray-200 font-semibold">{Math.round(gpu.power_draw)}W</span><span className="text-gray-600">/{Math.round(gpu.power_limit)}</span></span>
+                    {gpu.gpu_util != null && <span>util <span className="text-gray-200 font-semibold">{gpu.gpu_util}%</span></span>}
+                    {gpu.temperature != null && <span>temp <span className={`font-semibold ${gpu.temperature > 85 ? "text-red-400" : gpu.temperature > 70 ? "text-yellow-400" : "text-gray-200"}`}>{gpu.temperature}°C</span></span>}
+                    {gpu.power_draw != null && gpu.power_limit != null && <span>power <span className="text-gray-200 font-semibold">{Math.round(gpu.power_draw)}W</span><span className="text-gray-600">/{Math.round(gpu.power_limit)}</span></span>}
                   </span>
                 </div>
 
                 {/* VRAM, segmented by the service holding it */}
                 <div className="flex justify-between text-[11px] text-gray-500 mb-1.5 tabular-nums">
-                  <span>VRAM</span>
+                  <span>{gpu.memory_model === "unified" ? "Memory (unified)" : "VRAM"}</span>
                   <span>{(gpu.mem_used / 1024).toFixed(1)} / {(gpu.mem_total / 1024).toFixed(1)} GB · {(gpu.mem_free / 1024).toFixed(1)} GB free</span>
                 </div>
                 <div className="h-4 bg-gray-800 rounded-full overflow-hidden flex">
@@ -916,7 +956,8 @@ export default function Home() {
                     and a FLUX run wants a similar amount; the pair has already
                     OOM-killed the Qwen service while every VRAM figure above
                     looked perfectly healthy. */}
-                {gpu.host_ram && (
+                {/* Only when it is a SEPARATE budget — on a unified host the bar above already is system memory. */}
+                {gpu.host_ram && gpu.memory_model !== "unified" && (
                   <div className="mt-3 pt-3 border-t border-gray-800">
                     <div className="flex justify-between text-[11px] text-gray-500 mb-1.5 tabular-nums">
                       <span>System RAM</span>
@@ -1010,7 +1051,7 @@ export default function Home() {
                   Consumption by service
                   <span className="text-gray-700">
                     · {Object.keys(gpu.service_ram ?? {}).length} holding RAM
-                    · {Object.keys(gpu.service_vram ?? {}).length} holding VRAM
+                    · {Object.keys(gpu.service_vram ?? {}).length} holding {gpu.memory_model === "unified" ? "GPU memory" : "VRAM"}
                   </span>
                 </button>
 
@@ -1021,7 +1062,7 @@ export default function Home() {
                         <tr className="text-left">
                           <th className="px-2.5 py-1.5 font-medium">service</th>
                           <th className="px-2.5 py-1.5 font-medium text-right">RAM</th>
-                          <th className="px-2.5 py-1.5 font-medium text-right">VRAM</th>
+                          <th className="px-2.5 py-1.5 font-medium text-right">{gpu.memory_model === "unified" ? "GPU alloc" : "VRAM"}</th>
                           <th className="px-2.5 py-1.5 font-medium text-right">pid</th>
                           <th className="px-2.5 py-1.5" />
                         </tr>

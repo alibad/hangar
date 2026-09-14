@@ -1,8 +1,8 @@
-import os from "os";
 import path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { SERVICE_REGISTRY, getServiceUrl } from "./services";
+import { gpuReading, hostMemory } from "./sysinfo";
 import { getFootprintsByService } from "./providers";
 import { discoverDrives, type StorageDrive } from "./storage-index";
 import { installedRepos } from "./hf-download";
@@ -38,36 +38,39 @@ const CACHE_MS = 5000;
 export async function readMachineProfile(): Promise<MachineProfile> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.profile;
 
-  const [gpu, disk] = await Promise.all([readGpu(), readWeightsDrive()]);
+  const [gpu, ram, disk] = await Promise.all([readGpu(), hostMemory(), readWeightsDrive()]);
   const profile: MachineProfile = {
     gpuName: gpu.name,
     vramTotalGb: gpu.totalGb,
     vramFreeGb: gpu.freeGb,
-    ramTotalGb: round1(os.totalmem() / 1024 ** 3),
-    ramFreeGb: round1(os.freemem() / 1024 ** 3),
+    // Through the host probe, not os.freemem(): on macOS that reports only
+    // literally-free pages and ignores tens of GB of reclaimable cache.
+    ramTotalGb: ram.total_gb,
+    ramFreeGb: ram.free_gb,
     ...disk,
   };
   cache = { at: Date.now(), profile };
   return profile;
 }
 
+/**
+ * Whatever GPU this host has, through the host profile's probe: nvidia-smi on
+ * BeTenshi, the unified pool on Apple silicon. This used to call nvidia-smi
+ * directly, which on a Mac answered "No CUDA GPU detected, 0 GB" and made the
+ * scout mark every local model as not fitting on a box with 128 GB to spare.
+ */
 async function readGpu(): Promise<{ name: string; totalGb: number; freeGb: number }> {
   try {
-    const { stdout } = await execFileP(
-      "nvidia-smi",
-      ["--query-gpu=name,memory.total,memory.free", "--format=csv,noheader,nounits"],
-      { timeout: 5000, windowsHide: true },
-    );
-    const [name, total, free] = stdout.trim().split("\n")[0].split(",").map((s) => s.trim());
+    const g = await gpuReading();
     return {
-      name: name || "GPU",
-      totalGb: round1(Number(total) / 1024),
-      freeGb: round1(Number(free) / 1024),
+      name: g.name || "GPU",
+      totalGb: round1(g.mem_total / 1024),
+      freeGb: round1(g.mem_free / 1024),
     };
   } catch {
     // No card, or no driver. Zeroes make every local candidate report "won't
     // fit", which is the correct answer on a box that cannot run one.
-    return { name: "No CUDA GPU detected", totalGb: 0, freeGb: 0 };
+    return { name: "No GPU detected", totalGb: 0, freeGb: 0 };
   }
 }
 

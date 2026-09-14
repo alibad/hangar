@@ -228,5 +228,21 @@
       "kind": "peak",
       "basis": "Measured on this box 2026-09-14 during the Arabic experiment, at num_ctx 16384 (scripts/experiment-arabic.mjs samples nvidia-smi every 500 ms). Whole-card figure, so it includes the ~1.1 GiB the desktop was already holding; it is an upper bound, not a model-only allocation. kind=peak, NOT reserved: unlike vLLM, Ollama loads a model on demand and evicts it after OLLAMA_KEEP_ALIVE (5m here), so the card is free between uses - which is exactly why idleVramGb is ~0. The catch is that the peak is large enough that NOTHING else substantial fits while a model is resident, and OLLAMA_MAX_LOADED_MODELS=1 makes that explicit. Estimated from the 20.2 GB checkpoint plus the same overhead the two measured siblings showed; not separately sampled."
     }
+  },
+  "local-ollama": {
+    "checkpoint": "qwen3.8:27b-mlx via Ollama (local service on :11434)",
+    "params": "27.8B · nvfp4",
+    "released": "2026-08",
+    "docs": "https://ollama.com/library/qwen3.8",
+    "note": "B5 only. Default model for the LLM tab; gemma4:31b-mlx (19 GB) and qwen3-vl:32b-instruct (20 GB) are also pulled and are one `model` field away. Measured 2026-09-14 in ai/b5/bench: Gemma reads vowelled Arabic far better (CER 0.035 vs 0.209); this one is twice as fast.",
+    "service": "ollama",
+    "footprint": {
+      "vramGb": 18.2,
+      "ramGb": 18.2,
+      "idleVramGb": 0,
+      "idleRamGb": 0,
+      "kind": "peak",
+      "basis": "UNIFIED MEMORY — vramGb and ramGb are the same 18.2 GB seen from two sides, not two costs to add. It is the on-disk size of the nvfp4 checkpoint (ollama list), which is what Ollama maps in; KV cache at 32K context adds a few GB on top. `peak` rather than `reserved` because Ollama unloads after keep_alive (10 min here), so an idle box holds ~0."
+    }
   }
 }

@@ -1,0 +1,13 @@
+{
+  "_doc": "B5 service commands. Selected because config/hosts/b5.json names this file. Same shape as service-commands.json: cmd+args+cwd spawns a process, skip = externally managed.",
+
+  "_ollama-doc": "Normally Ollama.app owns :11434 (menu-bar app). When it does, the manager ADOPTS that process — status shows it as external, Stop kills it, Restart hands it over to a manager-spawned `ollama serve` with the env below. When nothing holds the port, Start spawns it directly. OLLAMA_HOST pins it to loopback; nothing on this box is tunnelled.",
+  "ollama": {
+    "cmd": "/usr/local/bin/ollama",
+    "args": ["serve"],
+    "env": {
+      "OLLAMA_HOST": "127.0.0.1:11434",
+      "OLLAMA_KEEP_ALIVE": "10m"
+    }
+  }
+}

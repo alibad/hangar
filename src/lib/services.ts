@@ -1,3 +1,5 @@
+import { getHost } from "./host";
+
 export type ServiceEntry = {
   id: string;
   name: string;
@@ -17,205 +19,19 @@ export type ServiceEntry = {
   /** Present on OpenAI-compatible LLM services — `model` is the served-model-name
    *  to send in /v1/chat/completions. Marks a service as selectable in the LLM picker. */
   llm?: { model: string };
+  /** Free-text rationale carried from the host profile. Documentation, not behaviour. */
+  note?: string;
 };
 
-export const SERVICE_REGISTRY: ServiceEntry[] = [
-  {
-    // The supervisor every other Start/Stop button goes through — when this is
-    // down the console reports "Manager error: fetch failed" on every service and
-    // nothing can be started, so it needs to be visible rather than invisible
-    // infrastructure. Owned by the "BeTenshi Manager" scheduled task: fires at
-    // logon and auto-restarts within a minute if the process dies, which also
-    // makes a stray Stop on this card self-healing.
-    id: "manager",
-    name: "Service Manager",
-    localPort: 8099,
-    localUrl: "http://localhost:8099",
-    publicUrl: "https://manager.betenshi.com",
-    healthPath: "/services",
-    category: "monitoring",
-    authRequired: false,
-  },
-  {
-    id: "vllm",
-    name: "vLLM (Qwen3-Coder 30B)",
-    localPort: 8005,
-    localUrl: "http://localhost:8005",
-    publicUrl: "https://llm.betenshi.com",
-    healthPath: "/health",
-    category: "ai",
-    authRequired: true,
-    llm: { model: "qwen3-coder" },
-  },
-  {
-    id: "vllm-small",
-    name: "vLLM (Qwen2.5-7B)",
-    localPort: 8006,
-    localUrl: "http://localhost:8006",
-    publicUrl: "https://llm-small.betenshi.com",
-    healthPath: "/health",
-    category: "ai",
-    authRequired: false,
-    llm: { model: "qwen-small" },
-  },
-  {
-    id: "whisper",
-    name: "Whisper STT",
-    localPort: 8001,
-    localUrl: "http://localhost:8001",
-    publicUrl: "https://whisper.betenshi.com",
-    healthPath: "/health",
-    category: "ai",
-    authRequired: false,
-  },
-  {
-    id: "tts",
-    name: "Kokoro TTS",
-    localPort: 8002,
-    localUrl: "http://localhost:8002",
-    publicUrl: "https://tts.betenshi.com",
-    healthPath: "/health",
-    category: "ai",
-    authRequired: false,
-  },
-  {
-    id: "webui",
-    name: "Open WebUI",
-    localPort: 3001,
-    localUrl: "http://localhost:3001",
-    publicUrl: "https://webui.betenshi.com",
-    healthPath: "/",
-    category: "app",
-    authRequired: false,
-  },
-  {
-    id: "grafana",
-    name: "Grafana",
-    localPort: 3002,
-    localUrl: "http://localhost:3002",
-    publicUrl: "https://grafana.betenshi.com",
-    healthPath: "/api/health",
-    category: "monitoring",
-    authRequired: false,
-  },
-  {
-    id: "prometheus",
-    name: "Prometheus",
-    localPort: 9090,
-    localUrl: "http://localhost:9090",
-    publicUrl: "https://prometheus.betenshi.com",
-    healthPath: "/-/healthy",
-    category: "monitoring",
-    authRequired: false,
-  },
-  {
-    // Local 20B Qwen-Image diffusion model (RTX 5090, fp8). Text→image today;
-    // image-edit (Qwen-Image-Edit) is wired in the console but gated server-side.
-    // server: hq/quote-forge/server/qwen_image.py — POST /generate, POST /edit, GET /health
-    id: "qwen",
-    name: "Qwen-Image",
-    localPort: 8021,
-    localUrl: "http://localhost:8021",
-    publicUrl: "https://qwen.betenshi.com",
-    healthPath: "/health",
-    category: "ai",
-    authRequired: false,
-  },
-  {
-    // Categorised as an APP, not an AI backend: it's a browser workflow UI you
-    // open and drive by hand (its card CTA is "Open ↗", like Open WebUI), rather
-    // than a headless model server other code calls. It does use the GPU, but
-    // that's shown per-card as VRAM instead of being a category.
-    id: "comfyui",
-    name: "ComfyUI",
-    localPort: 8188,
-    localUrl: "http://localhost:8188",
-    publicUrl: "https://comfyui.betenshi.com",
-    healthPath: "/system_stats",
-    category: "app",
-    authRequired: false,
-  },
-  {
-    // Meta SAM 3D Body — single-image full-body 3D human mesh + pose recovery.
-    // Resident FastAPI service (move-quest: services/sam3d/server.py).
-    // POST /pose {image, bbox?} -> 70-joint 3D skeleton + global rotation
-    // (+ optional body mesh); correct on floor/inverted/acro poses.
-    id: "sam3d",
-    name: "SAM 3D Body",
-    localPort: 8009,
-    localUrl: "http://localhost:8009",
-    publicUrl: "https://sam3d.betenshi.com",
-    healthPath: "/health",
-    category: "ai",
-    authRequired: false,
-  },
-  {
-    // Meta SAM 3 — open-vocabulary promptable concept segmentation. Give it an
-    // image + a text concept ("person", "car") and it segments every matching
-    // instance (masks + boxes + scores). Resident FastAPI service
-    // (move-quest: services/sam3/server.py). POST /segment {image, concepts}.
-    id: "sam3",
-    name: "SAM 3",
-    localPort: 8010,
-    localUrl: "http://localhost:8010",
-    publicUrl: "https://sam3.betenshi.com",
-    healthPath: "/health",
-    category: "ai",
-    authRequired: false,
-  },
-  {
-    // Ollama — the box's second LLM runtime, beside vLLM. It exists because
-    // vLLM cannot serve everything: the vLLM image here is 0.17.1 and has no
-    // `gemma4` architecture at all (that needs >= 0.19, a ~30 GB image pull),
-    // while Ollama runs Gemma 4, Qwen3-VL and Qwen3 today under one engine.
-    //
-    // The division of labour is deliberate, not redundancy:
-    //   vLLM   — one model, pinned resident, reserved VRAM, high throughput.
-    //            The right shape for a service something calls all day.
-    //   Ollama — many models, one resident at a time, loaded on demand and
-    //            evicted after keep_alive. The right shape for evaluation and
-    //            for capabilities used occasionally (vision).
-    //
-    // localOnly for the same reason as the router: this is a bare HTTP API with
-    // no auth on a machine-local port, and it must never acquire a tunnel
-    // hostname. Its models are reachable from off-box only by going through a
-    // system that is itself exposed, never directly.
-    //
-    // Usually started by the Ollama tray app rather than by the manager. That is
-    // fine and needs no change: `externalPid()` adopts the running process, so
-    // the card reports it as externally owned and Stop still works.
-    id: "ollama",
-    name: "Ollama (Gemma 4 / Qwen3-VL)",
-    localPort: 11434,
-    localUrl: "http://localhost:11434",
-    publicUrl: "http://localhost:11434", // intentionally not a public hostname
-    healthPath: "/api/tags",
-    category: "ai",
-    authRequired: false,
-    localOnly: true,
-  },
-  {
-    // AI Router — a LiteLLM proxy giving one OpenAI-compatible endpoint for
-    // every model this box can reach: local (vLLM, Qwen-Image) and cloud
-    // (OpenAI, Gemini, Anthropic). Model aliases live in config/ai-router.yaml,
-    // which is the ONLY place vendor model ids are written.
-    //   POST /v1/chat/completions      — text
-    //   POST /v1/images/generations    — images
-    //
-    // localOnly: bound to 127.0.0.1 with no tunnel hostname. It serves systems
-    // that use this box's local resources (console, quote-forge, move-quest).
-    // Cloud projects must NOT route through it.
-    id: "ai-router",
-    name: "AI Router",
-    localPort: 4000,
-    localUrl: "http://127.0.0.1:4000",
-    publicUrl: "http://127.0.0.1:4000", // intentionally not a public hostname
-    healthPath: "/health/liveliness",
-    category: "ai",
-    authRequired: false,
-    localOnly: true,
-  },
-];
+/**
+ * The services on THIS host.
+ *
+ * Used to be a literal array here, with a second hand-copied list inside
+ * scripts/manager.cjs that had already drifted from it. Both now read the same
+ * config/hosts/<id>.json, selected by src/lib/host.ts. Add a service by editing
+ * the profile; nothing in this file changes per host.
+ */
+export const SERVICE_REGISTRY: ServiceEntry[] = getHost().services;
 
 /**
  * Server-side: detect if we're running locally (not on Vercel).
