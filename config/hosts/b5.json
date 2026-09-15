@@ -30,6 +30,9 @@
       "localUrl": "http://localhost:11434",
       "publicUrl": "http://localhost:11434",
       "healthPath": "/api/tags",
+      "serves": {
+        "text": "qwen3.8:27b-mlx"
+      },
       "category": "ai",
       "authRequired": false,
       "llm": {

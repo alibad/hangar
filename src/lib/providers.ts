@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { SERVICE_REGISTRY, getServiceUrl } from "./services";
+import { defaultServiceFor } from "./host";
 
 /**
  * Model catalogue, read from the AI Router (LiteLLM) rather than duplicated here.
@@ -490,23 +491,42 @@ export type CallTarget = {
   degraded?: string;
 };
 
+/**
+ * Where to send a call for `capability`, and what to call it.
+ *
+ * The fallback — used when the router is down or does not know the routed
+ * alias — is derived from the host profile, so no caller has to name a service
+ * in code. It used to be two required arguments and every audio route passed
+ * ("whisper", "whisper-1"): correct until the day this box runs a different
+ * ASR model, and silently wrong after. Pass them explicitly only to override.
+ */
 export async function resolveCallTarget(
   capability: Capability,
-  fallbackServiceId: string,
-  fallbackModel: string,
+  fallbackServiceId?: string,
+  fallbackModel?: string,
 ): Promise<CallTarget> {
   const alias = getRouting()[capability];
   const { routerUp, models } = await getCatalogue();
   const chosen = models.find((m) => m.id === alias);
 
   if (!routerUp || !chosen) {
+    const declared = defaultServiceFor(capability);
+    const svcId = fallbackServiceId ?? declared?.serviceId;
+    const svcModel = fallbackModel ?? declared?.model;
+    if (!svcId || !svcModel) {
+      // Nothing on this host declares the capability and the router cannot
+      // answer. Saying so beats calling a service that does not exist.
+      throw new Error(
+        `No local service on this host serves "${capability}", and the AI Router could not resolve "${alias}".`,
+      );
+    }
     return {
       alias,
-      baseUrl: getServiceUrl(fallbackServiceId),
-      model: fallbackModel,
+      baseUrl: getServiceUrl(svcId),
+      model: svcModel,
       local: true,
       via: "service",
-      serviceId: fallbackServiceId,
+      serviceId: svcId,
       degraded: routerUp
         ? `"${alias}" isn't in the router's model list — used the local model instead.`
         : `AI Router is down — used the local model instead of "${alias}".`,

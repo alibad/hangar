@@ -31,6 +31,9 @@
       "localUrl": "http://localhost:8005",
       "publicUrl": "https://llm.betenshi.com",
       "healthPath": "/health",
+      "serves": {
+        "text": "qwen3-coder"
+      },
       "category": "ai",
       "authRequired": true,
       "llm": {
@@ -44,6 +47,9 @@
       "localUrl": "http://localhost:8006",
       "publicUrl": "https://llm-small.betenshi.com",
       "healthPath": "/health",
+      "serves": {
+        "text": "qwen-small"
+      },
       "category": "ai",
       "authRequired": false,
       "llm": {
@@ -57,6 +63,9 @@
       "localUrl": "http://localhost:8001",
       "publicUrl": "https://whisper.betenshi.com",
       "healthPath": "/health",
+      "serves": {
+        "stt": "whisper-1"
+      },
       "category": "ai",
       "authRequired": false
     },
@@ -67,6 +76,9 @@
       "localUrl": "http://localhost:8002",
       "publicUrl": "https://tts.betenshi.com",
       "healthPath": "/health",
+      "serves": {
+        "tts": "kokoro"
+      },
       "category": "ai",
       "authRequired": false
     },
@@ -107,6 +119,9 @@
       "localUrl": "http://localhost:8021",
       "publicUrl": "https://qwen.betenshi.com",
       "healthPath": "/health",
+      "serves": {
+        "image": "qwen-image"
+      },
       "category": "ai",
       "authRequired": false,
       "note": "Local 20B Qwen-Image diffusion model (RTX 5090, fp8). Text→image today; image-edit (Qwen-Image-Edit) is wired in the console but gated server-side. server: hq/quote-forge/server/qwen_image.py — POST /generate, POST /edit, GET /health"

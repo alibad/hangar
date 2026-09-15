@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     // Falls back to local Kokoro (served-model-name "kokoro") when the routing
     // can't be resolved — what this route did before it honoured the routing.
-    target = await resolveCallTarget("tts", "tts", "kokoro");
+    target = await resolveCallTarget("tts");
 
     const res = await fetch(`${target.baseUrl}/v1/audio/speech`, {
       method: "POST",

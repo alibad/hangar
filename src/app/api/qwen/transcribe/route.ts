@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   let alias: string | undefined;
   try {
     const form = await req.formData();
-    const target = await resolveCallTarget("stt", "whisper", "whisper-1");
+    const target = await resolveCallTarget("stt");
     alias = target.alias;
 
     // The local server only knows its own served-model-name; the router wants
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(`${target.baseUrl}/v1/audio/transcriptions`, {
       method: "POST",
-      headers: target.via === "service" ? getServiceHeaders(target.serviceId ?? "whisper") : {},
+      headers: target.via === "service" ? getServiceHeaders(target.serviceId!) : {},
       body: form,
       signal: AbortSignal.timeout(120_000),
     });
