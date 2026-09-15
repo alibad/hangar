@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cer, wer, chrF, scoreFields, arabicRatio } from "@/lib/text-scoring";
 import type { Footprint } from "./model-footprint";
 import { ToolPageHeader, ToolSectionHeading } from "./tool-page";
-import { Swords, ImagePlus, X, Gavel, Loader2, Copy, Check, Cpu, Cloud } from "lucide-react";
+import { Swords, ImagePlus, X, Gavel, Loader2, Copy, Check, Cpu, Cloud, Search } from "lucide-react";
 
 /**
  * Arena — one prompt, several chat models, side by side, with real scores.
@@ -43,6 +43,8 @@ type CatalogModel = {
   detail?: string;
   provider: string;
   params?: string;
+  checkpoint?: string;
+  keyEnv?: string;
   serviceId?: string;
   vision?: boolean;
   footprint?: Footprint;
@@ -50,13 +52,15 @@ type CatalogModel = {
   costPerMTokOut?: number;
 };
 
-type RunState = "queued" | "running" | "done" | "failed" | "cancelled";
+type RunState = "queued" | "preparing" | "running" | "done" | "failed" | "cancelled";
 
 type Run = {
   model: string;
   state: RunState;
   /** Position in the local queue, 1-based. Only set while queued. */
   queuePosition?: number;
+  /** What the system is doing to make this model runnable, in plain words. */
+  prepNote?: string;
   content?: string;
   thinking?: string | null;
   latency?: number;
@@ -83,9 +87,23 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 /** Models that cannot run are still listed, with the reason — never hidden. */
 function statusLabel(m: CatalogModel): string | null {
   if (m.status === "ready") return null;
-  if (m.status === "no-key") return "no key";
-  if (m.status === "service-stopped") return "service stopped";
+  if (m.status === "no-key") return `needs ${m.keyEnv ?? "a key"}`;
+  if (m.status === "service-stopped") return "will start on run";
   return m.status;
+}
+
+/**
+ * Whether picking this model is pointless because nothing can make it run.
+ *
+ * A stopped service is NOT blocking: /api/arena/prepare starts it, stopping
+ * whatever is in the way first. Refusing the selection put that work on the
+ * reader — go to Services, work out what to stop, start the right thing, come
+ * back — when the console already knows all of it. A missing API key is
+ * genuinely blocking, because no amount of starting and stopping produces a
+ * credential.
+ */
+function isBlocked(m: CatalogModel): boolean {
+  return m.status === "no-key";
 }
 
 function gb(n: number | undefined): string | null {
@@ -102,6 +120,7 @@ export default function ArenaView() {
   const [reference, setReference] = useState("");
   const [runs, setRuns] = useState<Record<string, Run>>({});
   const [provider, setProvider] = useState<string>("");
+  const [query, setQuery] = useState("");
   const [showCloud, setShowCloud] = useState(false);
   const [judgeModel, setJudgeModel] = useState("");
   const [judgeResult, setJudgeResult] = useState<{ raw: string; labels: Record<string, string>; note: string } | null>(null);
@@ -134,8 +153,23 @@ export default function ArenaView() {
     setSelected((prev) => (prev.every((id) => ok.has(id)) ? prev : prev.filter((id) => ok.has(id))));
   }, [eligible]);
 
-  const localModels = useMemo(() => eligible.filter((m) => m.local), [eligible]);
-  const cloudModels = useMemo(() => eligible.filter((m) => !m.local), [eligible]);
+  /**
+   * Free-text filter across id, provider and parameter count. Matched models
+   * that are already SELECTED stay visible regardless, so narrowing the search
+   * never appears to silently drop a contestant you had chosen.
+   */
+  const matches = useCallback(
+    (m: CatalogModel) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      if (selected.includes(m.id)) return true;
+      return [m.id, m.provider, m.params, m.checkpoint].filter(Boolean).join(" ").toLowerCase().includes(q);
+    },
+    [query, selected],
+  );
+
+  const localModels = useMemo(() => eligible.filter((m) => m.local && matches(m)), [eligible, matches]);
+  const cloudModels = useMemo(() => eligible.filter((m) => !m.local && matches(m)), [eligible, matches]);
   const providers = useMemo(
     () => [...new Set(cloudModels.map((m) => m.provider))].sort(),
     [cloudModels],
@@ -143,6 +177,19 @@ export default function ArenaView() {
   useEffect(() => {
     if (!provider && providers.length) setProvider(providers[0]);
   }, [provider, providers]);
+
+  // A search that only matches cloud models should not appear to find nothing
+  // because the cloud lane happens to be collapsed.
+  useEffect(() => {
+    if (query.trim() && cloudModels.length > 0) setShowCloud(true);
+  }, [query, cloudModels.length]);
+
+  // Keep the provider tab on one that still has matches, or the lane looks empty
+  // while the count in its header says otherwise.
+  useEffect(() => {
+    if (!query.trim() || !providers.length) return;
+    if (!providers.includes(provider)) setProvider(providers[0]);
+  }, [query, providers, provider]);
 
   const selectedLocal = useMemo(
     () => selected.filter((id) => catalogue.find((m) => m.id === id)?.local),
@@ -153,7 +200,9 @@ export default function ArenaView() {
     [selected, catalogue],
   );
 
-  const busy = Object.values(runs).some((r) => r.state === "running" || r.state === "queued");
+  const busy = Object.values(runs).some(
+    (r) => r.state === "running" || r.state === "queued" || r.state === "preparing",
+  );
 
   const toggle = useCallback((id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -170,8 +219,28 @@ export default function ArenaView() {
     async (model: string, promptText: string, imageUrl: string | null) => {
       const controller = new AbortController();
       controllers.current[model] = controller;
-      setRuns((prev) => ({ ...prev, [model]: { model, state: "running" } }));
       try {
+        // Make it runnable first: start its service, stopping whatever is in the
+        // way. A no-op for cloud models and for anything already up.
+        setRuns((prev) => ({
+          ...prev,
+          [model]: { model, state: "preparing", prepNote: "Checking what needs to start…" },
+        }));
+        const prep = await fetch("/api/arena/prepare", {
+          method: "POST",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ model }),
+          signal: controller.signal,
+        });
+        const prepData = await prep.json();
+        if (!prep.ok) {
+          setRuns((prev) => ({
+            ...prev,
+            [model]: { model, state: "failed", error: prepData.error ?? `Could not prepare (HTTP ${prep.status})` },
+          }));
+          return;
+        }
+        setRuns((prev) => ({ ...prev, [model]: { model, state: "running" } }));
         const res = await fetch("/api/arena/run", {
           method: "POST",
           headers: JSON_HEADERS,
@@ -393,6 +462,31 @@ export default function ArenaView() {
           }
         />
 
+        {/* Search spans BOTH lanes: with 26 models the question is usually
+            "where is claude-haiku", not "which provider is it under", and a
+            provider filter cannot answer that. */}
+        <div className="relative mb-4">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search models by name, provider or size…"
+            aria-label="Search models"
+            className="w-full rounded-xl border border-gray-700 bg-gray-800 py-2 pl-9 pr-9 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
         {/* Local lane */}
         <div className="mb-2 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-gray-500">
           <Cpu size={12} />
@@ -402,11 +496,16 @@ export default function ArenaView() {
           </span>
         </div>
         {localModels.length === 0 ? (
-          <p className="mb-4 text-xs text-gray-500">No local model can serve this. Cloud is the only option.</p>
+          <p className="mb-4 text-xs text-gray-500">
+            {query.trim()
+              ? `No local model matches “${query.trim()}”.`
+              : "No local model can serve this. Cloud is the only option."}
+          </p>
         ) : (
           <ul className="mb-5 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {localModels.map((m) => {
               const bad = statusLabel(m);
+              const blocked = isBlocked(m);
               const on = selected.includes(m.id);
               const order = selectedLocal.indexOf(m.id);
               return (
@@ -414,11 +513,11 @@ export default function ArenaView() {
                   <button
                     type="button"
                     onClick={() => toggle(m.id)}
-                    disabled={Boolean(bad)}
+                    disabled={blocked}
                     title={m.detail ?? undefined}
                     className={`flex w-full items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition ${
                       on ? "border-blue-500 bg-blue-950/40" : "border-gray-800 bg-gray-950/25 hover:border-gray-600"
-                    } ${bad ? "cursor-not-allowed opacity-45" : ""}`}
+                    } ${blocked ? "cursor-not-allowed opacity-45" : ""}`}
                   >
                     {/* The run order IS the information: with one model resident
                         at a time, position is what tells you when it goes. */}
@@ -485,17 +584,18 @@ export default function ArenaView() {
                 .filter((m) => m.provider === provider)
                 .map((m) => {
                   const bad = statusLabel(m);
+                  const blocked = isBlocked(m);
                   const on = selected.includes(m.id);
                   return (
                     <li key={m.id}>
                       <button
                         type="button"
                         onClick={() => toggle(m.id)}
-                        disabled={Boolean(bad)}
+                        disabled={blocked}
                         title={m.detail ?? undefined}
                         className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left transition ${
                           on ? "border-blue-500 bg-blue-950/40" : "border-gray-800 bg-gray-950/25 hover:border-gray-600"
-                        } ${bad ? "cursor-not-allowed opacity-45" : ""}`}
+                        } ${blocked ? "cursor-not-allowed opacity-45" : ""}`}
                       >
                         <span
                           className={`size-4 shrink-0 rounded border ${
@@ -641,7 +741,7 @@ export default function ArenaView() {
                       {run.latency != null && <span>{(run.latency / 1000).toFixed(1)}s</span>}
                       {run.usage?.completion_tokens != null && <span>{run.usage.completion_tokens} tok</span>}
                       {run.costUsd != null && <span>${run.costUsd.toFixed(4)}</span>}
-                      {(run.state === "running" || run.state === "queued") && (
+                      {(run.state === "running" || run.state === "queued" || run.state === "preparing") && (
                         <button type="button" onClick={() => cancel(model)} className="text-gray-500 hover:text-gray-300">
                           <X size={13} />
                         </button>
@@ -680,6 +780,12 @@ export default function ArenaView() {
                     {run.state === "queued" && (
                       <p className="text-sm text-gray-500">
                         Queued — position {run.queuePosition}. Waiting for the card.
+                      </p>
+                    )}
+                    {run.state === "preparing" && (
+                      <p className="inline-flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 size={14} className="animate-spin" />
+                        {run.prepNote ?? "Preparing…"}
                       </p>
                     )}
                     {run.state === "running" && (

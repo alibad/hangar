@@ -126,7 +126,22 @@ export async function POST(req: NextRequest) {
      * themselves while a chat model is resident.
      */
     let res: { status: number; ok: boolean; text: string };
-    if (!entry.local) {
+    /*
+     * Only OLLAMA models take the `ollama-chat` lease.
+     *
+     * Branching on `local` alone was wrong and produced a real deadlock: a vLLM
+     * model asked for the Ollama workload, which is modelled at 26.3 GB, while
+     * vLLM itself was already holding 17.5 GB of the card. Admission refused it
+     * and the request sat in the queue behind memory it had itself reserved.
+     *
+     * vLLM needs no per-request lease at all. It RESERVES its VRAM at service
+     * start, and that start already went through the coordinator (via
+     * /api/arena/prepare, or the Services tab). Once it is up, a request costs
+     * no additional memory and vLLM batches concurrent ones itself. The lease
+     * exists for Ollama precisely because Ollama does the opposite: it allocates
+     * on demand, per model.
+     */
+    if (!entry.local || entry.serviceId !== "ollama") {
       res = await call();
     } else {
       const ollamaModel = ollamaModelFromTarget(entry.target);

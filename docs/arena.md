@@ -112,6 +112,50 @@ Three constraints, because an LLM judge is easy to fool:
 - **Advisory, and labelled as such.** It is one model's opinion, shown beside the
   deterministic scores, never replacing them.
 
+## Picking a model is a statement of intent
+
+Two things follow from that, and both used to be the reader's problem.
+
+**Search spans both lanes.** With 26 models the question is usually "where is
+claude-haiku", not "which provider is it under", and a provider filter cannot
+answer that. Searching also opens the cloud lane if it is collapsed, so a query
+that only matches cloud models does not appear to find nothing. A model that is
+already SELECTED stays visible whatever the query, so narrowing the search never
+looks like it silently dropped a contestant.
+
+**A stopped service is not a reason to refuse the selection.** The Arena used to
+grey out any model whose service was down, which pushed the work onto the reader:
+go to Services, work out what is holding the card, stop it, start the right
+thing, come back. The console already knows every part of that.
+`POST /api/arena/prepare` now does it — it stops the conflicting local chat
+services, evicts a resident Ollama model when a different one is wanted, starts
+the target service, and waits for it to become healthy.
+
+It is a separate call from `/api/arena/run` on purpose: a cold vLLM start is
+about a minute, and a tile that says "Running" that whole time looks hung.
+Preparing is its own state, naming what is being done.
+
+Conflicts are derived from the catalogue, not hardcoded: every service backing a
+local **chat** model wants 17-26 GB of a 31.8 GB card, so no two can be resident.
+A new local runtime is covered the day its models appear. Ollama is evicted
+rather than stopped, because it is one runtime hosting several aliases and costs
+nothing while holding no model.
+
+A **missing API key** still blocks selection, and should. No amount of starting
+and stopping produces a credential, so the row says which variable to set.
+
+### Only Ollama models take the gpu-heavy lease
+
+vLLM needs no per-request lease. It RESERVES its VRAM at service start, and that
+start already went through the coordinator; once up, a request costs no extra
+memory and vLLM batches concurrent ones itself. Ollama does the opposite — it
+allocates on demand, per model — which is what the lease is for.
+
+Getting this wrong produced a real deadlock rather than a slow path: a vLLM model
+asked for the `ollama-chat` workload, modelled at 26.3 GB, while vLLM itself was
+already holding 17.5 GB of the card. Admission refused it, and the request queued
+behind memory it had itself reserved.
+
 ## A model is not a service
 
 Three router aliases share the single `ollama` service, which broke an assumption
