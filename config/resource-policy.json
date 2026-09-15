@@ -1,5 +1,5 @@
 {
-  "_doc": "Authoritative resource policy shared by the BeTenshi manager and console. Numeric footprints are resolved from model-meta.json so measured values have one source of truth.",
+  "_doc": "Authoritative resource policy shared by the BeTenshi manager and console. Numeric footprints are resolved from model-meta.json so measured values have one source of truth. NOT host-scoped yet, and services.ollama.model is where that shows: B5 wants local-ollama, BeTenshi wants local-qwen3-vl. Kept at local-ollama so the host that introduced it keeps working. Low impact because a service entry only supplies RESIDENT cost, which is ~0 for Ollama on both machines - the real peak is carried by the ollama-chat workload, which names its own model. Make this per-host before anything depends on the resident figure.",
   "budgets": {
     "ramSafetyGb": 4,
     "vramSafetyGb": 0.02
@@ -12,7 +12,8 @@
     "qwen": { "model": "local-qwen-image" },
     "comfyui": { "model": "local-flux-schnell" },
     "sam3": {},
-    "sam3d": {}
+    "sam3d": {},
+    "ollama": { "model": "local-ollama" }
   },
   "workloads": {
     "flux2-klein-generate": { "service": "comfyui", "model": "local-flux2-klein-4b", "slot": "gpu-heavy", "aliases": ["flux2-klein-4b"], "ttlMs": 900000 },
@@ -51,6 +52,17 @@
     "sam3d-pose": {
       "service": "sam3d",
       "slot": "gpu-heavy",
+      "ttlMs": 900000
+    },
+    "ollama-chat": {
+      "service": "ollama",
+      "model": "local-qwen3-vl",
+      "slot": "gpu-heavy",
+      "aliases": [
+        "local-gemma4",
+        "local-qwen3-vl",
+        "local-qwen3"
+      ],
       "ttlMs": 900000
     }
   }

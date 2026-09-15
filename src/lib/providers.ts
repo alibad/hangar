@@ -53,6 +53,30 @@ export type CatalogModel = {
   note?: string;
   /** Memory cost of running this model locally. Absent for cloud models. */
   footprint?: Footprint;
+  /**
+   * Accepts image input. Declared in config/model-meta.json, NOT inferred.
+   *
+   * The router reports `mode: "chat"` for every conversational model, text-only
+   * and multimodal alike, because that is the only mode LiteLLM has for them.
+   * So without this flag the Vision capability offers every chat model on the
+   * box and silently accepts a text-only one - which is exactly what had
+   * happened: vision was routed to `local-small`, a 7B that cannot see.
+   * Guessing from the alias would not fix it either, since the name that most
+   * needs to be recognised (gemma4) says nothing about vision.
+   */
+  vision?: boolean;
+  /**
+   * For a model on a runtime that loads on demand (Ollama): is it resident RIGHT
+   * NOW. Undefined for every other model, where "the service is up" already
+   * answers the question.
+   *
+   * This exists because a shared runtime broke the assumption the rest of the UI
+   * rests on - that one model means one service. Three Ollama aliases share the
+   * `ollama` service, so `status: "ready"` is true for all three the moment the
+   * runtime is up, and the picker showed three models "running" on a card that
+   * can hold exactly one. `loaded` is the honest answer, asked of the runtime.
+   */
+  loaded?: boolean;
   /** Rough cost signal for the compare view; 0/undefined for local. */
   costPerImage?: number;
   costPerMTokIn?: number;
@@ -75,6 +99,39 @@ type RawModelInfo = {
 function isLocalBase(apiBase?: string): boolean {
   if (!apiBase) return false;
   return /(^|\/\/)(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(apiBase);
+}
+
+/**
+ * Services that load a model on demand rather than pinning one at startup.
+ * For these, service health says only that the runtime is up.
+ */
+export const ON_DEMAND_SERVICES = new Set(["ollama"]);
+
+/**
+ * Ollama model names currently resident, as the router spells them.
+ *
+ * Returned in router form (`openai/<name>`) as well as bare, so the caller can
+ * match `litellm_params.model` directly rather than stripping a prefix at every
+ * use. Failure is an empty set, never a throw: residency is extra detail on a
+ * catalogue that must keep rendering when a runtime is down.
+ */
+async function residentOllamaTargets(): Promise<Set<string>> {
+  try {
+    const res = await fetch(`${getServiceUrl("ollama")}/api/ps`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return new Set();
+    const data = (await res.json()) as { models?: { name?: string; model?: string }[] };
+    const out = new Set<string>();
+    for (const m of data.models ?? []) {
+      const name = m.name ?? m.model;
+      if (name) {
+        out.add(`openai/${name}`);
+        out.add(name);
+      }
+    }
+    return out;
+  } catch {
+    return new Set();
+  }
 }
 
 /** Map a local model's api_base port onto the BeTenshi service that serves it. */
@@ -113,6 +170,8 @@ export type ModelMeta = {
   /** BeTenshi service id — lets footprints resolve without the router. */
   service?: string;
   footprint?: Footprint;
+  /** Accepts image input. See CatalogModel.vision for why this is declared. */
+  vision?: boolean;
 };
 
 export type BenchmarkLink = { label: string; url: string };
@@ -201,6 +260,11 @@ export async function getCatalogue(): Promise<{ routerUp: boolean; models: Catal
   );
 
   const meta = loadMeta();
+
+  // Which model an on-demand runtime is actually holding has to be asked; its
+  // health endpoint only says the runtime is up.
+  const residentTargets = health.get("ollama") ? await residentOllamaTargets() : new Set<string>();
+
   const models: CatalogModel[] = base.map(({ m, svcId }) => {
     const info = m.model_info ?? {};
     const md: ModelMeta = meta[m.model_name] ?? {};
@@ -248,6 +312,8 @@ export async function getCatalogue(): Promise<{ routerUp: boolean; models: Catal
       // Cloud models cost money, not memory — leaving this undefined is what
       // makes the UI say "off-box" rather than "0 GB".
       footprint: local ? md.footprint : undefined,
+      vision: md.vision === true,
+      loaded: ON_DEMAND_SERVICES.has(svcId ?? "") ? residentTargets.has(m.litellm_params?.model ?? "") : undefined,
     };
   });
 
@@ -438,9 +504,17 @@ export async function resolveCallTarget(
   return { alias, baseUrl: routerUrl(), model: alias, local: false, via: "router" };
 }
 
-/** Models eligible for a capability, by the modes that capability accepts. */
+/**
+ * Models eligible for a capability, by the modes that capability accepts.
+ *
+ * Vision is the one capability that mode alone cannot decide: it accepts `chat`,
+ * and so does every text-only model. It is narrowed by the explicit `vision`
+ * flag instead - see the note on CatalogModel.vision for why this is declared
+ * rather than inferred.
+ */
 export function modelsFor(capability: Capability, models: CatalogModel[]): CatalogModel[] {
   const cap = CAPABILITIES.find((c) => c.id === capability);
   if (!cap) return [];
-  return models.filter((m) => (cap.modes as readonly string[]).includes(m.mode));
+  const byMode = models.filter((m) => (cap.modes as readonly string[]).includes(m.mode));
+  return capability === "vision" ? byMode.filter((m) => m.vision) : byMode;
 }

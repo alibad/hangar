@@ -1,65 +1,35 @@
 import { NextResponse } from "next/server";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import os from "os";
 import { SERVICE_REGISTRY, getServiceUrl } from "@/lib/services";
+import { getHost, isUnifiedMemory } from "@/lib/host";
+import { gpuReading, hostMemory, listeners, dockerHostRamMb } from "@/lib/sysinfo";
 
 const execFileP = promisify(execFile);
 
 /**
- * Host RAM, reported alongside VRAM because on this box it is the tighter
- * constraint and nothing was watching it.
+ * GPU + memory status for THIS host.
  *
- * Qwen-Image keeps ~28 GB of fp8 weights in system RAM permanently
- * (enable_model_cpu_offload streams them to the card per stage), and a FLUX run
- * through ComfyUI wants a similar amount. Two of those do not fit in 63 GB — a
- * collision that has already killed the Qwen service once with a MemoryError
- * mid-shard-load, while every VRAM number on screen looked perfectly healthy.
+ * Which tool answers is decided by the host profile (src/lib/sysinfo.ts):
+ * nvidia-smi on BeTenshi, IOAccelerator counters on a Mac. The response shape is
+ * the same either way so the Stack tab renders one component, but it carries
+ * `memory_model` so the UI knows whether the VRAM and System RAM figures are two
+ * budgets (discrete) or the same number seen twice (unified).
+ *
+ * Host RAM is reported alongside VRAM because on BeTenshi it is the tighter
+ * constraint and nothing was watching it. Qwen-Image keeps ~28 GB of fp8 weights
+ * in system RAM permanently, and a FLUX run through ComfyUI wants a similar
+ * amount. Two of those do not fit in 63 GB — a collision that has already killed
+ * the Qwen service with a MemoryError mid-shard-load while every VRAM number on
+ * screen looked perfectly healthy.
+ *
+ * PER-PROCESS VRAM: nvidia-smi cannot report per-process memory on Windows (WDDM
+ * returns [N/A]). Two sources fill that in: the Windows GPU performance counters
+ * (the same accounting Task Manager uses — `windowsGpuProcesses`, Windows only),
+ * and each GPU service reporting its OWN torch allocation on /health. Apple
+ * silicon has no per-process VRAM concept at all; there the memory bar is the
+ * unified pool and only self-reporting services appear on it.
  */
-function hostRam() {
-  const total = os.totalmem();
-  const free = os.freemem();
-  return {
-    total_gb: Math.round((total / 1024 ** 3) * 10) / 10,
-    free_gb: Math.round((free / 1024 ** 3) * 10) / 10,
-    used_gb: Math.round(((total - free) / 1024 ** 3) * 10) / 10,
-    pct_used: total ? Math.round(((total - free) / total) * 1000) / 10 : 0,
-  };
-}
-
-/**
- * GPU status, read straight from nvidia-smi.
- *
- * This used to proxy `${MANAGER_URL}/gpu` with MANAGER_URL pointing at the
- * console's own port — an endpoint that exists on neither the console nor the
- * manager — so it had been returning 502 and the GPU tab rendered its
- * "unavailable" state permanently. The console runs on the box, so it can just
- * ask nvidia-smi.
- *
- * PER-SERVICE VRAM: nvidia-smi cannot report per-process memory on Windows
- * (WDDM returns [N/A]), so attribution comes from each GPU service reporting its
- * OWN torch allocation on /health. That is more accurate than nvidia-smi would
- * be anyway — it is the process's real reservation rather than a driver guess.
- */
-
-const FIELDS = [
-  "name",
-  "pstate",
-  "fan.speed",
-  "memory.total",
-  "memory.used",
-  "memory.free",
-  "utilization.gpu",
-  "utilization.memory",
-  "temperature.gpu",
-  "power.draw",
-  "power.limit",
-] as const;
-
-const num = (v: string) => {
-  const n = Number(String(v).replace(/[^\d.-]/g, ""));
-  return Number.isFinite(n) ? n : 0;
-};
 
 type GpuProcess = {
   name: string;
@@ -266,35 +236,12 @@ async function serviceVram(memTotalMb: number) {
  * the manager went on reporting the dead pid as healthy. Whoever is actually
  * listening on the port is the process consuming the memory.
  *
- * Resident set, not commit: committed memory counts mapped files and pagefile
- * reservations, which is why Qwen-Image reads 89 GB "private" on a 63 GB box.
- * Only the resident figure competes for physical RAM.
+ * The listener table itself comes from the host probe (PowerShell on Windows,
+ * lsof + ps elsewhere); the proxy-detection below is platform-neutral.
  */
-async function serviceRam(): Promise<Record<string, { name: string; rss_mb: number; pid: number; pct_of_total: number }>> {
-  const totalMb = os.totalmem() / 1024 ** 2;
-  const ps = [
-    "$ErrorActionPreference='SilentlyContinue';",
-    "Get-NetTCPConnection -State Listen |",
-    "Select-Object -Property LocalPort,OwningProcess -Unique |",
-    "ForEach-Object { $p = Get-Process -Id $_.OwningProcess;",
-    "  if ($p) { [pscustomobject]@{ port=$_.LocalPort; pid=$_.OwningProcess; rss=$p.WorkingSet64 } } } |",
-    "ConvertTo-Json -Compress",
-  ].join(" ");
-
-  let rows: { port: number; pid: number; rss: number }[] = [];
-  try {
-    const { stdout } = await execFileP("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], {
-      timeout: 10000,
-      windowsHide: true,
-      maxBuffer: 4 * 1024 * 1024,
-    });
-    const parsed = JSON.parse(stdout.trim() || "[]");
-    rows = Array.isArray(parsed) ? parsed : [parsed];
-  } catch {
-    return {}; // no listener table — better to show nothing than to guess
-  }
-
-  const byPort = new Map(rows.map((r) => [Number(r.port), r]));
+async function serviceRam(totalMb: number): Promise<Record<string, { name: string; rss_mb: number; pid: number; pct_of_total: number }>> {
+  const rows = await listeners();
+  const byPort = new Map(rows.map((r) => [r.port, r]));
 
   // A containerised service's port is held by Docker's proxy, not by the server
   // — so webui, grafana and prometheus all resolve to ONE pid. Attributing that
@@ -305,105 +252,78 @@ async function serviceRam(): Promise<Record<string, { name: string; rss_mb: numb
   for (const svc of SERVICE_REGISTRY) {
     const hit = byPort.get(svc.localPort);
     if (!hit?.rss) continue;
-    const list = svcByPid.get(Number(hit.pid)) ?? [];
+    const list = svcByPid.get(hit.pid) ?? [];
     list.push(svc.id);
-    svcByPid.set(Number(hit.pid), list);
+    svcByPid.set(hit.pid, list);
   }
 
   const out: Record<string, { name: string; rss_mb: number; pid: number; pct_of_total: number }> = {};
   for (const svc of SERVICE_REGISTRY) {
     const hit = byPort.get(svc.localPort);
     if (!hit?.rss) continue;
-    if ((svcByPid.get(Number(hit.pid))?.length ?? 0) > 1) continue; // proxied — counted under docker
+    if ((svcByPid.get(hit.pid)?.length ?? 0) > 1) continue; // proxied — counted under docker
     const rssMb = Math.round(hit.rss / 1024 ** 2);
     out[svc.id] = {
       name: svc.name,
       rss_mb: rssMb,
-      pid: Number(hit.pid),
-      pct_of_total: Math.round((rssMb / totalMb) * 1000) / 10,
+      pid: hit.pid,
+      pct_of_total: totalMb ? Math.round((rssMb / totalMb) * 1000) / 10 : 0,
     };
   }
 
   // Where container memory actually is. One synthetic row rather than a lie
-  // spread across several real ones.
-  const wsl = rows.length ? await wslRam() : 0;
+  // spread across several real ones. Zero on a host without Docker/WSL.
+  const wsl = rows.length ? await dockerHostRamMb() : 0;
   if (wsl > 0) {
     out["docker-wsl"] = {
       name: "Docker / WSL (all containers)",
       rss_mb: wsl,
       pid: 0,
-      pct_of_total: Math.round((wsl / totalMb) * 1000) / 10,
+      pct_of_total: totalMb ? Math.round((wsl / totalMb) * 1000) / 10 : 0,
     };
   }
   return out;
 }
 
-/** vmmemWSL holds every container's memory as one Windows process. */
-async function wslRam(): Promise<number> {
-  try {
-    const { stdout } = await execFileP(
-      "powershell.exe",
-      ["-NoProfile", "-NonInteractive", "-Command",
-       "(Get-Process -Name 'vmmem*' -ErrorAction SilentlyContinue | Measure-Object WorkingSet64 -Sum).Sum"],
-      { timeout: 8000, windowsHide: true },
-    );
-    const bytes = Number(stdout.trim());
-    return Number.isFinite(bytes) && bytes > 0 ? Math.round(bytes / 1024 ** 2) : 0;
-  } catch {
-    return 0;
-  }
-}
-
 export async function GET() {
+  const hostProfile = getHost();
+  const unified = isUnifiedMemory();
   try {
-    const { stdout } = await execFileP(
-      "nvidia-smi",
-      [`--query-gpu=${FIELDS.join(",")}`, "--format=csv,noheader,nounits"],
-      { timeout: 10000 },
-    );
-    const row = stdout.trim().split("\n")[0]?.split(",").map((s) => s.trim()) ?? [];
-    if (row.length < FIELDS.length) throw new Error("unexpected nvidia-smi output");
-
-    const [name, pstate, fan, memTotal, memUsed, memFree, gpuUtil, memUtil, temp, pDraw, pLimit] = row;
-    const mem_total = num(memTotal);
-    const mem_used = num(memUsed);
+    const [g, host] = await Promise.all([gpuReading(), hostMemory()]);
+    const { mem_total, mem_used } = g;
     const ratio = mem_total ? mem_used / mem_total : 0;
 
     const [service_vram, service_ram, containerWorkloads] = await Promise.all([
       serviceVram(mem_total),
-      serviceRam(),
+      serviceRam(host.total_gb * 1024),
       runningContainerWorkloads(),
     ]);
-    const gpu_processes = await windowsGpuProcesses(mem_total, mem_used, service_ram, containerWorkloads);
+    // The performance-counter path is a Windows API; every other host gets an
+    // empty list and the bar falls back to service self-reporting.
+    const gpu_processes = hostProfile.platform === "win32"
+      ? await windowsGpuProcesses(mem_total, mem_used, service_ram, containerWorkloads)
+      : [];
     const processAccountedMb = gpu_processes.reduce((sum, process) => sum + process.bar_mb, 0);
     const serviceAccountedMb = Object.values(service_vram).reduce(
       (a, s) => a + (s as { used_mb: number }).used_mb, 0,
     );
     const accounted = gpu_processes.length ? processAccountedMb : serviceAccountedMb;
-    const host = hostRam();
     const ramAccountedMb = Object.values(service_ram).reduce((a, s) => a + s.rss_mb, 0);
 
     // What this means for "can I start another model right now".
     const impact =
       ratio > 0.95 ? "critical" : ratio > 0.85 ? "warning" : ratio > 0.6 ? "busy" : "ok";
+    const budget = unified ? "Memory" : "VRAM";
     const impact_msg =
-      impact === "critical" ? "VRAM exhausted — stop a model before starting another"
-      : impact === "warning" ? "Little VRAM left — a large model will not fit"
+      impact === "critical" ? `${budget} exhausted — stop a model before starting another`
+      : impact === "warning" ? `Little ${budget.toLowerCase()} left — a large model will not fit`
       : impact === "busy" ? "In use — room for a small model"
       : "Plenty of headroom";
 
     return NextResponse.json({
-      name,
-      pstate,
-      fan_speed: fan === "[N/A]" ? null : num(fan),
-      mem_total,
-      mem_used,
-      mem_free: num(memFree),
-      gpu_util: num(gpuUtil),
-      mem_util: num(memUtil),
-      temperature: num(temp),
-      power_draw: num(pDraw),
-      power_limit: num(pLimit),
+      host: { id: hostProfile.id, name: hostProfile.name },
+      memory_model: hostProfile.memory.kind,
+      ...g,
       impact,
       impact_msg,
       host_ram: host,
@@ -413,11 +333,13 @@ export async function GET() {
       ram_summary: {
         accounted_mb: ramAccountedMb,
         // Everything not held by a registered service: the desktop, browsers,
-        // WSL, and Windows' own compressed-memory store. On this box that has
+        // WSL, and the OS's own compressed-memory store. On BeTenshi that has
         // been the larger share more than once, so it is named rather than
         // silently folded into the services' total.
         unaccounted_mb: Math.max(0, Math.round(host.used_gb * 1024) - ramAccountedMb),
-        unaccounted_note: "desktop + apps + WSL/docker + OS cache",
+        unaccounted_note: unified
+          ? "desktop + apps + OS cache"
+          : "desktop + apps + WSL/docker + OS cache",
       },
       vram_summary: {
         accounted_mb: accounted,
@@ -426,16 +348,20 @@ export async function GET() {
         unaccounted_mb: Math.max(0, mem_used - accounted),
         unaccounted_note: gpu_processes.length
           ? "GPU memory not resolved to a Windows process"
-          : "desktop + apps + services that don't report VRAM",
+          : unified
+            ? "everything not self-reported by a service (Ollama does not report per-model memory)"
+            : "desktop + apps + services that don't report VRAM",
       },
     });
   } catch (err) {
-    // Host RAM still goes out: it does not come from nvidia-smi, and a missing
-    // GPU reading is no reason to blind the one budget that OOMs this box.
+    // Host RAM still goes out: it does not come from the GPU tool, and a missing
+    // GPU reading is no reason to blind the one budget that OOMs a box.
     return NextResponse.json(
       {
-        error: `nvidia-smi unavailable: ${err instanceof Error ? err.message : err}`,
-        host_ram: hostRam(),
+        host: { id: hostProfile.id, name: hostProfile.name },
+        memory_model: hostProfile.memory.kind,
+        error: `GPU probe unavailable: ${err instanceof Error ? err.message : err}`,
+        host_ram: await hostMemory(),
       },
       { status: 502 },
     );

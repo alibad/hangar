@@ -7,6 +7,7 @@ import { Activity, Gauge, HardDrive, Home, Network, RefreshCw } from "lucide-rea
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import { ThemePicker } from "@/components/theme-picker";
 import { useTheme } from "@/components/theme-provider";
+import { hostHasTab } from "@/lib/host";
 
 type Props = {
   active: ConsoleTab;
@@ -19,15 +20,32 @@ type Props = {
   onRefresh: () => void;
   autoRefresh: boolean;
   onAutoRefresh: (value: boolean) => void;
+  /** Which machine this console is running as. Falls back to the original name
+   *  until /api/host answers, so the header never flashes a placeholder. */
+  hostName?: string;
 };
 
-const workstreams: Array<{ id: ConsoleTab; label: string; hint: string }> = [
+// Filtered to what this machine can actually back — the same rule the tab bar
+// uses. Unfiltered, a Mac with only Ollama still listed Image Studio, Speech,
+// 3D Body and Segment here, every one of them opening a tab that is hidden.
+// Every workstream, on every machine. Availability is SHOWN, never used to hide:
+// a console that drops entries on one box reads as a different, smaller product
+// and conceals exactly what that box cannot do.
+const workstreams = ([
   { id: "llm", label: "Chat & Code", hint: "Local text models" },
+  // Directly under Chat & Code: it answers the question that tab provokes —
+  // "is this model the right one?" — rather than being a separate kind of work.
+  { id: "arena", label: "Arena", hint: "Compare models on one prompt" },
   { id: "qwen", label: "Image Studio", hint: "Generate and edit" },
   { id: "speech", label: "Speech", hint: "Transcribe and synthesize" },
   { id: "sam3d", label: "3D Body", hint: "Human mesh and pose" },
   { id: "sam3", label: "Segment", hint: "Open-vocabulary masks" },
-];
+] as Array<{ id: ConsoleTab; label: string; hint: string }>).map((item) => ({
+  ...item,
+  // Present on every machine; a host that cannot back it is marked here and
+  // explains itself on the page, rather than the entry disappearing.
+  available: hostHasTab(item.id),
+}));
 
 // What is flowing through the stack, and what it costs.
 const insights: Array<{ id: ConsoleTab; label: string; hint: string }> = [
@@ -47,7 +65,9 @@ export default function ConsoleHeader({
   onRefresh,
   autoRefresh,
   onAutoRefresh,
+  hostName,
 }: Props) {
+  const machine = hostName || "BeTenshi";
   const { theme, toggle } = useTheme();
   const workstreamsMenuRef = useRef<HTMLDetailsElement>(null);
   const insightsMenuRef = useRef<HTMLDetailsElement>(null);
@@ -92,9 +112,9 @@ export default function ConsoleHeader({
     <>
     <header className="console-header sticky top-0 z-30 border-b border-gray-800 bg-gray-950/90 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1500px] items-center gap-3 px-4 sm:px-6">
-        <button type="button" onClick={() => onSelect("stack")} className="flex h-11 shrink-0 items-center gap-2.5 md:h-auto" aria-label="Open BeTenshi Home">
+        <button type="button" onClick={() => onSelect("stack")} className="flex h-11 shrink-0 items-center gap-2.5 md:h-auto" aria-label={`Open ${machine} Home`}>
           <Image src="/icons/icon.svg" alt="" width={24} height={24} priority className="h-6 w-6" />
-          <span className="text-lg font-semibold tracking-[-0.02em] text-gray-100">BeTenshi</span>
+          <span className="text-lg font-semibold tracking-[-0.02em] text-gray-100">{machine}</span>
         </button>
 
         <nav className="ml-2 hidden h-full items-center gap-1 md:flex" aria-label="Primary navigation">
@@ -107,7 +127,14 @@ export default function ConsoleHeader({
             <div className="absolute left-0 top-[54px] w-56 overflow-hidden rounded-xl border border-gray-700 bg-gray-950 p-1.5 shadow-2xl">
               {workstreams.map((item) => (
                 <button key={item.id} type="button" onClick={() => selectWorkstream(item.id)} className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-gray-800">
-                  <span className="block text-xs font-medium text-gray-200">{item.label}</span>
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-gray-200">
+                    {item.label}
+                    {!item.available && (
+                      <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 text-[9px] font-medium text-amber-300">
+                        not on this machine
+                      </span>
+                    )}
+                  </span>
                   <span className="block text-[10px] text-gray-600">{item.hint}</span>
                 </button>
               ))}

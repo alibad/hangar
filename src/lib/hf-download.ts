@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import { spawn, execFile } from "child_process";
 import { promisify } from "util";
+import { getHost } from "./host";
 
 const execFileP = promisify(execFile);
 
@@ -22,23 +23,27 @@ const execFileP = promisify(execFile);
 
 const HF_BIN =
   process.env.HF_CLI ??
-  (process.platform === "win32"
+  (getHost().platform === "win32"
     ? "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\hf.exe"
     : "hf");
 
 /**
- * Where weights live, which is not the same answer on both machines this
- * console runs on.
+ * Where weights live, which is not the same answer on both machines.
  *
- * On the Windows box it is a pinned second drive, because the boot drive would
- * have filled. On macOS there are no drive letters and the Hub's own default is
- * right, so following it means the console and every other tool that reads
- * HF_HOME agree without configuration. Hardcoding the Windows path here made
- * the Mac report an empty cache and 0 GB of weights.
+ * On BeTenshi it is a pinned second drive, because the boot drive would have
+ * filled. On B5 there are no drive letters and the Hub's own default is right,
+ * so following it means the console and every other tool that reads HF_HOME
+ * agree without configuration. This was hardcoded to the Windows path, which
+ * had the Mac reporting an empty cache and 0 GB of weights.
+ *
+ * Off the host profile rather than process.platform, per the rule in host.ts.
+ * It belongs IN the profile eventually — it is exactly the kind of per-host
+ * decision config/hosts/*.json exists for — but that is a change to the JSON
+ * schema the manager also reads, so it is left here for now.
  */
 export function weightsHome(): string {
   if (process.env.HF_HOME) return process.env.HF_HOME;
-  if (process.platform === "win32") {
+  if (getHost().platform === "win32") {
     const drive = (process.env.WEIGHTS_DRIVE ?? "D:").toUpperCase();
     return `${drive}\\AI Models\\huggingface`;
   }

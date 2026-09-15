@@ -9,9 +9,11 @@ import UsageView from "@/components/usage-view";
 import Sam3dView from "@/components/sam3d-view";
 import Sam3View from "@/components/sam3-view";
 import ModelsPage from "@/components/models-page";
+import ArenaView from "@/components/arena-view";
 import ModelFootprint, { type Footprint } from "@/components/model-footprint";
 import Markdown from "@/components/markdown";
 import { ServiceLogsButton } from "@/components/service-control";
+import { isAdopted, isOnDemand, isReady, needsAttention } from "@/lib/service-state";
 import { useTheme } from "@/components/theme-provider";
 import { ThemePicker } from "@/components/theme-picker";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
@@ -29,6 +31,8 @@ import {
   Sparkles, Layers, ScanLine, Scan, Server, ExternalLink, Cpu, RefreshCw,
   Sun, Moon, LayoutGrid, List, AlertTriangle, type LucideIcon,
 } from "lucide-react";
+import { hostHasTab } from "@/lib/host";
+import HostUnavailable from "@/components/host-unavailable";
 
 // Small inline spinner shown while a service action (start/stop/restart) is in flight.
 function Spinner() {
@@ -102,6 +106,17 @@ type CatalogEntry = {
   footprint?: Footprint;
 };
 
+/** /api/host — which box this is, so the page names itself and hides tabs for
+ *  services that do not exist here. */
+type HostInfo = {
+  id: string;
+  name: string;
+  platform: string;
+  gpu: string;
+  memory: { kind: "discrete" | "unified" };
+  services: string[];
+};
+
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
@@ -163,17 +178,21 @@ const VRAM_COLORS: Record<string, string> = {
 const vramColor = (id: string) => VRAM_COLORS[id] ?? "bg-slate-500";
 
 type GpuStatus = {
+  /** Which machine answered, and whether VRAM and RAM are one pool or two. */
+  host?: { id: string; name: string };
+  memory_model?: "discrete" | "unified";
   name: string;
-  temperature: number;
-  gpu_util: number;
-  mem_util: number;
+  /** Null on hosts whose GPU exposes no such counter (Apple silicon). */
+  temperature: number | null;
+  gpu_util: number | null;
+  mem_util: number | null;
   mem_total: number;
   mem_used: number;
   mem_free: number;
-  power_draw: number;
-  power_limit: number;
+  power_draw: number | null;
+  power_limit: number | null;
   fan_speed: number | null;
-  pstate: string;
+  pstate: string | null;
   /** Per-service VRAM, self-reported by each service (nvidia-smi can't on Windows). */
   service_vram: Record<string, {
     name: string;
@@ -277,6 +296,13 @@ export default function Home() {
   const [actionInProgress, setActionInProgress] = useState<{ id: string; action: "start" | "stop" | "restart" } | null>(null);
   const [actionMessage, setActionMessage] = useState<{ id: string; text: string; type: "success" | "error" } | null>(null);
   const [gpu, setGpu] = useState<GpuStatus | null>(null);
+  const [host, setHost] = useState<HostInfo | null>(null);
+  /** Is this service registered on the host we are running on? Unknown host
+   *  (before /api/host answers) counts as yes, so nothing is hidden by a race. */
+  const hostHas = useCallback(
+    (...ids: string[]) => !host || ids.some((id) => host.services.includes(id)),
+    [host],
+  );
   const [resourceControl, setResourceControl] = useState<ResourceControlSnapshot | null>(null);
   const [routing, setRouting] = useState<RoutingInfo | null>(null);
   /**
@@ -322,7 +348,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const valid = new Set<ConsoleTab>(["stack", "services", "storage", "llm", "speech", "qwen", "requests", "usage", "sam3d", "sam3", "models"]);
+    const valid = new Set<ConsoleTab>(["stack", "services", "storage", "llm", "arena", "speech", "qwen", "requests", "usage", "sam3d", "sam3", "models"]);
     const resolve = () => {
       const hash = window.location.hash.slice(1) as ConsoleTab;
       const saved = window.localStorage.getItem("bt-active-tab") as ConsoleTab | null;
@@ -379,6 +405,13 @@ export default function Home() {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchHost = useCallback(async () => {
+    try {
+      const res = await fetch("/api/host");
+      if (res.ok) setHost(await res.json());
+    } catch { /* fall back to the generic labels */ }
+  }, []);
+
   const fetchGpu = useCallback(async () => {
     try {
       const res = await fetch("/api/gpu");
@@ -430,11 +463,17 @@ export default function Home() {
   const refreshAll = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([checkHealth(), fetchMetrics(), fetchServices(), fetchRouting(), fetchGpu(), fetchResourceControl(), fetchCatalog(), fetchQwenHealth()]);
+      await Promise.all([
+        fetchHost(), checkHealth(), fetchServices(), fetchRouting(), fetchGpu(), fetchResourceControl(), fetchCatalog(),
+        // BeTenshi-only backends: skip the poll where the service is not registered,
+        // rather than logging a guaranteed 502 every tick on another host.
+        ...(hostHas("prometheus") ? [fetchMetrics()] : []),
+        ...(hostHas("qwen") ? [fetchQwenHealth()] : []),
+      ]);
     } finally {
       setRefreshing(false);
     }
-  }, [checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchResourceControl, fetchCatalog, fetchQwenHealth]);
+  }, [fetchHost, hostHas, checkHealth, fetchMetrics, fetchServices, fetchRouting, fetchGpu, fetchResourceControl, fetchCatalog, fetchQwenHealth]);
 
   async function serviceAction(id: string, action: "start" | "stop" | "restart") {
     setActionInProgress({ id, action });
@@ -636,13 +675,14 @@ export default function Home() {
         : "down";
 
   const runningServices = managedServices.filter((service) => service.status === "running").length;
-  const readyServices = managedServices.filter((service) => service.status === "running" && service.healthy).length;
-  const onDemandServices = managedServices.filter(
-    (service) => service.status !== "running" && service.status !== "failed" && service.owner !== "external",
-  ).length;
-  const attentionServices = managedServices.filter(
-    (service) => service.status === "failed" || (service.status === "running" && !service.healthy) || service.owner === "external",
-  );
+  const readyServices = managedServices.filter(isReady).length;
+  const onDemandServices = managedServices.filter(isOnDemand).length;
+  const attentionServices = managedServices.filter(needsAttention);
+  // Running, but started outside the manager: none of its configured environment
+  // was applied and none of its output is captured. Not a failure, but not the
+  // service as configured either, so it is surfaced on its own rather than
+  // folded into either bucket.
+  const adoptedServices = managedServices.filter(isAdopted);
   const queueDepth = (resourceControl?.queue.length ?? 0) + (resourceControl?.starts.length ?? 0);
 
   const tabs = [
@@ -659,6 +699,9 @@ export default function Home() {
     // this as a second, weaker generator for FLUX; the model is a picker inside
     // the studio now, so both share its gallery, queue and Activity feed.
     { id: "qwen" as const, label: "Image" },
+    // Not gated on a service: the Arena compares cloud models too, so it is
+    // useful on a host running no local models at all.
+    { id: "arena" as const, label: "Arena" },
     { id: "requests" as const, label: "Requests" },
     { id: "usage" as const, label: "Usage" },
     { id: "sam3d" as const, label: "3D Body" },
@@ -679,6 +722,7 @@ export default function Home() {
         onRefresh={refreshAll}
         autoRefresh={autoRefresh}
         onAutoRefresh={setAutoRefresh}
+        hostName={host?.name ?? gpu?.host?.name}
       />
       <ResourcePulse
         gpu={gpu}
@@ -834,7 +878,7 @@ export default function Home() {
               <button type="button" onClick={() => setStackFilter("attention")} className={`rounded-xl border p-3 text-left transition ${attentionServices.length ? "border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50" : "border-gray-800 bg-gray-900 hover:border-gray-600"}`}>
                 <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-600"><AlertTriangle className="h-3 w-3" /> Needs attention</span>
                 <span className={`mt-1 block text-xl font-semibold tabular-nums ${attentionServices.length ? "text-amber-300" : "text-gray-100"}`}>{attentionServices.length}</span>
-                <span className="text-[11px] text-gray-500">failed, starting or external</span>
+                <span className="text-[11px] text-gray-500">{adoptedServices.length ? `failed or unhealthy · ${adoptedServices.length} started outside` : "failed or unhealthy"}</span>
               </button>
               <div className="rounded-xl border border-gray-800 bg-gray-900 p-3">
                 <span className="text-[10px] uppercase tracking-wide text-gray-600">GPU memory</span>
@@ -865,15 +909,15 @@ export default function Home() {
                     "bg-green-500/15 text-green-400"
                   }`}>{gpu.impact_msg}</span>
                   <span className="ml-auto flex items-center gap-4 text-[11px] text-gray-500 tabular-nums">
-                    <span>util <span className="text-gray-200 font-semibold">{gpu.gpu_util}%</span></span>
-                    <span>temp <span className={`font-semibold ${gpu.temperature > 85 ? "text-red-400" : gpu.temperature > 70 ? "text-yellow-400" : "text-gray-200"}`}>{gpu.temperature}°C</span></span>
-                    <span>power <span className="text-gray-200 font-semibold">{Math.round(gpu.power_draw)}W</span><span className="text-gray-600">/{Math.round(gpu.power_limit)}</span></span>
+                    {gpu.gpu_util != null && <span>util <span className="text-gray-200 font-semibold">{gpu.gpu_util}%</span></span>}
+                    {gpu.temperature != null && <span>temp <span className={`font-semibold ${gpu.temperature > 85 ? "text-red-400" : gpu.temperature > 70 ? "text-yellow-400" : "text-gray-200"}`}>{gpu.temperature}°C</span></span>}
+                    {gpu.power_draw != null && gpu.power_limit != null && <span>power <span className="text-gray-200 font-semibold">{Math.round(gpu.power_draw)}W</span><span className="text-gray-600">/{Math.round(gpu.power_limit)}</span></span>}
                   </span>
                 </div>
 
                 {/* VRAM, segmented by the service holding it */}
                 <div className="flex justify-between text-[11px] text-gray-500 mb-1.5 tabular-nums">
-                  <span>VRAM</span>
+                  <span>{gpu.memory_model === "unified" ? "Memory (unified)" : "VRAM"}</span>
                   <span>{(gpu.mem_used / 1024).toFixed(1)} / {(gpu.mem_total / 1024).toFixed(1)} GB · {(gpu.mem_free / 1024).toFixed(1)} GB free</span>
                 </div>
                 <div className="h-4 bg-gray-800 rounded-full overflow-hidden flex">
@@ -914,7 +958,8 @@ export default function Home() {
                     and a FLUX run wants a similar amount; the pair has already
                     OOM-killed the Qwen service while every VRAM figure above
                     looked perfectly healthy. */}
-                {gpu.host_ram && (
+                {/* Only when it is a SEPARATE budget — on a unified host the bar above already is system memory. */}
+                {gpu.host_ram && gpu.memory_model !== "unified" && (
                   <div className="mt-3 pt-3 border-t border-gray-800">
                     <div className="flex justify-between text-[11px] text-gray-500 mb-1.5 tabular-nums">
                       <span>System RAM</span>
@@ -1008,7 +1053,7 @@ export default function Home() {
                   Consumption by service
                   <span className="text-gray-700">
                     · {Object.keys(gpu.service_ram ?? {}).length} holding RAM
-                    · {Object.keys(gpu.service_vram ?? {}).length} holding VRAM
+                    · {Object.keys(gpu.service_vram ?? {}).length} holding {gpu.memory_model === "unified" ? "GPU memory" : "VRAM"}
                   </span>
                 </button>
 
@@ -1019,7 +1064,7 @@ export default function Home() {
                         <tr className="text-left">
                           <th className="px-2.5 py-1.5 font-medium">service</th>
                           <th className="px-2.5 py-1.5 font-medium text-right">RAM</th>
-                          <th className="px-2.5 py-1.5 font-medium text-right">VRAM</th>
+                          <th className="px-2.5 py-1.5 font-medium text-right">{gpu.memory_model === "unified" ? "GPU alloc" : "VRAM"}</th>
                           <th className="px-2.5 py-1.5 font-medium text-right">pid</th>
                           <th className="px-2.5 py-1.5" />
                         </tr>
@@ -1149,7 +1194,7 @@ export default function Home() {
               </div>
             </div>
 
-          {stackFilter === "attention" && attentionServices.length === 0 && (
+          {stackFilter === "attention" && attentionServices.length + adoptedServices.length === 0 && (
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-5 text-sm text-emerald-300">
               Nothing needs attention. Intentionally stopped on-demand services remain available under All.
             </div>
@@ -1159,7 +1204,7 @@ export default function Home() {
               stackFilter === "all"
                 ? true
                 : stackFilter === "attention"
-                  ? s.status === "failed" || s.status === "starting" || s.owner === "external"
+                  ? needsAttention(s) || isAdopted(s)
                   : s.category === stackFilter,
             ).map((s) => {
               const isActing = actionInProgress?.id === s.id;
@@ -1568,7 +1613,8 @@ export default function Home() {
         )}
 
         {/* ── SPEECH TAB ── */}
-        {tab === "speech" && (
+        {tab === "speech" && !hostHasTab("speech") && <HostUnavailable tab="speech" title="Speech" />}
+        {tab === "speech" && hostHasTab("speech") && (
           <div className="tool-page speech-page">
             <ToolPageHeader
               eyebrow="Voice workstream"
@@ -1703,7 +1749,10 @@ export default function Home() {
         {/* ── CREATIVE TAB ── */}
 
         {/* ── IMAGE TAB — Qwen-Image + FLUX, model picked inside the studio ── */}
-        {tab === "qwen" && <QwenTab />}
+        {tab === "qwen" && (hostHasTab("qwen") ? <QwenTab /> : <HostUnavailable tab="qwen" title="Image Studio" />)}
+
+        {/* Arena — one prompt across several chat/vision models, scored. */}
+        {tab === "arena" && <ArenaView />}
 
         {/* ── REQUESTS TAB ── */}
         {tab === "requests" && <RequestsView />}
@@ -1712,8 +1761,8 @@ export default function Home() {
         {tab === "usage" && <UsageView />}
 
         {/* ── SAM3D TAB ── */}
-        {tab === "sam3d" && <Sam3dView />}
-        {tab === "sam3" && <Sam3View />}
+        {tab === "sam3d" && (hostHasTab("sam3d") ? <Sam3dView /> : <HostUnavailable tab="sam3d" title="3D Body" />)}
+        {tab === "sam3" && (hostHasTab("sam3") ? <Sam3View /> : <HostUnavailable tab="sam3" title="Segment" />)}
 
         {/* ── MODELS / AI ROUTER TAB ── */}
         {tab === "models" && <ModelsPage />}

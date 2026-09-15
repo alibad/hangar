@@ -2,7 +2,9 @@ import { readFile, stat } from "fs/promises";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import path from "path";
+import os from "os";
 import { SERVICE_REGISTRY } from "@/lib/services";
+import { getHost } from "@/lib/host";
 
 const execFileP = promisify(execFile);
 
@@ -128,7 +130,13 @@ function resolveStalePending(e: TrafficEvent, now: number): TrafficEvent {
   };
 }
 
-const LOG_DIR = process.env.AI_LOGS_DIR || path.join(process.cwd(), "..", "logs");
+// Where each service's uvicorn access log lives. The env override wins; then the
+// host profile's logsDir (with `~` expanded); then the BeTenshi convention of a
+// sibling `logs/` directory beside the console checkout.
+const LOG_DIR =
+  process.env.AI_LOGS_DIR ||
+  (getHost().logsDir ? getHost().logsDir!.replace(/^~(?=$|[\/\\])/, os.homedir()) : null) ||
+  path.join(process.cwd(), "..", "logs");
 const RING_MAX = 2000;
 const POLL_RING_MAX = 300;
 const LOG_TAIL_BYTES = 48 * 1024; // parse only the tail of (potentially huge) logs
@@ -160,7 +168,7 @@ const NOISE_PATHS = [
   /^\/v1\/models$/,
   /^\/system_stats$/,
   /^\/services$/,
-  /^\/api\/(health|gpu|metrics|services|resources|routing|llm|providers|traffic)$/,
+  /^\/api\/(health|host|gpu|metrics|services|resources|routing|llm|providers|traffic)$/,
   // Static metadata read on mount by both the studio and the compare view.
   /^\/api\/(footprints|model-meta)$/,
   /^\/api\/qwen\/(health|progress|archive|images|jobs|jobs\/status)$/,
@@ -428,6 +436,7 @@ const EXTRA_LOG_SERVICES = ["manager"];
 // in sync with the set there; filtered here too so any already sitting in the
 // ring don't crowd out real traffic.
 const DASHBOARD_POLLS = new Set([
+  "/api/assistant-usage", "/api/claude-usage", "/api/router-usage",
   "/api/health", "/api/gpu", "/api/metrics", "/api/services", "/api/resources", "/api/routing", "/api/llm",
   "/api/qwen/health", "/api/qwen/progress", "/api/qwen/archive", "/api/qwen/images", "/api/qwen/prompts",
   "/api/sam3d/health", "/api/sam3/health", "/api/providers",

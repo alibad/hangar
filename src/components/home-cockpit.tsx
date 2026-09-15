@@ -27,6 +27,8 @@ import {
 } from "@phosphor-icons/react";
 import type { ConsoleTab } from "@/components/command-palette";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { isAdopted, isOnDemand, isReady } from "@/lib/service-state";
+import { getHost, getWorkstreamOverrides, declaredMemoryGb, type WorkstreamKind } from "@/lib/host";
 
 type ManagedService = {
   id: string;
@@ -59,13 +61,16 @@ type GpuProcessConsumer = {
 
 type GpuStatus = {
   name: string;
-  temperature: number;
-  gpu_util: number;
+  /** Null where the GPU exposes no such counter (Apple silicon). */
+  temperature: number | null;
+  gpu_util: number | null;
   mem_total: number;
   mem_used: number;
   mem_free: number;
-  power_draw: number;
-  power_limit: number;
+  power_draw: number | null;
+  power_limit: number | null;
+  /** "unified": the VRAM figures below ARE system memory. */
+  memory_model?: "discrete" | "unified";
   service_vram: Record<string, { name: string; used_mb: number; pct_of_total: number; model?: string | null }>;
   gpu_processes?: GpuProcessConsumer[];
   vram_summary: { accounted_mb: number; unaccounted_mb: number; unaccounted_note: string };
@@ -103,7 +108,7 @@ type TrafficEvent = {
   pending?: boolean;
 };
 
-type WorkflowKind = "text" | "image" | "audio" | "files";
+type WorkflowKind = WorkstreamKind;
 
 type Props = {
   managedServices: ManagedService[];
@@ -124,7 +129,17 @@ type Props = {
   openResourceMapSignal?: number;
 };
 
-const workflowConfig = {
+/**
+ * The four workstreams, on every machine — with per-host overrides.
+ *
+ * These were BeTenshi's services spelled out here, so another host advertised
+ * work it could not do. The fix is NOT to drop cards: a console that shows a
+ * different set per machine reads as a different product and hides what this box
+ * cannot do. Every card is always here. A profile overrides only where this
+ * machine genuinely differs (B5 backs Chat & Code with Ollama, not vLLM), and a
+ * card whose service is not registered here renders as unavailable and says why.
+ */
+const canonicalWorkflows = {
   text: {
     label: "Chat & Code",
     description: "Think, code, debug, and refactor",
@@ -134,7 +149,7 @@ const workflowConfig = {
     vramGb: 7.6,
     ramGb: 8.2,
     icon: Code,
-    color: "orange",
+    color: "orange" as const,
     action: "Open chat",
   },
   image: {
@@ -146,7 +161,7 @@ const workflowConfig = {
     vramGb: 20,
     ramGb: 28,
     icon: ImageSquare,
-    color: "violet",
+    color: "violet" as const,
     action: "Generate",
   },
   audio: {
@@ -158,7 +173,7 @@ const workflowConfig = {
     vramGb: 1.5,
     ramGb: 2.1,
     icon: Waveform,
-    color: "blue",
+    color: "blue" as const,
     action: "Open speech",
   },
   files: {
@@ -170,21 +185,24 @@ const workflowConfig = {
     vramGb: 8.1,
     ramGb: 10,
     icon: Cube,
-    color: "emerald",
+    color: "emerald" as const,
     action: "Analyze",
   },
-} satisfies Record<WorkflowKind, {
-  label: string;
-  description: string;
-  model: string;
-  serviceId: string;
-  tab: ConsoleTab;
-  vramGb: number;
-  ramGb: number;
-  icon: typeof Code;
-  color: "orange" | "violet" | "blue" | "emerald";
-  action: string;
-}>;
+};
+
+const overrides = getWorkstreamOverrides();
+const hostServiceIds = new Set(getHost().services.map((s) => s.id));
+
+const workflowConfig = Object.fromEntries(
+  (Object.entries(canonicalWorkflows) as [WorkflowKind, typeof canonicalWorkflows.text][])
+    .map(([kind, base]) => {
+      const merged = { ...base, ...(overrides[kind] ?? {}) };
+      return [kind, { ...merged, available: hostServiceIds.has(merged.serviceId) }];
+    }),
+) as Record<WorkflowKind, typeof canonicalWorkflows.text & { available: boolean }>;
+
+/** All four, always — availability is rendered, not used to filter. */
+const WORKFLOW_KINDS = ["text", "image", "audio", "files"] as WorkflowKind[];
 
 const modeCopy: Record<WorkflowKind, { label: string; placeholder: string }> = {
   text: { label: "Text", placeholder: "Ask, plan, debug, or build something with your local models…" },
@@ -353,6 +371,7 @@ export default function HomeCockpit({
   onTranscribeFile,
   openResourceMapSignal = 0,
 }: Props) {
+  // First slot this host has, so the composer never opens on a workstream that is not here.
   const [mode, setMode] = useState<WorkflowKind>("text");
   const [prompt, setPrompt] = useState("");
   const [resourceOpen, setResourceOpen] = useState(false);
@@ -398,9 +417,9 @@ export default function HomeCockpit({
   const selected = workflowConfig[mode];
   const selectedService = managedServices.find((service) => service.id === selected.serviceId);
   const alreadyResident = selectedService?.status === "running";
-  const vramTotal = gpu?.mem_total ? gpu.mem_total / 1024 : resourceControl?.capacity.vram.totalGb ?? 31.8;
+  const vramTotal = gpu?.mem_total ? gpu.mem_total / 1024 : resourceControl?.capacity.vram.totalGb ?? declaredMemoryGb().vramGb;
   const vramUsed = gpu?.mem_used ? gpu.mem_used / 1024 : Math.max(0, vramTotal - (resourceControl?.capacity.vram.freeGb ?? vramTotal));
-  const ramTotal = gpu?.host_ram?.total_gb ?? resourceControl?.capacity.ram.totalGb ?? 63.3;
+  const ramTotal = gpu?.host_ram?.total_gb ?? resourceControl?.capacity.ram.totalGb ?? declaredMemoryGb().ramGb;
   const ramUsed = gpu?.host_ram?.used_gb ?? Math.max(0, ramTotal - (resourceControl?.capacity.ram.freeGb ?? ramTotal));
   const addedVram = alreadyResident ? 0 : selected.vramGb;
   const addedRam = alreadyResident ? 0 : selected.ramGb;
@@ -410,12 +429,13 @@ export default function HomeCockpit({
   const ramSafety = resourceControl?.budgets.ramSafetyGb ?? 4;
   const canRun = predictedVram <= vramTotal - vramSafety && predictedRam <= ramTotal - ramSafety;
   const online = managedServices.filter((service) => service.status === "running").length;
-  const readyNow = managedServices.filter((service) => service.status === "running" && service.healthy).length;
-  const onDemand = managedServices.filter((service) => service.status !== "running" && service.status !== "failed" && service.owner !== "external").length;
+  const readyNow = managedServices.filter(isReady).length;
+  const onDemand = managedServices.filter(isOnDemand).length;
   const recentFailures = events.filter((event) => event.status != null && event.status >= 400 && (event.ts == null || Date.now() - event.ts < 15 * 60_000));
   const stalledRequests = events.filter((event) => event.pending && event.ts != null && Date.now() - event.ts > 120_000);
   const unattributedSpend = events.filter((event) => !event.caller && (event.costUsd ?? 0) > 0);
-  const issueCount = attentionCount + recentFailures.length + stalledRequests.length + unattributedSpend.length;
+  const adopted = managedServices.filter(isAdopted).length;
+  const issueCount = attentionCount + adopted + recentFailures.length + stalledRequests.length + unattributedSpend.length;
   const residentModel = selected.model;
   const gpuConsumerRows = useMemo(() => {
     const rows = gpu?.gpu_processes ?? [];
@@ -492,6 +512,7 @@ export default function HomeCockpit({
         {(issueCount > 0 || unattributedSpend.length > 0) && (
           <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-gray-800 px-4 py-2 text-[11px] sm:px-5">
             {attentionCount > 0 && <button type="button" onClick={() => onSelectTab("services")} className="text-amber-200 hover:text-amber-100">{attentionCount} service issue{attentionCount === 1 ? "" : "s"}</button>}
+            {adopted > 0 && <button type="button" onClick={() => onSelectTab("services")} title="Started outside the console, so its configured environment was not applied and its output is not captured. Hand it over to fix both." className="text-amber-200 hover:text-amber-100">{adopted} service{adopted === 1 ? "" : "s"} started outside the console</button>}
             {recentFailures.length > 0 && <button type="button" onClick={() => onSelectTab("requests")} className="text-red-300 hover:text-red-200">{recentFailures.length} recent failed request{recentFailures.length === 1 ? "" : "s"}</button>}
             {stalledRequests.length > 0 && <button type="button" onClick={() => onSelectTab("requests")} className="text-sky-300 hover:text-sky-200">{stalledRequests.length} request{stalledRequests.length === 1 ? "" : "s"} running over 2m</button>}
             {unattributedSpend.length > 0 && <button type="button" onClick={() => onSelectTab("requests")} className="text-violet-300 hover:text-violet-200">{unattributedSpend.length} billable call{unattributedSpend.length === 1 ? "" : "s"} missing a caller</button>}
@@ -532,7 +553,7 @@ export default function HomeCockpit({
                 className="min-h-14 w-full resize-none bg-transparent text-[15px] leading-6 text-gray-100 outline-none placeholder:text-gray-600"
               />
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-800/80 pt-3">
-                {(["text", "image", "audio", "files"] as WorkflowKind[]).map((kind) => {
+                {WORKFLOW_KINDS.map((kind) => {
                   const Icon = kind === "text" ? FileText : kind === "image" ? ImageSquare : kind === "audio" ? Microphone : Paperclip;
                   return (
                     <button
@@ -660,11 +681,11 @@ export default function HomeCockpit({
             <button type="button" onClick={() => onSelectTab("models")} className="cockpit-accent-text text-xs font-medium text-orange-300 hover:text-orange-200">View routing</button>
           </div>
           <div className="divide-y divide-gray-800/80">
-            {(Object.keys(workflowConfig) as WorkflowKind[]).map((kind) => {
+            {WORKFLOW_KINDS.map((kind) => {
               const workflow = workflowConfig[kind];
               const Icon = workflow.icon;
               const service = managedServices.find((item) => item.id === workflow.serviceId);
-              const ready = service?.status === "running" && service.healthy;
+              const ready = service ? isReady(service) : false;
               const recent = events.find((event) => serviceLabel(event) === workflow.label);
               return (
                 <button
@@ -683,12 +704,16 @@ export default function HomeCockpit({
                     </span>
                   </span>
                   <span className="hidden min-w-0 sm:block">
-                    <span className="block truncate text-xs text-gray-300">{workflow.model}</span>
-                    <span className="block text-[10px] tabular-nums text-gray-500">{workflow.vramGb.toFixed(1)} GB VRAM profile</span>
+                    <span className={`block truncate text-xs ${workflow.available ? "text-gray-300" : "text-gray-500"}`}>{workflow.model}</span>
+                    <span className="block text-[10px] tabular-nums text-gray-500">
+                      {workflow.available
+                        ? `${workflow.vramGb.toFixed(1)} GB VRAM profile`
+                        : `needs ${workflow.serviceId}`}
+                    </span>
                   </span>
-                  <span className={`flex items-center gap-1.5 text-[11px] ${ready ? "text-emerald-300" : "text-gray-600"}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${ready ? "bg-emerald-400" : "bg-gray-600"}`} />
-                    {ready ? "Ready" : "On demand"}
+                  <span className={`flex items-center gap-1.5 text-[11px] ${!workflow.available ? "text-amber-300/90" : ready ? "text-emerald-300" : "text-gray-600"}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${!workflow.available ? "bg-amber-400/80" : ready ? "bg-emerald-400" : "bg-gray-600"}`} />
+                    {!workflow.available ? "Not on this machine" : ready ? "Ready" : "On demand"}
                   </span>
                   <span className="hidden min-w-0 lg:block">
                     <span className="block text-[9px] uppercase tracking-wide text-gray-500">Recent</span>
@@ -784,9 +809,15 @@ export default function HomeCockpit({
               <div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
                   <span className="font-semibold text-gray-200">GPU</span>
-                  <span className="text-gray-500">{gpu?.name ?? "NVIDIA GPU"} · {vramTotal.toFixed(1)} GB VRAM</span>
+                  <span className="text-gray-500">{gpu?.name ?? "GPU"} · {vramTotal.toFixed(1)} GB {gpu?.memory_model === "unified" ? "unified memory" : "VRAM"}</span>
                   <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-300">{gpu?.impact === "critical" ? "Constrained" : "Healthy"}</span>
-                  <span className="ml-auto tabular-nums text-gray-500">Util {gpu?.gpu_util ?? 0}% · {gpu?.temperature ?? 0}°C · {Math.round(gpu?.power_draw ?? 0)}W</span>
+                  <span className="ml-auto tabular-nums text-gray-500">
+                    {[
+                      gpu?.gpu_util != null ? `Util ${gpu.gpu_util}%` : null,
+                      gpu?.temperature != null ? `${gpu.temperature}°C` : null,
+                      gpu?.power_draw != null ? `${Math.round(gpu.power_draw)}W` : null,
+                    ].filter(Boolean).join(" · ")}
+                  </span>
                 </div>
                 <div className="mt-2 flex h-10 overflow-hidden rounded-lg border border-gray-700 bg-gray-800">
                   {gpuConsumerRows.length > 0 ? gpuConsumerRows.map((process) => (
@@ -819,7 +850,7 @@ export default function HomeCockpit({
                 {gpuConsumerRows.length > 0 && (
                   <div className="mt-3">
                     <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase tracking-wider text-gray-600">
-                      <span className="font-semibold text-gray-400">VRAM consumers</span>
+                      <span className="font-semibold text-gray-400">{gpu?.memory_model === "unified" ? "GPU memory consumers" : "VRAM consumers"}</span>
                       <span className="normal-case tracking-normal">live Windows process counters</span>
                     </div>
                     <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -841,7 +872,7 @@ export default function HomeCockpit({
 
               <div>
                 <div className="flex items-center gap-3 text-[11px]">
-                  <span className="font-semibold text-gray-200">System RAM</span>
+                  <span className="font-semibold text-gray-200">{gpu?.memory_model === "unified" ? "System memory (the same pool as the GPU above)" : "System RAM"}</span>
                   <span className="text-gray-500">{ramTotal.toFixed(1)} GB</span>
                   <span className="ml-auto tabular-nums text-gray-500">{ramUsed.toFixed(1)} GB committed · {Math.max(0, ramTotal - ramUsed).toFixed(1)} GB free</span>
                 </div>

@@ -238,26 +238,34 @@ hardcoded, so the verdicts stay correct after a GPU swap or a disk that quietly 
 The one configured value is which drive weights land on (`WEIGHTS_DRIVE`, default `D:` on
 Windows), because that is a decision rather than something the machine can report.
 
-**Detected, not declared.** The console runs on both machines, so which one it is on is a
-question it answers itself rather than one it is told. It used to assume the first: the
-profile came from `nvidia-smi`, and the macOS failure path returned zeroes — correct for a
-box with no GPU, wrong for one with a GPU `nvidia-smi` cannot see, and enough to make the
-Models page report every local model as "won't fit". The profile now carries `runtime`,
-`memoryModel` and `computeCapability` alongside the numbers.
+**Which machine, from the host profile.** The console runs on BeTenshi and on B5, and
+`src/lib/host.ts` resolves which at build time from `config/hosts/*.json`. The numbers come
+from `src/lib/sysinfo.ts` — `nvidia-smi` on one, the unified pool and `vm_stat` on the other.
+`readMachineProfile()` composes the two and adds what the *fit* arithmetic needs on top:
 
-| | Windows box | B5 |
+| | BeTenshi | B5 |
 | --- | --- | --- |
-| GPU | `nvidia-smi` | `sysctl machdep.cpu.brand_string` |
-| Runtime | `cuda`, with compute capability | `metal` |
-| Memory | discrete: two pools | unified: one pool, GPU share capped by the OS |
+| `runtime` | `cuda` (+ `computeCapability`) | `metal` |
+| `memoryModel` | `discrete` — two budgets | `unified` — one pool |
+| Ladder | bf16 → fp8 → NVFP4 → AWQ4 → Q3 → Q2 | bf16 → MLX8 → MLX4 → Q4 → Q3 → Q2 |
 | Weights | `D:\AI Models\huggingface`, storage index | `~/.cache/huggingface`, `statfs` |
 
-The one number on B5 with no honest source is how much of the pool the GPU may wire.
-`iogpu.wired_limit_mb` gives it when someone has pinned it; otherwise the profile takes
-75% (Metal's `recommendedMaxWorkingSetSize`) and says so in `vramBasis`, rather than
-presenting a guess as a reading. Note also that `os.freemem()` on macOS excludes the
-purgeable pool and so understates what is available — left uncorrected on purpose, since
-erring toward "needs a swap" is cheaper than erring toward an OOM.
+`runtime` and `memoryModel` come off the host profile rather than `process.platform`, per
+the rule host.ts sets. `computeCapability` is asked of `nvidia-smi` once and kept, since
+silicon does not change between reads; only NVFP4 depends on it, and an unknown value keeps
+the rung.
+
+The storage index is Windows-only — it enumerates `Win32_LogicalDisk` and normalises with
+`path.win32` — so on B5 the weights volume is read with `statfs` instead. That gives free
+space correctly and reports `weightsIndexed: false`, which is honestly what it is: no index
+has walked that volume, so there is no "what else is down there" breakdown to show. The
+cache size itself does not need the index and is summed from the filesystem either way.
+
+One number on a unified host has no honest source: how much of the pool the OS lets the GPU
+wire. `sysinfo` reports the whole pool for both figures, which is right until someone pins
+`iogpu.wired_limit_mb`; where that is pinned, set `vramTotalGb` below `ramTotalGb` and
+`evaluateFit()` applies it as a second ceiling — the failure that otherwise looks
+impossible, with tens of gigabytes free and the model still refusing to load.
 
 Disk comes from the **storage module**, not a private probe. `discoverDrives()` gives the
 drive and its label; the index gives the size of `HF_HOME` — currently 189 GB of weights

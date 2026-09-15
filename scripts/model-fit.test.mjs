@@ -34,24 +34,25 @@ const BOX = {
 };
 
 /**
- * B5 — the Apple silicon machine the console also runs on. 64 GB of unified
- * memory, of which macOS lets the GPU wire ~48 GB by default.
+ * B5 — the Apple silicon machine the console also runs on, per
+ * config/hosts/b5.json: M5 Max, 128 GB unified.
  *
- * vramTotalGb and ramTotalGb here are NOT two pools. They describe the same
- * silicon seen through two limits: how much memory exists, and how much of it
- * the GPU is allowed to hold at once.
+ * vramTotalGb and ramTotalGb are NOT two pools here. They are the same silicon
+ * seen through two limits: how much memory exists, and how much of it the GPU
+ * is allowed to hold at once. sysinfo.gpuReading() reports the whole pool for
+ * both, so they are equal on this host — the separate ceiling only bites where
+ * someone has pinned iogpu.wired_limit_mb, which one test below covers.
  */
 const B5 = {
-  gpuName: "Apple M3 Max (integrated GPU)",
+  gpuName: "Apple M5 Max",
   runtime: "metal",
   memoryModel: "unified",
-  vramTotalGb: 48,
-  vramFreeGb: 48,
-  ramTotalGb: 64,
-  ramFreeGb: 58,
+  vramTotalGb: 128,
+  vramFreeGb: 96,
+  ramTotalGb: 128,
+  ramFreeGb: 96,
   weightsDiskFreeGb: 900,
   weightsDiskLabel: "/",
-  vramBasis: "Not measured: macOS default, taken as 75% of the 64 GB shared pool.",
 };
 
 test("a cloud model costs no local memory and says so", () => {
@@ -225,12 +226,9 @@ test("unified memory counts one copy of the weights, not two", () => {
 
   const fit = evaluateFit({ requirement: qwenImage, machine: B5 });
   assert.equal(fit.verdict, "fits");
-  // max(20.3, 28) = 28 against a 60 GB budget leaves 32, not the 11.7 a sum
-  // would leave.
-  assert.ok(
-    fit.headroomGb > 28 && fit.headroomGb < 34,
-    `expected ~32 GB spare from counting once, got ${fit.headroomGb}`,
-  );
+  // Counted once: max(20.3, 28) = 28 against a 124 GB budget leaves 96.
+  // Summed, it would charge 48.3 and leave 75.7.
+  assert.equal(fit.headroomGb, 96);
   assert.ok(
     fit.reasons.some((r) => /same bytes/.test(r)),
     "the collapse must be explained, not silently applied",
@@ -249,12 +247,25 @@ test("unified memory counts one copy of the weights, not two", () => {
 
 test("the GPU's share of the pool is a second, separate ceiling", () => {
   // The failure that looks impossible: tens of gigabytes free and the model
-  // still will not load, because macOS caps what the GPU may wire.
-  const fit = evaluateFit({ requirement: { vramGb: 52, ramGb: 52 }, machine: B5 });
+  // still will not load, because macOS caps what the GPU may wire. B5 reports
+  // the whole pool for both figures, so this only bites once someone pins the
+  // limit — which is exactly when a machine needs to be told about it.
+  const pinned = {
+    ...B5,
+    vramTotalGb: 64,
+    vramFreeGb: 64,
+    vramBasis: "iogpu.wired_limit_mb is pinned to 65536 MB of the 128 GB shared pool.",
+  };
+  const fit = evaluateFit({ requirement: { vramGb: 80, ramGb: 80 }, machine: pinned });
   assert.equal(fit.verdict, "no");
   assert.match(fit.headline, /GPU's share/);
-  // The pool itself was never the problem — 52 fits inside 64.
+  // The pool itself was never the problem — 80 fits inside 128.
   assert.ok(fit.reasons.some((r) => /wire/.test(r)));
+  // And the refusal repeats where the limit came from, rather than asserting it.
+  assert.ok(fit.reasons.some((r) => /iogpu\.wired_limit_mb/.test(r)));
+
+  // Unpinned, the same model is simply fine.
+  assert.notEqual(evaluateFit({ requirement: { vramGb: 80, ramGb: 80 }, machine: B5 }).verdict, "no");
 });
 
 test("a diffusion model is charged for CPU offload only where offload exists", () => {
