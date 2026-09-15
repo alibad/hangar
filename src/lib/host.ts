@@ -27,6 +27,7 @@
 import betenshi from "../../config/hosts/betenshi.json";
 import b5 from "../../config/hosts/b5.json";
 import type { ServiceEntry } from "./services";
+import { machineProfileFromHost, type MachineProfile } from "./model-fit";
 
 export type MemoryKind = "discrete" | "unified";
 
@@ -211,4 +212,19 @@ export function declaredMemoryGb(): { vramGb: number; ramGb: number } {
     return { vramGb: t, ramGb: t };
   }
   return { vramGb: m.vramTotalGb ?? 0, ramGb: m.ramTotalGb ?? 0 };
+}
+
+// ── each host as a MachineProfile ───────────────────────────────────────────
+
+export type { KnownMachine } from "./model-fit";
+
+/**
+ * A machine profile for a host this process is NOT running on, from its
+ * declared specs. The arithmetic lives in model-fit's machineProfileFromHost();
+ * this is only the lookup, so the builder stays pure and testable without
+ * pulling the profile JSON through a bundler.
+ */
+export function declaredMachineProfile(hostId: string): MachineProfile | null {
+  const host = HOST_PROFILES[hostId];
+  return host ? machineProfileFromHost(host) : null;
 }

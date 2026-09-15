@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { CAPABILITIES, getCatalogue, getRouting, type CatalogModel } from "./providers";
 import { installedRepos, listDownloads, type DownloadJob, type InstalledRepo } from "./hf-download";
-import { readMachineProfile, readOccupants } from "./machine";
+import { readMachineProfile, readOccupants, readKnownMachines } from "./machine";
 import {
   evaluateFit,
   estimateFromParams,
@@ -12,6 +12,8 @@ import {
   type Requirement,
   type ParamSpec,
   type PrecisionFit,
+  type Runtime,
+  type KnownMachine,
 } from "./model-fit";
 import { listWired, handWrittenAliases, WIRABLE_PROVIDERS } from "./wired-models";
 import { getLlmStats, indexByModelId, lookup, type LlmStatsModel } from "./llm-stats";
@@ -65,6 +67,16 @@ export type ScoutCandidate = {
   requirement?: Requirement;
   /** Fallback: enough to estimate a requirement when nobody published one. */
   spec?: ParamSpec;
+  /**
+   * Runtimes these weights can execute on, when the checkpoint is tied to one
+   * stack. Omit for portable weights, which is most of them — absent means
+   * "runs anywhere", not "unknown".
+   *
+   * Sits on the candidate rather than inside `requirement` because it is a
+   * property of the checkpoint, not of its memory cost, and because a candidate
+   * that gives `spec` instead of `requirement` still needs to declare it.
+   */
+  runtimes?: Runtime[];
   /** Cloud pricing, as the report found it. */
   pricing?: { inPerMTok?: number; outPerMTok?: number; perImage?: number };
 };
@@ -630,14 +642,39 @@ function quality(m: LlmStatsModel, scales?: QualityScales): number {
 // ── the merged view ─────────────────────────────────────────────────────────
 
 export type ScoutCandidateWithFit = ScoutCandidate & {
+  /** Against the machine this console is running on, with what is up right now. */
   fit: Fit;
+  /**
+   * The same candidate judged against every OTHER host the console knows,
+   * from their declared specs — idle, and with unknown disk.
+   *
+   * This is the comparison the report could never make and the leaderboard
+   * structurally cannot: the answer to "can I run this" stopped being one
+   * answer the moment there were two machines, and for a good number of models
+   * the two answers differ. Empty when only one host is configured.
+   */
+  elsewhere: MachineVerdict[];
   /** Already reachable through the router, so this is informational only. */
   alreadyWired?: string;
+};
+
+export type MachineVerdict = {
+  hostId: string;
+  hostName: string;
+  /** False when the numbers are declared in config rather than measured. */
+  live: boolean;
+  fit: Fit;
 };
 
 export type ScoutPayload = {
   machine: Awaited<ReturnType<typeof readMachineProfile>>;
   occupants: Awaited<ReturnType<typeof readOccupants>>;
+  /**
+   * Every machine the console can answer for, live one first. Carried so the UI
+   * can label a second verdict with the host it belongs to and say plainly that
+   * its numbers are declared rather than measured.
+   */
+  machines: KnownMachine[];
   report: {
     generatedAt?: string;
     generatedBy?: string;
@@ -688,14 +725,35 @@ export type ScoutPayload = {
 /** A report older than this is shown as stale — the routine runs weekly. */
 const STALE_AFTER_DAYS = 10;
 
+/**
+ * One candidate's requirement, as THIS machine would pay it.
+ *
+ * Two things are machine-dependent and neither is visible in the report's JSON.
+ * A `spec` has to be re-estimated per host, because a diffusion model's
+ * CPU-offload charge is real on a discrete card and a double-count on unified
+ * memory. And `runtimes` lives on the candidate rather than inside the
+ * requirement, so it is folded in here — which also means a report that gives
+ * `spec` instead of `requirement` still gets its runtime enforced.
+ */
+function requirementFor(c: ScoutCandidate, memoryModel: "discrete" | "unified"): Requirement {
+  const base: Requirement =
+    c.requirement ?? (c.spec ? estimateFromParams({ ...c.spec, memoryModel }) : {});
+  return c.runtimes?.length ? { ...base, runtimes: c.runtimes } : base;
+}
+
 export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPayload> {
   const report = loadReport();
-  const [machine, occupants, discovery, stats] = await Promise.all([
-    readMachineProfile(),
-    readOccupants(),
+  const [known, discovery, stats] = await Promise.all([
+    readKnownMachines(),
     discover(opts),
     getLlmStats(opts),
   ]);
+  // known[0] is always the live machine; the rest are declared from
+  // config/hosts/*.json. Everything that needs telemetry uses the first.
+  const live = known[0];
+  const machine = live.machine;
+  const occupants = live.occupants;
+  const others = known.slice(1);
 
   // Attach the leaderboard row to each discovered vendor model, so "wire this"
   // can be decided on price and benchmark rather than on the id looking newer.
@@ -732,12 +790,23 @@ export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPay
   const candidates: ScoutCandidateWithFit[] = report.candidates
     .map((c) => {
       // A sourced requirement always wins over an estimate; estimateFromParams
-      // exists for the candidates whose authors published nothing usable.
-      const requirement: Requirement =
-        c.requirement ?? (c.spec ? estimateFromParams(c.spec) : {});
+      // exists for the candidates whose authors published nothing usable. The
+      // memory model is the LIVE machine's, because that is the verdict the
+      // page leads with; each other host re-estimates against its own below.
+      const requirement = requirementFor(c, machine.memoryModel);
       return {
         ...c,
         fit: evaluateFit({ requirement, machine, occupants }),
+        elsewhere: others.map((m) => ({
+          hostId: m.hostId,
+          hostName: m.hostName,
+          live: m.live,
+          fit: evaluateFit({
+            requirement: requirementFor(c, m.machine.memoryModel),
+            machine: m.machine,
+            occupants: m.occupants,
+          }),
+        })),
         alreadyWired: c.target ? wiredAliasByTarget.get(c.target) : undefined,
       };
     })
@@ -753,6 +822,7 @@ export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPay
   return {
     machine,
     occupants,
+    machines: known,
     report: {
       generatedAt: report.generatedAt,
       generatedBy: report.generatedBy,

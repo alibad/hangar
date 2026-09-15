@@ -93,6 +93,54 @@ export type Runtime = "cuda" | "metal" | "rocm" | "cpu";
 export type MemoryModel = "discrete" | "unified";
 
 /**
+ * Which runtimes a checkpoint can execute on, read off the Hub's own metadata.
+ *
+ * Returns undefined for PORTABLE weights, which is most of them: plain
+ * safetensors load anywhere, and GGUF is explicitly cross-platform. Absent must
+ * mean portable rather than unknown, because a `runtimes` field set on every
+ * model would refuse every model the moment one rule was wrong.
+ *
+ * So this only speaks where the format genuinely pins the hardware, and stays
+ * silent otherwise. Inference beyond that belongs in the weekly report, where a
+ * human wrote it down, not in a regex over a repo name.
+ */
+export function runtimesFor(input: {
+  libraryName?: string | null;
+  tags?: string[] | null;
+  repoId?: string | null;
+}): Runtime[] | undefined {
+  const lib = (input.libraryName ?? "").toLowerCase();
+  const tags = (input.tags ?? []).map((t) => t.toLowerCase());
+  const repo = (input.repoId ?? "").toLowerCase();
+  const has = (t: string) => lib === t || tags.includes(t);
+
+  // Apple's own stacks. MLX is the one that matters in practice: an MLX repo
+  // publishes a real parameter count and a real byte count, both of which say
+  // "fits" on a 32 GB CUDA card, and it will not load there at any
+  // quantisation. `mlx-community/` is the convention for the conversions.
+  if (has("mlx") || has("coreml") || repo.startsWith("mlx-community/") || /[-_.]mlx\b/.test(repo)) {
+    return ["metal"];
+  }
+
+  // GGUF is checked BEFORE the CUDA formats and returns portable on purpose:
+  // llama.cpp runs it on Metal, CUDA and CPU alike, and a repo often carries
+  // both a gguf tag and a quantisation word that would otherwise pin it.
+  if (has("gguf") || /[-_.]gguf\b/.test(repo)) return undefined;
+
+  // NVIDIA-only compilation targets.
+  if (has("tensorrt") || has("tensorrt-llm") || /tensorrt|trt-llm/.test(repo)) return ["cuda"];
+  // NVFP4 is Blackwell silicon; exllama has only ever had CUDA kernels.
+  if (/nvfp4|exl2|exllama/.test(repo) || has("exl2")) return ["cuda"];
+
+  // AWQ and GPTQ kernels exist for CUDA and ROCm, and not for Metal. Narrower
+  // than the two above rather than "cuda only", because refusing these on an
+  // AMD card would be a claim this codebase has not tested.
+  if (has("awq") || has("gptq") || /[-_.](awq|gptq)\b/.test(repo)) return ["cuda", "rocm"];
+
+  return undefined;
+}
+
+/**
  * Runtime overhead above the weights: CUDA context, activations, the framework's
  * own allocator slack. 15% is the low end of what vLLM and diffusers actually
  * show on this card, so it errs toward optimism on purpose — the pessimism lives
@@ -145,8 +193,16 @@ export type MachineProfile = {
   vramBasis?: string;
   ramTotalGb: number;
   ramFreeGb: number;
-  /** Free space on the drive Hugging Face weights land on (D: here). */
-  weightsDiskFreeGb: number;
+  /**
+   * Free space on the drive Hugging Face weights land on.
+   *
+   * Absent means UNKNOWN, not full. That case is real: a profile declared from
+   * config/hosts/*.json describes a machine this process is not running on, and
+   * its free disk is not something the other box can be asked. Treating unknown
+   * as zero would refuse every candidate there, which is the same mistake
+   * weightsIndexed exists to avoid.
+   */
+  weightsDiskFreeGb?: number;
   weightsDiskLabel: string;
   /** Capacity of that drive, for the "x of y" the free figure alone can't give. */
   weightsDiskTotalGb?: number;
@@ -157,6 +213,67 @@ export type MachineProfile = {
   /** False when the storage index has never scanned that drive — then weightsUsedGb is unknown, not zero. */
   weightsIndexed?: boolean;
 };
+
+/** One machine the console knows about, and whether these numbers are live. */
+export type KnownMachine = {
+  hostId: string;
+  hostName: string;
+  /** True for the box this process is on — the only one with real telemetry. */
+  live: boolean;
+  machine: MachineProfile;
+  /** Always empty for a declared machine: what is running there is unknowable. */
+  occupants: Occupant[];
+};
+
+export const RUNTIME_BY_GPU: Record<"nvidia" | "apple" | "none", Runtime> = {
+  nvidia: "cuda",
+  apple: "metal",
+  none: "cpu",
+};
+
+/**
+ * A machine profile from a host's DECLARED specs, for a box this process is not
+ * running on.
+ *
+ * The other machine cannot be asked what it has free, what services are up, or
+ * how much room is left on its weights drive. So this deliberately describes an
+ * IDLE machine with unknown disk —
+ *
+ *   - free == total, because nothing can be known to be holding memory;
+ *   - no occupants, so "needs a swap" can never be the answer;
+ *   - weightsDiskFreeGb absent, meaning unknown rather than zero.
+ *
+ * A verdict against it therefore means exactly one thing: "would this fit on an
+ * idle B5". That is a weaker claim than the live machine's and the UI has to
+ * say so, but it is a true one, and it is the comparison that decides which box
+ * a download should go to.
+ *
+ * Takes a plain object rather than importing config/hosts/*.json, so this file
+ * stays dependency-free and the arithmetic is testable without a bundler.
+ */
+export function machineProfileFromHost(host: {
+  id: string;
+  name: string;
+  gpu: "nvidia" | "apple" | "none";
+  memory: { kind: MemoryModel; totalGb?: number; vramTotalGb?: number; ramTotalGb?: number };
+}): MachineProfile {
+  const m = host.memory;
+  // On a unified host both figures are the same pool by definition; on a
+  // discrete one they are two separate declarations.
+  const vramTotalGb = m.kind === "unified" ? (m.totalGb ?? 0) : (m.vramTotalGb ?? 0);
+  const ramTotalGb = m.kind === "unified" ? (m.totalGb ?? 0) : (m.ramTotalGb ?? 0);
+  return {
+    gpuName: host.name,
+    runtime: RUNTIME_BY_GPU[host.gpu],
+    memoryModel: m.kind,
+    vramTotalGb,
+    vramFreeGb: vramTotalGb,
+    vramBasis: `Declared in config/hosts/${host.id}.json, not measured — this console is not running on ${host.name}.`,
+    ramTotalGb,
+    ramFreeGb: ramTotalGb,
+    weightsDiskLabel: `${host.name}'s weights drive`,
+  };
+}
 
 /** What a model needs to run. Numbers only — provenance lives in `basis`. */
 export type Requirement = {
@@ -387,10 +504,15 @@ export function evaluateFit(opts: {
 
   // Disk is checked first and separately: it is the one constraint that blocks
   // you before the model ever runs, and it is also the easiest to fix.
-  const diskShort = diskNeededGb > machine.weightsDiskFreeGb;
+  const diskFreeGb = machine.weightsDiskFreeGb;
+  const diskShort = diskFreeGb !== undefined && diskNeededGb > diskFreeGb;
   if (diskShort) {
     reasons.push(
-      `Needs ${fmtGb(diskNeededGb)} of weights but ${machine.weightsDiskLabel} has ${fmtGb(machine.weightsDiskFreeGb)} free.`,
+      `Needs ${fmtGb(diskNeededGb)} of weights but ${machine.weightsDiskLabel} has ${fmtGb(diskFreeGb)} free.`,
+    );
+  } else if (diskFreeGb === undefined && diskNeededGb > 0) {
+    reasons.push(
+      `Free disk on ${machine.weightsDiskLabel} is unknown from here, so the ${fmtGb(diskNeededGb)} download is not checked. Memory is.`,
     );
   }
 

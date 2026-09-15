@@ -4,6 +4,7 @@ import path from "path";
 import { spawn, execFile } from "child_process";
 import { promisify } from "util";
 import { getHost } from "./host";
+import { runtimesFor, type Runtime } from "./model-fit";
 
 const execFileP = promisify(execFile);
 
@@ -64,6 +65,13 @@ export type RepoVariant = {
   gated: boolean;
   /** Quantisation read off the repo name — the reason to prefer a sibling. */
   quant?: string;
+  /**
+   * Runtimes this repo can execute on, from the Hub's own `library_name` and
+   * tags. Absent means portable, which is the common case — see runtimesFor().
+   * Present and not including this host's runtime means the download is a
+   * waste of the disk, however well the size fits.
+   */
+  runtimes?: Runtime[];
   /** Already present under HF_HOME. */
   installed: boolean;
 };
@@ -214,11 +222,26 @@ export async function resolveRepo(query: string): Promise<RepoResolution> {
     const detailed = await Promise.all(
       shortlist.map(async (r) => {
         let bytes = 0;
+        // Taken from the SAME detail call that prices the download, so knowing
+        // whether the weights can run here costs no extra request.
+        let runtimes: Runtime[] | undefined;
         try {
           const d = await fetch(`https://huggingface.co/api/models/${r.id}`, {
             signal: AbortSignal.timeout(12_000),
           });
-          if (d.ok) bytes = Number((await d.json())?.usedStorage ?? 0) || 0;
+          if (d.ok) {
+            const detail = (await d.json()) as {
+              usedStorage?: unknown;
+              library_name?: string;
+              tags?: string[];
+            };
+            bytes = Number(detail?.usedStorage ?? 0) || 0;
+            runtimes = runtimesFor({
+              libraryName: detail?.library_name,
+              tags: detail?.tags,
+              repoId: r.id,
+            });
+          }
         } catch {
           /* size unknown — reported as 0 and shown as "—" rather than guessed */
         }
@@ -230,6 +253,7 @@ export async function resolveRepo(query: string): Promise<RepoResolution> {
           likes: Number(r.likes ?? 0),
           gated: r.gated !== false && r.gated != null,
           quant: quantOf(r.id),
+          runtimes,
           installed: isInstalled(r.id),
         } satisfies RepoVariant;
       }),

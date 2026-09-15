@@ -20,7 +20,7 @@ Four data sources feed it, with different failure modes and refresh rates.
 | Discovery | vendor `/models` endpoints | 15 min | No — it only reports ids and dates |
 | Leaderboard | llm-stats.com | 12 h | Only as wrong as the source |
 | Report | a weekly Claude routine | 7 days | Yes — it is judgment, so it is dated and reviewable |
-| Fit | this machine, live | every read | It is an estimate, and says so |
+| Fit | every known machine | every read | It is an estimate, and says so |
 
 ## 1. Discovery — facts, live, no review needed
 
@@ -99,14 +99,25 @@ silently presenting an old opinion as current.
    cloud discovery list carries prices and benchmarks. A candidate earns its place by
    saying something those cannot: a measured footprint, a licence caveat, an image/audio
    model llm-stats does not track, or a reason this specific box should adopt it.
-5. Rewrite `config/model-scout.json` **whole**, keeping the `_doc` and `_schema` keys.
-6. Commit it to `master` with a message naming what changed.
+5. Set `runtimes` on any candidate whose weights are tied to one stack — `["metal"]`
+   for an MLX repo, `["cuda"]` for TensorRT or NVFP4. **Omit it for portable weights**,
+   which is most of them: absent means "runs anywhere", and a `runtimes` field set
+   defensively on everything would refuse everything the first time a rule was wrong.
+   GGUF is portable; do not pin it.
+6. Rewrite `config/model-scout.json` **whole**, keeping the `_doc` and `_schema` keys.
+7. Commit it to `master` with a message naming what changed.
 
 ### Rules the report must follow
 
 - **Every candidate must beat something already here**, and `why` must say what and by
   how much. "It is new" is not a reason; "a third the size of the model whose 28 GB of
   standing host RAM has already killed a service" is.
+- **Say which machine you mean.** The console computes a verdict per host and shows them
+  side by side, so a flat "does not fit here" in `why` or `notes` is now ambiguous and
+  usually wrong on one of the two. BeTenshi is 31.8 GB of VRAM beside 63 GB of host RAM;
+  B5 is a single 128 GB pool. A model ruled out on size for the first is very often
+  unremarkable on the second, and that difference is worth a sentence rather than a
+  silent omission. Name the box, or say "on both".
 - **Sourced numbers over estimates.** Give `requirement` when the authors published
   usable figures, with a `basis` saying where they came from. Give `spec` otherwise and
   let `estimateFromParams()` do the arithmetic — it labels its own output as estimated.
@@ -204,6 +215,37 @@ services running and different free disk.
 | `needs a swap` | Would fit if the named services stopped                    |
 | `won't fit` | Exceeds the machine even with everything else stopped         |
 | `off-box`   | Cloud — costs money, not memory                               |
+
+### One model, two answers
+
+"Can I run this" stopped being one question the moment there were two hosts, and for a
+good number of models the two answers differ — not marginally, but oppositely. So every
+scout candidate carries `fit` for the live machine plus `elsewhere[]`, one verdict per
+other host. The examples that make the point:
+
+| | BeTenshi | B5 |
+| --- | --- | --- |
+| Edge0-35B-A3B — Apache-2.0, 19.74 GB | won't fit: MLX needs Metal | fits |
+| Qwen-Image — 20.3 GB VRAM + 28 GB offload | the offload is what collides | fits, counted once |
+| VibeVoice-ASR-Streaming-7B — 17.4 GB | runs alone, blocks the image models | unremarkable |
+
+The asymmetry is deliberate and has to stay visible. The live machine is **measured**: free
+memory, running services, real disk, so it can answer `needs a swap` and name what to stop.
+Every other host is **declared** from `config/hosts/*.json` — idle by construction, no
+occupants, and `weightsDiskFreeGb` absent because the other box cannot be asked. A verdict
+there means "would fit on an idle B5" and nothing stronger, and `vramBasis` says so in
+words. Absent free-disk is treated as unknown, never as zero: assuming zero would refuse
+every candidate on the machine we are not standing on, which is the same mistake
+`weightsIndexed: false` exists to avoid.
+
+Before any of this, `runtimes` decides whether the machine can execute the weights at all.
+`runtimesFor()` reads the Hub's `library_name` and tags during download resolution — free,
+since that call already runs to price the download — and the weekly report can set it by
+hand. It speaks only where the format genuinely pins the hardware (MLX and CoreML → Metal;
+TensorRT, NVFP4, exllama → CUDA; AWQ and GPTQ → CUDA or ROCm, not Metal) and returns
+undefined everywhere else. **Absent means portable, not unknown** — GGUF is checked first
+and returns portable deliberately, because repos routinely carry both a GGUF tag and a
+quantisation word that would otherwise pin them.
 
 For a model that is not installed, `bestPrecisionFor()` walks a quantisation ladder and
 returns the first rung that runs here, plus every rung it evaluated. That is the honest

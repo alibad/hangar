@@ -4,11 +4,11 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { SERVICE_REGISTRY, getServiceUrl } from "./services";
 import { gpuReading, hostMemory } from "./sysinfo";
-import { getHost } from "./host";
+import { getHost, HOST_PROFILES, declaredMachineProfile } from "./host";
 import { getFootprintsByService } from "./providers";
 import { discoverDrives, type StorageDrive } from "./storage-index";
 import { installedRepos, weightsHome } from "./hf-download";
-import type { MachineProfile, Occupant, Runtime } from "./model-fit";
+import { RUNTIME_BY_GPU, type MachineProfile, type Occupant, type KnownMachine } from "./model-fit";
 
 const execFileP = promisify(execFile);
 
@@ -65,11 +65,33 @@ export async function readMachineProfile(): Promise<MachineProfile> {
   return profile;
 }
 
-const RUNTIME_BY_GPU: Record<"nvidia" | "apple" | "none", Runtime> = {
-  nvidia: "cuda",
-  apple: "metal",
-  none: "cpu",
-};
+export type { KnownMachine } from "./model-fit";
+
+/**
+ * Every machine the console can answer for: this one, measured, plus each other
+ * declared host. The live one always comes first.
+ */
+export async function readKnownMachines(): Promise<KnownMachine[]> {
+  const liveId = getHost().id;
+  const [machine, occupants] = await Promise.all([readMachineProfile(), readOccupants()]);
+  const out: KnownMachine[] = [
+    { hostId: liveId, hostName: getHost().name, live: true, machine, occupants },
+  ];
+  for (const id of Object.keys(HOST_PROFILES)) {
+    if (id === liveId) continue;
+    const declared = declaredMachineProfile(id);
+    if (declared) {
+      out.push({
+        hostId: id,
+        hostName: HOST_PROFILES[id].name,
+        live: false,
+        machine: declared,
+        occupants: [],
+      });
+    }
+  }
+  return out;
+}
 
 /**
  * CUDA compute capability, e.g. "12.0" for sm_120.

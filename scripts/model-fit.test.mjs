@@ -5,9 +5,12 @@ import {
   estimateFromParams,
   bestPrecisionFor,
   precisionLadderFor,
+  runtimesFor,
+  machineProfileFromHost,
   BYTES_PER_PARAM,
   PRECISION_LADDER,
 } from "../src/lib/model-fit.ts";
+import { readFileSync } from "node:fs";
 
 /**
  * The fit arithmetic decides whether a 20 GB download is worth starting, and it
@@ -54,6 +57,17 @@ const B5 = {
   weightsDiskFreeGb: 900,
   weightsDiskLabel: "/",
 };
+
+/**
+ * The two real hosts, read straight out of config/hosts/*.json rather than
+ * re-typed here — so a spec change in the profile lands in these tests instead
+ * of quietly diverging from them. Read with fs because Node's test runner needs
+ * import attributes for JSON and machineProfileFromHost takes a plain object
+ * precisely so it can be tested without a bundler.
+ */
+const hostJson = (id) =>
+  JSON.parse(readFileSync(new URL(`../config/hosts/${id}.json`, import.meta.url), "utf8"));
+const HOST_IDS = ["betenshi", "b5"];
 
 test("a cloud model costs no local memory and says so", () => {
   const fit = evaluateFit({ requirement: {}, machine: BOX });
@@ -310,6 +324,110 @@ test("bestPrecisionFor picks a rung the machine can actually load", () => {
   // B5 has twice the usable memory, so it must not land on a WORSE rung.
   const ladder = precisionLadderFor(B5).map((r) => r.id);
   assert.ok(ladder.indexOf(onB5.precision) <= ladder.indexOf("mlx4"));
+});
+
+// ── reading the runtime off the Hub ─────────────────────────────────────────
+
+test("runtimesFor pins only the formats that genuinely pin the hardware", () => {
+  // Metal-only. The library_name is the strong signal; the others are how
+  // community conversions are actually named.
+  assert.deepEqual(runtimesFor({ libraryName: "mlx" }), ["metal"]);
+  assert.deepEqual(runtimesFor({ tags: ["safetensors", "mlx", "text-generation"] }), ["metal"]);
+  assert.deepEqual(runtimesFor({ repoId: "mlx-community/Qwen3.8-27B-4bit" }), ["metal"]);
+  assert.deepEqual(runtimesFor({ repoId: "some-org/model-mlx" }), ["metal"]);
+
+  // CUDA-only compilation targets.
+  assert.deepEqual(runtimesFor({ repoId: "org/model-nvfp4" }), ["cuda"]);
+  assert.deepEqual(runtimesFor({ libraryName: "tensorrt-llm" }), ["cuda"]);
+  // AWQ and GPTQ have ROCm kernels; claiming CUDA-only would be untested.
+  assert.deepEqual(runtimesFor({ repoId: "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ" }), [
+    "cuda", "rocm",
+  ]);
+});
+
+test("portable weights stay portable, and GGUF beats the quant-name heuristic", () => {
+  // The common case by a wide margin: plain safetensors, no claim made.
+  assert.equal(runtimesFor({ libraryName: "transformers", repoId: "Qwen/Qwen3-ASR-1.7B-hf" }), undefined);
+  assert.equal(runtimesFor({}), undefined);
+
+  // GGUF runs on Metal, CUDA and CPU alike. It must be checked BEFORE the
+  // CUDA rules, because repos routinely carry both — "-AWQ-GGUF" conversions
+  // exist, and pinning those to CUDA would hide them from B5 for no reason.
+  assert.equal(runtimesFor({ libraryName: "gguf", repoId: "unsloth/Qwen3.8-27B-GGUF" }), undefined);
+  assert.equal(runtimesFor({ repoId: "org/model-awq-gguf" }), undefined);
+});
+
+// ── two machines, two verdicts ──────────────────────────────────────────────
+
+test("a declared host profile describes an idle machine with unknown disk", () => {
+  const b5 = machineProfileFromHost(hostJson("b5"));
+  assert.ok(b5, "b5 must be declared in config/hosts");
+  assert.equal(b5.runtime, "metal");
+  assert.equal(b5.memoryModel, "unified");
+  // Free == total: nothing on a machine we are not running on can be known to
+  // be holding memory, so the verdict means "would fit on an idle B5".
+  assert.equal(b5.ramFreeGb, b5.ramTotalGb);
+  assert.equal(b5.vramFreeGb, b5.vramTotalGb);
+  // And the numbers say where they came from rather than posing as readings.
+  assert.match(b5.vramBasis, /not measured/i);
+});
+
+test("unknown free disk is not treated as a full disk", () => {
+  const b5 = machineProfileFromHost(hostJson("b5"));
+  assert.equal(b5.weightsDiskFreeGb, undefined);
+
+  // A 40 GB download against an unknown drive must not be refused — that is
+  // the bug the optional field exists to prevent.
+  const fit = evaluateFit({ requirement: { vramGb: 6, ramGb: 1, diskGb: 40 }, machine: b5 });
+  assert.notEqual(fit.verdict, "no");
+  assert.ok(
+    fit.reasons.some((r) => /unknown from here/.test(r)),
+    "an unchecked constraint must be stated, not silently skipped",
+  );
+
+  // A KNOWN-full drive still refuses, so the check has not simply been lost.
+  const full = { ...b5, weightsDiskFreeGb: 5 };
+  assert.equal(evaluateFit({ requirement: { vramGb: 6, ramGb: 1, diskGb: 40 }, machine: full }).verdict, "no");
+});
+
+test("the same model gets opposite verdicts on the two real hosts", () => {
+  // The whole point, run against the profiles actually shipped in
+  // config/hosts/*.json rather than fixtures invented for the test.
+  const betenshi = machineProfileFromHost(hostJson("betenshi"));
+  const b5 = machineProfileFromHost(hostJson("b5"));
+  assert.ok(betenshi && b5);
+
+  // Edge0-35B-A3B: Apache-2.0, 19.74 GB, #2 trending on the Hub, and MLX.
+  const edge0 = { vramGb: 22.7, ramGb: 1, diskGb: 19.74, runtimes: ["metal"] };
+  assert.equal(evaluateFit({ requirement: edge0, machine: betenshi }).verdict, "no");
+  assert.equal(evaluateFit({ requirement: edge0, machine: b5 }).verdict, "fits");
+
+  // VibeVoice-ASR-Streaming-7B: portable weights, refused on size alone — the
+  // scout report calls it "runs alone and blocks every image model" on the
+  // 5090, which is a statement about one machine.
+  const vibevoice7b = { vramGb: 20, ramGb: 1, diskGb: 17.4 };
+  const onBetenshi = evaluateFit({ requirement: vibevoice7b, machine: betenshi });
+  const onB5 = evaluateFit({ requirement: vibevoice7b, machine: b5 });
+  assert.ok(["tight", "fits"].includes(onBetenshi.verdict));
+  assert.equal(onB5.verdict, "fits");
+  assert.ok(
+    onB5.headroomGb > onBetenshi.headroomGb,
+    "the bigger machine must report more room, not less",
+  );
+});
+
+test("every declared host produces a usable profile", () => {
+  // Adding a host is meant to be a JSON file. If a new one lands without the
+  // memory fields the fit engine needs, this is where it should fail.
+  for (const id of HOST_IDS) {
+    const m = machineProfileFromHost(hostJson(id));
+    assert.ok(m, `${id} must yield a profile`);
+    assert.ok(m.ramTotalGb > 0, `${id} declares no RAM total`);
+    assert.ok(m.vramTotalGb > 0, `${id} declares no VRAM/pool total`);
+    assert.ok(["cuda", "metal", "rocm", "cpu"].includes(m.runtime), `${id} has no runtime`);
+    // A trivially small model must fit on any host worth declaring.
+    assert.notEqual(evaluateFit({ requirement: { vramGb: 2, ramGb: 1 }, machine: m }).verdict, "no");
+  }
 });
 
 test("4-bit schemes are not priced at a clean half byte", () => {
