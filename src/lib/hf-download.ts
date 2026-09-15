@@ -1,4 +1,5 @@
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { spawn, execFile } from "child_process";
 import { promisify } from "util";
@@ -21,8 +22,30 @@ const execFileP = promisify(execFile);
 
 const HF_BIN =
   process.env.HF_CLI ??
-  "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\hf.exe";
-const HF_HOME = process.env.HF_HOME ?? "D:\\AI Models\\huggingface";
+  (process.platform === "win32"
+    ? "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\hf.exe"
+    : "hf");
+
+/**
+ * Where weights live, which is not the same answer on both machines this
+ * console runs on.
+ *
+ * On the Windows box it is a pinned second drive, because the boot drive would
+ * have filled. On macOS there are no drive letters and the Hub's own default is
+ * right, so following it means the console and every other tool that reads
+ * HF_HOME agree without configuration. Hardcoding the Windows path here made
+ * the Mac report an empty cache and 0 GB of weights.
+ */
+export function weightsHome(): string {
+  if (process.env.HF_HOME) return process.env.HF_HOME;
+  if (process.platform === "win32") {
+    const drive = (process.env.WEIGHTS_DRIVE ?? "D:").toUpperCase();
+    return `${drive}\\AI Models\\huggingface`;
+  }
+  return path.join(os.homedir(), ".cache", "huggingface");
+}
+
+const HF_HOME = weightsHome();
 const STATE_DIR = path.join(process.cwd(), "var", "downloads");
 const STATE_FILE = path.join(STATE_DIR, "state.json");
 

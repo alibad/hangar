@@ -4,6 +4,7 @@ import {
   evaluateFit,
   estimateFromParams,
   bestPrecisionFor,
+  precisionLadderFor,
   BYTES_PER_PARAM,
   PRECISION_LADDER,
 } from "../src/lib/model-fit.ts";
@@ -14,17 +15,43 @@ import {
  * and imports the same module the app does — a second copy of these sums in
  * CommonJS would be the one thing worse than no test.
  *
- * The machine is this box, as measured 2026-08-19: RTX 5090, 31.8 GB VRAM,
- * 63.3 GB RAM, 1180 GB free on D:.
+ * TWO machines are pinned here, because three of this module's assumptions
+ * turned out to be facts about the first one rather than about hardware.
  */
+
+/** The Windows box, as measured 2026-08-19: RTX 5090, discrete, sm_120. */
 const BOX = {
   gpuName: "NVIDIA GeForce RTX 5090",
+  runtime: "cuda",
+  memoryModel: "discrete",
+  computeCapability: "12.0",
   vramTotalGb: 31.8,
   vramFreeGb: 31.8,
   ramTotalGb: 63.3,
   ramFreeGb: 60,
   weightsDiskFreeGb: 1180,
   weightsDiskLabel: "D:\\",
+};
+
+/**
+ * B5 — the Apple silicon machine the console also runs on. 64 GB of unified
+ * memory, of which macOS lets the GPU wire ~48 GB by default.
+ *
+ * vramTotalGb and ramTotalGb here are NOT two pools. They describe the same
+ * silicon seen through two limits: how much memory exists, and how much of it
+ * the GPU is allowed to hold at once.
+ */
+const B5 = {
+  gpuName: "Apple M3 Max (integrated GPU)",
+  runtime: "metal",
+  memoryModel: "unified",
+  vramTotalGb: 48,
+  vramFreeGb: 48,
+  ramTotalGb: 64,
+  ramFreeGb: 58,
+  weightsDiskFreeGb: 900,
+  weightsDiskLabel: "/",
+  vramBasis: "Not measured: macOS default, taken as 75% of the 64 GB shared pool.",
 };
 
 test("a cloud model costs no local memory and says so", () => {
@@ -159,6 +186,119 @@ test("a frontier-scale model is unrunnable at every rung", () => {
   const { best, rungs } = bestPrecisionFor({ paramsB: 744, machine: BOX, contextK: 32 });
   assert.equal(best, null);
   assert.ok(rungs.every((r) => r.fit.verdict === "no"));
+});
+
+// ── The second machine ──────────────────────────────────────────────────────
+
+test("weights built for the wrong runtime never fit, at any size", () => {
+  // Edge0-35B-A3B: #2 trending on the Hub, Apache-2.0, 19.74 GB on disk, and
+  // MLX. The size arithmetic says yes on both machines and is beside the point
+  // on one of them — this is the verdict a leaderboard structurally cannot
+  // reach, because every number it has says the model fits.
+  const edge0 = { vramGb: 22.7, ramGb: 1, diskGb: 19.74, runtimes: ["metal"] };
+
+  const onBox = evaluateFit({ requirement: edge0, machine: BOX });
+  assert.equal(onBox.verdict, "no");
+  assert.match(onBox.headline, /runtime/i);
+  // It must not be refused for being too big, because it isn't.
+  assert.ok(
+    onBox.reasons.some((r) => /would otherwise have fit/i.test(r)),
+    "a runtime refusal must say the size was never the problem",
+  );
+
+  assert.equal(evaluateFit({ requirement: edge0, machine: B5 }).verdict, "fits");
+});
+
+test("a portable checkpoint is not refused for lack of a runtimes field", () => {
+  // Most repos are plain safetensors and declare nothing. Absent must mean
+  // "portable", not "unknown, refuse" — otherwise every candidate disappears.
+  const fit = evaluateFit({ requirement: { vramGb: 6, ramGb: 1 }, machine: B5 });
+  assert.equal(fit.verdict, "fits");
+});
+
+test("unified memory counts one copy of the weights, not two", () => {
+  // Qwen-Image's measured footprint: 20.3 GB VRAM peak, 28 GB standing host
+  // RAM. On the discrete box those are two real costs — the offload is what
+  // lets a 20B model share a 32 GB card. On unified memory there is nowhere to
+  // offload TO, so charging both would be charging twice for one copy.
+  const qwenImage = { vramGb: 20.3, ramGb: 28 };
+
+  const fit = evaluateFit({ requirement: qwenImage, machine: B5 });
+  assert.equal(fit.verdict, "fits");
+  // max(20.3, 28) = 28 against a 60 GB budget leaves 32, not the 11.7 a sum
+  // would leave.
+  assert.ok(
+    fit.headroomGb > 28 && fit.headroomGb < 34,
+    `expected ~32 GB spare from counting once, got ${fit.headroomGb}`,
+  );
+  assert.ok(
+    fit.reasons.some((r) => /same bytes/.test(r)),
+    "the collapse must be explained, not silently applied",
+  );
+
+  // And the case where the difference decides the verdict: a 36 GB Mac has a
+  // 32 GB budget. Counted once (28) it runs; summed (48.3) it would be refused
+  // outright. It reads as "tight" rather than "fits", which is the honest
+  // answer — 28 of 36 leaves nothing beside it — but "runs alone" and "cannot
+  // run" are the two answers this whole distinction exists to separate.
+  const small = { ...B5, ramTotalGb: 36, vramTotalGb: 27, ramFreeGb: 34, vramFreeGb: 27 };
+  const onSmall = evaluateFit({ requirement: qwenImage, machine: small });
+  assert.equal(onSmall.verdict, "tight");
+  assert.match(onSmall.headline, /whole machine/);
+});
+
+test("the GPU's share of the pool is a second, separate ceiling", () => {
+  // The failure that looks impossible: tens of gigabytes free and the model
+  // still will not load, because macOS caps what the GPU may wire.
+  const fit = evaluateFit({ requirement: { vramGb: 52, ramGb: 52 }, machine: B5 });
+  assert.equal(fit.verdict, "no");
+  assert.match(fit.headline, /GPU's share/);
+  // The pool itself was never the problem — 52 fits inside 64.
+  assert.ok(fit.reasons.some((r) => /wire/.test(r)));
+});
+
+test("a diffusion model is charged for CPU offload only where offload exists", () => {
+  const discrete = estimateFromParams({ paramsB: 20, precision: "fp8", kind: "diffusion" });
+  const unified = estimateFromParams({
+    paramsB: 20, precision: "fp8", kind: "diffusion", memoryModel: "unified",
+  });
+  assert.ok(discrete.ramGb > 15, `discrete offload should cost real RAM, got ${discrete.ramGb}`);
+  assert.equal(unified.ramGb, 1);
+  assert.match(unified.basis, /nowhere to offload/);
+  // The GPU-side cost is identical; only the phantom second copy differs.
+  assert.equal(discrete.vramGb, unified.vramGb);
+});
+
+test("the precision ladder offers only formats the machine can execute", () => {
+  const cuda = precisionLadderFor(BOX).map((r) => r.id);
+  const metal = precisionLadderFor(B5).map((r) => r.id);
+
+  // NVFP4 is hardware on sm_120 and not a thing a Metal GPU can load at all.
+  assert.ok(cuda.includes("nvfp4"));
+  assert.ok(!metal.includes("nvfp4"), "NVFP4 must not be offered on Metal");
+  // ...and the reverse: MLX on CUDA is not a lower-quality option, it is none.
+  assert.ok(metal.includes("mlx4"));
+  assert.ok(!cuda.includes("mlx4"), "MLX must not be offered on CUDA");
+
+  // A pre-Blackwell CUDA card loses the rung its silicon does not have.
+  const ada = { ...BOX, computeCapability: "8.9" };
+  assert.ok(!precisionLadderFor(ada).includes("nvfp4"));
+  assert.ok(precisionLadderFor(ada).map((r) => r.id).includes("awq4"));
+});
+
+test("bestPrecisionFor picks a rung the machine can actually load", () => {
+  // The same 32B on both machines. Each must be offered a format its own stack
+  // can run — recommending a download that cannot load is worse than "no".
+  const onBox = bestPrecisionFor({ paramsB: 32, machine: BOX, contextK: 32 }).best;
+  const onB5 = bestPrecisionFor({ paramsB: 32, machine: B5, contextK: 32 }).best;
+
+  assert.ok(onBox && onB5, "a 32B must be runnable on both machines");
+  assert.ok(["bf16", "fp8", "nvfp4", "awq4"].includes(onBox.precision));
+  assert.ok(["bf16", "mlx8", "mlx4", "gguf-q4"].includes(onB5.precision));
+
+  // B5 has twice the usable memory, so it must not land on a WORSE rung.
+  const ladder = precisionLadderFor(B5).map((r) => r.id);
+  assert.ok(ladder.indexOf(onB5.precision) <= ladder.indexOf("mlx4"));
 });
 
 test("4-bit schemes are not priced at a clean half byte", () => {

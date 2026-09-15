@@ -111,10 +111,17 @@ silently presenting an old opinion as current.
   usable figures, with a `basis` saying where they came from. Give `spec` otherwise and
   let `estimateFromParams()` do the arithmetic — it labels its own output as estimated.
   Never write a number into `requirement` that you cannot defend in `basis`.
-- **This card is a 32 GB Blackwell (RTX 5090, sm_120).** NVFP4 runs natively on it. A
-  70B at bf16 does not fit and never will; do not list one.
-- **Host RAM is the tighter constraint, not VRAM.** 63 GB total, and a CPU-offloaded
-  diffusion model holds its full weight set resident for as long as its service is up.
+- **There are two machines.** The Windows box is a 32 GB Blackwell (RTX 5090, sm_120)
+  where NVFP4 runs natively; B5 is Apple silicon with unified memory, where NVFP4 does
+  not load at all and the MLX rungs take its place. A 70B at bf16 fits neither; do not
+  list one. Where a candidate is tied to one stack — an MLX-only repo, a CUDA-only
+  kernel — say so, because that is a fact neither llm-stats nor a parameter count carries.
+- **On the discrete box, host RAM is the tighter constraint, not VRAM.** 63 GB total,
+  and a CPU-offloaded diffusion model holds its full weight set resident for as long as
+  its service is up. This was written here as a law and it is not one: it is a fact
+  about *that* machine. On unified memory there is nowhere to offload to, so the same
+  model costs one copy rather than two and the constraint is simply the size of the
+  pool. `evaluateFit()` now branches on `memoryModel` instead of assuming the first case.
 - **Licence is a fact, not a footnote.** Gated repos and bespoke licences go in `notes`,
   not in `candidates`, until someone has read the terms.
 - Do not put vendor model ids in `candidates` when discovery already surfaces them —
@@ -198,11 +205,23 @@ services running and different free disk.
 | `won't fit` | Exceeds the machine even with everything else stopped         |
 | `off-box`   | Cloud — costs money, not memory                               |
 
-For a model that is not installed, `bestPrecisionFor()` walks a quantisation ladder —
-bf16 → fp8 → NVFP4 → AWQ 4-bit → GGUF Q3 → Q2 — and returns the first rung that runs here,
-plus every rung it evaluated. That is the honest shape of the answer: "does this 32B fit"
-is not yes/no, it is "yes, at 4-bit, and here is what bf16 would have needed". NVFP4 is on
-the ladder because this card is Blackwell (sm_120) and executes it in hardware.
+For a model that is not installed, `bestPrecisionFor()` walks a quantisation ladder and
+returns the first rung that runs here, plus every rung it evaluated. That is the honest
+shape of the answer: "does this 32B fit" is not yes/no, it is "yes, at 4-bit, and here is
+what bf16 would have needed".
+
+**The ladder depends on the machine**, because a rung the GPU cannot execute is not a
+worse option, it is not an option — and since the walk stops at the first rung that fits,
+a phantom rung at the top would hide the real answer. On the 5090 it is
+bf16 → fp8 → NVFP4 → AWQ 4-bit → GGUF Q3 → Q2, with NVFP4 present because sm_120 executes
+it in hardware. On B5 it is bf16 → MLX 8-bit → MLX 4-bit → GGUF Q4 → Q3 → Q2. A
+pre-Blackwell CUDA card loses the NVFP4 rung. `precisionLadderFor()` decides.
+
+Before any of that, `evaluateFit()` asks whether the machine can run the weights at all.
+A `Requirement` may declare `runtimes` — `["metal"]` for an MLX repo, say — and a
+mismatch is refused immediately, with a reason saying the size was never the problem.
+This is the verdict the Leaderboard tab structurally cannot reach: Edge0-35B-A3B is
+Apache-2.0 and 19.74 GB, every number says it fits this card, and it is MLX.
 
 The KV-cache constant is calibrated against published GQA geometry, not guessed:
 Qwen2.5-7B (28 layers × 4 KV heads × 128) is 56 KB/token, Qwen3-32B (64 × 8 × 128) is
@@ -216,8 +235,29 @@ run fine at 4-bit. `scripts/model-fit.test.mjs` pins both worked examples.
 
 Read live (`src/lib/machine.ts`): nothing about the card, the RAM, or the weights drive is
 hardcoded, so the verdicts stay correct after a GPU swap or a disk that quietly filled up.
-The one configured value is which drive weights land on (`WEIGHTS_DRIVE`, default `D:`),
-because that is a decision rather than something the machine can report.
+The one configured value is which drive weights land on (`WEIGHTS_DRIVE`, default `D:` on
+Windows), because that is a decision rather than something the machine can report.
+
+**Detected, not declared.** The console runs on both machines, so which one it is on is a
+question it answers itself rather than one it is told. It used to assume the first: the
+profile came from `nvidia-smi`, and the macOS failure path returned zeroes — correct for a
+box with no GPU, wrong for one with a GPU `nvidia-smi` cannot see, and enough to make the
+Models page report every local model as "won't fit". The profile now carries `runtime`,
+`memoryModel` and `computeCapability` alongside the numbers.
+
+| | Windows box | B5 |
+| --- | --- | --- |
+| GPU | `nvidia-smi` | `sysctl machdep.cpu.brand_string` |
+| Runtime | `cuda`, with compute capability | `metal` |
+| Memory | discrete: two pools | unified: one pool, GPU share capped by the OS |
+| Weights | `D:\AI Models\huggingface`, storage index | `~/.cache/huggingface`, `statfs` |
+
+The one number on B5 with no honest source is how much of the pool the GPU may wire.
+`iogpu.wired_limit_mb` gives it when someone has pinned it; otherwise the profile takes
+75% (Metal's `recommendedMaxWorkingSetSize`) and says so in `vramBasis`, rather than
+presenting a guess as a reading. Note also that `os.freemem()` on macOS excludes the
+purgeable pool and so understates what is available — left uncorrected on purpose, since
+erring toward "needs a swap" is cheaper than erring toward an OOM.
 
 Disk comes from the **storage module**, not a private probe. `discoverDrives()` gives the
 drive and its label; the index gives the size of `HF_HOME` — currently 189 GB of weights
