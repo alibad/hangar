@@ -13,6 +13,7 @@ import ArenaView from "@/components/arena-view";
 import ModelFootprint, { type Footprint } from "@/components/model-footprint";
 import Markdown from "@/components/markdown";
 import { ServiceLogsButton } from "@/components/service-control";
+import { isAdopted, isOnDemand, isReady, needsAttention } from "@/lib/service-state";
 import { useTheme } from "@/components/theme-provider";
 import { ThemePicker } from "@/components/theme-picker";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
@@ -672,13 +673,14 @@ export default function Home() {
         : "down";
 
   const runningServices = managedServices.filter((service) => service.status === "running").length;
-  const readyServices = managedServices.filter((service) => service.status === "running" && service.healthy).length;
-  const onDemandServices = managedServices.filter(
-    (service) => service.status !== "running" && service.status !== "failed" && service.owner !== "external",
-  ).length;
-  const attentionServices = managedServices.filter(
-    (service) => service.status === "failed" || (service.status === "running" && !service.healthy) || service.owner === "external",
-  );
+  const readyServices = managedServices.filter(isReady).length;
+  const onDemandServices = managedServices.filter(isOnDemand).length;
+  const attentionServices = managedServices.filter(needsAttention);
+  // Running, but started outside the manager: none of its configured environment
+  // was applied and none of its output is captured. Not a failure, but not the
+  // service as configured either, so it is surfaced on its own rather than
+  // folded into either bucket.
+  const adoptedServices = managedServices.filter(isAdopted);
   const queueDepth = (resourceControl?.queue.length ?? 0) + (resourceControl?.starts.length ?? 0);
 
   /** A tab for a service that is not registered on this host would be a permanent
@@ -876,7 +878,7 @@ export default function Home() {
               <button type="button" onClick={() => setStackFilter("attention")} className={`rounded-xl border p-3 text-left transition ${attentionServices.length ? "border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50" : "border-gray-800 bg-gray-900 hover:border-gray-600"}`}>
                 <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-600"><AlertTriangle className="h-3 w-3" /> Needs attention</span>
                 <span className={`mt-1 block text-xl font-semibold tabular-nums ${attentionServices.length ? "text-amber-300" : "text-gray-100"}`}>{attentionServices.length}</span>
-                <span className="text-[11px] text-gray-500">failed, starting or external</span>
+                <span className="text-[11px] text-gray-500">{adoptedServices.length ? `failed or unhealthy · ${adoptedServices.length} started outside` : "failed or unhealthy"}</span>
               </button>
               <div className="rounded-xl border border-gray-800 bg-gray-900 p-3">
                 <span className="text-[10px] uppercase tracking-wide text-gray-600">GPU memory</span>
@@ -1192,7 +1194,7 @@ export default function Home() {
               </div>
             </div>
 
-          {stackFilter === "attention" && attentionServices.length === 0 && (
+          {stackFilter === "attention" && attentionServices.length + adoptedServices.length === 0 && (
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-5 text-sm text-emerald-300">
               Nothing needs attention. Intentionally stopped on-demand services remain available under All.
             </div>
@@ -1202,7 +1204,7 @@ export default function Home() {
               stackFilter === "all"
                 ? true
                 : stackFilter === "attention"
-                  ? s.status === "failed" || s.status === "starting" || s.owner === "external"
+                  ? needsAttention(s) || isAdopted(s)
                   : s.category === stackFilter,
             ).map((s) => {
               const isActing = actionInProgress?.id === s.id;

@@ -20,6 +20,7 @@ import type { Footprint } from "@/components/model-footprint";
 import { ServiceLogsButton } from "@/components/service-control";
 import { SERVICE_REGISTRY } from "@/lib/services";
 import { useFootprintEstimates } from "@/lib/use-local-footprints";
+import { isAdopted, isOnDemand, isReady, needsAttention } from "@/lib/service-state";
 
 type ManagedService = {
   id: string;
@@ -49,7 +50,7 @@ type Props = {
   onSelectTab: (tab: ConsoleTab) => void;
 };
 
-type Filter = "all" | "running" | "ondemand" | "attention";
+type Filter = "all" | "running" | "ondemand" | "attention" | "adopted";
 
 const descriptions: Record<string, string> = {
   manager: "Starts, stops, and supervises every managed process on this machine.",
@@ -72,6 +73,7 @@ const filterLabels: Array<{ id: Filter; label: string }> = [
   { id: "running", label: "Running" },
   { id: "ondemand", label: "On demand" },
   { id: "attention", label: "Needs attention" },
+  { id: "adopted", label: "Started outside" },
 ];
 
 const serviceDestinations: Partial<Record<string, { tab: ConsoleTab; label: string }>> = {
@@ -91,9 +93,10 @@ export default function ServicesControlCenter({ services, catalogByService, serv
   // Estimates only — live VRAM/RAM arrive as props from the parent's /api/gpu poll.
   const footprints = useFootprintEstimates();
   const counts = useMemo(() => ({
-    ready: services.filter((service) => service.status === "running" && service.healthy).length,
-    ondemand: services.filter((service) => service.status !== "running" && service.status !== "failed" && service.owner !== "external").length,
-    attention: services.filter((service) => service.status === "failed" || (service.status === "running" && !service.healthy) || service.owner === "external").length,
+    ready: services.filter(isReady).length,
+    ondemand: services.filter(isOnDemand).length,
+    attention: services.filter(needsAttention).length,
+    adopted: services.filter(isAdopted).length,
     gpu: services.filter((service) => (serviceVram[service.id]?.used_mb ?? 0) > 0).length,
   }), [services, serviceVram]);
 
@@ -102,8 +105,9 @@ export default function ServicesControlCenter({ services, catalogByService, serv
     return services.filter((service) => {
       const matchesFilter = filter === "all"
         || (filter === "running" && service.status === "running")
-        || (filter === "ondemand" && service.status !== "running" && service.status !== "failed" && service.owner !== "external")
-        || (filter === "attention" && (service.status === "failed" || service.owner === "external"));
+        || (filter === "ondemand" && isOnDemand(service))
+        || (filter === "attention" && needsAttention(service))
+        || (filter === "adopted" && isAdopted(service));
       const models = catalogByService[service.id]?.map((item) => item.id).join(" ") ?? "";
       const matchesQuery = !needle || `${service.name} ${service.id} ${service.type} ${service.category} ${models}`.toLowerCase().includes(needle);
       return matchesFilter && matchesQuery;
@@ -302,7 +306,8 @@ function ServiceCard({ service, models, footprint, vramMb, ramMb, busyAction, fe
   const [confirmStop, setConfirmStop] = useState(false);
   const registry = SERVICE_REGISTRY.find((item) => item.id === service.id);
   const running = service.status === "running";
-  const attention = service.status === "failed" || service.owner === "external";
+  const attention = needsAttention(service);
+  const adopted = isAdopted(service);
   const Icon = service.category === "app" ? Browser : service.category === "monitoring" ? ChartLineUp : Cpu;
   const endpointLabel = service.category === "app" ? "Open app" : service.category === "monitoring" ? "Open dashboard" : "Open endpoint";
   const destination = serviceDestinations[service.id];
@@ -319,7 +324,7 @@ function ServiceCard({ service, models, footprint, vramMb, ramMb, busyAction, fe
             <span className="truncate text-sm font-semibold text-gray-100">{service.name}</span>
             <StatusPill running={running} healthy={service.healthy} attention={attention} status={service.status} />
           </span>
-          <span className="mt-0.5 block text-[10px] capitalize text-gray-600">{service.category} · localhost:{service.port}{service.owner === "external" ? " · external process" : ""}</span>
+          <span className="mt-0.5 block text-[10px] text-gray-600"><span className="capitalize">{service.category}</span> · localhost:{service.port}{adopted ? " · started outside the console" : ""}</span>
         </span>
       </div>
 
@@ -338,7 +343,7 @@ function ServiceCard({ service, models, footprint, vramMb, ramMb, busyAction, fe
       </div>
 
       <div className="mt-auto pt-4">
-        <p className={`mb-2 truncate font-mono text-[9px] ${service.error ? "text-red-300" : "text-gray-700"}`} title={service.error ?? latestLog ?? ""}>{service.error ?? latestLog ?? (running ? "Process is healthy" : "Starts on demand")}</p>
+        <p className={`mb-2 truncate font-mono text-[9px] ${service.error ? "text-red-300" : "text-gray-700"}`} title={service.error ?? latestLog ?? ""}>{service.error ?? latestLog ?? (adopted ? "Healthy. Restart to hand it over to the console." : running ? "Process is healthy" : "Starts on demand")}</p>
         {feedback && (
           <div
             role="status"
@@ -361,7 +366,7 @@ function ServiceCard({ service, models, footprint, vramMb, ramMb, busyAction, fe
         <div className="flex items-center gap-1.5 border-t border-gray-800 pt-3">
           {running ? (
             <>
-              <button type="button" disabled={Boolean(busyAction)} onClick={() => onAction(service.id, "restart")} className="rounded-md border border-gray-700 px-2 py-1 text-[10px] text-gray-400 hover:border-gray-500 hover:text-gray-100 disabled:opacity-40">{busyAction === "restart" ? "Restarting…" : "Restart"}</button>
+              <button type="button" disabled={Boolean(busyAction)} onClick={() => onAction(service.id, "restart")} title={adopted ? `Restart ${service.name} under the console, so it can be managed from here.` : undefined} className={`rounded-md border px-2 py-1 text-[10px] disabled:opacity-40 ${adopted ? "border-orange-500/30 text-orange-300 hover:bg-orange-500/10" : "border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-100"}`}>{busyAction === "restart" ? (adopted ? "Handing over…" : "Restarting…") : adopted ? "Hand over" : "Restart"}</button>
               <button type="button" disabled={Boolean(busyAction)} onClick={() => criticalStopImpact[service.id] ? setConfirmStop(true) : onAction(service.id, "stop")} className="flex items-center gap-1 rounded-md border border-red-500/25 px-2 py-1 text-[10px] text-red-300 hover:bg-red-500/10 disabled:opacity-40"><Stop size={10} weight="fill" />{busyAction === "stop" ? "Stopping…" : "Stop"}</button>
             </>
           ) : (

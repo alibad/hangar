@@ -27,6 +27,7 @@ import {
 } from "@phosphor-icons/react";
 import type { ConsoleTab } from "@/components/command-palette";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { isAdopted, isOnDemand, isReady } from "@/lib/service-state";
 
 type ManagedService = {
   id: string;
@@ -413,12 +414,13 @@ export default function HomeCockpit({
   const ramSafety = resourceControl?.budgets.ramSafetyGb ?? 4;
   const canRun = predictedVram <= vramTotal - vramSafety && predictedRam <= ramTotal - ramSafety;
   const online = managedServices.filter((service) => service.status === "running").length;
-  const readyNow = managedServices.filter((service) => service.status === "running" && service.healthy).length;
-  const onDemand = managedServices.filter((service) => service.status !== "running" && service.status !== "failed" && service.owner !== "external").length;
+  const readyNow = managedServices.filter(isReady).length;
+  const onDemand = managedServices.filter(isOnDemand).length;
   const recentFailures = events.filter((event) => event.status != null && event.status >= 400 && (event.ts == null || Date.now() - event.ts < 15 * 60_000));
   const stalledRequests = events.filter((event) => event.pending && event.ts != null && Date.now() - event.ts > 120_000);
   const unattributedSpend = events.filter((event) => !event.caller && (event.costUsd ?? 0) > 0);
-  const issueCount = attentionCount + recentFailures.length + stalledRequests.length + unattributedSpend.length;
+  const adopted = managedServices.filter(isAdopted).length;
+  const issueCount = attentionCount + adopted + recentFailures.length + stalledRequests.length + unattributedSpend.length;
   const residentModel = selected.model;
   const gpuConsumerRows = useMemo(() => {
     const rows = gpu?.gpu_processes ?? [];
@@ -495,6 +497,7 @@ export default function HomeCockpit({
         {(issueCount > 0 || unattributedSpend.length > 0) && (
           <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-gray-800 px-4 py-2 text-[11px] sm:px-5">
             {attentionCount > 0 && <button type="button" onClick={() => onSelectTab("services")} className="text-amber-200 hover:text-amber-100">{attentionCount} service issue{attentionCount === 1 ? "" : "s"}</button>}
+            {adopted > 0 && <button type="button" onClick={() => onSelectTab("services")} title="Started outside the console, so its configured environment was not applied and its output is not captured. Hand it over to fix both." className="text-amber-200 hover:text-amber-100">{adopted} service{adopted === 1 ? "" : "s"} started outside the console</button>}
             {recentFailures.length > 0 && <button type="button" onClick={() => onSelectTab("requests")} className="text-red-300 hover:text-red-200">{recentFailures.length} recent failed request{recentFailures.length === 1 ? "" : "s"}</button>}
             {stalledRequests.length > 0 && <button type="button" onClick={() => onSelectTab("requests")} className="text-sky-300 hover:text-sky-200">{stalledRequests.length} request{stalledRequests.length === 1 ? "" : "s"} running over 2m</button>}
             {unattributedSpend.length > 0 && <button type="button" onClick={() => onSelectTab("requests")} className="text-violet-300 hover:text-violet-200">{unattributedSpend.length} billable call{unattributedSpend.length === 1 ? "" : "s"} missing a caller</button>}
@@ -667,7 +670,7 @@ export default function HomeCockpit({
               const workflow = workflowConfig[kind];
               const Icon = workflow.icon;
               const service = managedServices.find((item) => item.id === workflow.serviceId);
-              const ready = service?.status === "running" && service.healthy;
+              const ready = service ? isReady(service) : false;
               const recent = events.find((event) => serviceLabel(event) === workflow.label);
               return (
                 <button
