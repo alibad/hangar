@@ -476,6 +476,16 @@ export type CallTarget = {
   model: string;
   local: boolean;
   via: "service" | "router";
+  /**
+   * WHICH local service this resolved to, when it resolved to one.
+   *
+   * Without it a caller had to name a service itself to get its headers, so
+   * /api/stt asked for whisper's headers whatever the routing said — point the
+   * stt capability at a different local ASR service and it would send one
+   * service's Cloudflare-Access credentials to another. The resolution already
+   * knows the answer; it just was not passing it on.
+   */
+  serviceId?: string;
   /** Set when we could not honour the routing and fell back. */
   degraded?: string;
 };
@@ -496,6 +506,7 @@ export async function resolveCallTarget(
       model: fallbackModel,
       local: true,
       via: "service",
+      serviceId: fallbackServiceId,
       degraded: routerUp
         ? `"${alias}" isn't in the router's model list — used the local model instead.`
         : `AI Router is down — used the local model instead of "${alias}".`,
@@ -511,6 +522,7 @@ export async function resolveCallTarget(
       model: chosen.target.includes("/") ? chosen.target.split("/").slice(1).join("/") : chosen.target,
       local: true,
       via: "service",
+      serviceId: chosen.serviceId,
     };
   }
 

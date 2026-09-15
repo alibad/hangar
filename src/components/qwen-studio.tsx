@@ -1263,7 +1263,9 @@ export default function QwenStudio() {
     try {
       const form = new FormData();
       form.append("file", new File([blob], "rec.webm", { type: "audio/webm" }));
-      form.append("model", "whisper-1");
+      // No `model` — the route resolves whatever the stt capability is pointed
+      // at and sets it. Naming one here pinned voice input to whisper while the
+      // picker said otherwise.
       const res = await fetch("/api/qwen/transcribe", { method: "POST", body: form });
       const data = await res.json();
       const text = (data.text ?? "").trim();

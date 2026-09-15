@@ -101,6 +101,16 @@ considered items on it were the least visible.
 2. Search Hugging Face — trending and recent — for `text-generation`, `text-to-image`,
    `automatic-speech-recognition`, `text-to-speech`. The hub API gives exact parameter
    counts and licences; prefer it over prose about a model.
+2b. **For speech-to-text, rank on the Open ASR Leaderboard, not on trending.** Parameter
+   counts, licences and a `language:` list are not accuracy, and ranking ASR on them got
+   this report's picks wrong twice. Pull the CSVs directly rather than scraping the Space —
+   `hf-audio/open-asr-leaderboard-results/english_short_latest.csv`,
+   `hf-audio/leaderboard_longform/longform_latest.csv`, and
+   `hf-audio/multilingual_evals/multilingual_<lang>.csv`; the current revisions are listed
+   in the Space's `init.py` under `VERSIONS`. Report WER **per board**: models routinely win
+   one and lose another, and a single average hides exactly the trade the reader is making.
+   A model absent from a board is unmeasured there — say so rather than ranking it on the
+   board it happens to appear in.
 3. Read the live vendor model lists for anything new worth an opinion.
 4. **Do not re-list what the leaderboard already covers.** The Leaderboard tab ranks every
    open-weights text model with a parameter count against this card automatically, and the

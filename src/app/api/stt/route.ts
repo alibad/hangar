@@ -34,7 +34,11 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(`${target.baseUrl}/v1/audio/transcriptions`, {
       method: "POST",
-      headers: target.via === "service" ? getServiceHeaders("whisper") : {},
+      // The service the routing actually resolved to, not the one this file
+      // happens to be named after. Hardcoding "whisper" here meant pointing the
+      // stt capability at any other local ASR service sent that service
+      // whisper's credentials, which is a 502 whose cause is invisible.
+      headers: target.via === "service" ? getServiceHeaders(target.serviceId ?? "whisper") : {},
       body: form,
       signal: AbortSignal.timeout(180_000),
     });
