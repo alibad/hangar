@@ -29,6 +29,22 @@ export type PrecisionFit = {
   fit: Fit;
 };
 
+/**
+ * Another machine's answer for the same model.
+ *
+ * The server sends these only where the answer DIFFERS from the live machine's,
+ * so their presence is itself the signal — a row with none is one both boxes
+ * agree about, and the column stays empty rather than repeating itself.
+ */
+export type HostBest = {
+  hostId: string;
+  hostName: string;
+  verdict: Fit["verdict"];
+  /** The rung that machine would run it at. Absent when none does. */
+  label?: string;
+  vramGb?: number;
+};
+
 export type Stats = {
   model_id: string;
   name: string;
@@ -93,6 +109,11 @@ export type Occupant = { serviceId: string; name: string; vramGb: number; ramGb:
 export type Payload = {
   machine: Machine;
   occupants: Occupant[];
+  /**
+   * Every machine the console can answer for, live one first. Only the live
+   * entry has telemetry; the rest are declared in config/hosts.
+   */
+  machines?: { hostId: string; hostName: string; live: boolean }[];
   report: { generatedAt?: string; stale: boolean; notes: string[]; upgrades: { alias: string; from: string; to: string; why: string }[] };
   discovery: {
     provider: string;
@@ -110,7 +131,7 @@ export type Payload = {
     error?: string;
     total: number;
     runnable: number;
-    openWeights: { stats: Stats; paramsB: number; best: PrecisionFit | null; rungs: PrecisionFit[]; scored: boolean }[];
+    openWeights: { stats: Stats; paramsB: number; best: PrecisionFit | null; rungs: PrecisionFit[]; scored: boolean; elsewhere?: HostBest[] }[];
   };
   routerUp: boolean;
   catalogue: CatalogModel[];
@@ -181,6 +202,10 @@ export type Entry = {
   verdict?: Fit["verdict"];
   fit?: Fit;
   rungs?: PrecisionFit[];
+  /** Other machines whose answer differs from this one's. Usually empty. */
+  elsewhere?: HostBest[];
+  /** Runs on some OTHER configured machine, even if not on this one. */
+  runsElsewhere?: boolean;
   paramsB?: number;
   measured?: boolean;
   /** Cloud economics. */
@@ -453,6 +478,8 @@ export function buildEntries(p: Payload): Entry[] {
       verdict: best?.fit.verdict ?? "no",
       fit: best?.fit,
       rungs: c.rungs,
+      elsewhere: c.elsewhere?.length ? c.elsewhere : undefined,
+      runsElsewhere: !!c.elsewhere?.some((h) => h.verdict !== "no"),
       paramsB: c.paramsB,
       measured: false,
       gpqa: c.stats.gpqa_score,

@@ -16,7 +16,7 @@ import {
   Warning,
   X,
 } from "@phosphor-icons/react";
-import type { CatalogModel, Entry, EntryStatus, Machine, Occupant, Payload, Sort, SortKey } from "./models-page.types";
+import type { CatalogModel, Entry, EntryStatus, HostBest, Machine, Occupant, Payload, Sort, SortKey } from "./models-page.types";
 import { fmtGb, fmtParams } from "./models-page.types";
 
 /* ── shared vocabulary ─────────────────────────────────────────────────────
@@ -42,6 +42,30 @@ const VERDICT_TEXT: Record<string, string> = {
   no: "text-red-400",
   "off-box": "text-gray-500",
 };
+
+/** Plain words for a verdict, for the places that have no room for a sentence. */
+const VERDICT_WORD: Record<string, string> = {
+  fits: "fits",
+  tight: "fits alone",
+  swap: "needs a swap",
+  no: "won't fit",
+  "off-box": "off-box",
+};
+
+/**
+ * Why another machine's answer is a weaker claim than this one's, said in full
+ * on hover rather than asserted in four characters.
+ *
+ * Numbers for a host the console is not running on come from its declared
+ * profile: idle, nothing else loaded, free disk unknown. That is a real answer
+ * and a different kind of answer, and the difference should not need reading
+ * the source to discover.
+ */
+function hostVerdictTitle(h: HostBest): string {
+  const at = h.label ? ` at ${h.label}` : "";
+  const mem = h.vramGb ? `, needing ${fmtGb(h.vramGb)}` : "";
+  return `On ${h.hostName}: ${VERDICT_WORD[h.verdict] ?? h.verdict}${at}${mem}. From ${h.hostName}'s declared specs — an idle machine with unknown free disk, not a live reading.`;
+}
 
 function pct(v?: number | null): string {
   return typeof v === "number" ? String(Math.round(v * 100)) : "—";
@@ -238,6 +262,7 @@ export function RouteStrip({
 export function FilterBar({
   runsHere,
   onRunsHere,
+  otherHosts,
   query,
   onQuery,
   capability,
@@ -249,6 +274,8 @@ export function FilterBar({
 }: {
   runsHere: boolean;
   onRunsHere: (v: boolean) => void;
+  /** Names of the other configured machines, for a chip that tells the truth. */
+  otherHosts: string[];
   query: string;
   onQuery: (v: string) => void;
   capability: string | null;
@@ -263,11 +290,18 @@ export function FilterBar({
       <button
         onClick={() => onRunsHere(!runsHere)}
         aria-pressed={runsHere}
-        title="Hide anything this card cannot run at any quantisation, down to 2-bit."
+        // With a second machine configured this can no longer say "this GPU":
+        // keeping a row that B5 runs is the whole point, so the chip has to
+        // describe the fleet rather than the box serving the page.
+        title={
+          otherHosts.length
+            ? `Hide anything none of your machines can run at any quantisation, down to 2-bit. Includes ${otherHosts.join(" and ")}.`
+            : "Hide anything this card cannot run at any quantisation, down to 2-bit."
+        }
         className={`ui-chip inline-flex items-center gap-1.5 text-[11px] rounded-md px-2.5 py-1.5 border transition cursor-pointer ${runsHere ? "is-on" : ""}`}
       >
         <Cpu size={12} weight="duotone" />
-        Fits this GPU
+        {otherHosts.length ? "Fits a machine I have" : "Fits this GPU"}
       </button>
 
       {capability && (
@@ -432,14 +466,30 @@ function columnsFor(tone: "local" | "cloud"): Col[] {
       {
         key: "default",
         label: "Runs at",
-        render: (e) =>
-          e.quant ? (
-            <span className={VERDICT_TEXT[e.verdict ?? ""] ?? "text-gray-400"}>{e.quant}</span>
-          ) : e.measured ? (
-            <span className="text-gray-500">installed</span>
-          ) : (
-            "—"
-          ),
+        // Two machines, so two answers — but only when they differ, which the
+        // server decides by sending `elsewhere` at all. Stacked in one cell
+        // rather than given a column of its own: an extra column would be
+        // blank on most rows and would cost the whole table the width, and
+        // the point is the comparison, which wants the answers adjacent.
+        render: (e) => (
+          <>
+            {e.quant ? (
+              <span className={VERDICT_TEXT[e.verdict ?? ""] ?? "text-gray-400"}>{e.quant}</span>
+            ) : e.measured ? (
+              <span className="text-gray-500">installed</span>
+            ) : (
+              <span className="text-gray-600">—</span>
+            )}
+            {e.elsewhere?.map((h) => (
+              <div key={h.hostId} className="text-[10px] leading-tight truncate" title={hostVerdictTitle(h)}>
+                <span className="text-gray-600">{h.hostName}: </span>
+                <span className={VERDICT_TEXT[h.verdict] ?? "text-gray-500"}>
+                  {h.verdict === "no" ? "won't fit" : (h.label ?? VERDICT_WORD[h.verdict])}
+                </span>
+              </div>
+            ))}
+          </>
+        ),
       },
       { key: "vram", label: "VRAM", align: "right", render: (e) => fmtGb(e.vramGb) },
       { key: "disk", label: "Disk", align: "right", render: (e) => (e.diskGb ? fmtGb(e.diskGb) : "—") },
@@ -775,6 +825,30 @@ export function DetailPanel({
         <p className="text-[10px] text-emerald-400/80 leading-relaxed">
           Footprint measured on this box — see config/model-meta.json.
         </p>
+      )}
+
+      {/* The other machines, when they disagree. Shown after this one's verdict
+          rather than beside it, because they are a weaker claim and the
+          ordering should say so before the numbers do. */}
+      {e.elsewhere && e.elsewhere.length > 0 && (
+        <div className="space-y-1 border-l-2 border-gray-800 pl-2.5">
+          <p className="text-[9px] uppercase tracking-wide text-gray-600">On your other machines</p>
+          {e.elsewhere.map((h) => (
+            <p key={h.hostId} className="text-[10px] leading-relaxed">
+              <span className="text-gray-400">{h.hostName}</span>{" "}
+              <span className={VERDICT_TEXT[h.verdict] ?? "text-gray-500"}>
+                {VERDICT_WORD[h.verdict] ?? h.verdict}
+              </span>
+              {h.label && <span className="text-gray-500"> at {h.label}</span>}
+              {h.vramGb ? <span className="text-gray-600"> · {fmtGb(h.vramGb)}</span> : null}
+            </p>
+          ))}
+          <p className="text-[9px] text-gray-600 leading-relaxed">
+            From each host&apos;s declared specs in config/hosts — an idle machine with nothing else
+            loaded and free disk unknown, so this answers &ldquo;would it fit there&rdquo; and not
+            &ldquo;would it fit there right now&rdquo;. Only machines that disagree with this one are listed.
+          </p>
+        </div>
       )}
 
       {e.rungs && e.rungs.length > 0 && (
