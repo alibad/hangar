@@ -10,8 +10,9 @@ across that distance, which is the only comparison that matters when deciding wh
 into one `Entry` list; `models-page.parts.tsx` draws it. Two lanes — this machine, cloud —
 because they are different kinds of commitment: one costs memory and a download, the other
 costs money per call, and ranking them against each other compares quantities that do not
-convert. Filtered by default to what actually runs on this card, because a console that opens
-on 200 models it cannot run is just a leaderboard.
+convert. Filtered by default to what actually runs on a machine you have — this one or B5 —
+because a console that opens on 200 models it cannot run is just a leaderboard, and one that
+hides the models the *other* box runs is half a leaderboard.
 
 Four data sources feed it, with different failure modes and refresh rates.
 
@@ -55,8 +56,9 @@ models with prices, GPQA / SWE-bench / HLE scores, throughput, parameter counts 
 
 - **Cloud**: joined onto each discovered vendor model, so "should I wire this" is decided
   on price and benchmark rather than on the id looking newer.
-- **Open weights**: ~205 models publish a parameter count, and a parameter count plus this
-  card is enough to size all of them at once. That is the Leaderboard tab.
+- **Open weights**: ~205 models publish a parameter count, and a parameter count plus a
+  machine profile is enough to size all of them at once, for every host. That is the
+  Leaderboard tab; a row carries the second machine's answer only where it differs.
 
 There is no public API (every `/api` path 404s and robots.txt disallows `/api/`; the
 homepage is explicitly allowed), so the data comes out of the Next.js RSC payload embedded
@@ -96,8 +98,21 @@ considered items on it were the least visible.
 
 ### What the routine must do
 
-1. Read this file and `config/model-meta.json` (what is already here, and its measured
-   footprints) and `config/ai-router.yaml` (what is already wired).
+1. Read this file, `config/model-meta.json` (what is already here, and its measured
+   footprints), `config/ai-router.yaml` (what is already wired), and `config/hosts/*.json`
+   (which machines exist and what each one has). There is more than one box; a report that
+   assumes one is wrong about half its verdicts.
+1b. **Settle what changed before researching anything.** Most of the value in a weekly
+   report is knowing which of last week's advice was taken, and that is a diff, not a
+   memory. Two checks, both mechanical:
+   - A candidate whose checkpoint now appears in `config/model-meta.json`, or whose alias
+     appears in `ai-router.yaml`, was **adopted** — drop it and say so. Leaving it in reads
+     as nagging for something already done, which is how a reader learns to skim the list.
+   - For every `upgrades[]` entry still outstanding, get its age from
+     `git log --follow config/model-scout.json` rather than incrementing a number by hand.
+     "Four weeks outstanding" is a claim about history and should be read from it.
+   Also re-read each surviving candidate's repo file listing: byte counts and licences do
+   change under you, and a `basis` that was exact last week can quietly stop being true.
 2. Search Hugging Face — trending and recent — for `text-generation`, `text-to-image`,
    `automatic-speech-recognition`, `text-to-speech`. The hub API gives exact parameter
    counts and licences; prefer it over prose about a model.
@@ -122,8 +137,20 @@ considered items on it were the least visible.
    which is most of them: absent means "runs anywhere", and a `runtimes` field set
    defensively on everything would refuse everything the first time a rule was wrong.
    GGUF is portable; do not pin it.
+5b. **Rank on evidence, not on attention.** Trending measures how many people looked. Where
+   a capability has a comparable public benchmark, rank on it and cite the build you pulled
+   (2b is the worked example). Where none exists — most image and TTS models — say the
+   ranking is adoption and licence rather than measured quality, instead of implying a
+   number you do not have.
 6. Rewrite `config/model-scout.json` **whole**, keeping the `_doc` and `_schema` keys.
-7. Commit it to `master` with a message naming what changed.
+7. Run `npm test` and `npx tsc --noEmit`, then commit **only** `config/model-scout.json`
+   to `master` with a message naming what changed. Push it.
+8. **End on one recommendation, not a digest.** The run reaches its reader as a
+   notification, and a notification that lists everything gets read as nothing. Lead with
+   the single thing most worth doing this week and which machine to do it on; the report
+   in git is where the rest lives. If the honest answer is "nothing changed", say that —
+   a quiet week is information, and manufacturing churn to look busy is how the list
+   stopped being selective the last time.
 
 ### Rules the report must follow
 
@@ -151,11 +178,24 @@ considered items on it were the least visible.
   about *that* machine. On unified memory there is nowhere to offload to, so the same
   model costs one copy rather than two and the constraint is simply the size of the
   pool. `evaluateFit()` now branches on `memoryModel` instead of assuming the first case.
-- **Licence is a fact, not a footnote.** Gated repos and bespoke licences go in `notes`,
-  not in `candidates`, until someone has read the terms.
+- **Licence is a fact, not a footnote.** The rule is about UNREAD TERMS, not about the
+  gate flag — which it used to conflate, and the distinction decides real cases. A repo
+  under a standard open licence (apache-2.0, mit, cc-by) whose gate is `gated: auto` is a
+  click-through: the terms are already known, so it can be a candidate provided `license`
+  names the gate. Anything else waits in `notes` until a human has read it — `license:
+  other`, a bespoke or vendor licence, a non-commercial clause, or `gated: manual`, where
+  a person has to approve you and the wait is real. Krea-2-Turbo is gated AND `other`, so
+  it stays out on both counts; Cohere Transcribe is Apache-2.0 behind a click-through, so
+  it does not.
 - Do not put vendor model ids in `candidates` when discovery already surfaces them —
   use `upgrades` for a like-for-like repoint, and `candidates` only when there is
   something to say that the model list cannot say itself.
+- **Correct yourself in the open.** When a benchmark or a re-read contradicts something an
+  earlier report asserted, say so in the entry rather than quietly changing the number. A
+  dated, versioned opinion earns its place by being auditable; silently revising it throws
+  away the only advantage it has over a live feed. The 2026-09-15 run is the pattern: it
+  had been ranking ASR on parameter counts and language lists, the Open ASR Leaderboard
+  disagreed with two of its picks, and both entries were rewritten saying so.
 
 ### Scheduling it
 
@@ -172,10 +212,39 @@ judgment, not measurement.
 | Model | `claude-opus-5` |
 | Source | `github.com/alibad/betenshi-console`, commits `config/model-scout.json` to master |
 
-The routine's prompt deliberately does **not** restate the rules above. It says "read
-`docs/models.md` and follow it exactly", so this file stays the single copy and the
-schedule cannot drift away from it. Change the brief here; the routine picks it up on its
-next run.
+#### The prompt is a pointer, and must stay one
+
+The routine's prompt deliberately does **not** restate the rules above. This file is the
+single copy; the prompt says "read it and follow it exactly", so changing the brief here is
+how the routine changes — no scheduler edit, reviewed in a diff like everything else.
+
+That discipline was stated from the start and then quietly broken: the stored prompt grew a
+paragraph of machine specs, a list of what not to write, and four quality rules. All of it
+duplicated this file, and by 15 September all of it was **wrong** — it described one 32 GB
+box in a world that had grown a second machine with 128 GB of unified memory, so every
+firing would have started by telling the routine something false. A pointer cannot go stale;
+a copy always does.
+
+So the prompt is now the shortest thing that still works. **This is the whole of it** — if
+it ever needs more than this, the extra belongs above instead:
+
+> Run the weekly BeTenshi model scout for this repository (alibad/betenshi-console).
+>
+> Read `docs/models.md` first and follow it exactly. It is the authoritative brief: what to
+> research, which sources to rank each capability on, the schema of
+> `config/model-scout.json`, the machines you are judging against, and the rules the report
+> must follow. This prompt deliberately carries none of that, so the two cannot drift apart
+> — where they disagree, the brief is right.
+>
+> Work through "What the routine must do" in order, then end with a SHORT summary that
+> leads with the single most valuable thing to do this week and which machine to do it on.
+> It reaches its reader as a notification, so the first sentence is the one that gets read.
+> "Nothing worth acting on" is a legitimate answer; say it and stop rather than inventing
+> churn.
+
+A routine created through the API cannot be edited by an agent — only by a person, at the
+link above — so if the stored prompt and the block here ever disagree, paste this one in.
+
 
 Manage it at <https://claude.ai/code/routines> — including **Run now**, which is how you
 force an off-schedule refresh.
