@@ -729,6 +729,13 @@ export type ScoutPayload = {
     notes: string[];
     upgrades: ScoutUpgrade[];
   };
+  /**
+   * The weekly report's hand-picked models, each with a verdict per machine.
+   *
+   * These are the most considered items on the page — four models a routine
+   * argued for in prose, against everything already installed — and for a long
+   * time the console shipped them to the browser and drew only the notes.
+   */
   candidates: ScoutCandidateWithFit[];
   discovery: ProviderDiscovery[];
   wired: ReturnType<typeof listWired>;
@@ -743,6 +750,8 @@ export type ScoutPayload = {
     openWeights: OpenWeightsCandidate[];
     /** How many of those actually run here, for the headline. */
     runnable: number;
+    /** The same count per machine, live host first. */
+    runnableByHost: { hostId: string; hostName: string; live: boolean; runnable: number }[];
   };
   /**
    * Everything the router serves today, plus what each capability is routed to.
@@ -888,6 +897,21 @@ export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPay
       total: stats.models.length,
       openWeights,
       runnable: openWeights.filter((c) => c.best).length,
+      // The same count for every machine, so the header can say "0 of 218 here,
+      // 146 on B5" rather than quietly meaning one box. Derived from the
+      // per-row answers already computed: a row with no `elsewhere` entry for a
+      // host is one that host agrees about, so it counts wherever this one does.
+      runnableByHost: known.map((m) => ({
+        hostId: m.hostId,
+        hostName: m.hostName,
+        live: m.live,
+        runnable: m.live
+          ? openWeights.filter((c) => c.best).length
+          : openWeights.filter((c) => {
+              const differs = c.elsewhere.find((h) => h.hostId === m.hostId);
+              return differs ? differs.verdict !== "no" : !!c.best;
+            }).length,
+      })),
     },
     routerUp,
     catalogue,

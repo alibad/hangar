@@ -79,11 +79,14 @@ export function MachineStrip({
   machine,
   occupants,
   leaderboard,
+  machines,
   onRefresh,
 }: {
   machine: Machine;
   occupants: Occupant[];
   leaderboard: Payload["leaderboard"];
+  /** Every configured host. Live first; the rest are declared, not measured. */
+  machines?: Payload["machines"];
   onRefresh: () => void;
 }) {
   const [spinning, setSpinning] = useState(false);
@@ -92,6 +95,9 @@ export function MachineStrip({
   const diskUsed = machine.weightsDiskTotalGb
     ? machine.weightsDiskTotalGb - machine.weightsDiskFreeGb
     : undefined;
+  const others = (machines ?? []).filter((m) => !m.live);
+  const countFor = (hostId: string) =>
+    leaderboard.runnableByHost?.find((r) => r.hostId === hostId)?.runnable;
 
   return (
     <section className="tool-panel bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-3">
@@ -99,7 +105,11 @@ export function MachineStrip({
         <Cpu size={16} weight="duotone" className="text-indigo-400" />
         <span className="text-sm font-semibold text-gray-100">{machine.gpuName}</span>
         <span className="text-[11px] text-gray-500">
-          {leaderboard.runnable} of {leaderboard.openWeights.length} open-weights models on llm-stats run here
+          {/* "run here" was a complete sentence with one box and is not with
+              two. The meters below are still this machine's alone — they are
+              live readings, and there is no telemetry from the other host. */}
+          {leaderboard.runnable} of {leaderboard.openWeights.length} open-weights models on llm-stats run
+          {others.length ? " on this one" : " here"}
         </span>
         <button
           onClick={async () => {
@@ -150,6 +160,35 @@ export function MachineStrip({
           title={machine.weightsPath}
         />
       </div>
+
+      {/* The other machines get a line, not a meter row. A meter implies a live
+          reading, and there is none from a box this process is not on — these
+          are the specs in config/hosts and a count derived from them. */}
+      {others.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap border-t border-gray-800 pt-2.5">
+          <span className="text-[9px] uppercase tracking-wide text-gray-600">Also yours</span>
+          {others.map((m) => {
+            const n = countFor(m.hostId);
+            const pool =
+              m.machine.memoryModel === "unified"
+                ? `${m.machine.ramTotalGb} GB unified`
+                : `${m.machine.vramTotalGb} GB VRAM · ${m.machine.ramTotalGb} GB RAM`;
+            return (
+              <span
+                key={m.hostId}
+                className="inline-flex items-center gap-1.5 text-[11px] text-gray-400 rounded-md border border-gray-800 px-2 py-1"
+                title={m.machine.vramBasis ?? `${m.hostName}, declared in config/hosts/${m.hostId}.json.`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-600 shrink-0" />
+                <span className="text-gray-300">{m.hostName}</span>
+                <span className="text-gray-600">{pool}</span>
+                {n != null && <span className="text-gray-500 tabular-nums">· {n} run there</span>}
+              </span>
+            );
+          })}
+          <span className="text-[10px] text-gray-600">declared, not measured</span>
+        </div>
+      )}
     </section>
   );
 }
@@ -477,6 +516,13 @@ function columnsFor(tone: "local" | "cloud"): Col[] {
               <span className={VERDICT_TEXT[e.verdict ?? ""] ?? "text-gray-400"}>{e.quant}</span>
             ) : e.measured ? (
               <span className="text-gray-500">installed</span>
+            ) : e.fit && e.kind === "local" ? (
+              // A scout pick has a sourced requirement, not a ladder — there is
+              // no rung to name, so the cell carries the verdict itself rather
+              // than a dash that reads as "unknown".
+              <span className={VERDICT_TEXT[e.verdict ?? ""] ?? "text-gray-400"}>
+                {VERDICT_WORD[e.verdict ?? ""] ?? "—"}
+              </span>
             ) : (
               <span className="text-gray-600">—</span>
             )}
@@ -607,6 +653,16 @@ export function ModelTable({
                           {e.activeFor.join("·")}
                         </span>
                       )}
+                      {/* The one row type on this page that is an argument
+                          rather than a measurement. Marked so it reads as one. */}
+                      {e.why && (
+                        <span
+                          className="text-[9px] px-1 rounded-full bg-indigo-500/20 text-indigo-200 shrink-0"
+                          title="Picked by the weekly scout report — open for the argument."
+                        >
+                          scout
+                        </span>
+                      )}
                       {e.status === "downloading" && (
                         <span className="text-[9px] text-sky-300 shrink-0 tabular-nums">
                           {e.download?.percent ?? 0}%
@@ -663,6 +719,8 @@ export function DetailPanel({
   e,
   busy,
   capabilities,
+  reportDate,
+  reportStale,
   onClose,
   onUse,
   onService,
@@ -674,6 +732,9 @@ export function DetailPanel({
   e: Entry;
   busy: string | null;
   capabilities: Payload["capabilities"];
+  /** When the scout report was written, so its opinion can be dated. */
+  reportDate?: string;
+  reportStale?: boolean;
   onClose: () => void;
   onUse: (e: Entry, cap: string) => void;
   onService?: (serviceId: string, action: "start" | "stop" | "restart") => void;
@@ -809,6 +870,30 @@ export function DetailPanel({
 
       {e.detail && <p className="text-[10px] text-amber-400/85 leading-relaxed">{e.detail}</p>}
       {e.note && <p className="text-[10px] text-gray-500 leading-relaxed">{e.note}</p>}
+
+      {/* Judgment, not telemetry — and dated, because it ages differently from
+          everything else on this panel. Given its own frame so it is never
+          mistaken for something the machine reported. */}
+      {e.why && (
+        <div className="rounded-md border border-indigo-500/25 bg-indigo-500/[0.06] p-2.5 space-y-1">
+          <p className="text-[9px] uppercase tracking-wide text-indigo-300/80">
+            Why the scout picked this{reportDate ? ` · ${reportDate}` : ""}
+            {reportStale ? " · stale" : ""}
+          </p>
+          <p className="text-[10px] text-gray-300 leading-relaxed">{e.why}</p>
+          {(e.license || e.paper) && (
+            <p className="text-[9px] text-gray-500">
+              {e.license && <span>Licence {e.license}</span>}
+              {e.license && e.paper && <span> · </span>}
+              {e.paper && (
+                <a href={e.paper} target="_blank" rel="noreferrer" className="hover:text-gray-300 underline">
+                  paper
+                </a>
+              )}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Why the verdict is what it is. */}
       {e.fit && (

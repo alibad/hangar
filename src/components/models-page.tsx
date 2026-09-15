@@ -178,6 +178,7 @@ export default function ModelsPage() {
         machine={data.machine}
         occupants={data.occupants}
         leaderboard={data.leaderboard}
+        machines={data.machines}
         onRefresh={() => refresh(true)}
       />
 
@@ -279,6 +280,8 @@ export default function ModelsPage() {
             e={selected}
             busy={busy}
             capabilities={data.capabilities}
+            reportDate={data.report.generatedAt}
+            reportStale={data.report.stale}
             onClose={() => setSelectedKey(null)}
             onUse={use}
             onService={(id, action) =>

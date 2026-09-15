@@ -86,6 +86,14 @@ It is committed, so `git log config/model-scout.json` is a record of how the lan
 moved. It carries `generatedAt`, and the UI marks it stale after 10 days rather than
 silently presenting an old opinion as current.
 
+Its picks are **rows in the list**, marked `scout`, ranked above every leaderboard row and
+below anything already wired — a considered recommendation outranks a ranked list, and both
+lose to a model already serving traffic. The `why` gets its own framed block in the details
+panel, dated, because it is the one field on the page that is an argument rather than a
+reading and should never be mistaken for one. For a long time these were shipped to the
+browser and rendered only as prose notes at the foot of the page, which meant the most
+considered items on it were the least visible.
+
 ### What the routine must do
 
 1. Read this file and `config/model-meta.json` (what is already here, and its measured
