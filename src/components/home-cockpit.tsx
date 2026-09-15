@@ -28,6 +28,7 @@ import {
 import type { ConsoleTab } from "@/components/command-palette";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { isAdopted, isOnDemand, isReady } from "@/lib/service-state";
+import { getHost, getWorkstreamOverrides, declaredMemoryGb, type WorkstreamKind } from "@/lib/host";
 
 type ManagedService = {
   id: string;
@@ -107,7 +108,7 @@ type TrafficEvent = {
   pending?: boolean;
 };
 
-type WorkflowKind = "text" | "image" | "audio" | "files";
+type WorkflowKind = WorkstreamKind;
 
 type Props = {
   managedServices: ManagedService[];
@@ -128,7 +129,17 @@ type Props = {
   openResourceMapSignal?: number;
 };
 
-const workflowConfig = {
+/**
+ * The four workstreams, on every machine — with per-host overrides.
+ *
+ * These were BeTenshi's services spelled out here, so another host advertised
+ * work it could not do. The fix is NOT to drop cards: a console that shows a
+ * different set per machine reads as a different product and hides what this box
+ * cannot do. Every card is always here. A profile overrides only where this
+ * machine genuinely differs (B5 backs Chat & Code with Ollama, not vLLM), and a
+ * card whose service is not registered here renders as unavailable and says why.
+ */
+const canonicalWorkflows = {
   text: {
     label: "Chat & Code",
     description: "Think, code, debug, and refactor",
@@ -138,7 +149,7 @@ const workflowConfig = {
     vramGb: 7.6,
     ramGb: 8.2,
     icon: Code,
-    color: "orange",
+    color: "orange" as const,
     action: "Open chat",
   },
   image: {
@@ -150,7 +161,7 @@ const workflowConfig = {
     vramGb: 20,
     ramGb: 28,
     icon: ImageSquare,
-    color: "violet",
+    color: "violet" as const,
     action: "Generate",
   },
   audio: {
@@ -162,7 +173,7 @@ const workflowConfig = {
     vramGb: 1.5,
     ramGb: 2.1,
     icon: Waveform,
-    color: "blue",
+    color: "blue" as const,
     action: "Open speech",
   },
   files: {
@@ -174,21 +185,24 @@ const workflowConfig = {
     vramGb: 8.1,
     ramGb: 10,
     icon: Cube,
-    color: "emerald",
+    color: "emerald" as const,
     action: "Analyze",
   },
-} satisfies Record<WorkflowKind, {
-  label: string;
-  description: string;
-  model: string;
-  serviceId: string;
-  tab: ConsoleTab;
-  vramGb: number;
-  ramGb: number;
-  icon: typeof Code;
-  color: "orange" | "violet" | "blue" | "emerald";
-  action: string;
-}>;
+};
+
+const overrides = getWorkstreamOverrides();
+const hostServiceIds = new Set(getHost().services.map((s) => s.id));
+
+const workflowConfig = Object.fromEntries(
+  (Object.entries(canonicalWorkflows) as [WorkflowKind, typeof canonicalWorkflows.text][])
+    .map(([kind, base]) => {
+      const merged = { ...base, ...(overrides[kind] ?? {}) };
+      return [kind, { ...merged, available: hostServiceIds.has(merged.serviceId) }];
+    }),
+) as Record<WorkflowKind, typeof canonicalWorkflows.text & { available: boolean }>;
+
+/** All four, always — availability is rendered, not used to filter. */
+const WORKFLOW_KINDS = ["text", "image", "audio", "files"] as WorkflowKind[];
 
 const modeCopy: Record<WorkflowKind, { label: string; placeholder: string }> = {
   text: { label: "Text", placeholder: "Ask, plan, debug, or build something with your local models…" },
@@ -357,6 +371,7 @@ export default function HomeCockpit({
   onTranscribeFile,
   openResourceMapSignal = 0,
 }: Props) {
+  // First slot this host has, so the composer never opens on a workstream that is not here.
   const [mode, setMode] = useState<WorkflowKind>("text");
   const [prompt, setPrompt] = useState("");
   const [resourceOpen, setResourceOpen] = useState(false);
@@ -402,9 +417,9 @@ export default function HomeCockpit({
   const selected = workflowConfig[mode];
   const selectedService = managedServices.find((service) => service.id === selected.serviceId);
   const alreadyResident = selectedService?.status === "running";
-  const vramTotal = gpu?.mem_total ? gpu.mem_total / 1024 : resourceControl?.capacity.vram.totalGb ?? 31.8;
+  const vramTotal = gpu?.mem_total ? gpu.mem_total / 1024 : resourceControl?.capacity.vram.totalGb ?? declaredMemoryGb().vramGb;
   const vramUsed = gpu?.mem_used ? gpu.mem_used / 1024 : Math.max(0, vramTotal - (resourceControl?.capacity.vram.freeGb ?? vramTotal));
-  const ramTotal = gpu?.host_ram?.total_gb ?? resourceControl?.capacity.ram.totalGb ?? 63.3;
+  const ramTotal = gpu?.host_ram?.total_gb ?? resourceControl?.capacity.ram.totalGb ?? declaredMemoryGb().ramGb;
   const ramUsed = gpu?.host_ram?.used_gb ?? Math.max(0, ramTotal - (resourceControl?.capacity.ram.freeGb ?? ramTotal));
   const addedVram = alreadyResident ? 0 : selected.vramGb;
   const addedRam = alreadyResident ? 0 : selected.ramGb;
@@ -538,7 +553,7 @@ export default function HomeCockpit({
                 className="min-h-14 w-full resize-none bg-transparent text-[15px] leading-6 text-gray-100 outline-none placeholder:text-gray-600"
               />
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-800/80 pt-3">
-                {(["text", "image", "audio", "files"] as WorkflowKind[]).map((kind) => {
+                {WORKFLOW_KINDS.map((kind) => {
                   const Icon = kind === "text" ? FileText : kind === "image" ? ImageSquare : kind === "audio" ? Microphone : Paperclip;
                   return (
                     <button
@@ -666,7 +681,7 @@ export default function HomeCockpit({
             <button type="button" onClick={() => onSelectTab("models")} className="cockpit-accent-text text-xs font-medium text-orange-300 hover:text-orange-200">View routing</button>
           </div>
           <div className="divide-y divide-gray-800/80">
-            {(Object.keys(workflowConfig) as WorkflowKind[]).map((kind) => {
+            {WORKFLOW_KINDS.map((kind) => {
               const workflow = workflowConfig[kind];
               const Icon = workflow.icon;
               const service = managedServices.find((item) => item.id === workflow.serviceId);
@@ -689,12 +704,16 @@ export default function HomeCockpit({
                     </span>
                   </span>
                   <span className="hidden min-w-0 sm:block">
-                    <span className="block truncate text-xs text-gray-300">{workflow.model}</span>
-                    <span className="block text-[10px] tabular-nums text-gray-500">{workflow.vramGb.toFixed(1)} GB VRAM profile</span>
+                    <span className={`block truncate text-xs ${workflow.available ? "text-gray-300" : "text-gray-500"}`}>{workflow.model}</span>
+                    <span className="block text-[10px] tabular-nums text-gray-500">
+                      {workflow.available
+                        ? `${workflow.vramGb.toFixed(1)} GB VRAM profile`
+                        : `needs ${workflow.serviceId}`}
+                    </span>
                   </span>
-                  <span className={`flex items-center gap-1.5 text-[11px] ${ready ? "text-emerald-300" : "text-gray-600"}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${ready ? "bg-emerald-400" : "bg-gray-600"}`} />
-                    {ready ? "Ready" : "On demand"}
+                  <span className={`flex items-center gap-1.5 text-[11px] ${!workflow.available ? "text-amber-300/90" : ready ? "text-emerald-300" : "text-gray-600"}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${!workflow.available ? "bg-amber-400/80" : ready ? "bg-emerald-400" : "bg-gray-600"}`} />
+                    {!workflow.available ? "Not on this machine" : ready ? "Ready" : "On demand"}
                   </span>
                   <span className="hidden min-w-0 lg:block">
                     <span className="block text-[9px] uppercase tracking-wide text-gray-500">Recent</span>

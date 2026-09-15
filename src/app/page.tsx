@@ -31,6 +31,8 @@ import {
   Sparkles, Layers, ScanLine, Scan, Server, ExternalLink, Cpu, RefreshCw,
   Sun, Moon, LayoutGrid, List, AlertTriangle, type LucideIcon,
 } from "lucide-react";
+import { hostHasTab } from "@/lib/host";
+import HostUnavailable from "@/components/host-unavailable";
 
 // Small inline spinner shown while a service action (start/stop/restart) is in flight.
 function Spinner() {
@@ -683,9 +685,6 @@ export default function Home() {
   const adoptedServices = managedServices.filter(isAdopted);
   const queueDepth = (resourceControl?.queue.length ?? 0) + (resourceControl?.starts.length ?? 0);
 
-  /** A tab for a service that is not registered on this host would be a permanent
-   *  "unavailable" — hide it instead. */
-  const has = hostHas;
   const tabs = [
     // Services and GPU were two views of the same local processes — one listing
     // them, one duplicating their controls under a GPU header. Merged into
@@ -695,18 +694,18 @@ export default function Home() {
     { id: "services" as const, label: "Services" },
     { id: "storage" as const, label: "Storage" },
     { id: "llm" as const, label: "LLM" },
-    ...(has("whisper", "tts") ? [{ id: "speech" as const, label: "Speech" }] : []),
+    { id: "speech" as const, label: "Speech" },
     // One tab for every image model on the box. "Creative" used to sit beside
     // this as a second, weaker generator for FLUX; the model is a picker inside
     // the studio now, so both share its gallery, queue and Activity feed.
-    ...(has("qwen", "comfyui") ? [{ id: "qwen" as const, label: "Image" }] : []),
+    { id: "qwen" as const, label: "Image" },
     // Not gated on a service: the Arena compares cloud models too, so it is
     // useful on a host running no local models at all.
     { id: "arena" as const, label: "Arena" },
     { id: "requests" as const, label: "Requests" },
     { id: "usage" as const, label: "Usage" },
-    ...(has("sam3d") ? [{ id: "sam3d" as const, label: "3D Body" }] : []),
-    ...(has("sam3") ? [{ id: "sam3" as const, label: "Segment" }] : []),
+    { id: "sam3d" as const, label: "3D Body" },
+    { id: "sam3" as const, label: "Segment" },
     { id: "models" as const, label: "Models" },
   ];
 
@@ -723,6 +722,7 @@ export default function Home() {
         onRefresh={refreshAll}
         autoRefresh={autoRefresh}
         onAutoRefresh={setAutoRefresh}
+        hostName={host?.name ?? gpu?.host?.name}
       />
       <ResourcePulse
         gpu={gpu}
@@ -746,7 +746,7 @@ export default function Home() {
                 <path d="M48 18 Q55 41 78 48 Q55 55 48 78 Q41 55 18 48 Q41 41 48 18 Z" fill="#31439b"/>
                 <path d="M60.02 35.98 Q52 48 60.02 60.02 Q48 52 35.98 60.02 Q44 48 35.98 35.98 Q48 44 60.02 35.98 Z" fill="#7b85c7"/>
               </svg>
-              <h1 className="text-lg font-semibold tracking-tight">{host?.name ?? gpu?.host?.name ?? "Console"}</h1>
+              <h1 className="text-lg font-semibold tracking-tight">BeTenshi</h1>
               <div role="status" aria-label={`Stack ${overallStatus}`} className={`w-2 h-2 rounded-full flex-shrink-0 ${
                 overallStatus === "operational"
                   ? "bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]"
@@ -1613,7 +1613,8 @@ export default function Home() {
         )}
 
         {/* ── SPEECH TAB ── */}
-        {tab === "speech" && (
+        {tab === "speech" && !hostHasTab("speech") && <HostUnavailable tab="speech" title="Speech" />}
+        {tab === "speech" && hostHasTab("speech") && (
           <div className="tool-page speech-page">
             <ToolPageHeader
               eyebrow="Voice workstream"
@@ -1748,7 +1749,7 @@ export default function Home() {
         {/* ── CREATIVE TAB ── */}
 
         {/* ── IMAGE TAB — Qwen-Image + FLUX, model picked inside the studio ── */}
-        {tab === "qwen" && <QwenTab />}
+        {tab === "qwen" && (hostHasTab("qwen") ? <QwenTab /> : <HostUnavailable tab="qwen" title="Image Studio" />)}
 
         {/* Arena — one prompt across several chat/vision models, scored. */}
         {tab === "arena" && <ArenaView />}
@@ -1760,8 +1761,8 @@ export default function Home() {
         {tab === "usage" && <UsageView />}
 
         {/* ── SAM3D TAB ── */}
-        {tab === "sam3d" && <Sam3dView />}
-        {tab === "sam3" && <Sam3View />}
+        {tab === "sam3d" && (hostHasTab("sam3d") ? <Sam3dView /> : <HostUnavailable tab="sam3d" title="3D Body" />)}
+        {tab === "sam3" && (hostHasTab("sam3") ? <Sam3View /> : <HostUnavailable tab="sam3" title="Segment" />)}
 
         {/* ── MODELS / AI ROUTER TAB ── */}
         {tab === "models" && <ModelsPage />}
