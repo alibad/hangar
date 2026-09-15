@@ -90,9 +90,20 @@ model_list:
     model_info:
       mode: chat
 
+  # ⚠️ The `-instruct` tag, NOT the bare `qwen3-vl:32b`, which is the THINKING
+  # variant. Ollama's `think: false` does not disable its reasoning: it spends
+  # the whole token budget in the `thinking` field and returns `content` empty,
+  # so the alias answered with an empty string rather than failing. Measured
+  # 2026-09-14 in ai/b5/bench: the thinking tag spent 321-544 tokens on a
+  # 119-character answer and then hit the 600 s timeout below on the second
+  # card; the instruct tag finished all ten.
+  #
+  # Needs `ollama pull qwen3-vl:32b-instruct` ON BETENSHI — it was pulled on B5,
+  # where it was measured, and this box's store was not checked. Until it is
+  # pulled this alias 404s, which is the loud failure the empty string was not.
   - model_name: local-qwen3-vl
     litellm_params:
-      model: openai/qwen3-vl:32b
+      model: openai/qwen3-vl:32b-instruct
       api_base: http://localhost:11434/v1
       api_key: none
       timeout: 600

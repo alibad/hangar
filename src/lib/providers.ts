@@ -93,6 +93,13 @@ type RawModelInfo = {
     output_cost_per_token?: number | null;
     input_cost_per_image?: number | null;
     output_cost_per_image?: number | null;
+    /**
+     * LiteLLM's own multimodal flag, from its model cost map. Present for cloud
+     * models it recognises; absent for a locally-served one, which it has no
+     * knowledge of. Used only as a fallback under the declaration in
+     * model-meta.json — see the note on CatalogModel.vision.
+     */
+    supports_vision?: boolean;
   };
 };
 
@@ -312,7 +319,13 @@ export async function getCatalogue(): Promise<{ routerUp: boolean; models: Catal
       // Cloud models cost money, not memory — leaving this undefined is what
       // makes the UI say "off-box" rather than "0 GB".
       footprint: local ? md.footprint : undefined,
-      vision: md.vision === true,
+      // Declaration first, LiteLLM's own flag second. The declaration has to
+      // win: it is the only source for a locally-served model, and it is how a
+      // text-only model is pinned to false. But making it the ONLY source is
+      // what emptied this capability once already — the filter shipped before
+      // any entry carried the flag, so Vision offered nothing at all. A cloud
+      // model added later with no model-meta entry now still lands correctly.
+      vision: md.vision ?? info.supports_vision === true,
       loaded: ON_DEMAND_SERVICES.has(svcId ?? "") ? residentTargets.has(m.litellm_params?.model ?? "") : undefined,
     };
   });
