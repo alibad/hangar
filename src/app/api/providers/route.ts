@@ -3,9 +3,10 @@ import { CAPABILITIES, getBenchmarks, getCatalogue, getRouting, setRouting, type
 
 /** GET — the model catalogue, the capability list, and the active model per capability. */
 export async function GET() {
-  const [{ routerUp, models }, routing] = [await getCatalogue(), getRouting()];
+  const [{ routerUp, source, models }, routing] = [await getCatalogue(), getRouting()];
   return NextResponse.json({
     routerUp,
+    source,
     models,
     routing,
     capabilities: CAPABILITIES,

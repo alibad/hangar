@@ -4,6 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CatalogModel, Capability } from "@/lib/providers";
 import ModelFootprint from "./model-footprint";
 import { ServiceControl } from "./service-control";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -11,6 +20,8 @@ type CapDef = { id: Capability; label: string; modes: readonly string[]; hint: s
 
 interface Payload {
   routerUp: boolean;
+  /** "config" means the list was read from ai-router.yaml, not a live router. */
+  source?: "router" | "config";
   models: CatalogModel[];
   routing: Record<string, string>;
   capabilities: CapDef[];
@@ -39,11 +50,19 @@ export default function ModelPicker({
   capability,
   className = "",
   exclusiveLocal = false,
+  compact = false,
 }: {
   capability: Capability;
   className?: string;
   /** Local models here cannot co-reside — selecting one stops the others. */
   exclusiveLocal?: boolean;
+  /**
+   * One row instead of a card: a dropdown for the choice, the live state of
+   * whatever is chosen, and its Start. The expanded list is the right shape for
+   * a page ABOUT models; on a page where picking one is a prerequisite to the
+   * actual work, it pushed the work below the fold.
+   */
+  compact?: boolean;
 }) {
   const [data, setData] = useState<Payload | null>(null);
   const [tab, setTab] = useState<"local" | "cloud" | null>(null);
@@ -179,17 +198,24 @@ export default function ModelPicker({
   };
 
   if (!data) return <div className={`text-xs text-gray-500 ${className}`}>Loading models…</div>;
-  if (!data.routerUp) {
-    // The router gates the whole picker, so offer its Start here rather than
-    // sending the reader to another tab to find the same button.
+  // A dead router used to end the render here, which threw away the catalogue,
+  // every service's status and every Start button along with it. It is now one
+  // banner above a picker that still works: you can see what exists, see which
+  // backing services are warm, start them, and choose what this capability will
+  // use — all of which outlives the gateway. Only CALLING a model needs it up.
+  const routerDown = !data.routerUp;
+  if (routerDown && !eligible.length) {
     return (
       <div className={`flex items-center gap-3 flex-wrap rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-xs text-gray-400 ${className}`}>
-        <span className="flex-1">AI Router is down — no models can be listed.</span>
+        <span className="flex-1">
+          AI Router is down and <code>config/ai-router.yaml</code> lists no{" "}
+          {cap?.label.toLowerCase() ?? capability} model.
+        </span>
         <ServiceControl id="ai-router" up={false} probe={async () => !!(await load())?.routerUp} />
       </div>
     );
   }
-  if (!eligible.length) {
+  if (!routerDown && !eligible.length) {
     return (
       <div className={`rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-xs text-gray-400 ${className}`}>
         No {cap?.label ?? capability} models in the router. Add one to <code>config/ai-router.yaml</code>.
@@ -202,8 +228,106 @@ export default function ModelPicker({
       on ? "bg-gray-100 text-gray-900" : "text-gray-400 hover:text-gray-100"
     }`;
 
+  if (compact) {
+    const m = activeModel;
+    const serviceUp = m?.status === "ready";
+    const onDemand = m?.loaded !== undefined;
+    const on = onDemand ? m?.loaded === true : serviceUp;
+    const state = !m
+      ? "none selected"
+      : !m.local
+        ? m.status === "no-key"
+          ? "needs a key"
+          : "cloud"
+        : !onDemand
+          ? serviceUp ? "running" : "stopped"
+          : !serviceUp ? "runtime stopped" : m.loaded ? "loaded" : "ready to load";
+    return (
+      <div className={className}>
+        {routerDown && (
+          <div className="mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-1.5">
+            <span className="flex-1 text-[11px] leading-snug text-amber-300">
+              <strong className="font-semibold">AI Router is down</strong> — nothing can be called
+              until it starts.
+            </span>
+            <ServiceControl id="ai-router" up={false} probe={async () => !!(await load())?.routerUp} />
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-800 bg-gray-900 px-2.5 py-2">
+          {/* The live dot belongs next to the NAME, not in a list far from it —
+              "which model, and is it up" is one question. */}
+          <span
+            className={`size-2 shrink-0 rounded-full ${
+              on ? "bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.7)]" : "bg-gray-600"
+            }`}
+          />
+          <Select value={active ?? ""} onValueChange={(v) => v && select(v)}>
+            <SelectTrigger className="h-7 w-[13.5rem] border-gray-700 bg-gray-800 text-xs text-gray-100">
+              <SelectValue placeholder={`Pick a ${cap?.label.toLowerCase() ?? capability} model`} />
+            </SelectTrigger>
+            <SelectContent className="border-gray-700 bg-gray-800 text-gray-300">
+              {local.length > 0 && (
+                <SelectGroup>
+                  <SelectLabel className="text-[10px] uppercase tracking-wider text-gray-500">
+                    On this box
+                  </SelectLabel>
+                  {local.map((o) => (
+                    <SelectItem key={o.id} value={o.id} className="text-xs">
+                      {o.id}
+                      {o.status !== "ready" ? " · stopped" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+              {cloud.length > 0 && (
+                <SelectGroup>
+                  <SelectLabel className="text-[10px] uppercase tracking-wider text-gray-500">
+                    Cloud
+                  </SelectLabel>
+                  {cloud.map((o) => (
+                    <SelectItem key={o.id} value={o.id} className="text-xs">
+                      {o.id}
+                      {o.status === "no-key" ? " · no key" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+            </SelectContent>
+          </Select>
+          <span className="text-[11px] text-gray-500">{state}</span>
+          {m?.local && <ModelFootprint footprint={m.footprint} className="ml-auto" />}
+          {m?.local && m.serviceId && !onDemand && (
+            <ServiceControl
+              id={m.serviceId}
+              up={!!on}
+              probe={() => probeService(m.serviceId!)}
+              actions={["stop"]}
+            />
+          )}
+        </div>
+        {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
+        {m && !serviceUp && m.detail && (
+          <p className="mt-1 text-[11px] text-gray-500">{m.detail}</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={`rounded-xl border border-gray-800 bg-gray-900 p-3 ${className}`}>
+      {routerDown && (
+        // Says the one thing that is actually lost, and nothing more. The rows
+        // below still tell the truth about which services are running, which is
+        // the question someone opening this tab is really asking.
+        <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2">
+          <span className="flex-1 text-[11px] leading-snug text-amber-300">
+            <strong className="font-semibold">AI Router is down</strong> — nothing can be called
+            until it starts. Listed from <code>config/ai-router.yaml</code>; service status below is
+            live.
+          </span>
+          <ServiceControl id="ai-router" up={false} probe={async () => !!(await load())?.routerUp} />
+        </div>
+      )}
       <div className="mb-2 flex items-center gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
           {cap?.label ?? capability} model

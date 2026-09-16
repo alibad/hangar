@@ -936,17 +936,85 @@ html:root:not(.dark) .services-center .text-gray-700 {
 
 .chat-page-layout > .tool-page-hero { grid-column: 1 / -1; }
 
-.chat-model-picker {
-  align-self: start;
-  border-radius: 1rem !important;
-  padding: 1rem !important;
-}
+/* No padding or radius here any more: in compact mode this class lands on a bare
+   wrapper whose child already draws the bordered strip, so forcing 1rem of
+   padding onto it just inset the strip inside an invisible box. */
+.chat-model-picker { align-self: center; min-width: 0; }
 
 .chat-metrics { padding: 1rem; border-radius: 1rem; }
 .chat-metrics > .grid { gap: 0.6rem; }
 .chat-metrics > .grid > div { min-height: 5.4rem; box-shadow: none; }
 .chat-playground { min-width: 0; }
-.chat-canvas { overflow: hidden; border-radius: 1rem; }
+
+/* Model choice and telemetry on one line, above a full-width conversation. */
+.chat-controlbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 0.9rem;
+}
+
+/* Hugs its content rather than stretching. Stretched, the strip was a wide
+   bordered box with a dropdown at one end and empty space for the rest —
+   an on-demand (Ollama) model has no footprint chip or Start to fill it. */
+.chat-controlbar > .chat-model-picker {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.chat-pulse {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1.1rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--color-gray-800);
+  border-radius: 0.75rem;
+  background: var(--color-gray-900);
+}
+
+.chat-pulse-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.chat-pulse-stat strong {
+  color: var(--color-gray-100);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-pulse-stat > span {
+  color: var(--color-gray-500);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.chat-pulse-empty {
+  max-width: 26rem;
+  color: var(--color-gray-500);
+  font-size: 0.68rem;
+  line-height: 1.45;
+}
+/* One scroll region on this page, not two.
+
+   The canvas was a fixed 540px holding its own scrolling message list, which at
+   a 900px viewport put the page 130px over — so the window scrolled AND the
+   messages scrolled, two thin tracks side by side, and the composer sat half
+   below the fold. Sizing the canvas to what is left of the viewport means the
+   page itself never needs to scroll and the message list is the only thing that
+   does. The clamp keeps it usable on a short window, where something has to give
+   and a scrolling page is the right thing to give. */
+.chat-canvas {
+  overflow: hidden;
+  border-radius: 1rem;
+  height: clamp(18rem, calc(100vh - 31rem), 56rem);
+}
 
 .chat-empty-mark {
   display: grid;
@@ -980,6 +1048,34 @@ html:root:not(.dark) .services-center .text-gray-700 {
 
 .chat-starter-row button:hover { border-color: var(--accent-500); color: var(--color-gray-100); }
 
+/* Segmented control for the two speech directions. One panel is on screen at a
+   time, so this is the only thing that says the other half exists. */
+.speech-mode-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-bottom: 0.9rem;
+  padding: 0.25rem;
+  border: 1px solid var(--color-gray-800);
+  border-radius: 0.75rem;
+  background: var(--color-gray-900);
+}
+
+.speech-mode-tabs button {
+  padding: 0.35rem 0.85rem;
+  border-radius: 0.5rem;
+  color: var(--color-gray-400);
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: 150ms ease;
+}
+
+.speech-mode-tabs button:hover { color: var(--color-gray-100); }
+
+.speech-mode-tabs button.is-active {
+  background: var(--color-gray-100);
+  color: var(--color-gray-900);
+}
+
 .speech-workspace-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1010,12 +1106,34 @@ html:root:not(.dark) .services-center .text-gray-700 {
 .models-page .grid > .rounded-xl { box-shadow: 0 7px 18px color-mix(in oklab, black 6%, transparent); }
 
 @media (min-width: 900px) {
-  .chat-page-layout { grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr); }
-  .chat-model-picker { grid-column: 1; grid-row: 2; }
-  .chat-metrics { grid-column: 1; grid-row: 3; align-self: start; }
-  .chat-playground { grid-column: 2; grid-row: 2 / span 2; }
+  /* Single column, deliberately.
+
+     This was a 22rem rail beside the conversation. Widening it, or retiming the
+     grid rows so the tall playground stopped opening a gap between the rail's
+     two cards, only ever traded one imbalance for another — because the rail
+     itself was the mistake. It gave the PREREQUISITE (which model?) more width
+     and more weight than the work, and pushed telemetry below the fold. With the
+     picker collapsed to one control strip the conversation gets the whole page;
+     the expanded per-model list lives on the Models tab, which is the page that
+     is actually about models.
+
+     Historical note on what NOT to reintroduce: the rail spanned the playground
+     `2 / span 2`, so the playground sized the two rows the rail lived in, and
+     `align-self: start` on both cards turned the surplus into a void between
+     them.
+
+     It used to span `2 / span 2`, which made the tall playground the thing that
+     sized the two rows the left rail lives in. Both rail cards are `align-self:
+     start`, so the surplus opened as a gap BETWEEN them — worst when the picker
+     collapsed to a single line and the column read as two stranded fragments
+     around a void. Row 4 is the only flexible track, so every bit of the
+     playground's extra height lands there and the rail stacks tight. */
+  .chat-page-layout { grid-template-columns: minmax(0, 1fr); }
   .chat-metrics > .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .speech-workspace-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  /* Single column now that the directions are tabbed. Left at two, the one
+     visible panel would sit in a half-width column with dead space beside it —
+     the same squeeze the tabs exist to undo. */
+  .speech-workspace-grid { grid-template-columns: minmax(0, 1fr); align-items: start; }
 }
 
 @media (max-width: 640px) {
@@ -1583,3 +1701,7 @@ html:root:not(.dark) .console-shell .models-drawer {
 html:root:not(.dark) .console-shell .models-page tbody tr:hover {
   background: oklch(0.96 0.008 66);
 }
+
+
+
+

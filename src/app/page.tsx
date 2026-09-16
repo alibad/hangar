@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import ModelPicker from "@/components/model-picker";
+import ModelDiscovery from "@/components/model-discovery";
 import QwenTab from "@/components/qwen-tab";
 import RequestsView from "@/components/requests-view";
 import UsageView from "@/components/usage-view";
@@ -287,6 +288,15 @@ export default function Home() {
   const [recordingMs, setRecordingMs] = useState(0);
   const [ttsText, setTtsText] = useState("");
   const [ttsVoice, setTtsVoice] = useState("alloy");
+  /**
+   * Which half of Speech Lab is on screen.
+   *
+   * The two directions were rendered side by side, so each got half the width
+   * and neither got enough: the model row wrapped onto three lines and the work
+   * itself — record, drop a file, type — was squeezed into what was left. They
+   * are also not used together; you are transcribing or you are synthesising.
+   */
+  const [speechMode, setSpeechMode] = useState<"stt" | "tts">("stt");
   const [ttsSpeaking, setTtsSpeaking] = useState(false);
   const [ttsLatency, setTtsLatency] = useState<number | null>(null);
   /** Which model spoke — reported by /api/tts, so the panel can't imply "local" wrongly. */
@@ -660,6 +670,12 @@ export default function Home() {
   const getMetric = (partial: string) => {
     const key = Object.keys(m).find((k) => k.includes(partial));
     return key ? m[key] : null;
+  };
+
+  /** Is there any vLLM telemetry at all? Drives Model pulse's empty state. */
+  const chatPulse = {
+    live: ["num_requests_running", "generation_tokens_total", "time_to_first_token", "prefix_cache_hit_rate"]
+      .some((k) => getMetric(k) !== null),
   };
 
   const serviceIconMap: Record<string, LucideIcon> = {
@@ -1517,26 +1533,48 @@ export default function Home() {
               icon={<ChatCircleText size={24} weight="duotone" />}
               meta={<span className="tool-page-chip">OpenAI-compatible</span>}
             />
-            {/* The same picker every other testing tab uses, scoped to text.
-                exclusiveLocal because the two vLLMs share one 32 GB card and
-                cannot both be resident — selecting one stops the other. */}
-            <ModelPicker capability="text" exclusiveLocal className="chat-model-picker" />
+            {/* Model + telemetry as one control strip above the work.
 
-            {/* Metrics */}
-            <section className="chat-metrics tool-panel">
-              <ToolSectionHeading eyebrow="Live telemetry" title="Model pulse" description="A quick read on the active engine." />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <MetricCard label="Requests Served" value={getMetric("num_requests_running")} suffix=" active" />
-                <MetricCard label="Tokens Generated" value={getMetric("generation_tokens_total")} format="compact" />
-                <MetricCard label="Avg TTFT" value={getMetric("time_to_first_token")} suffix="s" decimals={3} />
-                <MetricCard label="Cache Hit Rate" value={getMetric("prefix_cache_hit_rate")} suffix="%" multiplier={100} decimals={1} />
+                This page is for TALKING to a model; choosing one is the
+                prerequisite, not the point. As a 22rem rail of five expanded
+                cards the picker took most of the page's visual weight and pushed
+                the conversation — the actual work — into a narrow column beside
+                it, while telemetry fell below the fold. One line of controls, and
+                the playground gets the full width. The expanded per-model list
+                still exists on the Models tab, which is the page that IS about
+                models. */}
+            <div className="chat-controlbar">
+              <ModelPicker capability="text" exclusiveLocal compact className="chat-model-picker" />
+
+              {/* These four counters are scraped from vLLM's OWN /metrics, so
+                  they are blank whenever no vLLM is running — which is most of
+                  the time, since Ollama serves the other three local models and
+                  publishes none of them. */}
+              <div className="chat-pulse" title="From the running vLLM server's /metrics">
+                {chatPulse.live ? (
+                  <>
+                    <PulseStat label="active" value={getMetric("num_requests_running")} />
+                    <PulseStat label="tokens" value={getMetric("generation_tokens_total")} compact />
+                    <PulseStat label="TTFT" value={getMetric("time_to_first_token")} suffix="s" decimals={3} />
+                    <PulseStat label="cache" value={getMetric("prefix_cache_hit_rate")} suffix="%" multiplier={100} decimals={1} />
+                  </>
+                ) : (
+                  <span className="chat-pulse-empty">
+                    No vLLM telemetry — start{" "}
+                    <code className="text-gray-400">local-coder</code> or{" "}
+                    <code className="text-gray-400">local-small</code>. Ollama models don&apos;t
+                    publish counters.
+                  </span>
+                )}
               </div>
-            </section>
+            </div>
 
             {/* Chat Playground */}
             <section className="chat-playground">
               <ToolSectionHeading eyebrow="Playground" title="Start a conversation" description="Prompt the selected model and inspect its thinking, latency, and token use." />
-              <div className="tool-panel chat-canvas bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-[540px]">
+              {/* Height comes from .chat-canvas, which derives it from the
+                  viewport — see the note there about the double scrollbar. */}
+              <div className="tool-panel chat-canvas bg-gray-900 rounded-xl border border-gray-800 flex flex-col">
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
                   {messages.length === 0 && (
                     <div className="flex items-center justify-center h-full">
@@ -1623,16 +1661,35 @@ export default function Home() {
               icon={<WaveformIcon size={24} weight="duotone" />}
               meta={<span className="tool-page-chip">Whisper + Kokoro</span>}
             />
+            {/* One direction at a time. See `speechMode`. */}
+            <div className="speech-mode-tabs" role="tablist" aria-label="Speech direction">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={speechMode === "stt"}
+                onClick={() => setSpeechMode("stt")}
+                className={speechMode === "stt" ? "is-active" : ""}
+              >
+                Speech → text
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={speechMode === "tts"}
+                onClick={() => setSpeechMode("tts")}
+                className={speechMode === "tts" ? "is-active" : ""}
+              >
+                Text → speech
+              </button>
+            </div>
             <div className="speech-workspace-grid">
             {/* Transcribe (STT) */}
+            {speechMode === "stt" && (
             <section className="tool-panel speech-workspace">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Speech → text
-              </h2>
               {/* Status + pick for the model this panel uses. Both speech services
                   are small enough to co-reside, so unlike the LLM picker there's no
                   stop-the-others logic — Start/Stop is per model. */}
-              <ModelPicker capability="stt" className="mb-4" />
+              <ModelPicker capability="stt" className="mb-3" compact />
               <div className="flex gap-4 items-stretch">
                 <button
                   onClick={recording ? stopRecording : startRecording}
@@ -1693,14 +1750,14 @@ export default function Home() {
                   )}
                 </div>
               )}
+              <ModelDiscovery capability="stt" label="speech → text" className="mt-3" />
             </section>
+            )}
 
             {/* Text-to-Speech */}
+            {speechMode === "tts" && (
             <section className="tool-panel speech-workspace">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-                Text → speech
-              </h2>
-              <ModelPicker capability="tts" className="mb-4" />
+              <ModelPicker capability="tts" className="mb-3" compact />
               <form onSubmit={speakText} className="bg-gray-900 rounded-xl border border-gray-800 p-5">
                 <div className="flex gap-3 mb-3">
                   <textarea value={ttsText} onChange={(e) => setTtsText(e.target.value)}
@@ -1741,7 +1798,9 @@ export default function Home() {
                   {ttsError}
                 </div>
               </form>
+              <ModelDiscovery capability="tts" label="text → speech" className="mt-3" />
             </section>
+            )}
             </div>
           </div>
         )}
@@ -1778,6 +1837,46 @@ export default function Home() {
       </main>
 
     </div>
+  );
+}
+
+/**
+ * One number in the chat control strip.
+ *
+ * The card version of this (MetricCard, still used where a tile is the right
+ * shape) is 5.4rem tall with a border; four of them made a panel that competed
+ * with the conversation for attention while saying very little. Here the number
+ * leads and the label trails it in one line.
+ */
+function PulseStat({
+  label,
+  value,
+  suffix = "",
+  decimals = 0,
+  multiplier = 1,
+  compact = false,
+}: {
+  label: string;
+  value: number | null;
+  suffix?: string;
+  decimals?: number;
+  multiplier?: number;
+  compact?: boolean;
+}) {
+  const shown =
+    value === null
+      ? "—"
+      : compact
+        ? Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value)
+        : (value * multiplier).toFixed(decimals);
+  return (
+    <span className="chat-pulse-stat">
+      <strong>
+        {shown}
+        {value === null ? "" : suffix}
+      </strong>
+      <span>{label}</span>
+    </span>
   );
 }
 

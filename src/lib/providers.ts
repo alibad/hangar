@@ -1,5 +1,8 @@
 import fs from "fs";
 import path from "path";
+// Named import, not default: js-yaml v5's ESM build exports `load` and has no
+// default export, so `import yaml from "js-yaml"` fails to compile.
+import { load as parseYaml } from "js-yaml";
 import { SERVICE_REGISTRY, getServiceUrl } from "./services";
 
 /**
@@ -10,6 +13,15 @@ import { SERVICE_REGISTRY, getServiceUrl } from "./services";
  * to answer "can I actually use this model right now, and if not, why not?" —
  * the question whose absence let a dead Ollama masquerade as "0 memes generated"
  * for weeks.
+ *
+ * The source of truth is that FILE, not the process that reads it. Asking the
+ * running router was treated as the only way to enumerate models, so a dead
+ * gateway collapsed every picker in the console to "AI Router is down — no
+ * models can be listed" — no names, no footprints, no service status, no way in.
+ * That was wrong twice over: it hid models whose own backing service was up and
+ * usable, and it hid the Start buttons that would have fixed it. When the router
+ * is not answering the YAML is parsed directly, so the catalogue keeps its shape
+ * and only the ability to CALL a model is actually lost.
  */
 
 const ROUTER_ID = "ai-router";
@@ -22,11 +34,23 @@ const PROVIDER_KEY_ENV: Record<string, string> = {
   anthropic: "ANTHROPIC_API_KEY",
 };
 
+/**
+ * Per-model readiness, and deliberately about the MODEL's own backing service —
+ * `status === "ready"` is read across the console as "this service is up".
+ *
+ * The router being down is not expressed here. It is one fact about the whole
+ * console, not a property of forty models, and stamping it on every row would
+ * erase the only thing worth knowing while it is down: which services are warm.
+ * Callers pair this with `getCatalogue().routerUp` and say it once.
+ */
 export type ModelStatus =
   | "ready"              // usable right now
   | "no-key"             // cloud model, API key absent from the environment
   | "service-stopped"    // local model, its backing service isn't running
-  | "router-offline";    // the router itself is down, so nothing is usable
+  | "router-offline";    // reserved; see above — no model is given this today
+
+/** Whether a catalogue came from the live router or from ai-router.yaml. */
+export type CatalogueSource = "router" | "config";
 
 export type CatalogModel = {
   /** Alias callers send as `model` — stable across vendor id changes. */
@@ -205,6 +229,49 @@ export function routerUrl(): string {
   return getServiceUrl(ROUTER_ID);
 }
 
+const ROUTER_CONFIG_FILE = path.join(process.cwd(), "config", "ai-router.yaml");
+
+/**
+ * The catalogue as written on disk, for when the router is not answering.
+ *
+ * Returns the same shape LiteLLM's /model/info does, so the enrichment below
+ * does not care which way the list arrived. Two fields the running router
+ * computes are NOT recoverable here and are deliberately left undefined rather
+ * than guessed: per-token cost (LiteLLM resolves it from its own price table)
+ * and Ollama residency. The UI already renders both as unknown.
+ *
+ * `litellm_provider` is the one thing worth deriving, because every status that
+ * matters for a cloud model — "no key configured" — keys off it, and LiteLLM
+ * derives it from exactly this prefix.
+ */
+function readRouterConfig(): RawModelInfo[] {
+  try {
+    const doc = parseYaml(fs.readFileSync(ROUTER_CONFIG_FILE, "utf8")) as {
+      model_list?: RawModelInfo[];
+    };
+    const list = Array.isArray(doc?.model_list) ? doc.model_list : [];
+    return list
+      .filter((m) => typeof m?.model_name === "string")
+      .map((m) => {
+        const target = m.litellm_params?.model ?? "";
+        const prefix = target.includes("/") ? target.split("/")[0] : "";
+        return {
+          ...m,
+          model_info: {
+            ...m.model_info,
+            // A local api_base means the `openai/` prefix is only LiteLLM's
+            // "this speaks the OpenAI wire format" marker, not the vendor.
+            litellm_provider:
+              m.model_info?.litellm_provider ??
+              (isLocalBase(m.litellm_params?.api_base) ? "local" : prefix || "unknown"),
+          },
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
 /** Is the router process up? Cheap — no model is contacted. */
 export async function routerAlive(): Promise<boolean> {
   try {
@@ -237,17 +304,33 @@ async function localServiceHealthy(serviceId: string): Promise<boolean> {
 }
 
 /** The full catalogue with a usable/why-not verdict per model. */
-export async function getCatalogue(): Promise<{ routerUp: boolean; models: CatalogModel[] }> {
+export async function getCatalogue(): Promise<{
+  routerUp: boolean;
+  /** Where the list came from. "config" means the router is not answering. */
+  source: CatalogueSource;
+  models: CatalogModel[];
+}> {
+  // `routerUp` keeps its narrow meaning — the gateway is alive and can serve a
+  // call — because callers that refuse to run inference without it are right to.
+  // What changes is that a dead router no longer empties the catalogue.
   const routerUp = await routerAlive();
-  if (!routerUp) return { routerUp: false, models: [] };
 
   let raw: RawModelInfo[] = [];
-  try {
-    const res = await fetch(`${routerUrl()}/model/info`, { signal: AbortSignal.timeout(5000) });
-    const data = await res.json();
-    raw = Array.isArray(data?.data) ? data.data : [];
-  } catch {
-    return { routerUp: false, models: [] };
+  let source: CatalogueSource = "router";
+  if (routerUp) {
+    try {
+      const res = await fetch(`${routerUrl()}/model/info`, { signal: AbortSignal.timeout(5000) });
+      const data = await res.json();
+      raw = Array.isArray(data?.data) ? data.data : [];
+    } catch {
+      raw = [];
+    }
+  }
+  // Alive but unreadable counts as not answering: an empty list from a running
+  // router is indistinguishable, to a reader, from no router at all.
+  if (!raw.length) {
+    raw = readRouterConfig();
+    source = "config";
   }
 
   // Probe each distinct local service once, not once per model.
@@ -317,7 +400,7 @@ export async function getCatalogue(): Promise<{ routerUp: boolean; models: Catal
     };
   });
 
-  return { routerUp: true, models };
+  return { routerUp, source, models };
 }
 
 /**
