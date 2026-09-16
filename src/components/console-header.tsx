@@ -7,7 +7,7 @@ import { Activity, Gauge, HardDrive, Home, Network, RefreshCw } from "lucide-rea
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import { ThemePicker } from "@/components/theme-picker";
 import { useTheme } from "@/components/theme-provider";
-import { hostHasTab } from "@/lib/host";
+import { getHost, hostHasTab } from "@/lib/host";
 
 type Props = {
   active: ConsoleTab;
@@ -67,7 +67,14 @@ export default function ConsoleHeader({
   onAutoRefresh,
   hostName,
 }: Props) {
-  const machine = hostName || "BeTenshi";
+  // The profile, not a hardcoded name, when the prop has not arrived yet.
+  // hostName comes from /api/host, so it is undefined on first paint — and on a
+  // background tab it stays undefined, because the live refresh pauses while
+  // document.hidden. Falling back to a literal meant B5 sat there calling itself
+  // BeTenshi: the other machine's name, on the one surface whose job is to say
+  // which machine you are looking at. getHost() needs no fetch — the id is
+  // resolved at build time into NEXT_PUBLIC_HOST_ID.
+  const machine = hostName || getHost().name;
   const { theme, toggle } = useTheme();
   const workstreamsMenuRef = useRef<HTMLDetailsElement>(null);
   const insightsMenuRef = useRef<HTMLDetailsElement>(null);

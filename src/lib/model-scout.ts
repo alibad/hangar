@@ -488,6 +488,30 @@ export type OpenWeightsCandidate = {
   rungs: PrecisionFit[];
   /** Has at least one benchmark score. Drives which ranking bucket it lands in. */
   scored: boolean;
+  /**
+   * What each OTHER host would say — and only where it says something
+   * different.
+   *
+   * Deliberately a summary rather than a second full ladder. The live machine
+   * carries all six rungs because the details panel shows what fitting cost in
+   * quality; another host only needs to answer "and over there?", so it carries
+   * the chosen rung and nothing else. Two hundred models times six rungs times
+   * a full Fit each is a payload nobody reads.
+   *
+   * Empty when every host agrees, which keeps the column quiet unless it has
+   * something to say.
+   */
+  elsewhere: HostBest[];
+};
+
+/** One other machine's answer for a model, compactly. */
+export type HostBest = {
+  hostId: string;
+  hostName: string;
+  verdict: Fit["verdict"];
+  /** The rung that machine would run it at. Absent when none does. */
+  label?: string;
+  vramGb?: number;
 };
 
 /**
@@ -508,6 +532,7 @@ export function openWeightsCandidates(
   models: LlmStatsModel[],
   machine: Awaited<ReturnType<typeof readMachineProfile>>,
   occupants: Awaited<ReturnType<typeof readOccupants>>,
+  others: KnownMachine[] = [],
 ): OpenWeightsCandidate[] {
   // Scaled against the WHOLE leaderboard, not just the open-weights subset —
   // "good" should mean the same thing here as it does for the cloud models on
@@ -523,7 +548,27 @@ export function openWeightsCandidates(
     // it actually offers rather than at a number it cannot reach.
     const contextK = stats.context ? Math.min(32, Math.round(stats.context / 1000)) : 32;
     const { best, rungs } = bestPrecisionFor({ paramsB, machine, contextK, occupants });
-    out.push({ stats, paramsB, best, rungs, scored: quality(stats, scales) > 0 });
+
+    // Each other host answers the same question against its own ladder — a
+    // Metal machine is not offered NVFP4, and a bigger pool reaches a better
+    // rung. Kept only when the answer differs, so the column stays silent
+    // where the two machines agree, which is most of the time.
+    const here = best?.fit.verdict ?? "no";
+    const elsewhere: HostBest[] = [];
+    for (const m of others) {
+      const alt = bestPrecisionFor({ paramsB, machine: m.machine, contextK, occupants: m.occupants });
+      const verdict = alt.best?.fit.verdict ?? "no";
+      if (verdict === here && alt.best?.label === best?.label) continue;
+      elsewhere.push({
+        hostId: m.hostId,
+        hostName: m.hostName,
+        verdict,
+        label: alt.best?.label,
+        vramGb: alt.best?.requirement.vramGb,
+      });
+    }
+
+    out.push({ stats, paramsB, best, rungs, scored: quality(stats, scales) > 0, elsewhere });
   }
 
   /**
@@ -684,6 +729,13 @@ export type ScoutPayload = {
     notes: string[];
     upgrades: ScoutUpgrade[];
   };
+  /**
+   * The weekly report's hand-picked models, each with a verdict per machine.
+   *
+   * These are the most considered items on the page — four models a routine
+   * argued for in prose, against everything already installed — and for a long
+   * time the console shipped them to the browser and drew only the notes.
+   */
   candidates: ScoutCandidateWithFit[];
   discovery: ProviderDiscovery[];
   wired: ReturnType<typeof listWired>;
@@ -698,6 +750,8 @@ export type ScoutPayload = {
     openWeights: OpenWeightsCandidate[];
     /** How many of those actually run here, for the headline. */
     runnable: number;
+    /** The same count per machine, live host first. */
+    runnableByHost: { hostId: string; hostName: string; live: boolean; runnable: number }[];
   };
   /**
    * Everything the router serves today, plus what each capability is routed to.
@@ -764,7 +818,7 @@ export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPay
     }
   }
 
-  const openWeights = openWeightsCandidates(stats.models, machine, occupants);
+  const openWeights = openWeightsCandidates(stats.models, machine, occupants, others);
 
   // Aliases already in the router, so a candidate the report still lists as
   // "new" after you wired it says so instead of nagging. This is also the
@@ -843,6 +897,21 @@ export async function getScout(opts: { force?: boolean } = {}): Promise<ScoutPay
       total: stats.models.length,
       openWeights,
       runnable: openWeights.filter((c) => c.best).length,
+      // The same count for every machine, so the header can say "0 of 218 here,
+      // 146 on B5" rather than quietly meaning one box. Derived from the
+      // per-row answers already computed: a row with no `elsewhere` entry for a
+      // host is one that host agrees about, so it counts wherever this one does.
+      runnableByHost: known.map((m) => ({
+        hostId: m.hostId,
+        hostName: m.hostName,
+        live: m.live,
+        runnable: m.live
+          ? openWeights.filter((c) => c.best).length
+          : openWeights.filter((c) => {
+              const differs = c.elsewhere.find((h) => h.hostId === m.hostId);
+              return differs ? differs.verdict !== "no" : !!c.best;
+            }).length,
+      })),
     },
     routerUp,
     catalogue,

@@ -29,6 +29,42 @@ export type PrecisionFit = {
   fit: Fit;
 };
 
+/**
+ * Another machine's answer for the same model.
+ *
+ * The server sends these only where the answer DIFFERS from the live machine's,
+ * so their presence is itself the signal — a row with none is one both boxes
+ * agree about, and the column stays empty rather than repeating itself.
+ */
+export type HostBest = {
+  hostId: string;
+  hostName: string;
+  verdict: Fit["verdict"];
+  /** The rung that machine would run it at. Absent when none does. */
+  label?: string;
+  vramGb?: number;
+};
+
+/** One row of the weekly scout report, as the API sends it. */
+export type ScoutCandidateEntry = {
+  id: string;
+  name: string;
+  kind: "local" | "cloud";
+  capability: string;
+  why: string;
+  checkpoint?: string;
+  target?: string;
+  mode?: string;
+  params?: string;
+  released?: string;
+  license?: string;
+  docs?: string;
+  paper?: string;
+  fit: Fit;
+  elsewhere?: { hostId: string; hostName: string; live: boolean; fit: Fit }[];
+  alreadyWired?: string;
+};
+
 export type Stats = {
   model_id: string;
   name: string;
@@ -93,6 +129,25 @@ export type Occupant = { serviceId: string; name: string; vramGb: number; ramGb:
 export type Payload = {
   machine: Machine;
   occupants: Occupant[];
+  /**
+   * Every machine the console can answer for, live one first. Only the live
+   * entry has telemetry; the rest are declared in config/hosts.
+   */
+  machines?: {
+    hostId: string;
+    hostName: string;
+    live: boolean;
+    machine: {
+      gpuName: string;
+      runtime?: string;
+      memoryModel?: "discrete" | "unified";
+      vramTotalGb: number;
+      ramTotalGb: number;
+      vramBasis?: string;
+    };
+  }[];
+  /** The weekly report's picks, each already judged against every machine. */
+  candidates?: ScoutCandidateEntry[];
   report: { generatedAt?: string; stale: boolean; notes: string[]; upgrades: { alias: string; from: string; to: string; why: string }[] };
   discovery: {
     provider: string;
@@ -110,7 +165,9 @@ export type Payload = {
     error?: string;
     total: number;
     runnable: number;
-    openWeights: { stats: Stats; paramsB: number; best: PrecisionFit | null; rungs: PrecisionFit[]; scored: boolean }[];
+    /** How many of `openWeights` each machine can run. Live host first. */
+    runnableByHost?: { hostId: string; hostName: string; live: boolean; runnable: number }[];
+    openWeights: { stats: Stats; paramsB: number; best: PrecisionFit | null; rungs: PrecisionFit[]; scored: boolean; elsewhere?: HostBest[] }[];
   };
   routerUp: boolean;
   catalogue: CatalogModel[];
@@ -181,6 +238,10 @@ export type Entry = {
   verdict?: Fit["verdict"];
   fit?: Fit;
   rungs?: PrecisionFit[];
+  /** Other machines whose answer differs from this one's. Usually empty. */
+  elsewhere?: HostBest[];
+  /** Runs on some OTHER configured machine, even if not on this one. */
+  runsElsewhere?: boolean;
   paramsB?: number;
   measured?: boolean;
   /** Cloud economics. */
@@ -195,6 +256,13 @@ export type Entry = {
   released?: string | null;
   docs?: string;
   note?: string;
+  /**
+   * The report's argument for this model — comparative, and the only field on
+   * the page that is an opinion rather than a reading. Rendered as such.
+   */
+  why?: string;
+  license?: string;
+  paper?: string;
   /** Hub repo, when known — what a download would pull. */
   repo?: string;
   download?: DownloadJob;
@@ -421,6 +489,72 @@ export function buildEntries(p: Payload): Entry[] {
     if (m.checkpoint) seen.add(norm(m.checkpoint.split("/").pop() ?? ""));
   }
 
+  // ── 1b. the weekly report's picks ─────────────────────────────────────────
+  //
+  // Placed above the leaderboard because they are a different KIND of claim: a
+  // routine compared each of these against what is already installed and wrote
+  // down why it wins. llm-stats can rank a 27B; it cannot say "this replaces
+  // whisper on the service that already exists". They were shipped to the
+  // browser for weeks and rendered only as prose notes at the foot of the page.
+  for (const c of p.candidates ?? []) {
+    const key = norm(c.checkpoint?.split("/").pop() ?? c.id);
+    if (seen.has(key)) continue;
+    const installedRepo = c.checkpoint
+      ? p.installed.find((r) => matchesRepo(c.checkpoint!.split("/").pop() ?? "", r.repo))
+      : undefined;
+    const dl = c.checkpoint ? p.downloads.find((d) => matchesRepo(c.checkpoint!, d.repo)) : undefined;
+    const runsHere = c.fit.verdict !== "no";
+    const elsewhere = (c.elsewhere ?? []).filter((h) => h.fit.verdict !== c.fit.verdict);
+
+    out.push({
+      key: `scout:${c.id}`,
+      kind: c.kind,
+      name: c.name,
+      sub: c.checkpoint ?? c.target ?? c.id,
+      alias: c.alreadyWired,
+      target: c.target,
+      mode: c.mode,
+      status: dl?.status === "running"
+        ? "downloading"
+        : installedRepo
+          ? "installed"
+          : c.alreadyWired
+            ? "ready"
+            : runsHere || c.kind === "cloud"
+              ? "available"
+              : "wont-fit",
+      capabilities: [c.capability],
+      activeFor: [],
+      runsHere: c.kind === "cloud" ? true : runsHere,
+      runsElsewhere: elsewhere.some((h) => h.fit.verdict !== "no"),
+      vramGb: c.fit.vramNeededGb || undefined,
+      diskGb: c.fit.diskNeededGb || undefined,
+      verdict: c.fit.verdict,
+      fit: c.fit,
+      elsewhere: elsewhere.length
+        ? elsewhere.map((h) => ({
+            hostId: h.hostId,
+            hostName: h.hostName,
+            verdict: h.fit.verdict,
+            vramGb: h.fit.vramNeededGb || undefined,
+          }))
+        : undefined,
+      why: c.why,
+      license: c.license,
+      paper: c.paper,
+      docs: c.docs,
+      released: c.released ?? null,
+      repo: installedRepo?.repo ?? dl?.repo ?? c.checkpoint,
+      download: dl,
+      // Above every leaderboard row and below what is already wired: a
+      // considered recommendation outranks a ranked list, and both lose to a
+      // model that is already serving traffic.
+      score: 960,
+    });
+    seen.add(key);
+    seen.add(norm(c.id));
+  }
+
   // ── 2. open weights from the leaderboard ──────────────────────────────────
   p.leaderboard.openWeights.forEach((c, i) => {
     const key = norm(c.stats.model_id);
@@ -453,6 +587,8 @@ export function buildEntries(p: Payload): Entry[] {
       verdict: best?.fit.verdict ?? "no",
       fit: best?.fit,
       rungs: c.rungs,
+      elsewhere: c.elsewhere?.length ? c.elsewhere : undefined,
+      runsElsewhere: !!c.elsewhere?.some((h) => h.verdict !== "no"),
       paramsB: c.paramsB,
       measured: false,
       gpqa: c.stats.gpqa_score,

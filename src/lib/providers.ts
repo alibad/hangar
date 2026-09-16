@@ -4,6 +4,7 @@ import path from "path";
 // default export, so `import yaml from "js-yaml"` fails to compile.
 import { load as parseYaml } from "js-yaml";
 import { SERVICE_REGISTRY, getServiceUrl } from "./services";
+import { defaultServiceFor } from "./host";
 
 /**
  * Model catalogue, read from the AI Router (LiteLLM) rather than duplicated here.
@@ -117,6 +118,13 @@ type RawModelInfo = {
     output_cost_per_token?: number | null;
     input_cost_per_image?: number | null;
     output_cost_per_image?: number | null;
+    /**
+     * LiteLLM's own multimodal flag, from its model cost map. Present for cloud
+     * models it recognises; absent for a locally-served one, which it has no
+     * knowledge of. Used only as a fallback under the declaration in
+     * model-meta.json — see the note on CatalogModel.vision.
+     */
+    supports_vision?: boolean;
   };
 };
 
@@ -395,7 +403,13 @@ export async function getCatalogue(): Promise<{
       // Cloud models cost money, not memory — leaving this undefined is what
       // makes the UI say "off-box" rather than "0 GB".
       footprint: local ? md.footprint : undefined,
-      vision: md.vision === true,
+      // Declaration first, LiteLLM's own flag second. The declaration has to
+      // win: it is the only source for a locally-served model, and it is how a
+      // text-only model is pinned to false. But making it the ONLY source is
+      // what emptied this capability once already — the filter shipped before
+      // any entry carried the flag, so Vision offered nothing at all. A cloud
+      // model added later with no model-meta entry now still lands correctly.
+      vision: md.vision ?? info.supports_vision === true,
       loaded: ON_DEMAND_SERVICES.has(svcId ?? "") ? residentTargets.has(m.litellm_params?.model ?? "") : undefined,
     };
   });
@@ -546,26 +560,56 @@ export type CallTarget = {
   model: string;
   local: boolean;
   via: "service" | "router";
+  /**
+   * WHICH local service this resolved to, when it resolved to one.
+   *
+   * Without it a caller had to name a service itself to get its headers, so
+   * /api/stt asked for whisper's headers whatever the routing said — point the
+   * stt capability at a different local ASR service and it would send one
+   * service's Cloudflare-Access credentials to another. The resolution already
+   * knows the answer; it just was not passing it on.
+   */
+  serviceId?: string;
   /** Set when we could not honour the routing and fell back. */
   degraded?: string;
 };
 
+/**
+ * Where to send a call for `capability`, and what to call it.
+ *
+ * The fallback — used when the router is down or does not know the routed
+ * alias — is derived from the host profile, so no caller has to name a service
+ * in code. It used to be two required arguments and every audio route passed
+ * ("whisper", "whisper-1"): correct until the day this box runs a different
+ * ASR model, and silently wrong after. Pass them explicitly only to override.
+ */
 export async function resolveCallTarget(
   capability: Capability,
-  fallbackServiceId: string,
-  fallbackModel: string,
+  fallbackServiceId?: string,
+  fallbackModel?: string,
 ): Promise<CallTarget> {
   const alias = getRouting()[capability];
   const { routerUp, models } = await getCatalogue();
   const chosen = models.find((m) => m.id === alias);
 
   if (!routerUp || !chosen) {
+    const declared = defaultServiceFor(capability);
+    const svcId = fallbackServiceId ?? declared?.serviceId;
+    const svcModel = fallbackModel ?? declared?.model;
+    if (!svcId || !svcModel) {
+      // Nothing on this host declares the capability and the router cannot
+      // answer. Saying so beats calling a service that does not exist.
+      throw new Error(
+        `No local service on this host serves "${capability}", and the AI Router could not resolve "${alias}".`,
+      );
+    }
     return {
       alias,
-      baseUrl: getServiceUrl(fallbackServiceId),
-      model: fallbackModel,
+      baseUrl: getServiceUrl(svcId),
+      model: svcModel,
       local: true,
       via: "service",
+      serviceId: svcId,
       degraded: routerUp
         ? `"${alias}" isn't in the router's model list — used the local model instead.`
         : `AI Router is down — used the local model instead of "${alias}".`,
@@ -581,6 +625,7 @@ export async function resolveCallTarget(
       model: chosen.target.includes("/") ? chosen.target.split("/").slice(1).join("/") : chosen.target,
       local: true,
       via: "service",
+      serviceId: chosen.serviceId,
     };
   }
 

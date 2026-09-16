@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd agent for the BeTenshi Manager on B5 — the Mac counterpart of the
+  "BeTenshi Console" scheduled task on Windows.
+
+  Install (copies into place and starts it):
+      cp scripts/com.betenshi.manager.plist ~/Library/LaunchAgents/
+      launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.betenshi.manager.plist
+
+  Restart after a rebuild:
+      launchctl kickstart -k gui/$UID/com.betenshi.manager
+
+  Stop it for good:
+      launchctl bootout gui/$UID/com.betenshi.manager
+
+  RunAtLoad + KeepAlive is the point: without this on :8099 the console renders
+  but reports an empty machine — no capacity, no ready counts, every workstream
+  stuck on "On demand". It must be there before anyone looks, and must come back
+  if it dies.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.betenshi.manager</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/alibadereddin/Code/GitHub/ai/betenshi-console/scripts/start-manager.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/alibadereddin/Code/GitHub/ai/betenshi-console</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+
+  <!-- The launcher redirects into var/console.log itself; these catch anything
+       that fails before it gets that far, which is where the useful message is
+       when the agent will not start at all. -->
+  <key>StandardOutPath</key>
+  <string>/Users/alibadereddin/Code/GitHub/ai/betenshi-console/var/launchd-manager.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/alibadereddin/Code/GitHub/ai/betenshi-console/var/launchd-manager.log</string>
+</dict>
+</plist>

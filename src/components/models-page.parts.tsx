@@ -16,7 +16,7 @@ import {
   Warning,
   X,
 } from "@phosphor-icons/react";
-import type { CatalogModel, Entry, EntryStatus, Machine, Occupant, Payload, Sort, SortKey } from "./models-page.types";
+import type { CatalogModel, Entry, EntryStatus, HostBest, Machine, Occupant, Payload, Sort, SortKey } from "./models-page.types";
 import { fmtGb, fmtParams } from "./models-page.types";
 
 /* ── shared vocabulary ─────────────────────────────────────────────────────
@@ -43,6 +43,30 @@ const VERDICT_TEXT: Record<string, string> = {
   "off-box": "text-gray-500",
 };
 
+/** Plain words for a verdict, for the places that have no room for a sentence. */
+const VERDICT_WORD: Record<string, string> = {
+  fits: "fits",
+  tight: "fits alone",
+  swap: "needs a swap",
+  no: "won't fit",
+  "off-box": "off-box",
+};
+
+/**
+ * Why another machine's answer is a weaker claim than this one's, said in full
+ * on hover rather than asserted in four characters.
+ *
+ * Numbers for a host the console is not running on come from its declared
+ * profile: idle, nothing else loaded, free disk unknown. That is a real answer
+ * and a different kind of answer, and the difference should not need reading
+ * the source to discover.
+ */
+function hostVerdictTitle(h: HostBest): string {
+  const at = h.label ? ` at ${h.label}` : "";
+  const mem = h.vramGb ? `, needing ${fmtGb(h.vramGb)}` : "";
+  return `On ${h.hostName}: ${VERDICT_WORD[h.verdict] ?? h.verdict}${at}${mem}. From ${h.hostName}'s declared specs — an idle machine with unknown free disk, not a live reading.`;
+}
+
 function pct(v?: number | null): string {
   return typeof v === "number" ? String(Math.round(v * 100)) : "—";
 }
@@ -55,11 +79,14 @@ export function MachineStrip({
   machine,
   occupants,
   leaderboard,
+  machines,
   onRefresh,
 }: {
   machine: Machine;
   occupants: Occupant[];
   leaderboard: Payload["leaderboard"];
+  /** Every configured host. Live first; the rest are declared, not measured. */
+  machines?: Payload["machines"];
   onRefresh: () => void;
 }) {
   const [spinning, setSpinning] = useState(false);
@@ -68,6 +95,9 @@ export function MachineStrip({
   const diskUsed = machine.weightsDiskTotalGb
     ? machine.weightsDiskTotalGb - machine.weightsDiskFreeGb
     : undefined;
+  const others = (machines ?? []).filter((m) => !m.live);
+  const countFor = (hostId: string) =>
+    leaderboard.runnableByHost?.find((r) => r.hostId === hostId)?.runnable;
 
   return (
     <section className="tool-panel bg-gray-900 rounded-xl border border-gray-800 p-4 space-y-3">
@@ -75,7 +105,11 @@ export function MachineStrip({
         <Cpu size={16} weight="duotone" className="text-indigo-400" />
         <span className="text-sm font-semibold text-gray-100">{machine.gpuName}</span>
         <span className="text-[11px] text-gray-500">
-          {leaderboard.runnable} of {leaderboard.openWeights.length} open-weights models on llm-stats run here
+          {/* "run here" was a complete sentence with one box and is not with
+              two. The meters below are still this machine's alone — they are
+              live readings, and there is no telemetry from the other host. */}
+          {leaderboard.runnable} of {leaderboard.openWeights.length} open-weights models on llm-stats run
+          {others.length ? " on this one" : " here"}
         </span>
         <button
           onClick={async () => {
@@ -126,6 +160,35 @@ export function MachineStrip({
           title={machine.weightsPath}
         />
       </div>
+
+      {/* The other machines get a line, not a meter row. A meter implies a live
+          reading, and there is none from a box this process is not on — these
+          are the specs in config/hosts and a count derived from them. */}
+      {others.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap border-t border-gray-800 pt-2.5">
+          <span className="text-[9px] uppercase tracking-wide text-gray-600">Also yours</span>
+          {others.map((m) => {
+            const n = countFor(m.hostId);
+            const pool =
+              m.machine.memoryModel === "unified"
+                ? `${m.machine.ramTotalGb} GB unified`
+                : `${m.machine.vramTotalGb} GB VRAM · ${m.machine.ramTotalGb} GB RAM`;
+            return (
+              <span
+                key={m.hostId}
+                className="inline-flex items-center gap-1.5 text-[11px] text-gray-400 rounded-md border border-gray-800 px-2 py-1"
+                title={m.machine.vramBasis ?? `${m.hostName}, declared in config/hosts/${m.hostId}.json.`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-600 shrink-0" />
+                <span className="text-gray-300">{m.hostName}</span>
+                <span className="text-gray-600">{pool}</span>
+                {n != null && <span className="text-gray-500 tabular-nums">· {n} run there</span>}
+              </span>
+            );
+          })}
+          <span className="text-[10px] text-gray-600">declared, not measured</span>
+        </div>
+      )}
     </section>
   );
 }
@@ -238,6 +301,7 @@ export function RouteStrip({
 export function FilterBar({
   runsHere,
   onRunsHere,
+  otherHosts,
   query,
   onQuery,
   capability,
@@ -249,6 +313,8 @@ export function FilterBar({
 }: {
   runsHere: boolean;
   onRunsHere: (v: boolean) => void;
+  /** Names of the other configured machines, for a chip that tells the truth. */
+  otherHosts: string[];
   query: string;
   onQuery: (v: string) => void;
   capability: string | null;
@@ -263,11 +329,18 @@ export function FilterBar({
       <button
         onClick={() => onRunsHere(!runsHere)}
         aria-pressed={runsHere}
-        title="Hide anything this card cannot run at any quantisation, down to 2-bit."
+        // With a second machine configured this can no longer say "this GPU":
+        // keeping a row that B5 runs is the whole point, so the chip has to
+        // describe the fleet rather than the box serving the page.
+        title={
+          otherHosts.length
+            ? `Hide anything none of your machines can run at any quantisation, down to 2-bit. Includes ${otherHosts.join(" and ")}.`
+            : "Hide anything this card cannot run at any quantisation, down to 2-bit."
+        }
         className={`ui-chip inline-flex items-center gap-1.5 text-[11px] rounded-md px-2.5 py-1.5 border transition cursor-pointer ${runsHere ? "is-on" : ""}`}
       >
         <Cpu size={12} weight="duotone" />
-        Fits this GPU
+        {otherHosts.length ? "Fits a machine I have" : "Fits this GPU"}
       </button>
 
       {capability && (
@@ -432,14 +505,37 @@ function columnsFor(tone: "local" | "cloud"): Col[] {
       {
         key: "default",
         label: "Runs at",
-        render: (e) =>
-          e.quant ? (
-            <span className={VERDICT_TEXT[e.verdict ?? ""] ?? "text-gray-400"}>{e.quant}</span>
-          ) : e.measured ? (
-            <span className="text-gray-500">installed</span>
-          ) : (
-            "—"
-          ),
+        // Two machines, so two answers — but only when they differ, which the
+        // server decides by sending `elsewhere` at all. Stacked in one cell
+        // rather than given a column of its own: an extra column would be
+        // blank on most rows and would cost the whole table the width, and
+        // the point is the comparison, which wants the answers adjacent.
+        render: (e) => (
+          <>
+            {e.quant ? (
+              <span className={VERDICT_TEXT[e.verdict ?? ""] ?? "text-gray-400"}>{e.quant}</span>
+            ) : e.measured ? (
+              <span className="text-gray-500">installed</span>
+            ) : e.fit && e.kind === "local" ? (
+              // A scout pick has a sourced requirement, not a ladder — there is
+              // no rung to name, so the cell carries the verdict itself rather
+              // than a dash that reads as "unknown".
+              <span className={VERDICT_TEXT[e.verdict ?? ""] ?? "text-gray-400"}>
+                {VERDICT_WORD[e.verdict ?? ""] ?? "—"}
+              </span>
+            ) : (
+              <span className="text-gray-600">—</span>
+            )}
+            {e.elsewhere?.map((h) => (
+              <div key={h.hostId} className="text-[10px] leading-tight truncate" title={hostVerdictTitle(h)}>
+                <span className="text-gray-600">{h.hostName}: </span>
+                <span className={VERDICT_TEXT[h.verdict] ?? "text-gray-500"}>
+                  {h.verdict === "no" ? "won't fit" : (h.label ?? VERDICT_WORD[h.verdict])}
+                </span>
+              </div>
+            ))}
+          </>
+        ),
       },
       { key: "vram", label: "VRAM", align: "right", render: (e) => fmtGb(e.vramGb) },
       { key: "disk", label: "Disk", align: "right", render: (e) => (e.diskGb ? fmtGb(e.diskGb) : "—") },
@@ -557,6 +653,16 @@ export function ModelTable({
                           {e.activeFor.join("·")}
                         </span>
                       )}
+                      {/* The one row type on this page that is an argument
+                          rather than a measurement. Marked so it reads as one. */}
+                      {e.why && (
+                        <span
+                          className="text-[9px] px-1 rounded-full bg-indigo-500/20 text-indigo-200 shrink-0"
+                          title="Picked by the weekly scout report — open for the argument."
+                        >
+                          scout
+                        </span>
+                      )}
                       {e.status === "downloading" && (
                         <span className="text-[9px] text-sky-300 shrink-0 tabular-nums">
                           {e.download?.percent ?? 0}%
@@ -613,6 +719,8 @@ export function DetailPanel({
   e,
   busy,
   capabilities,
+  reportDate,
+  reportStale,
   onClose,
   onUse,
   onService,
@@ -624,6 +732,9 @@ export function DetailPanel({
   e: Entry;
   busy: string | null;
   capabilities: Payload["capabilities"];
+  /** When the scout report was written, so its opinion can be dated. */
+  reportDate?: string;
+  reportStale?: boolean;
   onClose: () => void;
   onUse: (e: Entry, cap: string) => void;
   onService?: (serviceId: string, action: "start" | "stop" | "restart") => void;
@@ -760,6 +871,30 @@ export function DetailPanel({
       {e.detail && <p className="text-[10px] text-amber-400/85 leading-relaxed">{e.detail}</p>}
       {e.note && <p className="text-[10px] text-gray-500 leading-relaxed">{e.note}</p>}
 
+      {/* Judgment, not telemetry — and dated, because it ages differently from
+          everything else on this panel. Given its own frame so it is never
+          mistaken for something the machine reported. */}
+      {e.why && (
+        <div className="rounded-md border border-indigo-500/25 bg-indigo-500/[0.06] p-2.5 space-y-1">
+          <p className="text-[9px] uppercase tracking-wide text-indigo-300/80">
+            Why the scout picked this{reportDate ? ` · ${reportDate}` : ""}
+            {reportStale ? " · stale" : ""}
+          </p>
+          <p className="text-[10px] text-gray-300 leading-relaxed">{e.why}</p>
+          {(e.license || e.paper) && (
+            <p className="text-[9px] text-gray-500">
+              {e.license && <span>Licence {e.license}</span>}
+              {e.license && e.paper && <span> · </span>}
+              {e.paper && (
+                <a href={e.paper} target="_blank" rel="noreferrer" className="hover:text-gray-300 underline">
+                  paper
+                </a>
+              )}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Why the verdict is what it is. */}
       {e.fit && (
         <div className="space-y-1">
@@ -775,6 +910,30 @@ export function DetailPanel({
         <p className="text-[10px] text-emerald-400/80 leading-relaxed">
           Footprint measured on this box — see config/model-meta.json.
         </p>
+      )}
+
+      {/* The other machines, when they disagree. Shown after this one's verdict
+          rather than beside it, because they are a weaker claim and the
+          ordering should say so before the numbers do. */}
+      {e.elsewhere && e.elsewhere.length > 0 && (
+        <div className="space-y-1 border-l-2 border-gray-800 pl-2.5">
+          <p className="text-[9px] uppercase tracking-wide text-gray-600">On your other machines</p>
+          {e.elsewhere.map((h) => (
+            <p key={h.hostId} className="text-[10px] leading-relaxed">
+              <span className="text-gray-400">{h.hostName}</span>{" "}
+              <span className={VERDICT_TEXT[h.verdict] ?? "text-gray-500"}>
+                {VERDICT_WORD[h.verdict] ?? h.verdict}
+              </span>
+              {h.label && <span className="text-gray-500"> at {h.label}</span>}
+              {h.vramGb ? <span className="text-gray-600"> · {fmtGb(h.vramGb)}</span> : null}
+            </p>
+          ))}
+          <p className="text-[9px] text-gray-600 leading-relaxed">
+            From each host&apos;s declared specs in config/hosts — an idle machine with nothing else
+            loaded and free disk unknown, so this answers &ldquo;would it fit there&rdquo; and not
+            &ldquo;would it fit there right now&rdquo;. Only machines that disagree with this one are listed.
+          </p>
+        </div>
       )}
 
       {e.rungs && e.rungs.length > 0 && (

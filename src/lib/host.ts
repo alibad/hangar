@@ -145,27 +145,87 @@ export function memoryLabel(): string {
 }
 
 /**
- * Which services a console tab needs before it can do anything.
+ * What a console tab needs before it can do anything.
  *
  * These tabs are NEVER hidden. A console that drops half its navigation on one
  * machine reads as a different, smaller product, and it hides the very thing
  * you want to know — what this box can and cannot do. Every surface is present
  * on every host; one that has nothing behind it here says so, in place, and
- * names what is missing.
+ * names what is missing. A tab in neither map below (Home, Services, Models,
+ * Requests, Usage, Storage, Arena) is host-independent and always usable.
  *
- * A tab absent from this map (Home, Services, Models, Requests, Usage, Storage,
- * Arena) is host-independent and always usable.
+ * ── Tabs that need a CAPABILITY ─────────────────────────────────────────────
+ * Resolved against whatever service declares it. This used to be a map to
+ * service ids — `speech: ["whisper", "tts"]` — which made the tab's
+ * availability depend on a service being named after the model that happened
+ * to be behind it in 2024. Put a better ASR model on that port under any other
+ * name and the Speech tab reported itself unavailable on a box that
+ * transcribes fine. Capability ids are from CAPABILITIES in providers.ts;
+ * services declare what they serve in config/hosts/*.json.
+ */
+const TAB_CAPABILITIES: Record<string, string[]> = {
+  speech: ["stt", "tts"],
+};
+
+/**
+ * Tabs that genuinely need one PARTICULAR service, because the console speaks
+ * that service's own protocol rather than an OpenAI-compatible capability.
+ *
+ * SAM3 and SAM3D are not a capability the router can route; the Image Studio
+ * builds ComfyUI graphs by hand. Naming the service is correct here, and the
+ * distinction is the point: the list above is about what a box can DO, this
+ * one is about what it has INSTALLED.
  */
 const TAB_SERVICES: Record<string, string[]> = {
-  speech: ["whisper", "tts"],
   qwen: ["qwen", "comfyui"],
   sam3d: ["sam3d"],
   sam3: ["sam3"],
 };
 
+/** Services on this host that declare they can serve `capability`. */
+export function servicesForCapability(capability: string): ServiceEntry[] {
+  return getHost().services.filter((s) => s.serves?.[capability]);
+}
+
+/**
+ * The service to call for a capability when the router cannot answer — and the
+ * served-model-name to send it.
+ *
+ * This is what lets a caller stop naming a service in code. /api/stt used to
+ * pass ("whisper", "whisper-1") as its fallback, which was correct until the
+ * day it was not, and silently wrong after.
+ */
+export function defaultServiceFor(
+  capability: string,
+): { serviceId: string; model: string } | null {
+  const svc = servicesForCapability(capability)[0];
+  return svc ? { serviceId: svc.id, model: svc.serves![capability] } : null;
+}
+
+/**
+ * Human wording for a capability id, kept here rather than imported from
+ * CAPABILITIES because this module is bundled for the browser and providers.ts
+ * pulls in `fs`. Short phrases, because they land mid-sentence.
+ */
+const CAPABILITY_LABELS: Record<string, string> = {
+  text: "text generation",
+  vision: "vision",
+  image: "image generation",
+  stt: "speech-to-text",
+  tts: "text-to-speech",
+};
+
 export type TabSupport = {
   /** Is at least one backing service registered on this host? */
   available: boolean;
+  /**
+   * Whether `needs`/`missing` are capability ids or service ids. The wording
+   * differs: a missing capability means nothing here serves it, a missing
+   * service means that particular program is not installed.
+   */
+  kind: "capability" | "service";
+  /** `missing`, phrased for a sentence. Same order. */
+  missingLabels: string[];
   /** Every service that could back this tab. Empty for host-independent tabs. */
   needs: string[];
   /** Those this host does not have. */
@@ -177,11 +237,35 @@ export type TabSupport = {
  * answer is right on the first paint rather than after /api/host lands.
  */
 export function tabSupport(tab: string): TabSupport {
+  // Capability-backed tabs first: what the box can DO, whatever the services
+  // behind it are called. `needs` is reported as capability ids, which is also
+  // what HostUnavailable should be telling the reader it is missing — "no
+  // speech-to-text" is actionable, "no service called whisper" is trivia.
+  const caps = TAB_CAPABILITIES[tab];
+  if (caps?.length) {
+    const missing = caps.filter((c) => servicesForCapability(c).length === 0);
+    return {
+      available: missing.length < caps.length,
+      kind: "capability",
+      needs: caps,
+      missing,
+      missingLabels: (missing.length ? missing : caps).map((c) => CAPABILITY_LABELS[c] ?? c),
+    };
+  }
+
   const needs = TAB_SERVICES[tab] ?? [];
-  if (!needs.length) return { available: true, needs, missing: [] };
+  if (!needs.length) {
+    return { available: true, kind: "service", needs, missing: [], missingLabels: [] };
+  }
   const have = new Set(getHost().services.map((s) => s.id));
   const missing = needs.filter((id) => !have.has(id));
-  return { available: missing.length < needs.length, needs, missing };
+  return {
+    available: missing.length < needs.length,
+    kind: "service",
+    needs,
+    missing,
+    missingLabels: missing.length ? missing : needs,
+  };
 }
 
 /** Convenience: can this host back the tab at all? */

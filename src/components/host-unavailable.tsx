@@ -12,13 +12,16 @@ import { getHost, tabSupport } from "@/lib/host";
  * host; this is what the ones with nothing behind them here show instead of a
  * view that would spin, error, or quietly return empty.
  *
- * It names the missing services rather than saying "unavailable", because the
- * fix is always the same shape: register the service in this host's profile and
- * give it a start command.
+ * It names what is missing rather than saying "unavailable", because the fix is
+ * always the same shape: register something in this host's profile that serves
+ * it, and give it a start command. For a capability-backed tab that is a
+ * CAPABILITY — "speech-to-text", not "a service called whisper" — because the
+ * capability is the thing the reader wants and the service name is trivia.
  */
 export default function HostUnavailable({ tab, title }: { tab: string; title: string }) {
   const host = getHost();
-  const { needs, missing } = tabSupport(tab);
+  const { kind, missing, missingLabels } = tabSupport(tab);
+  const plural = missingLabels.length === 1 ? "is" : "are";
 
   return (
     <section
@@ -33,12 +36,12 @@ export default function HostUnavailable({ tab, title }: { tab: string; title: st
       </h2>
       <p className="mx-auto mt-2 max-w-prose text-[13px] leading-relaxed text-gray-400">
         It needs{" "}
-        <span className="font-medium text-gray-200">
-          {(missing.length ? missing : needs).join(" or ")}
-        </span>
-        , which {missing.length === 1 ? "is" : "are"} not registered on this machine.
+        <span className="font-medium text-gray-200">{missingLabels.join(" or ")}</span>
+        {kind === "capability"
+          ? `, and no service on this machine declares that it serves ${missingLabels.length === 1 ? "it" : "them"}.`
+          : `, which ${plural} not registered on this machine.`}{" "}
         The tab stays here so the gap is visible rather than silently missing — on a
-        host that runs {missing.length === 1 ? "it" : "them"}, this is the live view.
+        host that has {missing.length === 1 ? "it" : "them"}, this is the live view.
       </p>
       <p className="mt-3 text-[11px] text-gray-600">
         Services are declared per machine in{" "}

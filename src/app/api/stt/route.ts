@@ -24,9 +24,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "An audio file is required" }, { status: 400 });
     }
 
-    // Fall back to the local Whisper service (served-model-name "whisper-1") when
-    // the router can't resolve the routing — same target the tab used before.
-    target = await resolveCallTarget("stt", "whisper", "whisper-1");
+    // No service named here: when the router can't resolve the routing, the
+    // fallback is whichever service the host profile says serves `stt`.
+    target = await resolveCallTarget("stt");
 
     const form = new FormData();
     form.append("file", file, file.name || "audio.webm");
@@ -34,7 +34,11 @@ export async function POST(req: NextRequest) {
 
     const res = await fetch(`${target.baseUrl}/v1/audio/transcriptions`, {
       method: "POST",
-      headers: target.via === "service" ? getServiceHeaders("whisper") : {},
+      // The service the routing actually resolved to, not the one this file
+      // happens to be named after. Hardcoding "whisper" here meant pointing the
+      // stt capability at any other local ASR service sent that service
+      // whisper's credentials, which is a 502 whose cause is invisible.
+      headers: target.via === "service" ? getServiceHeaders(target.serviceId!) : {},
       body: form,
       signal: AbortSignal.timeout(180_000),
     });

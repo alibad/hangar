@@ -48,6 +48,7 @@
     }
   },
   "local-coder": {
+    "vision": false,
     "checkpoint": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
     "params": "30B (A3B MoE, ~3B active) · AWQ 4-bit",
     "docs": "https://hf.co/QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
@@ -61,6 +62,7 @@
     }
   },
   "local-small": {
+    "vision": false,
     "checkpoint": "Qwen/Qwen2.5-7B-Instruct-AWQ",
     "params": "7B · AWQ 4-bit",
     "docs": "https://hf.co/Qwen/Qwen2.5-7B-Instruct-AWQ",
@@ -99,6 +101,7 @@
     }
   },
   "local-ollama": {
+    "vision": false,
     "checkpoint": "qwen3.8:27b-mlx via Ollama (local service on :11434)",
     "params": "27.8B \u00b7 nvfp4",
     "released": "2026-08",
@@ -114,7 +117,42 @@
       "basis": "UNIFIED MEMORY \u2014 vramGb and ramGb are the same 18.2 GB seen from two sides, not two costs to add. It is the on-disk size of the nvfp4 checkpoint (ollama list), which is what Ollama maps in; KV cache at 32K context adds a few GB on top. `peak` rather than `reserved` because Ollama unloads after keep_alive (10 min here), so an idle box holds ~0."
     }
   },
+  "local-gemma4": {
+    "vision": true,
+    "checkpoint": "gemma4:31b-it-qat via Ollama (local service on :11434)",
+    "params": "31B \u00b7 int4 QAT",
+    "released": "2026-08",
+    "docs": "https://ollama.com/library/gemma4",
+    "note": "Reads Arabic better than anything else on either box, and is the reason Ollama exists beside vLLM \u2014 vLLM 0.17.1 cannot serve the gemma4 architecture at all. Measured 2026-09-14 in ai/b5/bench over 10 rendered cards: mean CER 0.048, and 0.035 on fully vowelled text where the text-only qwen3.8 scores 0.209. Weakest on the invoice table (0.182) and on Arabic-Indic digits (0.109).",
+    "service": "ollama",
+    "footprint": {
+      "vramGb": 19,
+      "ramGb": 1,
+      "idleVramGb": 0,
+      "idleRamGb": 0,
+      "kind": "peak",
+      "basis": "The 31b-mlx sibling measures 19 GB on disk on B5 (`ollama list`), which is what Ollama maps in; the int4 QAT build this alias points at is the same parameter count at the same bit-width. NOT re-measured against BeTenshi's own store \u2014 run `ollama list` there and correct this if it differs. KV cache at 32K adds a few GB. `peak`, not `reserved`: Ollama unloads after OLLAMA_KEEP_ALIVE, so an idle box holds ~0."
+    }
+  },
+  "local-qwen3-vl": {
+    "vision": true,
+    "checkpoint": "qwen3-vl:32b-instruct via Ollama (local service on :11434)",
+    "params": "32B \u00b7 q4",
+    "released": "2026-08",
+    "docs": "https://ollama.com/library/qwen3-vl",
+    "note": "The second vision model, and the better one on vowelled text (CER 0.023 vs Gemma's 0.035) and on Arabic-Indic digits (0.054 vs 0.109) \u2014 but the worse one overall (mean CER 0.060) because it falls apart on the invoice table (0.332), and the slowest of the three at 2.2 tok/s. Measured 2026-09-14 in ai/b5/bench.",
+    "service": "ollama",
+    "footprint": {
+      "vramGb": 20,
+      "ramGb": 1,
+      "idleVramGb": 0,
+      "idleRamGb": 0,
+      "kind": "peak",
+      "basis": "20 GB on disk for this exact tag (`ollama list` on B5), which is what Ollama maps in; KV cache at 32K adds a few GB. `peak`, not `reserved`: Ollama unloads after OLLAMA_KEEP_ALIVE, so an idle box holds ~0."
+    }
+  },
   "gpt-5.5": {
+    "vision": true,
     "docs": "https://platform.openai.com/docs/models"
   },
   "gpt-image-2": {
@@ -128,19 +166,24 @@
     "docs": "https://platform.openai.com/docs/guides/text-to-speech"
   },
   "claude-opus": {
+    "vision": true,
     "docs": "https://docs.claude.com/en/docs/about-claude/models"
   },
   "claude-sonnet": {
+    "vision": true,
     "docs": "https://docs.claude.com/en/docs/about-claude/models"
   },
   "claude-haiku": {
+    "vision": true,
     "docs": "https://docs.claude.com/en/docs/about-claude/models"
   },
   "gemini-pro": {
+    "vision": true,
     "docs": "https://ai.google.dev/gemini-api/docs/models",
     "note": "Verified id, but this key returned 429 — Gemini pro needs billing enabled."
   },
   "gemini-flash": {
+    "vision": true,
     "docs": "https://ai.google.dev/gemini-api/docs/models",
     "note": "Verified working. A reasoning model — allow generous max_tokens or replies truncate."
   },

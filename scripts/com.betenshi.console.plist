@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd agent for the BeTenshi Console on B5 — the Mac counterpart of the
+  "BeTenshi Console" scheduled task on Windows.
+
+  Install (copies into place and starts it):
+      cp scripts/com.betenshi.console.plist ~/Library/LaunchAgents/
+      launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.betenshi.console.plist
+
+  Restart after a rebuild:
+      launchctl kickstart -k gui/$UID/com.betenshi.console
+
+  Stop it for good:
+      launchctl bootout gui/$UID/com.betenshi.console
+
+  RunAtLoad + KeepAlive is the point: the console is meant to be there without
+  anyone starting it, and to come back if it dies. ThrottleInterval is raised
+  from the 10 s default because the failure this guards against — no .next
+  build — is not one that retrying fixes quickly.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.betenshi.console</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/alibadereddin/Code/GitHub/ai/betenshi-console/scripts/start-console.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/alibadereddin/Code/GitHub/ai/betenshi-console</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+
+  <!-- The launcher redirects into var/console.log itself; these catch anything
+       that fails before it gets that far, which is where the useful message is
+       when the agent will not start at all. -->
+  <key>StandardOutPath</key>
+  <string>/Users/alibadereddin/Code/GitHub/ai/betenshi-console/var/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/alibadereddin/Code/GitHub/ai/betenshi-console/var/launchd.log</string>
+</dict>
+</plist>

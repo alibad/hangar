@@ -126,11 +126,22 @@ export default function ModelsPage() {
   );
 
   const entries = useMemo(() => (data ? buildEntries(data) : []), [data]);
+  /** Machines other than the one serving this page, by name. Empty on a single-host setup. */
+  const otherHosts = useMemo(
+    () => (data?.machines ?? []).filter((m) => !m.live).map((m) => m.hostName),
+    [data],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return entries.filter((e) => {
-      if (runsHere && !e.runsHere) return false;
+      // "Runs here" means runs on a machine you HAVE, not strictly on the box
+      // serving this page. With two hosts configured, the strict reading hid
+      // exactly the rows worth seeing: a model refused by the 5090 that B5 runs
+      // comfortably would never appear, so the console could never tell you the
+      // option existed. The row says which machine; this only decides whether
+      // it is worth showing at all.
+      if (runsHere && !e.runsHere && !e.runsElsewhere) return false;
       if (capability && !e.capabilities.includes(capability)) return false;
       if (q && !`${e.name} ${e.sub} ${e.org ?? ""} ${e.alias ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
@@ -167,6 +178,7 @@ export default function ModelsPage() {
         machine={data.machine}
         occupants={data.occupants}
         leaderboard={data.leaderboard}
+        machines={data.machines}
         onRefresh={() => refresh(true)}
       />
 
@@ -190,6 +202,7 @@ export default function ModelsPage() {
 
       <FilterBar
         runsHere={runsHere}
+        otherHosts={otherHosts}
         onRunsHere={setRunsHere}
         query={query}
         onQuery={setQuery}
@@ -267,6 +280,8 @@ export default function ModelsPage() {
             e={selected}
             busy={busy}
             capabilities={data.capabilities}
+            reportDate={data.report.generatedAt}
+            reportStale={data.report.stale}
             onClose={() => setSelectedKey(null)}
             onUse={use}
             onService={(id, action) =>
