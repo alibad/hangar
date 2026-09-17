@@ -296,13 +296,33 @@ export default function ModelPicker({
           </Select>
           <span className="text-[11px] text-gray-500">{state}</span>
           {m?.local && <ModelFootprint footprint={m.footprint} className="ml-auto" />}
-          {m?.local && m.serviceId && !onDemand && (
-            <ServiceControl
-              id={m.serviceId}
-              up={!!on}
-              probe={() => probeService(m.serviceId!)}
-              actions={["stop"]}
-            />
+          {/* Run the thing you just picked, without leaving the page.
+
+              The first compact version dropped this for on-demand runtimes,
+              which meant selecting an Ollama model gave you no control at all —
+              the one case where you most want it, since the model is not
+              resident until something asks for it. Pinned service: Start/Stop.
+              On-demand: start the RUNTIME if it is down, Unload once a model is
+              resident. */}
+          {m?.local && m.serviceId && (
+            onDemand && serviceUp ? (
+              <button
+                type="button"
+                disabled={!on || busy === m.id}
+                onClick={() => unload(m.id)}
+                title={on ? "Unload this model and free the card" : "Not loaded — it loads on first use"}
+                className="rounded-md border border-gray-700 px-2 py-1 text-[11px] text-gray-300 disabled:opacity-30"
+              >
+                Unload
+              </button>
+            ) : (
+              <ServiceControl
+                id={m.serviceId}
+                up={!!serviceUp}
+                probe={() => probeService(m.serviceId!)}
+                actions={["stop"]}
+              />
+            )
           )}
         </div>
         {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}

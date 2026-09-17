@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getActiveLlm } from "@/lib/llm";
+import { getServiceHeaders } from "@/lib/services";
+import { resolveCallTarget, type CallTarget } from "@/lib/providers";
 
 /**
  * Reasoning models emit their thinking in one of two shapes, and this endpoint
@@ -35,17 +36,38 @@ function splitThinking(content: string, reasoningField?: string | null) {
   return { content, thinking: reasoningField ?? null };
 }
 
+/**
+ * Chat with whatever model the `text` capability is pointed at.
+ *
+ * This used to read `generated/active-llm.json` through getActiveLlm(), a
+ * SECOND and entirely separate record of "which model" from the routing the
+ * console's own picker writes to `generated/ai-routing.json`. So the picker on
+ * the Chat page did not control the chat: selecting local-gemma4 (Ollama, up)
+ * still called whatever active-llm.json last said — vllm-small, on a port with
+ * nothing listening — and the playground answered "TypeError: fetch failed" in
+ * three milliseconds while showing the name of a model it never contacted.
+ *
+ * resolveCallTarget is the one place that answers "which model, where, and by
+ * what route", and /api/stt and /api/tts already go through it.
+ */
 export async function POST(req: NextRequest) {
   const { message } = await req.json();
-  const llm = getActiveLlm();
 
   const start = Date.now();
+  // Outside the try so a connection failure can name what it tried to reach.
+  let target: CallTarget | null = null;
   try {
-    const res = await fetch(`${llm.baseUrl}/v1/chat/completions`, {
+    target = await resolveCallTarget("text");
+    const res = await fetch(`${target.baseUrl}/v1/chat/completions`, {
       method: "POST",
-      headers: llm.headers,
+      // Headers for the service the routing actually resolved to. A local
+      // service may sit behind Cloudflare Access; the router does not.
+      headers: {
+        "Content-Type": "application/json",
+        ...(target.serviceId ? getServiceHeaders(target.serviceId) : {}),
+      },
       body: JSON.stringify({
-        model: llm.model,
+        model: target.model,
         messages: [{ role: "user", content: message }],
         max_tokens: 1024,
       }),
@@ -66,14 +88,30 @@ export async function POST(req: NextRequest) {
       thinking,
       usage: data.usage,
       latency,
-      model: data.model,
+      model: data.model ?? target.alias,
+      // Set when the routing could not be honoured and a fallback was used, so
+      // the reply is not silently attributed to the model you picked.
+      degraded: target.degraded,
       // A reasoning model can spend its whole budget thinking and return an
       // empty answer. Saying so beats rendering a blank bubble.
       truncated: data.choices?.[0]?.finish_reason === "length",
     });
   } catch (err) {
+    // "TypeError: fetch failed" on its own is unactionable — it was the entire
+    // message the playground showed. Name the model, the address, and the
+    // service, so the reply says which thing to start.
+    const where = target
+      ? ` while calling "${target.alias}" at ${target.baseUrl}${
+          target.serviceId ? ` (service: ${target.serviceId})` : ""
+        }`
+      : " while resolving which model to use";
     return NextResponse.json(
-      { error: String(err), latency: Date.now() - start },
+      {
+        error: `${String(err)}${where}`,
+        serviceId: target?.serviceId,
+        alias: target?.alias,
+        latency: Date.now() - start,
+      },
       { status: 502 }
     );
   }

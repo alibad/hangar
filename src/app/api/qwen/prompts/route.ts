@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { varyPrompts, type DimConfig } from "@/lib/prompt-variations";
-import { getActiveLlm } from "@/lib/llm";
+import { getServiceHeaders } from "@/lib/services";
+import { resolveCallTarget } from "@/lib/providers";
 
 // The prompt-variation LLM is whichever one is currently selected in the console
 // (see /api/llm + the LLM picker). Env (QWEN_LLM_URL/QWEN_LLM_MODEL) still overrides.
@@ -33,7 +34,12 @@ async function aiPrompts(
   suffix?: string,
   dims?: DimConfig,
 ): Promise<{ prompts: string[]; model: string } | null> {
-  const llm = getActiveLlm();
+  // The `text` capability, same as the playground — not `active-llm.json`.
+  // Reading that second record here had the same effect it had in /api/chat:
+  // prompt generation called whichever service that file last named, ignoring
+  // the model the console's picker is pointed at, and failed outright when that
+  // service was not running.
+  const llm = await resolveCallTarget("text");
   const activeDims = Object.entries(dims ?? {})
     .filter(([, v]) => v?.on)
     .map(([k, v]) => v?.locked ? `${k}="${v.locked}" (fixed)` : k)
@@ -51,7 +57,10 @@ async function aiPrompts(
   try {
     const res = await fetch(`${llm.baseUrl}/v1/chat/completions`, {
       method: "POST",
-      headers: llm.headers,
+      headers: {
+        "Content-Type": "application/json",
+        ...(llm.serviceId ? getServiceHeaders(llm.serviceId) : {}),
+      },
       body: JSON.stringify({
         model: llm.model,
         messages: [
