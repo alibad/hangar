@@ -43,6 +43,8 @@ type VoicesResponse = {
    * amount of reading the alias tells you which you are holding.
    */
   canClone?: boolean;
+  /** How long a reference clip the engine will accept, when it says. */
+  limits?: { minSeconds: number; maxSeconds: number };
   /** Why the list is empty, when it is. */
   detail?: string;
   /**
@@ -118,12 +120,18 @@ export async function GET() {
           const payload = await res.json();
           const voices = normalise(payload);
           if (voices.length) {
+            const lim = (payload as { limits?: { min_seconds?: unknown; max_seconds?: unknown } })
+              ?.limits;
             return NextResponse.json<VoicesResponse>({
               alias,
               source: "service",
               local: true,
               voices,
               canClone: (payload as { can_clone?: unknown })?.can_clone === true,
+              limits:
+                typeof lim?.min_seconds === "number" && typeof lim?.max_seconds === "number"
+                  ? { minSeconds: lim.min_seconds, maxSeconds: lim.max_seconds }
+                  : undefined,
               degraded: target.degraded,
             });
           }

@@ -319,6 +319,7 @@ export default function Home() {
     voices: VoiceOption[];
     /** The engine can learn a voice from a clip — see VoiceCloner. */
     canClone?: boolean;
+    limits?: { minSeconds: number; maxSeconds: number };
     detail?: string;
     /** Routing could not be honoured — e.g. a cloud alias fell back to local. */
     degraded?: string;
@@ -1864,6 +1865,7 @@ export default function Home() {
                 voices={ttsVoices?.voices ?? []}
                 canClone={!!ttsVoices?.canClone}
                 alias={ttsVoices?.alias ?? "This model"}
+                limits={ttsVoices?.limits}
                 onChanged={loadTtsVoices}
                 className="mt-3"
               />

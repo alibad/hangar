@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } fro
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Star, Trash2, ChevronDown, ChevronUp, Mic, Square, X, ChevronRight, SlidersHorizontal, ServerCog } from "lucide-react";
 import { DIM_POOLS, type DimKey } from "@/lib/prompt-variations";
-import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, isImageModelId, type ImageModelId } from "@/lib/image-models";
+import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, isImageModelId, type ImageModel, type ImageModelId } from "@/lib/image-models";
 import { useLocalFootprints } from "@/lib/use-local-footprints";
 import ModelFootprint from "./model-footprint";
 import { imageFootprint } from "@/lib/image-footprints";
-import { ServiceControls, ServiceStartupNote, useServiceLifecycle } from "./service-control";
+import { ServiceControl, ServiceControls, ServiceStartupNote, serviceName, useServiceLifecycle } from "./service-control";
 import CompareView from "./compare-view";
 import { qwenCheckpointState } from "@/lib/qwen-checkpoint";
 
@@ -80,6 +80,81 @@ function fmtDur(sec: number): string {
 
 function Spinner() {
   return <span className="inline-block w-3 h-3 rounded-full border-[1.5px] border-current border-t-transparent animate-spin align-[-2px]" />;
+}
+
+/**
+ * A failed transcription, with the button that fixes it.
+ *
+ * Its own component because it owns a health poll for a service the studio
+ * otherwise knows nothing about: `stt` can point at any local ASR service, or at
+ * a cloud model — in which case there is no serviceId, nothing to start, and the
+ * banner is just the sentence.
+ *
+ * This is the rule in service-control.tsx applied to voice: wherever the console
+ * says a service isn't running, it offers the button. The mic used to report
+ * "start its service" and stop there, on a surface with no way to do that and
+ * with the recording already discarded.
+ */
+function VoiceErrorBanner({
+  error,
+  onRetry,
+  canRetry,
+  retrying,
+  onDismiss,
+}: {
+  error: { message: string; serviceId?: string; model?: string };
+  onRetry: () => void;
+  canRetry: boolean;
+  retrying: boolean;
+  onDismiss: () => void;
+}) {
+  const id = error.serviceId;
+  const [up, setUp] = useState<boolean | undefined>(undefined);
+
+  const probe = useCallback(async () => {
+    if (!id) return false;
+    try {
+      const rows = await fetch("/api/services", { cache: "no-store" }).then((r) => r.json());
+      const row = Array.isArray(rows) ? rows.find((r: { id: string }) => r.id === id) : null;
+      const alive = row?.status === "running";
+      setUp(alive);
+      return alive;
+    } catch {
+      setUp(false);
+      return false;
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (id) void probe();
+  }, [id, probe]);
+
+  return (
+    <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">
+      <div className="flex items-start gap-2">
+        <Mic className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+        <p className="flex-1 leading-relaxed">{error.message}</p>
+        <button onClick={onDismiss} aria-label="Dismiss" className="text-amber-300/60 hover:text-amber-100">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {(id || canRetry) && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-5.5">
+          {id && <ServiceControl id={id} up={up} probe={probe} name={serviceName(id)} />}
+          {canRetry && (
+            <button
+              onClick={onRetry}
+              disabled={retrying}
+              title="Send the recording you already made — no need to say it again"
+              className="rounded-md border border-amber-500/40 px-2 py-1 text-[11px] font-medium text-amber-100 transition hover:border-amber-400 disabled:opacity-50"
+            >
+              {retrying ? "Transcribing…" : "Retry with that recording"}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function StudioDialog({
@@ -265,7 +340,32 @@ export default function QwenStudio() {
   // run state
   const [busy, setBusy] = useState(false);
   const requestRef = useRef<{ id: string; started: number; controller: AbortController } | null>(null);
-  const [lastResult, setLastResult] = useState<{ image: string; saved: string | null; latency: number; folder: string } | null>(null);
+  /**
+   * The run just finished. It carries WHICH model made it, because the same
+   * panel now shows results from more than one: rerunOn() switches models
+   * between runs, and an image with no model on it is worthless for comparing.
+   */
+  type StudioResult = {
+    image: string;
+    saved: string | null;
+    latency: number;
+    folder: string;
+    modelId: string;
+    modelName: string;
+    steps: number;
+    prompt: string;
+  };
+  const [lastResult, setLastResult] = useState<StudioResult | null>(null);
+  /**
+   * Results kept on screen for comparison.
+   *
+   * The Compare tab fans one prompt out to every model at once, which answers a
+   * different question than "that was close — what does the other one do with
+   * it?". This is the one-at-a-time version: each rerun pins the previous result
+   * rather than overwriting it, so the comparison accumulates from the ordinary
+   * Generate flow instead of requiring you to go somewhere else and start over.
+   */
+  const [pinnedResults, setPinnedResults] = useState<StudioResult[]>([]);
   const [galleryPicker, setGalleryPicker] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerFolder, setPickerFolder] = useState<string>("__all__");
@@ -299,12 +399,28 @@ export default function QwenStudio() {
   const fileRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // voice input (local Whisper)
+  // voice input — whatever the `stt` capability is pointed at
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [recMs, setRecMs] = useState(0);
   const mediaRecRef = useRef<MediaRecorder | null>(null);
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /**
+   * A failed transcription, kept apart from `error` because it is the one failure
+   * in this view with a specific fix: start the service that was unreachable.
+   * Rendered as a banner with that service's own Start button rather than as a
+   * sentence telling you to go and find it.
+   */
+  const [voiceError, setVoiceError] = useState<{ message: string; serviceId?: string; model?: string } | null>(null);
+  /**
+   * The audio behind that failure.
+   *
+   * Dropping it is what made "voice is off" cost a re-record: you spoke, the
+   * service was down, the words were gone. Holding the blob makes Retry a real
+   * button — start the service, press it, and the sentence you already said
+   * lands in the prompt.
+   */
+  const lastRecordingRef = useRef<Blob | null>(null);
 
   // batch
   const [batchCount, setBatchCount] = useState(10);
@@ -406,6 +522,38 @@ export default function QwenStudio() {
       : activeModel.serviceId === "comfyui"
         ? !!comfyHealth?.up
         : !!health?.up;
+
+  /** True while Generate is starting the runtime it needs, before inference begins. */
+  const [startingRuntime, setStartingRuntime] = useState(false);
+
+  /**
+   * Bring up whatever the given model needs, and report whether it got there.
+   *
+   * Generate used to be simply DISABLED whenever its runtime was down: you typed
+   * a prompt, and the only button on the screen was grey. The fix the studio
+   * wanted was two clicks away inside a modal, which is a strange thing to ask of
+   * someone who has already said what they want. The button starts the service
+   * itself now — `lifecycle.run("start")` already waits for the port to open, so
+   * "start it, then run it" is one press.
+   *
+   * Cloud models are the exception: the router is not ours to start from here.
+   */
+  const ensureRuntime = useCallback(
+    async (serviceId: "qwen" | "comfyui" | null): Promise<boolean> => {
+      if (serviceId === null) return routerUp;
+      const alreadyUp = serviceId === "comfyui" ? !!comfyHealth?.up : !!health?.up;
+      if (alreadyUp) return true;
+      const lc = serviceId === "comfyui" ? comfyLifecycle : lifecycle;
+      setStartingRuntime(true);
+      try {
+        await lc.run("start");
+        return serviceId === "comfyui" ? await checkComfy() : await checkHealth();
+      } finally {
+        setStartingRuntime(false);
+      }
+    },
+    [routerUp, comfyHealth?.up, health?.up, comfyLifecycle, lifecycle, checkComfy, checkHealth],
+  );
 
   /** The router's catalogue, for the Cloud side of the Model row. */
   const loadProviders = useCallback(async () => {
@@ -709,16 +857,69 @@ export default function QwenStudio() {
   }
 
   async function runGenerate() {
-    if (!prompt.trim() || busy || !modelUp) return;
+    if (!prompt.trim() || busy || startingRuntime) return;
     await runImageRequest("generate");
   }
 
   async function runEdit() {
-    if (!prompt.trim() || !editImages.length || busy || !modelUp) return;
+    if (!prompt.trim() || !editImages.length || busy || startingRuntime) return;
     await runImageRequest("edit");
   }
 
-  async function runImageRequest(kind: "generate" | "edit") {
+  /**
+   * Same prompt, next model, previous result kept beside it.
+   *
+   * Comparing two image models one at a time used to mean: note what you got,
+   * open the model dialog, pick the other one, retype nothing but lose the
+   * result, run, and hold the first image in your head. The comparison happened
+   * in memory, which is exactly where it is least reliable.
+   *
+   * The model switch is persisted routing (see pickModel), so it is deliberately
+   * the same act as choosing from the dialog — this is a shortcut to it, not a
+   * second, hidden way to select a model.
+   */
+  async function rerunOn(target: ImageModel) {
+    if (!prompt.trim() || busy || startingRuntime) return;
+    if (lastResult) setPinnedResults((prev) => [lastResult, ...prev].slice(0, 3));
+    const alias = target.serviceId === "qwen" ? qwenAlias : target.serviceId === null ? target.id : null;
+    await pickModel(target.id, alias);
+    await runImageRequest("generate", {
+      model: target,
+      steps: target.steps[0],
+      cfg: target.defaultCfg,
+    });
+  }
+
+  /** Models worth offering as the next comparison — everything but the one just run. */
+  const rerunCandidates = useMemo<ImageModel[]>(() => {
+    const cloud = cloudModels
+      .filter((m) => m.status !== "no-key")
+      .map((m) => cloudImageModel(m.id, m.provider));
+    return [...IMAGE_MODELS, ...cloud].filter((m) => m.id !== lastResult?.modelId);
+  }, [cloudModels, lastResult?.modelId]);
+
+  /**
+   * Run a model that is not the currently selected one — see rerunOn(). Carries
+   * its own steps/cfg because those aren't transferable: 28 steps on a 4-step
+   * distilled model is wasted minutes, 4 steps on Qwen is mush.
+   */
+  type RunOverride = { model: ImageModel; steps: number; cfg: number };
+
+  async function runImageRequest(kind: "generate" | "edit", override?: RunOverride) {
+    const target = override?.model ?? activeModel;
+
+    // Start the backend before asking it for anything. Returning early with a
+    // message beats the old behaviour — a dead button — but only just; the
+    // common case is that this succeeds and the run simply proceeds.
+    if (!(await ensureRuntime(target.serviceId))) {
+      setError(
+        target.serviceId === null
+          ? "The AI Router is offline, so this cloud model can't be called."
+          : `${target.serviceId === "comfyui" ? "ComfyUI" : "The Qwen-Image service"} did not come up. Open Details on the Runs on row for its logs.`,
+      );
+      return;
+    }
+
     const request = beginImageRequest();
     const folder = outputFolder;
     setBusy(true);
@@ -726,17 +927,20 @@ export default function QwenStudio() {
     setEditNotice(null);
     startTimer();
     try {
-      const res = await fetch(kind === "generate" ? "/api/image/generate" : activeModel.serviceId === "comfyui" ? "/api/image/edit" : "/api/qwen/edit", {
+      const res = await fetch(kind === "generate" ? "/api/image/generate" : target.serviceId === "comfyui" ? "/api/image/edit" : "/api/qwen/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: request.controller.signal,
-        body: JSON.stringify({ model: imageModel, prompt, images: kind === "edit" ? editImages : undefined,
-          negative_prompt: negative, width, height, steps, cfg, seed: resolveSeed(), folder, requestId: request.id }),
+        body: JSON.stringify({ model: target.id, prompt, images: kind === "edit" ? editImages : undefined,
+          negative_prompt: negative, width, height, steps: override?.steps ?? steps, cfg: override?.cfg ?? cfg, seed: resolveSeed(), folder, requestId: request.id }),
       });
       const data = await res.json();
       if (res.ok && data.status === "success") {
         if (!lockSeed) setSeed(String(data.seed));
-        setLastResult({ image: data.image, saved: data.saved, latency: data.latency, folder });
+        setLastResult({
+          image: data.image, saved: data.saved, latency: data.latency, folder,
+          modelId: target.id, modelName: target.name, steps: override?.steps ?? steps, prompt,
+        });
         setSelectedFolder(folder);
         setGalleryBatchFilter(null);
         setPage(1);
@@ -1257,9 +1461,11 @@ export default function QwenStudio() {
   // folders the context-menu / move targets can use (everything except the item's own)
   const allFolderTargets = useMemo(() => ["", ...folders], [folders]);
 
-  // ── voice → prompt (local Whisper) ──────────────────────────────────────────
+  // ── voice → prompt ──────────────────────────────────────────────────────────
   async function transcribe(blob: Blob) {
+    lastRecordingRef.current = blob;
     setTranscribing(true);
+    setVoiceError(null);
     try {
       const form = new FormData();
       form.append("file", new File([blob], "rec.webm", { type: "audio/webm" }));
@@ -1269,21 +1475,40 @@ export default function QwenStudio() {
       const res = await fetch("/api/qwen/transcribe", { method: "POST", body: form });
       const data = await res.json();
       const text = (data.text ?? "").trim();
-      if (text) setPrompt((p) => (p.trim() ? p.trim() + " " : "") + text);
-      else setError(data.error || "No speech detected.");
+      if (text) {
+        setPrompt((p) => (p.trim() ? p.trim() + " " : "") + text);
+        lastRecordingRef.current = null;
+      } else {
+        // serviceId is the whole point: it turns "start its service" into a button.
+        setVoiceError({
+          message: data.error || "No speech detected.",
+          serviceId: typeof data.serviceId === "string" ? data.serviceId : undefined,
+          model: typeof data.model === "string" ? data.model : undefined,
+        });
+      }
     } catch {
-      setError("Transcription failed.");
+      setVoiceError({ message: "Transcription failed — the console could not reach speech-to-text." });
     }
     setTranscribing(false);
   }
 
+  /** Re-send the recording we kept, after the service behind it was started. */
+  async function retryTranscription() {
+    const blob = lastRecordingRef.current;
+    if (!blob || transcribing) return;
+    await transcribe(blob);
+  }
+
   async function startRec() {
     setError(null);
+    setVoiceError(null);
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setError("Microphone access was denied.");
+      // No serviceId — nothing on this box can fix a browser permission, so the
+      // banner renders the sentence alone rather than an inert Start button.
+      setVoiceError({ message: "Microphone access was denied. Allow it for this site in your browser, then try again." });
       return;
     }
     const rec = new MediaRecorder(stream);
@@ -1331,6 +1556,20 @@ export default function QwenStudio() {
           <Mic className="h-3.5 w-3.5" />
         )}
       </button>
+    );
+  }
+
+  /** Shown directly under whichever prompt box the mic sits on. */
+  function renderVoiceBanner() {
+    if (!voiceError) return null;
+    return (
+      <VoiceErrorBanner
+        error={voiceError}
+        onRetry={retryTranscription}
+        canRetry={!!lastRecordingRef.current}
+        retrying={transcribing}
+        onDismiss={() => setVoiceError(null)}
+      />
     );
   }
 
@@ -1402,6 +1641,25 @@ export default function QwenStudio() {
       : activeModel.serviceId === "comfyui"
         ? "ComfyUI"
         : "AI Router";
+  /**
+   * What KIND of thing the runtime is, in plain words.
+   *
+   * The row used to be labelled "Runtime" for one model and "Shared service" for
+   * another, so it never settled into a single idea you could learn once. It is
+   * now always "Runs on", and this line says what that means here: a process on
+   * this box that has to be alive, or someone else's machine reached through the
+   * router. Everything else about the row — the dot, the status, the buttons —
+   * follows from which of those two it is.
+   */
+  const runtimeKind =
+    activeModel.serviceId === "qwen"
+      ? "Local process · :8021 · serves Generate and Edit"
+      : activeModel.serviceId === "comfyui"
+        ? "Local process · :8188 · runs the workflow"
+        : "Cloud · reached through the AI Router";
+  /** The lifecycle behind the row's own Start/Stop; null for a cloud model. */
+  const runtimeLifecycle =
+    activeModel.serviceId === "comfyui" ? comfyLifecycle : activeModel.serviceId === "qwen" ? lifecycle : null;
   const runtimeReady =
     activeModel.serviceId === "qwen"
       ? !!health?.up
@@ -1438,7 +1696,7 @@ export default function QwenStudio() {
           <div className="image-run-setup-heading">
             <div>
               <p>Run setup</p>
-              <span>{inEditMode ? "Edit checkpoint and shared service" : "Generation model and service"}</span>
+              <span>{inEditMode ? "Which checkpoint, and where it runs" : "Which model, and where it runs"}</span>
             </div>
             <span className="is-mode">
               {inEditMode ? "Edit" : mode === "compare" ? "Compare" : "Generate"}
@@ -1453,17 +1711,40 @@ export default function QwenStudio() {
             </span>
             <span className="image-run-setup-action">Change <ChevronRight className="h-3.5 w-3.5" /></span>
           </button>
-          <button type="button" className="image-run-setup-row" onClick={() => setSetupDialog("runtime")}>
+          {/* Not a button any more: the row's own actions live ON it, and nesting
+              them inside a button is both invalid and the wrong shape. Starting a
+              runtime was two clicks and a modal over the thing you were trying to
+              run — for the one action this row exists to enable. */}
+          <div className="image-run-setup-row is-static">
             <span className="image-run-setup-icon" aria-hidden="true"><ServerCog className="h-4 w-4" /></span>
             <span className="min-w-0 flex-1 text-left">
-              <span className="image-run-setup-label">{activeModel.serviceId === "qwen" ? "Shared service" : "Runtime"}</span>
+              <span className="image-run-setup-label">Runs on</span>
               <strong><span className={`image-run-setup-dot ${runtimeBusy ? "is-busy" : runtimeReady ? "is-ready" : "is-offline"}`} />{runtimeName}</strong>
-              <span>{runtimeDetail}</span>
+              <span>{runtimeKind}</span>
             </span>
-            <span className="image-run-setup-action">Manage <ChevronRight className="h-3.5 w-3.5" /></span>
-          </button>
+          </div>
+          <div className="image-run-setup-actions">
+            <span className="image-run-setup-status">{runtimeDetail}</span>
+            {/* Start/Stop only. Restart, Logs and the checkpoint diagnostics are
+                real but rarer, and the rail is a sidebar — they stay in Details. */}
+            {runtimeLifecycle && (
+              <ServiceControls
+                lifecycle={runtimeLifecycle}
+                actions={["stop"]}
+                showLogs={false}
+                stopTitle={
+                  activeModel.serviceId === "qwen"
+                    ? "Stop the shared service and unload its image checkpoint. Both Generate and Edit become unavailable."
+                    : "Stop ComfyUI and free its VRAM."
+                }
+              />
+            )}
+            <button type="button" onClick={() => setSetupDialog("runtime")} className="image-run-setup-details">
+              Details <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
           {activeModel.serviceId === "qwen" && <p className="image-run-setup-note">{checkpoint.note}</p>}
-          {activeModel.serviceId === "comfyui" && <p className="image-run-setup-note">Weights load when you run and are released afterward when ComfyUI is idle. If capacity is unavailable, stop another GPU model in Services.</p>}
+          {activeModel.serviceId === "comfyui" && <p className="image-run-setup-note">Weights load when you run and are released afterward when ComfyUI is idle. If capacity is unavailable, stop another GPU model from Details.</p>}
         </section>
       </aside>
 
@@ -1881,6 +2162,8 @@ export default function QwenStudio() {
           {renderMic()}
         </div>
 
+        {renderVoiceBanner()}
+
         <div className="flex items-center gap-4 flex-wrap text-xs">
           {mode === "generate" && (
             <div className="flex items-center gap-2">
@@ -1910,13 +2193,32 @@ export default function QwenStudio() {
           <button onClick={() => setAdvanced((a) => !a)} className="text-gray-500 hover:text-gray-300">
             {advanced ? "− less" : activeModel.supportsNegative ? "+ seed / negative" : "+ seed"}
           </button>
+          {/* The button starts what it needs. It is disabled only for things it
+              cannot fix itself — an empty prompt, no edit input, or a cloud model
+              with the router down. "Your runtime is off" is not one of those. */}
           <button
             onClick={mode === "generate" ? runGenerate : runEdit}
-            disabled={busy || !prompt.trim() || (mode === "edit" && editImages.length === 0) || !modelUp}
-            title={!modelUp ? `${activeModel.name} is not running.` : undefined}
+            disabled={
+              busy || startingRuntime || !prompt.trim() ||
+              (mode === "edit" && editImages.length === 0) ||
+              (activeModel.serviceId === null && !routerUp)
+            }
+            title={
+              activeModel.serviceId === null && !routerUp
+                ? "The AI Router is offline, so this cloud model can't be called."
+                : !modelUp
+                  ? `${runtimeName} isn't running — this will start it first.`
+                  : undefined
+            }
             className="ml-auto bg-pink-600 hover:bg-pink-500 disabled:opacity-40 disabled:hover:bg-pink-600 rounded-xl px-6 py-2.5 text-sm font-medium transition"
           >
-            {busy ? `Running… ${elapsed.toFixed(1)}s` : mode === "generate" ? "Generate" : "Run Edit"}
+            {startingRuntime
+              ? `Starting ${runtimeName}…`
+              : busy
+                ? `Running… ${elapsed.toFixed(1)}s`
+                : !modelUp && activeModel.serviceId !== null
+                  ? `Start ${runtimeName} & ${mode === "generate" ? "Generate" : "Run Edit"}`
+                  : mode === "generate" ? "Generate" : "Run Edit"}
           </button>
         </div>
 
@@ -1957,12 +2259,66 @@ export default function QwenStudio() {
         </label>
         {busy && <button onClick={() => requestRef.current?.controller.abort()} className="text-xs text-gray-400 underline">Stop waiting</button>}
         {busy && renderStepProgress()}
-        {lastResult && <section aria-label="Latest image result" className="space-y-2 border border-gray-700 rounded-xl p-3">
-          <p className="text-sm text-green-400">{lastResult.saved ? "Saved to " + (lastResult.folder || "Unfiled") : "Image generated"} · {(lastResult.latency / 1000).toFixed(1)}s</p>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={lastResult.image} alt="Latest generated result" className="max-h-80 rounded-lg" />
-          <a href={lastResult.image} download="betenshi-image.png" className="text-xs underline">Download image</a>
-          <button onClick={() => { setEditImages([lastResult.image]); if (!activeModel.supportsEdit) setImageModel("flux2-klein-4b"); setMode("edit"); setPrompt(""); }} className="ml-4 text-sm text-purple-300">Edit this image</button>
+        {lastResult && <section aria-label="Latest image result" className="space-y-3 border border-gray-700 rounded-xl p-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm text-green-400">{lastResult.saved ? "Saved to " + (lastResult.folder || "Unfiled") : "Image generated"}</p>
+            {pinnedResults.length > 0 && (
+              <button onClick={() => setPinnedResults([])} className="ml-auto text-[11px] text-gray-500 hover:text-gray-300 underline">
+                Clear comparison
+              </button>
+            )}
+          </div>
+
+          {/* Side by side once there is something to compare against, full size
+              until then — a lone result has no reason to be shrunk into a tile. */}
+          <div className={pinnedResults.length ? "flex gap-3 overflow-x-auto pb-1" : ""}>
+            {[lastResult, ...pinnedResults].map((r, i) => (
+              <figure
+                key={`${r.modelId}-${i}-${r.image.slice(-24)}`}
+                className={pinnedResults.length ? `flex-shrink-0 w-56 rounded-lg border p-2 ${i === 0 ? "border-pink-500/50 bg-pink-500/5" : "border-gray-800 bg-gray-900/40"}` : ""}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={r.image}
+                  alt={`Result from ${r.modelName}`}
+                  className={pinnedResults.length ? "w-full rounded-md" : "max-h-80 rounded-lg"}
+                />
+                <figcaption className="mt-1.5 flex items-baseline gap-1.5 text-[11px]">
+                  <span className={i === 0 ? "font-medium text-gray-100" : "text-gray-400"}>{r.modelName}</span>
+                  <span className="text-gray-500 tabular-nums">{(r.latency / 1000).toFixed(1)}s · {r.steps} steps</span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-4 flex-wrap">
+            <a href={lastResult.image} download="betenshi-image.png" className="text-xs underline">Download image</a>
+            <button onClick={() => { setEditImages([lastResult.image]); if (!activeModel.supportsEdit) setImageModel("flux2-klein-4b"); setMode("edit"); setPrompt(""); }} className="text-sm text-purple-300">Edit this image</button>
+          </div>
+
+          {/* One prompt across models, one model at a time — the previous result
+              stays on screen instead of living in your memory of it. */}
+          <details className="group rounded-lg border border-gray-800 bg-gray-950/30">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-[11px] font-medium text-gray-400 hover:text-gray-200">
+              <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+              Run this same prompt on another model
+              <span className="ml-auto text-[10px] text-gray-600">keeps this result beside it</span>
+            </summary>
+            <div className="flex flex-wrap gap-1.5 border-t border-gray-800 p-2.5">
+              {rerunCandidates.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => rerunOn(m)}
+                  disabled={busy || startingRuntime}
+                  title={m.serviceId === null ? "Cloud model — billed by its provider" : "Local model — starts its runtime if it isn't running"}
+                  className="rounded-lg border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-left transition hover:border-gray-600 disabled:opacity-40"
+                >
+                  <span className="block text-[11px] font-medium text-gray-200">{m.name}</span>
+                  <span className="block text-[10px] text-gray-500">{m.tier}</span>
+                </button>
+              ))}
+            </div>
+          </details>
         </section>}
         {error && <div className="text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">{error}</div>}
         {mode === "edit" && editNotice && (
@@ -2000,6 +2356,8 @@ export default function QwenStudio() {
               {!batchSubmitting && renderMic()}
             </div>
           )}
+
+          {renderVoiceBanner()}
 
           {/* ── Row 2: count + vary ── */}
           <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400">

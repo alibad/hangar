@@ -52,13 +52,15 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const cause = err instanceof Error && err.cause ? String(err.cause) : "";
+    // The service id rides along so the caller can render a Start button rather
+    // than a sentence pointing at a picker it may not be showing.
     const unreachable =
       target &&
       (target.via === "service"
-        ? `${target.alias} is unreachable — start its service from the picker above.`
+        ? `${target.alias} is unreachable — start its service, or point text-to-speech at another model.`
         : `The AI Router is unreachable, so ${target.alias} can't be called.`);
     return NextResponse.json(
-      { error: unreachable ?? `TTS error: ${message}`, detail: unreachable ? message : undefined, model: target?.alias, cause },
+      { error: unreachable ?? `TTS error: ${message}`, detail: unreachable ? message : undefined, model: target?.alias, serviceId: target?.serviceId, cause },
       { status: 502 }
     );
   }

@@ -789,6 +789,40 @@ html:root:not(.dark) .services-center .text-gray-700 {
 
 .image-run-setup-row:last-child { border-bottom: 0; }
 .image-run-setup-row:hover { background: color-mix(in oklab, var(--accent-500) 7%, transparent); }
+
+/* The Runs-on row is read-only text; its buttons sit on the strip below it, so
+   the whole row must not light up as though clicking it did something. */
+.image-run-setup-row.is-static { border-bottom: 0; cursor: default; }
+.image-run-setup-row.is-static:hover { background: transparent; }
+
+.image-run-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.75rem 0.7rem 3.4rem;
+}
+
+.image-run-setup-status {
+  flex: 1 1 100%;
+  margin-bottom: 0.1rem;
+  color: var(--color-gray-500);
+  font-size: 0.62rem;
+}
+
+.image-run-setup-details {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-gray-700);
+  border-radius: 0.375rem;
+  color: var(--color-gray-400);
+  font-size: 0.68rem;
+  transition: 140ms ease;
+}
+
+.image-run-setup-details:hover { border-color: var(--color-gray-500); color: var(--color-gray-100); }
 .image-run-setup-icon {
   display: grid;
   flex: 0 0 auto;

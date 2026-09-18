@@ -19,8 +19,21 @@ export type AudioRecorder = {
   recording: boolean;
   /** Elapsed milliseconds, ticking while `recording`. */
   ms: number;
-  start: (onDone: (file: File) => void, onError?: (message: string) => void) => Promise<void>;
+  start: (
+    onDone: (file: File) => void,
+    onError?: (message: string) => void,
+    /** Stop on its own after this long. Past the engine's cap the extra audio is
+     *  discarded anyway, so let go of the button rather than silently truncate. */
+    maxMs?: number,
+  ) => Promise<void>;
+  /** Finish the take and hand the file to `onDone`. */
   stop: () => void;
+  /**
+   * Stop WITHOUT delivering. `stop()` still fires `onstop` asynchronously, so a
+   * caller that stopped and then cleared its own state got the clip handed back
+   * a tick later and undid the clear.
+   */
+  cancel: () => void;
 };
 
 export function useAudioRecorder(): AudioRecorder {
@@ -28,6 +41,8 @@ export function useAudioRecorder(): AudioRecorder {
   const [ms, setMs] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Read by `onstop`, which fires a tick after whichever of stop/cancel ran. */
+  const abandonedRef = useRef(false);
 
   const clearTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -35,7 +50,7 @@ export function useAudioRecorder(): AudioRecorder {
   };
 
   const start = useCallback(
-    async (onDone: (file: File) => void, onError?: (message: string) => void) => {
+    async (onDone: (file: File) => void, onError?: (message: string) => void, maxMs?: number) => {
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -49,14 +64,26 @@ export function useAudioRecorder(): AudioRecorder {
       recorder.onstop = () => {
         // Stopping the tracks is what turns off the browser's recording dot.
         stream.getTracks().forEach((t) => t.stop());
+        if (abandonedRef.current) return;
         const blob = new Blob(chunks, { type: "audio/webm" });
         onDone(new File([blob], "recording.webm", { type: "audio/webm" }));
       };
       recorder.start();
       recorderRef.current = recorder;
+      abandonedRef.current = false;
       setRecording(true);
       setMs(0);
-      timerRef.current = setInterval(() => setMs((v) => v + 100), 100);
+      timerRef.current = setInterval(() => {
+        setMs((v) => {
+          const next = v + 100;
+          if (maxMs && next >= maxMs) {
+            clearTimer();
+            setRecording(false);
+            if (recorder.state !== "inactive") recorder.stop();
+          }
+          return next;
+        });
+      }, 100);
     },
     [],
   );
@@ -65,6 +92,14 @@ export function useAudioRecorder(): AudioRecorder {
     recorderRef.current?.stop();
     clearTimer();
     setRecording(false);
+  }, []);
+
+  const cancel = useCallback(() => {
+    abandonedRef.current = true;
+    recorderRef.current?.stop();
+    clearTimer();
+    setRecording(false);
+    setMs(0);
   }, []);
 
   // Unmounting mid-recording would otherwise leave the mic live and the timer
@@ -78,5 +113,5 @@ export function useAudioRecorder(): AudioRecorder {
     [],
   );
 
-  return { recording, ms, start, stop };
+  return { recording, ms, start, stop, cancel };
 }

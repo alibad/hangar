@@ -20,10 +20,16 @@ import { resolveCallTarget } from "@/lib/providers";
  */
 export async function POST(req: NextRequest) {
   let alias: string | undefined;
+  // Held outside the try so a failure can name the service to START, not just the
+  // model that didn't answer. Telling someone "start its service" while keeping
+  // the service id to ourselves is a dead end — the studio renders this into a
+  // Start button, and it can only do that if the id comes back with the error.
+  let serviceId: string | undefined;
   try {
     const form = await req.formData();
     const target = await resolveCallTarget("stt");
     alias = target.alias;
+    serviceId = target.serviceId;
 
     // The local server only knows its own served-model-name; the router wants
     // the alias. resolveCallTarget already worked out which is which.
@@ -38,7 +44,7 @@ export async function POST(req: NextRequest) {
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
       return NextResponse.json(
-        { error: `${target.alias} returned ${res.status}`, detail: detail.slice(0, 300), model: target.alias },
+        { error: `${target.alias} returned ${res.status}`, detail: detail.slice(0, 300), model: target.alias, serviceId },
         { status: 502 },
       );
     }
@@ -58,6 +64,7 @@ export async function POST(req: NextRequest) {
           : "Speech-to-text is unreachable — start the service to use voice input.",
         detail: message,
         model: alias,
+        serviceId,
       },
       { status: 502 },
     );

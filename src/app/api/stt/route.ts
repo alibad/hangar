@@ -68,16 +68,21 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
+    // No "from the picker above" — this route answers the Speech tab AND the
+    // image studio's mic, and only one of them has a picker above anything.
+    // The service id rides along instead, so each caller can offer Start where
+    // it actually shows the failure.
     const unreachable =
       target &&
       (target.via === "service"
-        ? `${target.alias} is unreachable — start its service from the picker above.`
+        ? `${target.alias} is unreachable — start its service, or point speech-to-text at another model.`
         : `The AI Router is unreachable, so ${target.alias} can't be called.`);
     return NextResponse.json(
       {
         error: unreachable ?? `Transcription error: ${reason}`,
         detail: unreachable ? reason : undefined,
         model: target?.alias,
+        serviceId: target?.serviceId,
         latency: Date.now() - start,
       },
       { status: 502 },
