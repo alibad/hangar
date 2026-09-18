@@ -90,6 +90,8 @@ export type CatalogModel = {
    * needs to be recognised (gemma4) says nothing about vision.
    */
   vision?: boolean;
+  /** Declared voices for a speech model — see ModelMeta.voices. */
+  voices?: string[];
   /**
    * For a model on a runtime that loads on demand (Ollama): is it resident RIGHT
    * NOW. Undefined for every other model, where "the service is up" already
@@ -204,6 +206,17 @@ export type ModelMeta = {
   footprint?: Footprint;
   /** Accepts image input. See CatalogModel.vision for why this is declared. */
   vision?: boolean;
+  /**
+   * Voices this speech model offers, for engines that cannot be asked.
+   *
+   * A LOCAL service is asked directly (GET /v1/audio/voices) and its answer
+   * always wins — it is the only source that cannot drift. This field is the
+   * fallback for cloud engines, which the router proxies for speech but has no
+   * endpoint to enumerate voices through. Leave it out rather than guess: the
+   * UI offers a free-text voice box when nothing is known, which is honest,
+   * where an invented list would fail at call time.
+   */
+  voices?: string[];
 };
 
 export type BenchmarkLink = { label: string; url: string };
@@ -410,6 +423,7 @@ export async function getCatalogue(): Promise<{
       // any entry carried the flag, so Vision offered nothing at all. A cloud
       // model added later with no model-meta entry now still lands correctly.
       vision: md.vision ?? info.supports_vision === true,
+      voices: Array.isArray(md.voices) ? md.voices : undefined,
       loaded: ON_DEMAND_SERVICES.has(svcId ?? "") ? residentTargets.has(m.litellm_params?.model ?? "") : undefined,
     };
   });

@@ -1,7 +1,46 @@
 {
-  "local-flux2-klein-4b": { "checkpoint": "black-forest-labs/FLUX.2-klein-4B", "service": "comfyui", "params": "4B denoiser", "docs": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B", "footprint": { "ramGb": 12, "vramGb": 15, "idleRamGb": 0.13, "idleVramGb": 0.1, "kind": "estimate", "basis": "Initial admission estimate: 7.22 GiB BF16 denoiser plus existing mixed-FP8 4B encoder and overhead; official model card quotes approximately 13 GB VRAM. Not a measured peak." } },
-  "local-hidream-o1-dev": { "checkpoint": "Comfy-Org/HiDream-O1-Image", "service": "comfyui", "params": "8B unified · FP8 Dev", "docs": "https://huggingface.co/HiDream-ai/HiDream-O1-Image", "footprint": { "ramGb": 12, "vramGb": 22, "idleRamGb": 0.13, "idleVramGb": 0.1, "kind": "estimate", "basis": "Initial admission estimate: 7.51 GiB unified FP8 checkpoint plus loading/activation headroom for native 2048x2048. No separate prompt-refining LLM. Not a measured peak." } },
-  "local-z-image-turbo": { "checkpoint": "Z-Image-Turbo (local NVFP4)", "service": "comfyui", "params": "6B denoiser · NVFP4", "docs": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo", "footprint": { "ramGb": 8, "vramGb": 12, "idleRamGb": 0.13, "idleVramGb": 0.1, "kind": "estimate", "basis": "Initial admission estimate: existing NVFP4 6B denoiser plus mixed-FP8 4B encoder and inference overhead. Not a measured peak." } },
+  "local-flux2-klein-4b": {
+    "checkpoint": "black-forest-labs/FLUX.2-klein-4B",
+    "service": "comfyui",
+    "params": "4B denoiser",
+    "docs": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B",
+    "footprint": {
+      "ramGb": 12,
+      "vramGb": 15,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "estimate",
+      "basis": "Initial admission estimate: 7.22 GiB BF16 denoiser plus existing mixed-FP8 4B encoder and overhead; official model card quotes approximately 13 GB VRAM. Not a measured peak."
+    }
+  },
+  "local-hidream-o1-dev": {
+    "checkpoint": "Comfy-Org/HiDream-O1-Image",
+    "service": "comfyui",
+    "params": "8B unified · FP8 Dev",
+    "docs": "https://huggingface.co/HiDream-ai/HiDream-O1-Image",
+    "footprint": {
+      "ramGb": 12,
+      "vramGb": 22,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "estimate",
+      "basis": "Initial admission estimate: 7.51 GiB unified FP8 checkpoint plus loading/activation headroom for native 2048x2048. No separate prompt-refining LLM. Not a measured peak."
+    }
+  },
+  "local-z-image-turbo": {
+    "checkpoint": "Z-Image-Turbo (local NVFP4)",
+    "service": "comfyui",
+    "params": "6B denoiser · NVFP4",
+    "docs": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
+    "footprint": {
+      "ramGb": 8,
+      "vramGb": 12,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "estimate",
+      "basis": "Initial admission estimate: existing NVFP4 6B denoiser plus mixed-FP8 4B encoder and inference overhead. Not a measured peak."
+    }
+  },
   "_doc": "Human-facing facts about each router alias: real checkpoint, parameter count, and where to read more. Kept OUT of ai-router.yaml because LiteLLM does not pass custom model_info keys through /model/info (verified) — it returns only its own standard fields. Keyed by the alias in ai-router.yaml. Every field is optional; the UI degrades gracefully. Params for local models are exact counts from the Hugging Face repo; cloud vendors do not publish parameter counts, so those are intentionally absent rather than guessed.",
   "_footprint_doc": "`footprint` answers the only question that matters on a single 32 GB card: what does this model COST to have running, and what else can sit beside it. vramGb/ramGb are approximate by nature, so every entry carries a `basis` saying where the number came from — measured, or read off the launch flags. Do not add a footprint you cannot source in `basis`. Two different meanings are deliberately not averaged: vLLM RESERVES its share up front (the number is a floor you pay the moment it starts), while Qwen-Image PEAKS transiently and idles near zero because its weights live in host RAM. `service` is the BeTenshi service id, duplicated here so footprints still render when the router is down — the surface that most needs them. Cloud models have no footprint: they run off-box and cost money, not memory. Card total is 31.8 GB (32607 MiB).",
   "_benchmarks": {
@@ -103,7 +142,7 @@
   "local-ollama": {
     "vision": false,
     "checkpoint": "qwen3.8:27b-mlx via Ollama (local service on :11434)",
-    "params": "27.8B \u00b7 nvfp4",
+    "params": "27.8B · nvfp4",
     "released": "2026-08",
     "docs": "https://ollama.com/library/qwen3.8",
     "note": "B5 only. Default model for the LLM tab; gemma4:31b-mlx (19 GB) and qwen3-vl:32b-instruct (20 GB) are also pulled and are one `model` field away. Measured 2026-09-14 in ai/b5/bench: Gemma reads vowelled Arabic far better (CER 0.035 vs 0.209); this one is twice as fast.",
@@ -114,16 +153,16 @@
       "idleVramGb": 0,
       "idleRamGb": 0,
       "kind": "peak",
-      "basis": "UNIFIED MEMORY \u2014 vramGb and ramGb are the same 18.2 GB seen from two sides, not two costs to add. It is the on-disk size of the nvfp4 checkpoint (ollama list), which is what Ollama maps in; KV cache at 32K context adds a few GB on top. `peak` rather than `reserved` because Ollama unloads after keep_alive (10 min here), so an idle box holds ~0."
+      "basis": "UNIFIED MEMORY — vramGb and ramGb are the same 18.2 GB seen from two sides, not two costs to add. It is the on-disk size of the nvfp4 checkpoint (ollama list), which is what Ollama maps in; KV cache at 32K context adds a few GB on top. `peak` rather than `reserved` because Ollama unloads after keep_alive (10 min here), so an idle box holds ~0."
     }
   },
   "local-gemma4": {
     "vision": true,
     "checkpoint": "gemma4:31b-it-qat via Ollama (local service on :11434)",
-    "params": "31B \u00b7 int4 QAT",
+    "params": "31B · int4 QAT",
     "released": "2026-08",
     "docs": "https://ollama.com/library/gemma4",
-    "note": "Reads Arabic better than anything else on either box, and is the reason Ollama exists beside vLLM \u2014 vLLM 0.17.1 cannot serve the gemma4 architecture at all. Measured 2026-09-14 in ai/b5/bench over 10 rendered cards: mean CER 0.048, and 0.035 on fully vowelled text where the text-only qwen3.8 scores 0.209. Weakest on the invoice table (0.182) and on Arabic-Indic digits (0.109).",
+    "note": "Reads Arabic better than anything else on either box, and is the reason Ollama exists beside vLLM — vLLM 0.17.1 cannot serve the gemma4 architecture at all. Measured 2026-09-14 in ai/b5/bench over 10 rendered cards: mean CER 0.048, and 0.035 on fully vowelled text where the text-only qwen3.8 scores 0.209. Weakest on the invoice table (0.182) and on Arabic-Indic digits (0.109).",
     "service": "ollama",
     "footprint": {
       "vramGb": 19,
@@ -131,16 +170,16 @@
       "idleVramGb": 0,
       "idleRamGb": 0,
       "kind": "peak",
-      "basis": "The 31b-mlx sibling measures 19 GB on disk on B5 (`ollama list`), which is what Ollama maps in; the int4 QAT build this alias points at is the same parameter count at the same bit-width. NOT re-measured against BeTenshi's own store \u2014 run `ollama list` there and correct this if it differs. KV cache at 32K adds a few GB. `peak`, not `reserved`: Ollama unloads after OLLAMA_KEEP_ALIVE, so an idle box holds ~0."
+      "basis": "The 31b-mlx sibling measures 19 GB on disk on B5 (`ollama list`), which is what Ollama maps in; the int4 QAT build this alias points at is the same parameter count at the same bit-width. NOT re-measured against BeTenshi's own store — run `ollama list` there and correct this if it differs. KV cache at 32K adds a few GB. `peak`, not `reserved`: Ollama unloads after OLLAMA_KEEP_ALIVE, so an idle box holds ~0."
     }
   },
   "local-qwen3-vl": {
     "vision": true,
     "checkpoint": "qwen3-vl:32b-instruct via Ollama (local service on :11434)",
-    "params": "32B \u00b7 q4",
+    "params": "32B · q4",
     "released": "2026-08",
     "docs": "https://ollama.com/library/qwen3-vl",
-    "note": "The second vision model, and the better one on vowelled text (CER 0.023 vs Gemma's 0.035) and on Arabic-Indic digits (0.054 vs 0.109) \u2014 but the worse one overall (mean CER 0.060) because it falls apart on the invoice table (0.332), and the slowest of the three at 2.2 tok/s. Measured 2026-09-14 in ai/b5/bench.",
+    "note": "The second vision model, and the better one on vowelled text (CER 0.023 vs Gemma's 0.035) and on Arabic-Indic digits (0.054 vs 0.109) — but the worse one overall (mean CER 0.060) because it falls apart on the invoice table (0.332), and the slowest of the three at 2.2 tok/s. Measured 2026-09-14 in ai/b5/bench.",
     "service": "ollama",
     "footprint": {
       "vramGb": 20,
@@ -163,7 +202,15 @@
     "docs": "https://platform.openai.com/docs/guides/speech-to-text"
   },
   "openai-tts": {
-    "docs": "https://platform.openai.com/docs/guides/text-to-speech"
+    "docs": "https://platform.openai.com/docs/guides/text-to-speech",
+    "voices": [
+      "alloy",
+      "echo",
+      "fable",
+      "onyx",
+      "nova",
+      "shimmer"
+    ]
   },
   "claude-opus": {
     "vision": true,

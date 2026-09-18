@@ -289,6 +289,18 @@ export default function Home() {
   const [ttsText, setTtsText] = useState("");
   const [ttsVoice, setTtsVoice] = useState("alloy");
   /**
+   * Voices the routed speech model actually has, asked of it rather than
+   * hardcoded. `source: "none"` means nothing could be enumerated, and the UI
+   * offers a free-text box instead of a list of guesses. See /api/tts/voices.
+   */
+  const [ttsVoices, setTtsVoices] = useState<{
+    source: "service" | "declared" | "none";
+    voices: { id: string; label?: string }[];
+    detail?: string;
+    /** Routing could not be honoured — e.g. a cloud alias fell back to local. */
+    degraded?: string;
+  } | null>(null);
+  /**
    * Which half of Speech Lab is on screen.
    *
    * The two directions were rendered side by side, so each got half the width
@@ -374,6 +386,38 @@ export default function Home() {
     const saved = window.localStorage.getItem("bt-stack-density");
     if (saved) setCompactStack(saved !== "detail");
   }, []);
+
+  // Ask the routed speech model what voices it has, only while that panel is on
+  // screen. Re-asked on an interval because the picker sitting directly above it
+  // can repoint the capability at an engine with an entirely different voice set.
+  useEffect(() => {
+    if (tab !== "speech" || speechMode !== "tts") return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/tts/voices", { cache: "no-store" });
+        const payload = await res.json();
+        if (!cancelled) setTtsVoices(payload);
+      } catch {
+        /* keep the last good list */
+      }
+    };
+    load();
+    const iv = setInterval(load, 10_000);
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [tab, speechMode]);
+
+  // Keep the selection valid. Switching engines used to leave "alloy" selected
+  // against a model that has never heard of it, which fails at Speak time with a
+  // server error rather than at pick time with a different list.
+  useEffect(() => {
+    if (!ttsVoices?.voices.length) return;
+    if (ttsVoices.voices.some((v) => v.id === ttsVoice)) return;
+    setTtsVoice(ttsVoices.voices[0].id);
+  }, [ttsVoices, ttsVoice]);
 
   const checkHealth = useCallback(async () => {
     try {
@@ -1764,19 +1808,33 @@ export default function Home() {
                     placeholder="Type text to speak..." rows={2}
                     className="flex-1 bg-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 placeholder-gray-500 resize-none" />
                   <div className="flex flex-col gap-2">
-                    <Select value={ttsVoice} onValueChange={(v) => v && setTtsVoice(v)}>
-                      <SelectTrigger className="w-36 bg-gray-800 border-gray-700 text-xs text-gray-300">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-700 text-gray-300">
-                        <SelectItem value="alloy">Alloy (F)</SelectItem>
-                        <SelectItem value="echo">Echo (M)</SelectItem>
-                        <SelectItem value="fable">Fable (F, UK)</SelectItem>
-                        <SelectItem value="onyx">Onyx (M)</SelectItem>
-                        <SelectItem value="nova">Nova (F)</SelectItem>
-                        <SelectItem value="shimmer">Shimmer (F)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {/* The routed engine's own voices. Six names used to be
+                        hardcoded here; they were right for Kokoro and wrong for
+                        every cloud engine, and they hid the ~40 other voices
+                        Kokoro accepts by its own id. */}
+                    {ttsVoices && ttsVoices.voices.length === 0 ? (
+                      <input
+                        type="text"
+                        value={ttsVoice}
+                        onChange={(e) => setTtsVoice(e.target.value)}
+                        placeholder="voice name"
+                        title={ttsVoices.detail}
+                        className="w-36 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                      />
+                    ) : (
+                      <Select value={ttsVoice} onValueChange={(v) => v && setTtsVoice(v)}>
+                        <SelectTrigger className="w-36 bg-gray-800 border-gray-700 text-xs text-gray-300">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-gray-700 text-gray-300">
+                          {(ttsVoices?.voices ?? [{ id: ttsVoice }]).map((v) => (
+                            <SelectItem key={v.id} value={v.id} className="text-xs">
+                              {v.label ?? v.id}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                     <button type="submit" disabled={ttsSpeaking || !ttsText.trim()}
                       className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 rounded-lg px-4 py-1.5 text-sm font-medium transition">
                       {ttsSpeaking ? "..." : "Speak"}
@@ -1797,6 +1855,12 @@ export default function Home() {
                 <div className={ttsError ? "mt-2 text-[11px] text-red-400" : "hidden"}>
                   {ttsError}
                 </div>
+                {/* The routing could not be honoured. Without this the panel
+                    shows a cloud alias beside the local engine's voices and
+                    nothing explains the mismatch. */}
+                {ttsVoices?.degraded && (
+                  <p className="mt-2 text-[11px] text-amber-400">{ttsVoices.degraded}</p>
+                )}
               </form>
               <ModelDiscovery capability="tts" label="text → speech" className="mt-3" />
             </section>
