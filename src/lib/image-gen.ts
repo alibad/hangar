@@ -11,7 +11,7 @@ import { saveImage, safeFolder } from "@/lib/save-image";
 import { nodePost } from "@/lib/qwen-http";
 import { generateFlux, generateComfyImage } from "@/lib/flux";
 import { getImageModel, isImageModelId, type ImageModelId } from "@/lib/image-models";
-import { routerUrl } from "@/lib/providers";
+import { getCatalogue, routerUrl } from "@/lib/providers";
 import { mirrorImageHistory } from "@/lib/image-history";
 import { ResourceLeaseError, withResourceLease, workloadForImageModel } from "@/lib/resource-manager";
 
@@ -46,11 +46,32 @@ type GenPayload = {
  * no such option — the router is the only place vendor ids and keys live — so
  * this is the one image path that must go through it.
  *
- * The local-only knobs are sent regardless: the router runs with drop_params, so
- * a provider that doesn't understand `steps` or `cfg` ignores them instead of
- * 400-ing, which is what lets one prompt fan out across every model unchanged.
+ * The local-only knobs used to be sent regardless, on the theory that the router
+ * runs with drop_params and a provider that doesn't understand `steps` or `cfg`
+ * would ignore them. It does not. litellm forwards them to OpenAI's images
+ * endpoint, which rejects them one at a time:
+ *   400 Unknown parameter: 'negative_prompt'   → remove it, then
+ *   400 Unknown parameter: 'steps'             → and so on.
+ * Since the payload defaults negative_prompt to a single space rather than "",
+ * one was ALWAYS present, so gpt-image-2 could not be generated from this
+ * console by any path — not the model dialog, not a comparison.
+ *
+ * They are diffusion knobs, and a hosted image API has no denoising loop to
+ * configure, so the fix is to send them only to models that actually have one.
+ * The router's own catalogue already knows which aliases are backed by a local
+ * service, which beats keeping a list of provider quirks here.
  */
 async function generateViaRouter(alias: string, p: GenPayload): Promise<Buffer> {
+  const { models } = await getCatalogue();
+  const isDiffusion = models.find((m) => m.id === alias)?.local ?? false;
+  const knobs = isDiffusion
+    ? {
+        ...(p.negative_prompt.trim() ? { negative_prompt: p.negative_prompt } : {}),
+        steps: p.steps,
+        cfg: p.cfg,
+        seed: p.seed,
+      }
+    : {};
   // nodePost, NOT fetch. undici caps headersTimeout at 300s regardless of any
   // AbortSignal you pass, and a routed local generation blows straight through
   // that — measured: a 308s run died with a bare "fetch failed" that looked like
@@ -63,10 +84,7 @@ async function generateViaRouter(alias: string, p: GenPayload): Promise<Buffer> 
       size: `${p.width}x${p.height}`,
       n: 1,
       response_format: "b64_json",
-      negative_prompt: p.negative_prompt,
-      steps: p.steps,
-      cfg: p.cfg,
-      seed: p.seed,
+      ...knobs,
     }),
     { "Content-Type": "application/json", "X-Source": "console/compare" },
     undefined,

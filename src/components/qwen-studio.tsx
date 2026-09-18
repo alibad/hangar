@@ -948,7 +948,11 @@ export default function QwenStudio() {
         headers: { "Content-Type": "application/json" },
         signal: request.controller.signal,
         body: JSON.stringify({ model: target.id, prompt, images: kind === "edit" ? editImages : undefined,
-          negative_prompt: negative, width, height, steps: override?.steps ?? steps, cfg: override?.cfg ?? cfg, seed: resolveSeed(), folder, requestId: request.id }),
+          // The negative box is hidden for models that ignore negatives, so
+          // whatever is still in state belongs to a DIFFERENT model — sending it
+          // on is how a stale negative from Qwen reached gpt-image-2.
+          negative_prompt: target.supportsNegative ? negative : "",
+          width, height, steps: override?.steps ?? steps, cfg: override?.cfg ?? cfg, seed: resolveSeed(), folder, requestId: request.id }),
       });
       const data = await res.json();
       if (res.ok && data.status === "success") {

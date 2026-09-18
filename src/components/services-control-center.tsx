@@ -182,7 +182,83 @@ export default function ServicesControlCenter({ services, catalogByService, serv
           </div>
         )}
       </section>
+
+      <AgentAccess />
     </div>
+  );
+}
+
+/**
+ * How a coding agent reaches all of the above.
+ *
+ * Deliberately NOT a guide to the services — that lives in the MCP server's own
+ * tool descriptions, which reach the agent directly and cannot drift from the
+ * code the way a page would. The only thing a page can do that `tools/list`
+ * cannot is hand you the connection config for a client that is not wired up
+ * yet, so that is all this does.
+ */
+function AgentAccess() {
+  const [copied, setCopied] = useState<string | null>(null);
+  const server = "C:/Users/Admin/Code/AI/betenshi-console/scripts/mcp-betenshi.mjs";
+
+  const snippets = [
+    {
+      id: "claude",
+      label: "Claude Code",
+      where: "~/.claude.json",
+      code: `"mcpServers": {\n  "betenshi": {\n    "type": "stdio",\n    "command": "node",\n    "args": ["${server}"]\n  }\n}`,
+    },
+    {
+      id: "codex",
+      label: "Codex",
+      where: "~/.codex/config.toml",
+      code: `[mcp_servers.betenshi]\ncommand = "node"\nargs = ["${server}"]`,
+    },
+  ];
+
+  const copy = async (id: string, code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(id);
+      setTimeout(() => setCopied((c) => (c === id ? null : c)), 1500);
+    } catch {
+      /* clipboard blocked — the snippet is on screen to select by hand */
+    }
+  };
+
+  return (
+    <section className="cockpit-surface overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/75">
+      <div className="border-b border-gray-800 px-4 py-3 sm:px-5">
+        <h2 className="text-sm font-medium text-gray-200">Agent access</h2>
+        <p className="mt-0.5 text-[11px] text-gray-500">
+          One MCP server exposes the services above to a coding agent: start and stop them, read their
+          logs and the GPU, speak in a cloned voice, generate an image, transcribe audio. The agent
+          discovers what each tool does on its own — these snippets only connect it.
+        </p>
+      </div>
+      <div className="grid gap-3 p-3 md:grid-cols-2 sm:p-4">
+        {snippets.map((s) => (
+          <div key={s.id} className="rounded-xl border border-gray-800 bg-gray-950/50 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-200">{s.label}</p>
+                <p className="truncate font-mono text-[10px] text-gray-600">{s.where}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => copy(s.id, s.code)}
+                className="flex-shrink-0 rounded-lg border border-gray-700 px-2.5 py-1 text-[11px] text-gray-300 transition hover:border-gray-500 hover:text-gray-100"
+              >
+                {copied === s.id ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <pre className="overflow-x-auto whitespace-pre font-mono text-[10px] leading-relaxed text-gray-400">
+              {s.code}
+            </pre>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
