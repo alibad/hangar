@@ -126,6 +126,31 @@ considered items on it were the least visible.
    one and lose another, and a single average hides exactly the trade the reader is making.
    A model absent from a board is unmeasured there — say so rather than ranking it on the
    board it happens to appear in.
+2c. **For text-to-speech, rank on the Open TTS Leaderboard.** `hf-audio/open_tts_leaderboard`
+   exists and is maintained — updated 17-09-2026 — and both `ResembleAI/chatterbox` and
+   `tencent/AuK`, a candidate this report already carries, list it among their Spaces. 5b
+   told this routine that TTS had no comparable public benchmark and to fall back on
+   adoption and licence; that was true when it was written and is not true now. Rank on the
+   board the way 2b ranks ASR, cite the build pulled, and where a model is absent from it
+   say so rather than ranking it on adoption by default.
+
+   **Evaluate next run:** `ResembleAI/chatterbox` (MIT, 23 languages, zero-shot voice
+   cloning), `ResembleAI/chatterbox-turbo` (MIT, English) and `YatharthS/LuxTTS`
+   (apache-2.0, ONNX, English). Not because they are popular — 5b is right that attention
+   is not evidence — but because the standing TTS pick can be checked against them on this
+   report's own stated grounds and does not obviously survive it. As of 18-09-2026 the hub
+   gives `ResembleAI/chatterbox` 21.9M downloads and 1,792 likes under MIT, against
+   `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` at 15.0M and 1,976 under apache-2.0. So the
+   current claim that Qwen3-TTS is "the most-pulled clean-licensed TTS on the hub by an
+   order of magnitude" is wrong twice over: the gap is 0.7x rather than 10x, and it runs the
+   other way. That entry also still cites 2.62M downloads, which the same endpoint now
+   contradicts — the exact decay 1b exists to catch. Chatterbox additionally does zero-shot
+   voice cloning, which nothing on this box does at all, so it is not a like-for-like
+   repoint and belongs in `candidates` rather than `upgrades`.
+
+   Hume's TADA is **not** on the hub and looks cloud-only. Confirm that before listing it
+   anywhere as local; if it is an API it belongs to discovery, not to this report.
+
 3. Read the live vendor model lists for anything new worth an opinion.
 4. **Do not re-list what the leaderboard already covers.** The Leaderboard tab ranks every
    open-weights text model with a parameter count against this card automatically, and the
@@ -139,9 +164,12 @@ considered items on it were the least visible.
    GGUF is portable; do not pin it.
 5b. **Rank on evidence, not on attention.** Trending measures how many people looked. Where
    a capability has a comparable public benchmark, rank on it and cite the build you pulled
-   (2b is the worked example). Where none exists — most image and TTS models — say the
-   ranking is adoption and licence rather than measured quality, instead of implying a
-   number you do not have.
+   — 2b is the worked example for ASR and 2c for TTS. Where none exists — image models, and
+   anything a board has not reached — say the ranking is adoption and licence rather than
+   measured quality, instead of implying a number you do not have. Check whether a board has
+   appeared before invoking that fallback: this clause named TTS as benchmark-less for
+   months after `hf-audio/open_tts_leaderboard` started publishing, and the fallback is what
+   let the TTS pick go unchecked.
 6. Rewrite `config/model-scout.json` **whole**, keeping the `_doc` and `_schema` keys.
 7. Run `npm test` and `npx tsc --noEmit`, then commit **only** `config/model-scout.json`
    to `master` with a message naming what changed. Push it.
