@@ -327,6 +327,14 @@ model_list:
       mode: chat
     # wired 2026-08-19 — wire-all
 
+  - model_name: claude-fable-5-1
+    litellm_params:
+      model: anthropic/claude-fable-5-1
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-09-18 — wire-all
+
   - model_name: claude-opus-5
     litellm_params:
       model: anthropic/claude-opus-5
@@ -382,6 +390,14 @@ model_list:
     model_info:
       mode: audio_speech
     # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-3.5-transcribe
+    litellm_params:
+      model: gemini/gemini-3.5-transcribe
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: audio_transcription
+    # wired 2026-09-18 — wire-all
 
   - model_name: gemini-3.7-flash
     litellm_params:
@@ -470,6 +486,14 @@ model_list:
     model_info:
       mode: chat
     # wired 2026-08-19 — wire-all
+
+  - model_name: gpt-6-astra
+    litellm_params:
+      model: openai/gpt-6-astra
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: chat
+    # wired 2026-09-18 — wire-all
 
   - model_name: gpt-image-1
     litellm_params:
