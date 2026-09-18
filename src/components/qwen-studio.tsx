@@ -353,6 +353,13 @@ export default function QwenStudio() {
     modelId: string;
     modelName: string;
     steps: number;
+    /**
+     * Whether `steps` describes anything real. A hosted image API has no
+     * denoising loop and is never sent one (see generateViaRouter), so printing
+     * "28 steps" under a gpt-image-2 result stated a parameter that had no part
+     * in making it — in a panel whose whole job is comparing models honestly.
+     */
+    diffusion: boolean;
     prompt: string;
   };
   const [lastResult, setLastResult] = useState<StudioResult | null>(null);
@@ -959,7 +966,8 @@ export default function QwenStudio() {
         if (!lockSeed) setSeed(String(data.seed));
         setLastResult({
           image: data.image, saved: data.saved, latency: data.latency, folder,
-          modelId: target.id, modelName: target.name, steps: override?.steps ?? steps, prompt,
+          modelId: target.id, modelName: target.name, steps: override?.steps ?? steps,
+          diffusion: target.serviceId !== null, prompt,
         });
         setSelectedFolder(folder);
         setGalleryBatchFilter(null);
@@ -2286,9 +2294,17 @@ export default function QwenStudio() {
         </label>
         {busy && <button onClick={() => requestRef.current?.controller.abort()} className="text-xs text-gray-400 underline">Stop waiting</button>}
         {busy && renderStepProgress()}
-        {lastResult && <section aria-label="Latest image result" className="space-y-3 border border-gray-700 rounded-xl p-3">
+        {/* Survives a run in flight, which `lastResult` alone does not: starting
+            a request clears it, so gating the whole section on it made the
+            carried result DISAPPEAR for the minutes a rerun takes — the exact
+            "hold it in your head" problem the comparison exists to remove. */}
+        {(lastResult || pinnedResults.length > 0) && <section aria-label="Latest image result" className="space-y-3 border border-gray-700 rounded-xl p-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm text-green-400">{lastResult.saved ? "Saved to " + (lastResult.folder || "Unfiled") : "Image generated"}</p>
+            <p className="text-sm text-green-400">
+              {lastResult
+                ? lastResult.saved ? "Saved to " + (lastResult.folder || "Unfiled") : "Image generated"
+                : `Comparing — ${activeModel.name} is running`}
+            </p>
             {pinnedResults.length > 0 && (
               <button onClick={() => setPinnedResults([])} className="ml-auto text-[11px] text-gray-500 hover:text-gray-300 underline">
                 Clear comparison
@@ -2299,7 +2315,7 @@ export default function QwenStudio() {
           {/* Side by side once there is something to compare against, full size
               until then — a lone result has no reason to be shrunk into a tile. */}
           <div className={pinnedResults.length ? "flex gap-3 overflow-x-auto pb-1" : ""}>
-            {[lastResult, ...pinnedResults].map((r, i) => (
+            {[...(lastResult ? [lastResult] : []), ...pinnedResults].map((r, i) => (
               <figure
                 key={`${r.modelId}-${i}-${r.image.slice(-24)}`}
                 className={pinnedResults.length ? `flex-shrink-0 w-56 rounded-lg border p-2 ${i === 0 ? "border-pink-500/50 bg-pink-500/5" : "border-gray-800 bg-gray-900/40"}` : ""}
@@ -2312,20 +2328,22 @@ export default function QwenStudio() {
                 />
                 <figcaption className="mt-1.5 flex items-baseline gap-1.5 text-[11px]">
                   <span className={i === 0 ? "font-medium text-gray-100" : "text-gray-400"}>{r.modelName}</span>
-                  <span className="text-gray-500 tabular-nums">{(r.latency / 1000).toFixed(1)}s · {r.steps} steps</span>
+                  <span className="text-gray-500 tabular-nums">{(r.latency / 1000).toFixed(1)}s{r.diffusion ? ` · ${r.steps} steps` : " · cloud"}</span>
                 </figcaption>
               </figure>
             ))}
           </div>
 
-          <div className="flex items-center gap-4 flex-wrap">
+          {lastResult && <div className="flex items-center gap-4 flex-wrap">
             <a href={lastResult.image} download="betenshi-image.png" className="text-xs underline">Download image</a>
             <button onClick={() => { setEditImages([lastResult.image]); if (!activeModel.supportsEdit) setImageModel("flux2-klein-4b"); setMode("edit"); setPrompt(""); }} className="text-sm text-purple-300">Edit this image</button>
-          </div>
+          </div>}
 
           {/* One prompt across models, one model at a time — the previous result
-              stays on screen instead of living in your memory of it. */}
-          <details className="group rounded-lg border border-gray-800 bg-gray-950/30">
+              stays on screen instead of living in your memory of it. Hidden while
+              a run is in flight: the candidate list is derived from the result
+              that just landed, and every button in it is disabled anyway. */}
+          {lastResult && <details className="group rounded-lg border border-gray-800 bg-gray-950/30">
             <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-[11px] font-medium text-gray-400 hover:text-gray-200">
               <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
               Run this same prompt on another model
@@ -2345,7 +2363,7 @@ export default function QwenStudio() {
                 </button>
               ))}
             </div>
-          </details>
+          </details>}
         </section>}
         {error && <div className="text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">{error}</div>}
         {mode === "edit" && editNotice && (
