@@ -26,6 +26,14 @@
       "source": "wire-all"
     },
     {
+      "alias": "claude-fable-5-1",
+      "target": "anthropic/claude-fable-5-1",
+      "provider": "anthropic",
+      "mode": "chat",
+      "addedAt": "2026-09-18T12:57:04.916Z",
+      "source": "wire-all"
+    },
+    {
       "alias": "claude-opus-5",
       "target": "anthropic/claude-opus-5",
       "provider": "anthropic",
@@ -79,6 +87,14 @@
       "provider": "gemini",
       "mode": "audio_speech",
       "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gemini-3.5-transcribe",
+      "target": "gemini/gemini-3.5-transcribe",
+      "provider": "gemini",
+      "mode": "audio_transcription",
+      "addedAt": "2026-09-18T12:57:04.916Z",
       "source": "wire-all"
     },
     {
@@ -167,6 +183,14 @@
       "provider": "openai",
       "mode": "chat",
       "addedAt": "2026-08-19T08:33:01.302Z",
+      "source": "wire-all"
+    },
+    {
+      "alias": "gpt-6-astra",
+      "target": "openai/gpt-6-astra",
+      "provider": "openai",
+      "mode": "chat",
+      "addedAt": "2026-09-18T12:57:04.916Z",
       "source": "wire-all"
     },
     {
