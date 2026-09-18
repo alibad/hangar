@@ -915,10 +915,15 @@ export default function QwenStudio() {
       setError(
         target.serviceId === null
           ? "The AI Router is offline, so this cloud model can't be called."
-          : `${target.serviceId === "comfyui" ? "ComfyUI" : "The Qwen-Image service"} did not come up. Open Details on the Runs on row for its logs.`,
+          : `${target.serviceId === "comfyui" ? "ComfyUI" : "The Qwen-Image service"} did not come up — open Details in Run setup for its logs.`,
       );
       return;
     }
+
+    // An ordinary run starts a new comparison. Only rerunOn() carries the
+    // previous results forward — otherwise a fresh prompt would appear beside
+    // images made from a different one, which is worse than no comparison.
+    if (!override) setPinnedResults([]);
 
     const request = beginImageRequest();
     const folder = outputFolder;
@@ -1742,6 +1747,13 @@ export default function QwenStudio() {
             <button type="button" onClick={() => setSetupDialog("runtime")} className="image-run-setup-details">
               Details <ChevronRight className="h-3.5 w-3.5" />
             </button>
+            {/* Only while it means something. A multi-minute weight load needs
+                evidence it is progressing, and a start that died needs to say so
+                here rather than behind Details. The plain "it's down" case is
+                already the status line above. */}
+            {runtimeLifecycle && (runtimeLifecycle.busyVerb === "start" || runtimeLifecycle.error) && (
+              <ServiceStartupNote lifecycle={runtimeLifecycle} className="w-full" />
+            )}
           </div>
           {activeModel.serviceId === "qwen" && <p className="image-run-setup-note">{checkpoint.note}</p>}
           {activeModel.serviceId === "comfyui" && <p className="image-run-setup-note">Weights load when you run and are released afterward when ComfyUI is idle. If capacity is unavailable, stop another GPU model from Details.</p>}

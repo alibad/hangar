@@ -135,6 +135,18 @@ export function useServiceLifecycle(
           let now = await probeRef.current();
           while (now !== target && Date.now() < deadline) {
             await new Promise((r) => setTimeout(r, 1500));
+            // A start that CANNOT succeed shouldn't hold the caller for the full
+            // deadline. The manager knows within seconds when the process exited
+            // — a missing Python module, a port already taken — and three
+            // minutes of "Starting…" over a process that is already dead is a
+            // lie the caller then repeats in its own button.
+            if (target) {
+              const failed = (await managedServices()).find((r) => r.id === id)?.status === "failed";
+              if (failed) {
+                setError(`${serviceName(id)} exited while starting. Open Logs for the reason.`);
+                break;
+              }
+            }
             now = await probeRef.current();
           }
         }
