@@ -880,7 +880,6 @@ export default function QwenStudio() {
    */
   async function rerunOn(target: ImageModel) {
     if (!prompt.trim() || busy || startingRuntime) return;
-    if (lastResult) setPinnedResults((prev) => [lastResult, ...prev].slice(0, 3));
     const alias = target.serviceId === "qwen" ? qwenAlias : target.serviceId === null ? target.id : null;
     await pickModel(target.id, alias);
     await runImageRequest("generate", {
@@ -899,9 +898,12 @@ export default function QwenStudio() {
   }, [cloudModels, lastResult?.modelId]);
 
   /**
-   * Run a model that is not the currently selected one — see rerunOn(). Carries
-   * its own steps/cfg because those aren't transferable: 28 steps on a 4-step
-   * distilled model is wasted minutes, 4 steps on Qwen is mush.
+   * Run a model that is not the currently selected one — see rerunOn().
+   *
+   * Carries its own steps/cfg because those aren't transferable: 28 steps on a
+   * 4-step distilled model is wasted minutes, 4 steps on Qwen is mush. Size is
+   * deliberately NOT overridden — a comparison holds the frame constant, so both
+   * models answer the same prompt at the same dimensions.
    */
   type RunOverride = { model: ImageModel; steps: number; cfg: number };
 
@@ -920,10 +922,19 @@ export default function QwenStudio() {
       return;
     }
 
-    // An ordinary run starts a new comparison. Only rerunOn() carries the
-    // previous results forward — otherwise a fresh prompt would appear beside
-    // images made from a different one, which is worse than no comparison.
-    if (!override) setPinnedResults([]);
+    // Carry the previous result into the comparison strip — but only here, once
+    // the runtime is up and the run is really going to happen. Pinning at the
+    // click meant a rerun whose service never started left the same image on
+    // screen twice: still the latest result, and now also pinned beside itself.
+    //
+    // An ordinary run starts a new comparison instead: a fresh prompt beside
+    // images made from a different one is worse than no comparison at all.
+    if (override) {
+      const carried = lastResult;
+      if (carried) setPinnedResults((prev) => [carried, ...prev].slice(0, 3));
+    } else {
+      setPinnedResults([]);
+    }
 
     const request = beginImageRequest();
     const folder = outputFolder;
