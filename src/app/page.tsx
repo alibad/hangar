@@ -145,6 +145,8 @@ type ChatMessage = {
   thinking?: string | null;
   /** finish_reason === "length": the reply was cut off, often mid-thought. */
   truncated?: boolean;
+  /** The ceiling it hit, so the notice can name a number rather than a concept. */
+  maxTokens?: number;
   latency?: number;
   tokens?: number;
   model?: string;
@@ -299,6 +301,8 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  /** Elapsed wait, so the pending bubble can count instead of just bouncing. */
+  const [sendingMs, setSendingMs] = useState(0);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -412,6 +416,15 @@ export default function Home() {
   // Ask the routed speech model what voices it has, only while that panel is on
   // screen. Re-asked on an interval because the picker sitting directly above it
   // can repoint the capability at an engine with an entirely different voice set.
+  // Ticks only while a reply is outstanding; the interval is torn down as soon
+  // as `sending` clears, so an idle Chat tab is not re-rendering every second.
+  useEffect(() => {
+    if (!sending) return;
+    const started = Date.now();
+    const iv = setInterval(() => setSendingMs(Date.now() - started), 1000);
+    return () => clearInterval(iv);
+  }, [sending]);
+
   // Also called directly by VoiceCloner: a voice enrolled a moment ago should
   // reach the picker now, not on the next 10-second tick.
   const loadTtsVoices = useCallback(async () => {
@@ -674,6 +687,7 @@ export default function Home() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setSending(true);
+    setSendingMs(0);
     try {
       // Go through our own route so it uses the active LLM (and no browser CORS
       // to the model). The server route resolves URL + served-model + auth.
@@ -692,6 +706,7 @@ export default function Home() {
               content: data.content,
               thinking: data.thinking,
               truncated: data.truncated,
+              maxTokens: data.maxTokens,
               latency: data.latency,
               tokens: data.usage?.total_tokens,
               model: data.model,
@@ -1652,6 +1667,16 @@ export default function Home() {
                               : "Empty reply."}
                           </p>
                         )}
+                        {/* A cut-off reply that still HAS content said nothing
+                            at all before — the notice below was reachable only
+                            when the model returned an empty string. So "give me
+                            100 prompts" stopped mid-list and looked like the
+                            model's own choice. */}
+                        {msg.truncated && msg.content ? (
+                          <p className="mt-2 rounded-md border border-amber-500/25 bg-amber-500/5 px-2 py-1 text-[11px] text-amber-400">
+                            Cut off at the {msg.maxTokens ?? "token"} limit — ask for less, or for the rest.
+                          </p>
+                        ) : null}
                         {msg.latency != null && (
                           <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
                             <span>{msg.latency}ms</span>
@@ -1664,10 +1689,20 @@ export default function Home() {
                   {sending && (
                     <div className="flex justify-start">
                       <div className="bg-gray-800 rounded-2xl px-4 py-3">
-                        <div className="flex gap-1">
-                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:0ms]" />
-                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:150ms]" />
-                          <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:300ms]" />
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1">
+                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:300ms]" />
+                          </div>
+                          {/* Three dots alone read as "stuck" once the wait runs
+                              past a few seconds, and a local 31B routinely takes
+                              half a minute. A counter says "working", and the
+                              cold-start note says why the first one is worse. */}
+                          <span className="text-[11px] tabular-nums text-gray-500">
+                            {(sendingMs / 1000).toFixed(0)}s
+                            {sendingMs > 12_000 ? " · a local model this size takes a while" : ""}
+                          </span>
                         </div>
                       </div>
                     </div>

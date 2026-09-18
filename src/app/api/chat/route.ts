@@ -50,8 +50,16 @@ function splitThinking(content: string, reasoningField?: string | null) {
  * resolveCallTarget is the one place that answers "which model, where, and by
  * what route", and /api/stt and /api/tts already go through it.
  */
+/** Room for a real answer from a model that thinks out loud. See max_tokens below. */
+const DEFAULT_MAX_TOKENS = 4096;
+const MAX_MAX_TOKENS = 32768;
+
 export async function POST(req: NextRequest) {
-  const { message } = await req.json();
+  const { message, max_tokens } = await req.json();
+  const maxTokens = Math.min(
+    Math.max(Number.isFinite(max_tokens) ? Number(max_tokens) : DEFAULT_MAX_TOKENS, 1),
+    MAX_MAX_TOKENS,
+  );
 
   const start = Date.now();
   // Outside the try so a connection failure can name what it tried to reach.
@@ -69,7 +77,13 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: target.model,
         messages: [{ role: "user", content: message }],
-        max_tokens: 1024,
+        // 1024 was far too low for the models actually routed here. gemma4:31b
+        // spends ~390 completion tokens answering "say hi in three words", so
+        // anything resembling a list — "give me 100 prompts" — ran out of budget
+        // mid-sentence and came back visibly chopped, with nothing in the UI
+        // saying why. Overridable, because the right ceiling is a property of
+        // the question, not of this file.
+        max_tokens: maxTokens,
       }),
     });
 
@@ -93,8 +107,10 @@ export async function POST(req: NextRequest) {
       // the reply is not silently attributed to the model you picked.
       degraded: target.degraded,
       // A reasoning model can spend its whole budget thinking and return an
-      // empty answer. Saying so beats rendering a blank bubble.
+      // empty answer. Saying so beats rendering a blank bubble — and when it
+      // spends the budget mid-ANSWER, saying so beats a reply that just stops.
       truncated: data.choices?.[0]?.finish_reason === "length",
+      maxTokens,
     });
   } catch (err) {
     // "TypeError: fetch failed" on its own is unactionable — it was the entire

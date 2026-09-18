@@ -92,6 +92,34 @@ export async function unloadOne(model: string): Promise<boolean> {
   return false;
 }
 
+/**
+ * Load a model onto the card WITHOUT asking it anything.
+ *
+ * The mirror of unloadOne: same empty-messages request, a positive keep_alive
+ * instead of zero. It exists because the picker had no way to say "load this" —
+ * an unloaded Ollama model showed a greyed-out Unload and nothing else, which
+ * is technically true (it loads on first use) and reads as a dead end. Waiting
+ * 30 seconds on a chat request with no feedback is not the same experience as
+ * pressing Load and watching it become ready.
+ *
+ * The timeout is generous because this is 19 GB coming off disk.
+ */
+export async function loadOne(model: string, keepAlive: string = "10m"): Promise<boolean> {
+  await fetch(`${ollamaUrl()}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model, messages: [], keep_alive: keepAlive }),
+    signal: AbortSignal.timeout(300_000),
+  }).catch(() => undefined);
+
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    if (await isResident(model)) return true;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
+
 /** Evict every resident model except `keep`. Returns the names it dropped. */
 export async function unloadOthers(keep?: string): Promise<string[]> {
   const doomed = (await residentModels()).map((m) => m.name).filter((n) => n !== keep);

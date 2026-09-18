@@ -122,18 +122,26 @@ export default function ModelPicker({
     setProvider(activeModel && !activeModel.local ? activeModel.provider : providers[0]);
   }, [provider, providers, activeModel]);
 
-  /** Free the card without stopping the runtime. See /api/ollama/unload. */
-  const unload = async (id: string) => {
+  /**
+   * Put a model on or off the card without touching the runtime.
+   *
+   * Both directions, because only having one was the bug: an Ollama model that
+   * was not resident showed a disabled Unload and no other control, so the
+   * Chat tab offered literally nothing to do with a model it described as
+   * "ready to load". See /api/ollama/{load,unload}.
+   */
+  const residency = async (id: string, direction: "load" | "unload") => {
     setBusy(id);
     setError(null);
     try {
-      const r = await fetch("/api/ollama/unload", {
+      const r = await fetch(`/api/ollama/${direction}`, {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ model: id }),
       });
       const j = await r.json();
-      if (!r.ok) setError(j.error ?? "Could not unload");
+      if (!r.ok) setError(j.error ?? `Could not ${direction}`);
+      else if (j.message && (j.loaded === false || j.released === false)) setError(j.message);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -308,12 +316,16 @@ export default function ModelPicker({
             onDemand && serviceUp ? (
               <button
                 type="button"
-                disabled={!on || busy === m.id}
-                onClick={() => unload(m.id)}
-                title={on ? "Unload this model and free the card" : "Not loaded — it loads on first use"}
+                disabled={busy === m.id}
+                onClick={() => residency(m.id, on ? "unload" : "load")}
+                title={
+                  on
+                    ? "Unload this model and free the card"
+                    : "Load it now, so the first prompt is not also a cold start"
+                }
                 className="rounded-md border border-gray-700 px-2 py-1 text-[11px] text-gray-300 disabled:opacity-30"
               >
-                Unload
+                {busy === m.id ? (on ? "Unloading…" : "Loading…") : on ? "Unload" : "Load"}
               </button>
             ) : (
               <ServiceControl
@@ -438,12 +450,20 @@ export default function ModelPicker({
                   {onDemand ? (
                     <button
                       type="button"
-                      disabled={!on || busy === m.id}
-                      onClick={() => unload(m.id)}
-                      title={on ? "Unload this model and free the card" : "Not loaded"}
+                      // Load is only offered when the runtime is up — there is
+                      // nothing to load it into otherwise.
+                      disabled={busy === m.id || (!on && !serviceUp)}
+                      onClick={() => residency(m.id, on ? "unload" : "load")}
+                      title={
+                        on
+                          ? "Unload this model and free the card"
+                          : serviceUp
+                            ? "Load it now, so the first prompt is not also a cold start"
+                            : "Its runtime is stopped — start that first"
+                      }
                       className="rounded-md border border-gray-700 px-2 py-1 text-[11px] text-gray-300 disabled:opacity-30"
                     >
-                      Unload
+                      {busy === m.id ? (on ? "Unloading…" : "Loading…") : on ? "Unload" : "Load"}
                     </button>
                   ) : (
                     m.serviceId && (
