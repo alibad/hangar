@@ -74,6 +74,13 @@ export type ServiceLifecycle = {
    */
   busyVerb: LifecycleAction | null;
   error: string | null;
+  /**
+   * The last failure was the resource coordinator refusing, not the service
+   * breaking. Worth distinguishing because the remedy is completely different:
+   * nothing is wrong with this service, something else is holding the box, and
+   * the caller can offer to free it rather than send you to the logs.
+   */
+  blocked: boolean;
   run: (action: LifecycleAction) => Promise<void>;
 };
 
@@ -91,6 +98,7 @@ export function useServiceLifecycle(
   const [managed, setManaged] = useState<ManagedRow | null>(null);
   const [acting, setActing] = useState<LifecycleAction | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState(false);
   // Held in a ref so a caller passing an inline closure doesn't restart the poll.
   const probeRef = useRef(probe);
   probeRef.current = probe;
@@ -119,6 +127,7 @@ export function useServiceLifecycle(
     async (action: LifecycleAction) => {
       setActing(action);
       setError(null);
+      setBlocked(false);
       const startedAt = Date.now();
       try {
         const res = await fetch(`/api/services/${id}`, {
@@ -129,6 +138,7 @@ export function useServiceLifecycle(
         const data = await res.json().catch(() => ({}));
         if (!res.ok || data.error) {
           setError(data.error || `HTTP ${res.status}`);
+          setBlocked(!!data.resourceBlocked);
         } else {
           const target = action !== "stop"; // start/restart → up; stop → down
           const deadline = Date.now() + DEADLINE_MS[action];
@@ -166,7 +176,7 @@ export function useServiceLifecycle(
   const busyVerb: LifecycleAction | null =
     acting ?? (!up && managed?.status === "starting" ? "start" : null);
 
-  return { id, up, managed, acting, busyVerb, error, run };
+  return { id, up, managed, acting, busyVerb, error, blocked, run };
 }
 
 function Spinner() {

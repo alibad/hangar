@@ -11,6 +11,7 @@ import { imageFootprint } from "@/lib/image-footprints";
 import { ServiceControls, ServiceStartupNote, useServiceLifecycle } from "./service-control";
 import { useVoiceInput, appendTranscript } from "./voice-input";
 import CompareView from "./compare-view";
+import CapacityBlocker from "./capacity-blocker";
 import { qwenCheckpointState } from "@/lib/qwen-checkpoint";
 
 // ── types ───────────────────────────────────────────────────────────────────
@@ -318,6 +319,13 @@ export default function QwenStudio() {
     window.localStorage.removeItem("bt-qwen-draft");
   }, []);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * A run refused for capacity, kept apart from `error` because it is not a
+   * failure to report — it is a decision to offer. It carries the coordinator's
+   * own sentence, which names the shortfall precisely; the remedy beside it is
+   * built from what is measurably holding the box.
+   */
+  const [blockedBy, setBlockedBy] = useState<string | null>(null);
   const [freeingComfy, setFreeingComfy] = useState(false);
   const [editNotice, setEditNotice] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -873,6 +881,7 @@ export default function QwenStudio() {
     const folder = outputFolder;
     setBusy(true);
     setError(null);
+    setBlockedBy(null);
     setEditNotice(null);
     startTimer();
     try {
@@ -904,6 +913,10 @@ export default function QwenStudio() {
         void checkHealth();
       } else if (data.enabled === false) {
         setEditNotice(data.message || "Image editing is not enabled.");
+      } else if (data.resourceBlocked) {
+        // Not an error: the box is full, and the next click is a choice about
+        // what to give up rather than a retry of the same thing.
+        setBlockedBy(data.error || "This run needs more memory than is currently free.");
       } else {
         setError(data.error || "Generation failed");
       }
@@ -1599,9 +1612,18 @@ export default function QwenStudio() {
                 evidence it is progressing, and a start that died needs to say so
                 here rather than behind Details. The plain "it's down" case is
                 already the status line above. */}
-            {runtimeLifecycle && (runtimeLifecycle.busyVerb === "start" || runtimeLifecycle.error) && (
+            {/* A start refused for capacity is not a startup failure, so it gets
+                the remedy rather than the "open Logs" note — there is nothing in
+                this service's logs, because it never ran. */}
+            {runtimeLifecycle?.blocked && runtimeLifecycle.error ? (
+              <CapacityBlocker
+                message={runtimeLifecycle.error}
+                onReleased={() => { void checkHealth(); void checkComfy(); }}
+                className="w-full"
+              />
+            ) : runtimeLifecycle && (runtimeLifecycle.busyVerb === "start" || runtimeLifecycle.error) ? (
               <ServiceStartupNote lifecycle={runtimeLifecycle} className="w-full" />
-            )}
+            ) : null}
           </div>
           {activeModel.serviceId === "qwen" && <p className="image-run-setup-note">{checkpoint.note}</p>}
           {activeModel.serviceId === "comfyui" && <p className="image-run-setup-note">Weights load when you run and are released afterward when ComfyUI is idle. If capacity is unavailable, stop another GPU model from Details.</p>}
@@ -2216,6 +2238,12 @@ export default function QwenStudio() {
           </details>}
         </section>}
         {error && <div className="text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">{error}</div>}
+        {blockedBy && (
+          <CapacityBlocker
+            message={blockedBy}
+            onReleased={() => { void checkHealth(); void checkComfy(); }}
+          />
+        )}
         {mode === "edit" && editNotice && (
           <div className="text-xs px-3 py-2.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 leading-relaxed">
             <span className="font-medium">Edit isn&apos;t installed yet.</span> {editNotice}
@@ -2401,6 +2429,12 @@ export default function QwenStudio() {
 
 
           {error && <div className="text-xs px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20">{error}</div>}
+          {blockedBy && (
+            <CapacityBlocker
+              message={blockedBy}
+              onReleased={() => { void checkHealth(); void checkComfy(); }}
+            />
+          )}
 
           {/* ── Jobs status link ── */}
           {activeJobCount > 0 && (
