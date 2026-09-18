@@ -75,6 +75,23 @@ export const IMAGE_MODELS: LocalImageModel[] = [
 export const DEFAULT_IMAGE_MODEL: ImageModelId = "qwen-image";
 
 /**
+ * The local models that support a capability, as prose for the tooltip that
+ * explains why a tab is disabled.
+ *
+ * Derived rather than written out, because the hardcoded version went stale
+ * without anyone noticing: Batch said "runs on Qwen-Image. Select Qwen-Image to
+ * use it." long after FLUX.1 schnell gained batch and the queue learned to
+ * dispatch per-backend, so it named one of the two answers and sent you away
+ * from the other.
+ */
+export function modelsSupporting(capability: "supportsEdit" | "supportsBatch"): string {
+  const names = IMAGE_MODELS.filter((m) => m[capability]).map((m) => m.name);
+  if (names.length === 0) return "no local model";
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/**
  * Describe a cloud model reached through the AI Router.
  *
  * getImageModel() falls back to IMAGE_MODELS[0] for anything it doesn't know,
@@ -83,7 +100,8 @@ export const DEFAULT_IMAGE_MODEL: ImageModelId = "qwen-image";
  * :8021 service being up when the router is what actually matters.
  *
  * Batch and edit are false on purpose rather than unimplemented: the batch queue
- * drives :8021 directly and only the Qwen service exposes /edit.
+ * dispatches per-backend across the LOCAL services and has no cloud path, and
+ * editing needs an endpoint only the Qwen service and FLUX.2 Klein expose.
  */
 export function cloudImageModel(alias: string, provider?: string): ImageModel {
   return {

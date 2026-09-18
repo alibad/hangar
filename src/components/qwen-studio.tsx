@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } fro
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Star, Trash2, ChevronDown, ChevronUp, Mic, Square, X, ChevronRight, SlidersHorizontal, ServerCog } from "lucide-react";
 import { DIM_POOLS, type DimKey } from "@/lib/prompt-variations";
-import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, isImageModelId, type ImageModel, type ImageModelId } from "@/lib/image-models";
+import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, isImageModelId, modelsSupporting, type ImageModel, type ImageModelId } from "@/lib/image-models";
 import { useLocalFootprints } from "@/lib/use-local-footprints";
 import ModelFootprint from "./model-footprint";
 import { imageFootprint } from "@/lib/image-footprints";
@@ -1626,7 +1626,12 @@ export default function QwenStudio() {
             ) : null}
           </div>
           {activeModel.serviceId === "qwen" && <p className="image-run-setup-note">{checkpoint.note}</p>}
-          {activeModel.serviceId === "comfyui" && <p className="image-run-setup-note">Weights load when you run and are released afterward when ComfyUI is idle. If capacity is unavailable, stop another GPU model from Details.</p>}
+          {/* This used to end "stop another GPU model from Details", which Details
+              has never been able to do: it only ever controls the service behind
+              the model you already picked. When capacity is short the blocker
+              panel now lists what is actually holding the box — usually an Ollama
+              text model that is not an image model at all — and frees it here. */}
+          {activeModel.serviceId === "comfyui" && <p className="image-run-setup-note">Weights load when you run and are released afterward when ComfyUI is idle, so it costs almost nothing between runs. If a run is refused for capacity, the notice will name what is holding the box and offer to free it.</p>}
         </section>
       </aside>
 
@@ -1985,9 +1990,9 @@ export default function QwenStudio() {
                 disabled={disabled}
                 title={
                   mm === "batch" && disabled
-                    ? "Batch runs on Qwen-Image. Select Qwen-Image to use it."
+                    ? `${activeModel.name} has no batch queue. Batch runs on ${modelsSupporting("supportsBatch")}.`
                     : mm === "edit" && disabled
-                      ? `${activeModel.name} has no image-edit endpoint.`
+                      ? `${activeModel.name} has no image-edit endpoint. Editing runs on ${modelsSupporting("supportsEdit")}.`
                       : undefined
                 }
                 className={mode === mm ? "is-active" : undefined}
