@@ -98,9 +98,22 @@ test("BeTenshi's audio capabilities are declared, not inferred from a name", () 
   assert.ok(betenshi, "the betenshi profile must exist");
   const serving = (cap) => betenshi.services.filter((s) => s.serves?.[cap]);
   assert.equal(serving("stt").length, 1, "exactly one service should serve stt today");
-  assert.equal(serving("tts").length, 1, "exactly one service should serve tts today");
   // ...and the fallback a caller gets is a real, addressable service.
   const stt = serving("stt")[0];
   assert.ok(betenshi.services.some((s) => s.id === stt.id));
   assert.ok(stt.serves.stt.length, "the stt service must name what to send as `model`");
+
+  // Two engines serve tts since voice cloning arrived, which makes ORDER load-
+  // bearing rather than incidental: defaultServiceFor() takes the first match,
+  // and that is what a router outage falls back to. Kokoro answers in ~300ms
+  // from baked-in voicepacks; Chatterbox is ~1.4x realtime and needs a
+  // reference clip. Reordering this list would silently make every degraded
+  // request take twenty times longer, so it is asserted rather than assumed.
+  const tts = serving("tts");
+  assert.ok(tts.length >= 1, "something must serve tts");
+  assert.equal(tts[0].id, "tts", "Kokoro must stay the first tts service — it is the outage fallback");
+  for (const s of tts) {
+    assert.ok(s.serves.tts.length, `${s.id} must name what to send as \`model\``);
+    assert.ok(betenshi.services.some((x) => x.id === s.id));
+  }
 });

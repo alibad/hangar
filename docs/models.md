@@ -134,19 +134,30 @@ considered items on it were the least visible.
    board the way 2b ranks ASR, cite the build pulled, and where a model is absent from it
    say so rather than ranking it on adoption by default.
 
+   **State which download metric you mean, every time.** The hub serves two and they
+   disagree: `downloads` is the last 30 days, `downloadsAllTime` needs
+   `?expand[]=downloadsAllTime` and is the lifetime total. A 30-day figure read against a
+   lifetime one manufactures both decay and growth that never happened. As of 18-09-2026:
+
+   | model | licence | all-time | 30-day |
+   | --- | --- | --- | --- |
+   | `ResembleAI/chatterbox` | MIT | 21.9M | 1.86M |
+   | `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` | apache-2.0 | 15.0M | 2.61M |
+
+   So the standing entry's **2.62M is current and correct** — it is the 30-day figure, not a
+   stale one. What does not hold is the wording around it: "the most-pulled clean-licensed
+   TTS on the hub by an order of magnitude" is unsupported on either metric, since Chatterbox
+   leads 1.5x on lifetime and trails 1.4x on the month. Neither gap is 10x. Say "most-pulled
+   this month, narrowly" or drop the superlative.
+
    **Evaluate next run:** `ResembleAI/chatterbox` (MIT, 23 languages, zero-shot voice
    cloning), `ResembleAI/chatterbox-turbo` (MIT, English) and `YatharthS/LuxTTS`
-   (apache-2.0, ONNX, English). Not because they are popular — 5b is right that attention
-   is not evidence — but because the standing TTS pick can be checked against them on this
-   report's own stated grounds and does not obviously survive it. As of 18-09-2026 the hub
-   gives `ResembleAI/chatterbox` 21.9M downloads and 1,792 likes under MIT, against
-   `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` at 15.0M and 1,976 under apache-2.0. So the
-   current claim that Qwen3-TTS is "the most-pulled clean-licensed TTS on the hub by an
-   order of magnitude" is wrong twice over: the gap is 0.7x rather than 10x, and it runs the
-   other way. That entry also still cites 2.62M downloads, which the same endpoint now
-   contradicts — the exact decay 1b exists to catch. Chatterbox additionally does zero-shot
-   voice cloning, which nothing on this box does at all, so it is not a like-for-like
-   repoint and belongs in `candidates` rather than `upgrades`.
+   (apache-2.0, ONNX, English). Not because they are popular — 5b is right that attention is
+   not evidence — but because Chatterbox does zero-shot voice cloning, which the standing
+   pick's adoption lead says nothing about either way. That makes it a `candidates` entry
+   rather than an `upgrades` one: it is a capability this box did not have, not a
+   like-for-like repoint of Kokoro. **Shipped 18-09-2026** as the `voice` service on :8004,
+   so score the next run against something running rather than against a model card.
 
    Hume's TADA is **not** on the hub and looks cloud-only. Confirm that before listing it
    anywhere as local; if it is an API it belongs to discovery, not to this report.

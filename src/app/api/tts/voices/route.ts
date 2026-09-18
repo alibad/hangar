@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServiceHeaders } from "@/lib/services";
 import { resolveCallTarget, getCatalogue } from "@/lib/providers";
 
@@ -24,6 +24,10 @@ export type VoiceOption = {
   id: string;
   /** What to show, when the id alone is not the clearest label. */
   label?: string;
+  /** Learned from a reference clip on this box, and so removable. */
+  clone?: boolean;
+  /** Length of that reference clip, when the engine reports it. */
+  seconds?: number;
 };
 
 type VoicesResponse = {
@@ -32,6 +36,13 @@ type VoicesResponse = {
   source: "service" | "declared" | "none";
   local: boolean;
   voices: VoiceOption[];
+  /**
+   * Whether the routed engine can learn a NEW voice from a reference clip.
+   * Asked of the engine, not inferred from its name: Kokoro's voicepacks are
+   * baked into the weights and Chatterbox synthesises from a clip, and no
+   * amount of reading the alias tells you which you are holding.
+   */
+  canClone?: boolean;
   /** Why the list is empty, when it is. */
   detail?: string;
   /**
@@ -75,7 +86,15 @@ function normalise(payload: unknown): VoiceOption[] {
       const underlying = [e.kokoro_id, e.model_id, e.underlying].find(
         (v): v is string => typeof v === "string" && !!v.trim() && v !== id,
       );
-      out.push({ id: id.trim(), label: underlying ? `${id.trim()} (${underlying})` : undefined });
+      // An explicit label beats one assembled here. A cloned voice wants to read
+      // "Ali — your clone", which no amount of id-plus-underlying produces.
+      const label = typeof e.label === "string" && e.label.trim() ? e.label.trim() : undefined;
+      out.push({
+        id: id.trim(),
+        label: label ?? (underlying ? `${id.trim()} (${underlying})` : undefined),
+        clone: e.clone === true || undefined,
+        seconds: typeof e.seconds === "number" ? e.seconds : undefined,
+      });
     }
   }
   // Same voice can arrive twice when a server lists aliases beside real ids.
@@ -96,13 +115,15 @@ export async function GET() {
           signal: AbortSignal.timeout(5000),
         });
         if (res.ok) {
-          const voices = normalise(await res.json());
+          const payload = await res.json();
+          const voices = normalise(payload);
           if (voices.length) {
             return NextResponse.json<VoicesResponse>({
               alias,
               source: "service",
               local: true,
               voices,
+              canClone: (payload as { can_clone?: unknown })?.can_clone === true,
               degraded: target.degraded,
             });
           }
@@ -144,5 +165,100 @@ export async function GET() {
       { alias, source: "none", local: false, voices: [], detail: String(err) },
       { status: 200 },
     );
+  }
+}
+
+/**
+ * The engine that enrollment has to talk to, or a reason it cannot happen.
+ *
+ * Enrollment is the one speech operation that is NOT proxied through the AI
+ * Router: LiteLLM models a request to speak, not a request to remember a
+ * speaker, so there is no route to forward. That makes "is the routed engine a
+ * local service" a hard precondition rather than a preference, and the caller
+ * needs to be told which of the two possible reasons stopped it.
+ */
+async function enrollmentTarget(): Promise<
+  | { ok: true; alias: string; baseUrl: string; serviceId?: string }
+  | { ok: false; status: number; error: string }
+> {
+  const target = await resolveCallTarget("tts");
+  if (target.via !== "service") {
+    return {
+      ok: false,
+      status: 400,
+      error: `"${target.alias}" is a cloud voice, so it cannot learn a new one. Point the TTS capability at a local cloning engine first.`,
+    };
+  }
+  return { ok: true, alias: target.alias, baseUrl: target.baseUrl, serviceId: target.serviceId };
+}
+
+/** Teach the routed engine a voice from a reference clip. */
+export async function POST(req: NextRequest) {
+  try {
+    const target = await enrollmentTarget();
+    if (!target.ok) return NextResponse.json({ error: target.error }, { status: target.status });
+
+    // Streamed straight through rather than buffered and rebuilt: the body is
+    // already multipart in exactly the shape the service wants, and re-encoding
+    // it here would only add a place for the boundary to get lost.
+    const res = await fetch(`${target.baseUrl}/v1/audio/voices`, {
+      method: "POST",
+      headers: target.serviceId ? getServiceHeaders(target.serviceId) : {},
+      body: await req.formData(),
+      signal: AbortSignal.timeout(60000),
+    });
+
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      // 405 is checked BEFORE `detail`, not after. A speech server with no
+      // enrollment route still answers with FastAPI's own {"detail":"Method Not
+      // Allowed"}, and preferring `detail` made that the message the user saw —
+      // technically true, and no help at all.
+      if (res.status === 405 || res.status === 404) {
+        return NextResponse.json(
+          {
+            error: `"${target.alias}" has fixed voices and cannot learn a new one. Switch the model above to a cloning engine.`,
+          },
+          { status: 400 },
+        );
+      }
+      // Otherwise the engine's own message is the useful one — it is what
+      // explains a clip being too short, or a name already taken.
+      const detail = (payload as { detail?: unknown })?.detail;
+      return NextResponse.json(
+        { error: typeof detail === "string" ? detail : `Enrollment failed (${res.status}).` },
+        { status: res.status },
+      );
+    }
+    return NextResponse.json(payload);
+  } catch (err) {
+    return NextResponse.json({ error: `Could not reach the voice engine: ${String(err)}` }, { status: 502 });
+  }
+}
+
+/** Forget a cloned voice, and its stored reference clip with it. */
+export async function DELETE(req: NextRequest) {
+  const id = new URL(req.url).searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Which voice? Pass ?id=" }, { status: 400 });
+  try {
+    const target = await enrollmentTarget();
+    if (!target.ok) return NextResponse.json({ error: target.error }, { status: target.status });
+
+    const res = await fetch(`${target.baseUrl}/v1/audio/voices/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: target.serviceId ? getServiceHeaders(target.serviceId) : {},
+      signal: AbortSignal.timeout(15000),
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const detail = (payload as { detail?: unknown })?.detail;
+      return NextResponse.json(
+        { error: typeof detail === "string" ? detail : `Could not delete "${id}" (${res.status}).` },
+        { status: res.status },
+      );
+    }
+    return NextResponse.json(payload);
+  } catch (err) {
+    return NextResponse.json({ error: `Could not reach the voice engine: ${String(err)}` }, { status: 502 });
   }
 }

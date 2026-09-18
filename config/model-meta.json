@@ -139,6 +139,19 @@
       "basis": "Estimated from 82M parameters — rounding error next to everything else on this card."
     }
   },
+  "local-chatterbox": {
+    "checkpoint": "Chatterbox Multilingual (local service on :8004)",
+    "docs": "https://hf.co/ResembleAI/chatterbox",
+    "params": "0.5B",
+    "service": "voice",
+    "note": "Clones a voice from a 10-20s reference clip, in 23 languages including Arabic. Roughly 1.4x realtime, against Kokoro's ~0.3s — pick it when the voice matters more than the wait. Output carries Resemble's inaudible Perth watermark.",
+    "footprint": {
+      "vramGb": 3.0,
+      "ramGb": 1.5,
+      "kind": "reserved",
+      "basis": "Measured: the service reports 3075 MB allocated / 3094 MB reserved once loaded, and holds it from startup because the model loads at import."
+    }
+  },
   "local-ollama": {
     "vision": false,
     "checkpoint": "qwen3.8:27b-mlx via Ollama (local service on :11434)",

@@ -25,6 +25,14 @@
     "env": { "HF_HOME": "D:\\AI Models\\huggingface" }
   },
 
+  "voice": {
+    "_doc": "Its OWN interpreter, unlike every other Python service here. chatterbox-tts pins torch==2.6.0, which has no Blackwell kernels and cannot run on the 5090; the venv is built with --system-site-packages so it inherits the working torch 2.11.0+cu128. Installing it into Python312 would have downgraded transformers and numpy under the running Whisper and Kokoro services.",
+    "cmd": "C:\\Users\\Admin\\Code\\AI\\chatterbox\\.venv\\Scripts\\python.exe",
+    "args": ["-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8004"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\chatterbox",
+    "env": { "HF_HOME": "D:\\AI Models\\huggingface" }
+  },
+
   "webui": {
     "docker": "open-webui"
   },

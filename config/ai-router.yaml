@@ -200,6 +200,19 @@ model_list:
     model_info:
       mode: audio_speech
 
+  # The cloning engine. Same OpenAI speech shape as Kokoro, so it routes
+  # identically — the difference is that `voice` can name a reference clip
+  # enrolled on this box rather than a baked-in voicepack. Enrollment itself is
+  # NOT proxied here: LiteLLM has no route for it, so the console talks to
+  # :8004/v1/audio/voices directly. See AI/chatterbox/server.py.
+  - model_name: local-chatterbox
+    litellm_params:
+      model: openai/chatterbox
+      api_base: http://localhost:8004/v1
+      api_key: none
+    model_info:
+      mode: audio_speech
+
   - model_name: openai-tts
     litellm_params:
       model: openai/gpt-4o-mini-tts

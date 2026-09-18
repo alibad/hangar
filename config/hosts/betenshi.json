@@ -83,6 +83,20 @@
       "authRequired": false
     },
     {
+      "id": "voice",
+      "name": "Chatterbox Voice",
+      "localPort": 8004,
+      "localUrl": "http://localhost:8004",
+      "publicUrl": "https://voice.betenshi.com",
+      "healthPath": "/health",
+      "serves": {
+        "tts": "chatterbox"
+      },
+      "note": "Second TTS engine, kept BELOW Kokoro deliberately: defaultServiceFor() takes the first service that serves a capability, so a router outage still falls back to the 82M model that answers in 300ms rather than the 0.5B one that clones. Reachable at /v1/audio/voices for enrolling a reference clip.",
+      "category": "ai",
+      "authRequired": false
+    },
+    {
       "id": "webui",
       "name": "Open WebUI",
       "localPort": 3001,

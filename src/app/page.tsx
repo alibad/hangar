@@ -22,6 +22,9 @@ import TabErrorBoundary from "@/components/tab-error-boundary";
 import HomeCockpit from "@/components/home-cockpit";
 import ConsoleHeader from "@/components/console-header";
 import ResourcePulse from "@/components/resource-pulse";
+import { VoiceCloner } from "@/components/voice-cloner";
+import { useAudioRecorder } from "@/lib/use-audio-recorder";
+import type { VoiceOption } from "@/app/api/tts/voices/route";
 import ServicesControlCenter from "@/components/services-control-center";
 import StorageManager from "@/components/storage-manager";
 import { ToolPageHeader, ToolSectionHeading } from "@/components/tool-page";
@@ -32,13 +35,30 @@ import {
   Sparkles, Layers, ScanLine, Scan, Server, ExternalLink, Cpu, RefreshCw,
   Sun, Moon, LayoutGrid, List, AlertTriangle, type LucideIcon,
 } from "lucide-react";
-import { hostHasTab } from "@/lib/host";
+import { hostHasTab, servicesForCapability } from "@/lib/host";
 import HostUnavailable from "@/components/host-unavailable";
 
 // Small inline spinner shown while a service action (start/stop/restart) is in flight.
 function Spinner() {
   return <span className="inline-block w-3 h-3 rounded-full border-[1.5px] border-current border-t-transparent animate-spin align-[-2px]" />;
 }
+
+/**
+ * What the Speech tab's header chip names, derived rather than typed.
+ *
+ * It read "Whisper + Kokoro" as a literal, which was true for exactly as long
+ * as this box had two speech services. Adding a third made the header quietly
+ * wrong — the kind of staleness nothing fails on. The suffix strip is cosmetic:
+ * "Whisper STT + Kokoro TTS + Chatterbox Voice" is accurate and too long for a
+ * chip.
+ */
+const SPEECH_ENGINES = [
+  ...new Set(
+    [...servicesForCapability("stt"), ...servicesForCapability("tts")].map((s) =>
+      s.name.replace(/\s+(STT|TTS|Voice)$/i, ""),
+    ),
+  ),
+].join(" + ");
 
 /**
  * A reasoning model's working, collapsed.
@@ -284,8 +304,8 @@ export default function Home() {
   const [transcribing, setTranscribing] = useState(false);
   const [transcribeResult, setTranscribeResult] = useState<TranscribeResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [recordingMs, setRecordingMs] = useState(0);
+  /** Shared with VoiceCloner's own recorder — see lib/use-audio-recorder. */
+  const sttRecorder = useAudioRecorder();
   const [ttsText, setTtsText] = useState("");
   const [ttsVoice, setTtsVoice] = useState("alloy");
   /**
@@ -294,8 +314,11 @@ export default function Home() {
    * offers a free-text box instead of a list of guesses. See /api/tts/voices.
    */
   const [ttsVoices, setTtsVoices] = useState<{
+    alias?: string;
     source: "service" | "declared" | "none";
-    voices: { id: string; label?: string }[];
+    voices: VoiceOption[];
+    /** The engine can learn a voice from a clip — see VoiceCloner. */
+    canClone?: boolean;
     detail?: string;
     /** Routing could not be honoured — e.g. a cloud alias fell back to local. */
     degraded?: string;
@@ -359,8 +382,6 @@ export default function Home() {
   const messagesEnd = useRef<HTMLDivElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const selectTab = useCallback((next: ConsoleTab) => {
     setTab(next);
@@ -390,25 +411,23 @@ export default function Home() {
   // Ask the routed speech model what voices it has, only while that panel is on
   // screen. Re-asked on an interval because the picker sitting directly above it
   // can repoint the capability at an engine with an entirely different voice set.
+  // Also called directly by VoiceCloner: a voice enrolled a moment ago should
+  // reach the picker now, not on the next 10-second tick.
+  const loadTtsVoices = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tts/voices", { cache: "no-store" });
+      setTtsVoices(await res.json());
+    } catch {
+      /* keep the last good list */
+    }
+  }, []);
+
   useEffect(() => {
     if (tab !== "speech" || speechMode !== "tts") return;
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/tts/voices", { cache: "no-store" });
-        const payload = await res.json();
-        if (!cancelled) setTtsVoices(payload);
-      } catch {
-        /* keep the last good list */
-      }
-    };
-    load();
-    const iv = setInterval(load, 10_000);
-    return () => {
-      cancelled = true;
-      clearInterval(iv);
-    };
-  }, [tab, speechMode]);
+    loadTtsVoices();
+    const iv = setInterval(loadTtsVoices, 10_000);
+    return () => clearInterval(iv);
+  }, [tab, speechMode, loadTtsVoices]);
 
   // Keep the selection valid. Switching engines used to leave "alloy" selected
   // against a model that has never heard of it, which fails at Speak time with a
@@ -578,33 +597,10 @@ export default function Home() {
 
   useLiveRefresh(refreshAll, { intervalMs: autoRefresh ? 15000 : null });
 
-  async function startRecording() {
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      setTranscribeResult({ text: `Mic error: ${err}`, latency: 0, fileName: "mic" });
-      return;
-    }
-    const recorder = new MediaRecorder(stream);
-    const chunks: BlobPart[] = [];
-    recorder.ondataavailable = (e) => chunks.push(e.data);
-    recorder.onstop = () => {
-      stream.getTracks().forEach((t) => t.stop());
-      const blob = new Blob(chunks, { type: "audio/webm" });
-      transcribeAudio(new File([blob], "recording.webm", { type: "audio/webm" }));
-    };
-    recorder.start();
-    mediaRecorderRef.current = recorder;
-    setRecording(true);
-    setRecordingMs(0);
-    recordingTimer.current = setInterval(() => setRecordingMs((ms) => ms + 100), 100);
-  }
-
-  function stopRecording() {
-    mediaRecorderRef.current?.stop();
-    if (recordingTimer.current) clearInterval(recordingTimer.current);
-    setRecording(false);
+  function startRecording() {
+    sttRecorder.start(transcribeAudio, (message) =>
+      setTranscribeResult({ text: message, latency: 0, fileName: "mic" }),
+    );
   }
 
   async function transcribeAudio(file: File) {
@@ -1703,7 +1699,7 @@ export default function Home() {
               title="Speech Lab"
               description="Transcribe recordings and synthesize natural speech from one focused local audio workspace."
               icon={<WaveformIcon size={24} weight="duotone" />}
-              meta={<span className="tool-page-chip">Whisper + Kokoro</span>}
+              meta={<span className="tool-page-chip">{SPEECH_ENGINES}</span>}
             />
             {/* One direction at a time. See `speechMode`. */}
             <div className="speech-mode-tabs" role="tablist" aria-label="Speech direction">
@@ -1736,17 +1732,17 @@ export default function Home() {
               <ModelPicker capability="stt" className="mb-3" compact />
               <div className="flex gap-4 items-stretch">
                 <button
-                  onClick={recording ? stopRecording : startRecording}
+                  onClick={sttRecorder.recording ? sttRecorder.stop : startRecording}
                   disabled={transcribing}
                   className={`flex flex-col items-center justify-center gap-2 rounded-xl px-8 py-6 font-medium transition flex-shrink-0 ${
-                    recording
+                    sttRecorder.recording
                       ? "bg-red-600 hover:bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]"
                       : "bg-gray-800 hover:bg-gray-700 border border-gray-700"
                   } disabled:opacity-40`}
                 >
-                  <span className="text-3xl">{recording ? "⏹" : "🎙"}</span>
+                  <span className="text-3xl">{sttRecorder.recording ? "⏹" : "🎙"}</span>
                   <span className="text-xs text-gray-300">
-                    {recording ? `${(recordingMs / 1000).toFixed(1)}s — stop` : "Record"}
+                    {sttRecorder.recording ? `${(sttRecorder.ms / 1000).toFixed(1)}s — stop` : "Record"}
                   </span>
                 </button>
                 <div
@@ -1862,6 +1858,15 @@ export default function Home() {
                   <p className="mt-2 text-[11px] text-amber-400">{ttsVoices.degraded}</p>
                 )}
               </form>
+              {/* Enrolling a voice belongs here, beside the picker it feeds —
+                  a clone is an entry in that dropdown, not a separate feature. */}
+              <VoiceCloner
+                voices={ttsVoices?.voices ?? []}
+                canClone={!!ttsVoices?.canClone}
+                alias={ttsVoices?.alias ?? "This model"}
+                onChanged={loadTtsVoices}
+                className="mt-3"
+              />
               <ModelDiscovery capability="tts" label="text → speech" className="mt-3" />
             </section>
             )}
