@@ -54,12 +54,58 @@ function splitThinking(content: string, reasoningField?: string | null) {
 const DEFAULT_MAX_TOKENS = 4096;
 const MAX_MAX_TOKENS = 32768;
 
+/**
+ * How much prior conversation to carry, as characters of message content.
+ *
+ * A budget rather than a message count, because ten one-line exchanges and ten
+ * thousand-word ones are not the same request. ~24k characters is roughly 6k
+ * tokens, which leaves most of a 32k-context local model free for the answer.
+ * Older turns are dropped first; the current message is never dropped.
+ */
+const HISTORY_BUDGET_CHARS = 24_000;
+
+type Turn = { role: "user" | "assistant"; content: string };
+
+/**
+ * The tail of the conversation that fits the budget, oldest turns dropped first.
+ *
+ * Trimming happens HERE rather than in the browser so that every caller gets the
+ * same ceiling, and so the reply can report what was actually sent.
+ */
+function fitHistory(raw: unknown): { turns: Turn[]; dropped: number } {
+  if (!Array.isArray(raw)) return { turns: [], dropped: 0 };
+  const clean = raw.flatMap((t): Turn[] => {
+    const role = (t as Turn)?.role;
+    const content = (t as Turn)?.content;
+    if ((role !== "user" && role !== "assistant") || typeof content !== "string" || !content.trim()) {
+      return [];
+    }
+    // `thinking` is deliberately not carried: it is the model's scratch work,
+    // it dwarfs the answer on a reasoning model, and feeding it back invites
+    // the model to keep arguing with itself instead of with you.
+    return [{ role, content }];
+  });
+
+  const kept: Turn[] = [];
+  let used = 0;
+  for (let i = clean.length - 1; i >= 0; i--) {
+    const cost = clean[i].content.length;
+    if (used + cost > HISTORY_BUDGET_CHARS) break;
+    used += cost;
+    kept.unshift(clean[i]);
+  }
+  return { turns: kept, dropped: clean.length - kept.length };
+}
+
 export async function POST(req: NextRequest) {
-  const { message, max_tokens } = await req.json();
+  const { message, history, max_tokens } = await req.json();
   const maxTokens = Math.min(
     Math.max(Number.isFinite(max_tokens) ? Number(max_tokens) : DEFAULT_MAX_TOKENS, 1),
     MAX_MAX_TOKENS,
   );
+  // Absent history means a one-shot request, which is what this endpoint did
+  // unconditionally before — so an older caller keeps its old behaviour.
+  const { turns, dropped } = fitHistory(history);
 
   const start = Date.now();
   // Outside the try so a connection failure can name what it tried to reach.
@@ -76,7 +122,11 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: target.model,
-        messages: [{ role: "user", content: message }],
+        // The whole conversation, not just the last line. This sent a single
+        // user message regardless of what came before, so the playground had no
+        // memory at all: asking "what was mentioned" got "nothing has been
+        // mentioned yet" from a model that had just answered two questions.
+        messages: [...turns, { role: "user", content: message }],
         // 1024 was far too low for the models actually routed here. gemma4:31b
         // spends ~390 completion tokens answering "say hi in three words", so
         // anything resembling a list — "give me 100 prompts" — ran out of budget
@@ -111,6 +161,11 @@ export async function POST(req: NextRequest) {
       // spends the budget mid-ANSWER, saying so beats a reply that just stops.
       truncated: data.choices?.[0]?.finish_reason === "length",
       maxTokens,
+      // What the model was actually shown. `dropped` is the interesting half:
+      // it is the only signal that the start of a long thread has fallen out of
+      // the budget, which otherwise looks like the model forgetting.
+      carried: turns.length,
+      dropped,
     });
   } catch (err) {
     // "TypeError: fetch failed" on its own is unactionable — it was the entire

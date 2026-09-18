@@ -147,6 +147,8 @@ type ChatMessage = {
   truncated?: boolean;
   /** The ceiling it hit, so the notice can name a number rather than a concept. */
   maxTokens?: number;
+  /** Earlier turns that did not fit the history budget — see /api/chat. */
+  dropped?: number;
   latency?: number;
   tokens?: number;
   model?: string;
@@ -303,6 +305,16 @@ export default function Home() {
   const [sending, setSending] = useState(false);
   /** Elapsed wait, so the pending bubble can count instead of just bouncing. */
   const [sendingMs, setSendingMs] = useState(0);
+  /**
+   * Send the thread, or just the latest message.
+   *
+   * On by default, because a chat that cannot remember its own last answer is
+   * the surprising behaviour, not the useful one. Off is still worth having:
+   * each turn re-sends the whole conversation, so on a local model a long
+   * thread gets slower every message, and a one-shot prompt is sometimes
+   * exactly what you want to measure.
+   */
+  const [chatContext, setChatContext] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -411,6 +423,12 @@ export default function Home() {
   useEffect(() => {
     const saved = window.localStorage.getItem("bt-stack-density");
     if (saved) setCompactStack(saved !== "detail");
+  }, []);
+
+  // Only an explicit "off" overrides the default — an absent key means the user
+  // has never touched this, and the default is on.
+  useEffect(() => {
+    if (window.localStorage.getItem("bt-chat-context") === "off") setChatContext(false);
   }, []);
 
   // Ask the routed speech model what voices it has, only while that panel is on
@@ -684,6 +702,14 @@ export default function Home() {
     e.preventDefault();
     if (!input.trim() || sending) return;
     const userMsg: ChatMessage = { role: "user", content: input };
+    // Captured BEFORE the new message is appended: this is what came before it.
+    // Error bubbles are excluded — they are this app talking, not the model, and
+    // replaying "Error: fetch failed" as an assistant turn teaches it nothing.
+    const priorTurns = chatContext
+      ? messages
+          .filter((m) => m.content && !(m.role === "assistant" && m.content.startsWith("Error: ")))
+          .map((m) => ({ role: m.role, content: m.content }))
+      : [];
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setSending(true);
@@ -694,7 +720,7 @@ export default function Home() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({ message: input, history: priorTurns }),
       });
       const data = await res.json();
       setMessages((prev) => [
@@ -707,6 +733,7 @@ export default function Home() {
               thinking: data.thinking,
               truncated: data.truncated,
               maxTokens: data.maxTokens,
+              dropped: data.dropped,
               latency: data.latency,
               tokens: data.usage?.total_tokens,
               model: data.model,
@@ -1602,6 +1629,56 @@ export default function Home() {
             <div className="chat-controlbar">
               <ModelPicker capability="text" exclusiveLocal compact className="chat-model-picker" />
 
+              {/* Whether the thread is a conversation or a series of unrelated
+                  prompts. It was silently the latter, which reads as the model
+                  being forgetful rather than as a setting. */}
+              {/* Utility classes, not a rule in globals.css. The theme tokens
+                  this file's custom CSS uses resolve inconsistently here, and
+                  the surrounding chat controls are all written this way. */}
+              <div className="flex flex-shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={chatContext}
+                  onClick={() => {
+                    const next = !chatContext;
+                    setChatContext(next);
+                    try {
+                      window.localStorage.setItem("bt-chat-context", next ? "on" : "off");
+                    } catch {
+                      /* private window — the toggle still works for this session */
+                    }
+                  }}
+                  title={
+                    chatContext
+                      ? "Each prompt is sent with the conversation so far. Turn off to send prompts in isolation."
+                      : "Each prompt is sent on its own — the model sees no earlier turns."
+                  }
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-medium transition ${
+                    chatContext
+                      ? "border-violet-500/40 bg-violet-500/5 text-violet-300 hover:border-violet-500/60"
+                      : "border-gray-800 bg-gray-900 text-gray-500 hover:border-gray-600 hover:text-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      chatContext ? "bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.9)]" : "bg-gray-600"
+                    }`}
+                  />
+                  {chatContext ? "Context on" : "Context off"}
+                </button>
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setMessages([])}
+                    title="Start a new thread — the model stops seeing these turns"
+                    className="rounded-lg px-2 py-2 text-[11px] text-gray-500 transition hover:text-gray-200"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
               {/* These four counters are scraped from vLLM's OWN /metrics, so
                   they are blank whenever no vLLM is running — which is most of
                   the time, since Ollama serves the other three local models and
@@ -1675,6 +1752,15 @@ export default function Home() {
                         {msg.truncated && msg.content ? (
                           <p className="mt-2 rounded-md border border-amber-500/25 bg-amber-500/5 px-2 py-1 text-[11px] text-amber-400">
                             Cut off at the {msg.maxTokens ?? "token"} limit — ask for less, or for the rest.
+                          </p>
+                        ) : null}
+                        {/* Without this, a thread outgrowing the history budget
+                            looks exactly like the model forgetting — which is
+                            the bug this whole change exists to fix. */}
+                        {msg.dropped ? (
+                          <p className="mt-2 text-[11px] text-gray-500">
+                            The first {msg.dropped} turn{msg.dropped === 1 ? "" : "s"} no longer fit and
+                            were not sent. Clear the thread to start fresh.
                           </p>
                         ) : null}
                         {msg.latency != null && (
