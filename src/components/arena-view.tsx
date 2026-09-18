@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cer, wer, chrF, scoreFields, arabicRatio } from "@/lib/text-scoring";
 import type { Footprint } from "./model-footprint";
 import { ToolPageHeader, ToolSectionHeading } from "./tool-page";
+import { useVoiceInput, appendTranscript } from "./voice-input";
 import { Swords, ImagePlus, X, Gavel, Loader2, Copy, Check, Cpu, Cloud, Search } from "lucide-react";
 
 /**
@@ -115,6 +116,10 @@ export default function ArenaView() {
   const [routerUp, setRouterUp] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
   const [prompt, setPrompt] = useState("");
+  const voice = useVoiceInput({
+    onTranscript: (t) => setPrompt((v) => appendTranscript(v, t)),
+    label: "prompt",
+  });
   const [image, setImage] = useState<{ dataUrl: string; name: string } | null>(null);
   const [scoreMode, setScoreMode] = useState<ScoreMode>("none");
   const [reference, setReference] = useState("");
@@ -421,16 +426,20 @@ export default function ArenaView() {
           title="Prompt"
           description="Every selected model is asked exactly this. Attach an image to compare vision models on one document."
         />
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          // dir="auto" throughout: the first strong character decides. An Arabic
-          // prompt typed into an LTR box is genuinely hard to proofread.
-          dir="auto"
-          rows={3}
-          placeholder="Ask every selected model the same thing…"
-          className="w-full rounded-xl border border-gray-700 bg-gray-800 px-3.5 py-2.5 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-        />
+        <div className="relative">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            // dir="auto" throughout: the first strong character decides. An Arabic
+            // prompt typed into an LTR box is genuinely hard to proofread.
+            dir="auto"
+            rows={3}
+            placeholder="Ask every selected model the same thing…"
+            className="w-full rounded-xl border border-gray-700 bg-gray-800 py-2.5 pl-3.5 pr-14 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          />
+          {voice.mic}
+        </div>
+        {voice.banner && <div className="mt-2">{voice.banner}</div>}
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-800 bg-gray-900 px-3 py-2 text-sm hover:border-gray-700">
             <ImagePlus size={15} />

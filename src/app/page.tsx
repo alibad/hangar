@@ -23,6 +23,7 @@ import HomeCockpit from "@/components/home-cockpit";
 import ConsoleHeader from "@/components/console-header";
 import ResourcePulse from "@/components/resource-pulse";
 import { VoiceCloner } from "@/components/voice-cloner";
+import { useVoiceInput, appendTranscript } from "@/components/voice-input";
 import { useAudioRecorder } from "@/lib/use-audio-recorder";
 import type { VoiceOption } from "@/app/api/tts/voices/route";
 import ServicesControlCenter from "@/components/services-control-center";
@@ -322,6 +323,16 @@ export default function Home() {
   const [dragOver, setDragOver] = useState(false);
   /** Shared with VoiceCloner's own recorder — see lib/use-audio-recorder. */
   const sttRecorder = useAudioRecorder();
+  /** Dictation for the two long-text fields on this page. See voice-input.tsx. */
+  const chatVoice = useVoiceInput({
+    onTranscript: (t) => setInput((v) => appendTranscript(v, t)),
+    position: "top-1/2 right-2 -translate-y-1/2",
+    label: "prompt",
+  });
+  const speakDictation = useVoiceInput({
+    onTranscript: (t) => setTtsText((v) => appendTranscript(v, t)),
+    label: "text to speak",
+  });
   const [ttsText, setTtsText] = useState("");
   const [ttsVoice, setTtsVoice] = useState("alloy");
   /**
@@ -1797,15 +1808,21 @@ export default function Home() {
                 </div>
                 <form onSubmit={sendMessage} className="p-4 border-t border-gray-800">
                   <div className="flex gap-3">
-                    <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-                      placeholder="Ask the local model anything..."
-                      className="flex-1 bg-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder-gray-500"
-                      disabled={sending} />
+                    {/* Single line, so the mic is centred rather than pinned to
+                        the top corner the way it sits on a tall prompt box. */}
+                    <div className="relative flex-1">
+                      <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
+                        placeholder="Ask the local model anything..."
+                        className="w-full bg-gray-800 rounded-xl pl-4 pr-12 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder-gray-500"
+                        disabled={sending} />
+                      {chatVoice.mic}
+                    </div>
                     <button type="submit" disabled={sending || !input.trim()}
                       className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-blue-600 rounded-xl px-5 py-2.5 text-sm font-medium transition">
                       Run
                     </button>
                   </div>
+                  {chatVoice.banner && <div className="mt-2">{chatVoice.banner}</div>}
                 </form>
               </div>
             </section>
@@ -1922,9 +1939,15 @@ export default function Home() {
               <ModelPicker capability="tts" className="mb-3" compact />
               <form onSubmit={speakText} className="bg-gray-900 rounded-xl border border-gray-800 p-5">
                 <div className="flex gap-3 mb-3">
-                  <textarea value={ttsText} onChange={(e) => setTtsText(e.target.value)}
-                    placeholder="Type text to speak..." rows={2}
-                    className="flex-1 bg-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 placeholder-gray-500 resize-none" />
+                  {/* Dictating what to say aloud sounds circular, and is not:
+                      this is the shortest path from a spoken thought to the
+                      same thought in a cloned voice. */}
+                  <div className="relative flex-1">
+                    <textarea value={ttsText} onChange={(e) => setTtsText(e.target.value)}
+                      placeholder="Type text to speak..." rows={2}
+                      className="w-full bg-gray-800 rounded-xl pl-4 pr-14 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 placeholder-gray-500 resize-none" />
+                    {speakDictation.mic}
+                  </div>
                   <div className="flex flex-col gap-2">
                     {/* The routed engine's own voices. Six names used to be
                         hardcoded here; they were right for Kokoro and wrong for
@@ -1973,6 +1996,7 @@ export default function Home() {
                 <div className={ttsError ? "mt-2 text-[11px] text-red-400" : "hidden"}>
                   {ttsError}
                 </div>
+                {speakDictation.banner && <div className="mt-2">{speakDictation.banner}</div>}
                 {/* The routing could not be honoured. Without this the panel
                     shows a cloud alias beside the local engine's voices and
                     nothing explains the mismatch. */}

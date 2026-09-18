@@ -8,7 +8,8 @@ import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, isIm
 import { useLocalFootprints } from "@/lib/use-local-footprints";
 import ModelFootprint from "./model-footprint";
 import { imageFootprint } from "@/lib/image-footprints";
-import { ServiceControl, ServiceControls, ServiceStartupNote, serviceName, useServiceLifecycle } from "./service-control";
+import { ServiceControls, ServiceStartupNote, useServiceLifecycle } from "./service-control";
+import { useVoiceInput, appendTranscript } from "./voice-input";
 import CompareView from "./compare-view";
 import { qwenCheckpointState } from "@/lib/qwen-checkpoint";
 
@@ -80,81 +81,6 @@ function fmtDur(sec: number): string {
 
 function Spinner() {
   return <span className="inline-block w-3 h-3 rounded-full border-[1.5px] border-current border-t-transparent animate-spin align-[-2px]" />;
-}
-
-/**
- * A failed transcription, with the button that fixes it.
- *
- * Its own component because it owns a health poll for a service the studio
- * otherwise knows nothing about: `stt` can point at any local ASR service, or at
- * a cloud model — in which case there is no serviceId, nothing to start, and the
- * banner is just the sentence.
- *
- * This is the rule in service-control.tsx applied to voice: wherever the console
- * says a service isn't running, it offers the button. The mic used to report
- * "start its service" and stop there, on a surface with no way to do that and
- * with the recording already discarded.
- */
-function VoiceErrorBanner({
-  error,
-  onRetry,
-  canRetry,
-  retrying,
-  onDismiss,
-}: {
-  error: { message: string; serviceId?: string; model?: string };
-  onRetry: () => void;
-  canRetry: boolean;
-  retrying: boolean;
-  onDismiss: () => void;
-}) {
-  const id = error.serviceId;
-  const [up, setUp] = useState<boolean | undefined>(undefined);
-
-  const probe = useCallback(async () => {
-    if (!id) return false;
-    try {
-      const rows = await fetch("/api/services", { cache: "no-store" }).then((r) => r.json());
-      const row = Array.isArray(rows) ? rows.find((r: { id: string }) => r.id === id) : null;
-      const alive = row?.status === "running";
-      setUp(alive);
-      return alive;
-    } catch {
-      setUp(false);
-      return false;
-    }
-  }, [id]);
-
-  useEffect(() => {
-    if (id) void probe();
-  }, [id, probe]);
-
-  return (
-    <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">
-      <div className="flex items-start gap-2">
-        <Mic className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-        <p className="flex-1 leading-relaxed">{error.message}</p>
-        <button onClick={onDismiss} aria-label="Dismiss" className="text-amber-300/60 hover:text-amber-100">
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-      {(id || canRetry) && (
-        <div className="mt-2 flex flex-wrap items-center gap-2 pl-5.5">
-          {id && <ServiceControl id={id} up={up} probe={probe} name={serviceName(id)} />}
-          {canRetry && (
-            <button
-              onClick={onRetry}
-              disabled={retrying}
-              title="Send the recording you already made — no need to say it again"
-              className="rounded-md border border-amber-500/40 px-2 py-1 text-[11px] font-medium text-amber-100 transition hover:border-amber-400 disabled:opacity-50"
-            >
-              {retrying ? "Transcribing…" : "Retry with that recording"}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function StudioDialog({
@@ -405,29 +331,6 @@ export default function QwenStudio() {
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // voice input — whatever the `stt` capability is pointed at
-  const [recording, setRecording] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
-  const [recMs, setRecMs] = useState(0);
-  const mediaRecRef = useRef<MediaRecorder | null>(null);
-  const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  /**
-   * A failed transcription, kept apart from `error` because it is the one failure
-   * in this view with a specific fix: start the service that was unreachable.
-   * Rendered as a banner with that service's own Start button rather than as a
-   * sentence telling you to go and find it.
-   */
-  const [voiceError, setVoiceError] = useState<{ message: string; serviceId?: string; model?: string } | null>(null);
-  /**
-   * The audio behind that failure.
-   *
-   * Dropping it is what made "voice is off" cost a re-record: you spoke, the
-   * service was down, the words were gone. Holding the blob makes Retry a real
-   * button — start the service, press it, and the sentence you already said
-   * lands in the prompt.
-   */
-  const lastRecordingRef = useRef<Blob | null>(null);
 
   // batch
   const [batchCount, setBatchCount] = useState(10);
@@ -1489,117 +1392,16 @@ export default function QwenStudio() {
   // folders the context-menu / move targets can use (everything except the item's own)
   const allFolderTargets = useMemo(() => ["", ...folders], [folders]);
 
-  // ── voice → prompt ──────────────────────────────────────────────────────────
-  async function transcribe(blob: Blob) {
-    lastRecordingRef.current = blob;
-    setTranscribing(true);
-    setVoiceError(null);
-    try {
-      const form = new FormData();
-      form.append("file", new File([blob], "rec.webm", { type: "audio/webm" }));
-      // No `model` — the route resolves whatever the stt capability is pointed
-      // at and sets it. Naming one here pinned voice input to whisper while the
-      // picker said otherwise.
-      const res = await fetch("/api/qwen/transcribe", { method: "POST", body: form });
-      const data = await res.json();
-      const text = (data.text ?? "").trim();
-      if (text) {
-        setPrompt((p) => (p.trim() ? p.trim() + " " : "") + text);
-        lastRecordingRef.current = null;
-      } else {
-        // serviceId is the whole point: it turns "start its service" into a button.
-        setVoiceError({
-          message: data.error || "No speech detected.",
-          serviceId: typeof data.serviceId === "string" ? data.serviceId : undefined,
-          model: typeof data.model === "string" ? data.model : undefined,
-        });
-      }
-    } catch {
-      setVoiceError({ message: "Transcription failed — the console could not reach speech-to-text." });
-    }
-    setTranscribing(false);
-  }
-
-  /** Re-send the recording we kept, after the service behind it was started. */
-  async function retryTranscription() {
-    const blob = lastRecordingRef.current;
-    if (!blob || transcribing) return;
-    await transcribe(blob);
-  }
-
-  async function startRec() {
-    setError(null);
-    setVoiceError(null);
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      // No serviceId — nothing on this box can fix a browser permission, so the
-      // banner renders the sentence alone rather than an inert Start button.
-      setVoiceError({ message: "Microphone access was denied. Allow it for this site in your browser, then try again." });
-      return;
-    }
-    const rec = new MediaRecorder(stream);
-    const chunks: BlobPart[] = [];
-    rec.ondataavailable = (e) => chunks.push(e.data);
-    rec.onstop = () => {
-      stream.getTracks().forEach((t) => t.stop());
-      transcribe(new Blob(chunks, { type: "audio/webm" }));
-    };
-    rec.start();
-    mediaRecRef.current = rec;
-    setRecording(true);
-    setRecMs(0);
-    recTimerRef.current = setInterval(() => setRecMs((m) => m + 100), 100);
-  }
-
-  function stopRec() {
-    mediaRecRef.current?.stop();
-    if (recTimerRef.current) clearInterval(recTimerRef.current);
-    setRecording(false);
-  }
-
-  // Mic button, positioned inside a `relative` textarea wrapper. Records → local
-  // Whisper → appends the transcript to the prompt.
-  function renderMic() {
-    return (
-      <button
-        type="button"
-        onClick={recording ? stopRec : startRec}
-        disabled={transcribing}
-        title={recording ? "Stop & transcribe" : "Dictate with mic (local Whisper)"}
-        aria-label={recording ? "Stop recording and transcribe" : "Dictate prompt with microphone"}
-        className={`absolute top-2.5 right-2.5 h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-xs transition ${
-          recording ? "bg-red-600 text-white animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.4)]" : "bg-gray-700/70 hover:bg-gray-600 text-gray-300"
-        } disabled:opacity-50`}
-      >
-        {transcribing ? (
-          <span>transcribing…</span>
-        ) : recording ? (
-          <>
-            <Square className="h-3.5 w-3.5" />
-            <span className="tabular-nums">{(recMs / 1000).toFixed(1)}s</span>
-          </>
-        ) : (
-          <Mic className="h-3.5 w-3.5" />
-        )}
-      </button>
-    );
-  }
-
-  /** Shown directly under whichever prompt box the mic sits on. */
-  function renderVoiceBanner() {
-    if (!voiceError) return null;
-    return (
-      <VoiceErrorBanner
-        error={voiceError}
-        onRetry={retryTranscription}
-        canRetry={!!lastRecordingRef.current}
-        retrying={transcribing}
-        onDismiss={() => setVoiceError(null)}
-      />
-    );
-  }
+  // ── voice → prompt ──────────────────────────────────────────────
+  // This is where the mic started, and it now lives in voice-input.tsx so
+  // every other prompt box on the console gets the same behaviour — including
+  // the kept-recording retry and the Start button for a stopped service.
+  const voice = useVoiceInput({
+    onTranscript: (t) => setPrompt((p) => appendTranscript(p, t)),
+    label: "prompt",
+  });
+  const renderMic = () => voice.mic;
+  const renderVoiceBanner = () => voice.banner;
 
   // Live server-side denoising progress ("step 12/24" + thin bar + elapsed).
   function renderStepProgress() {

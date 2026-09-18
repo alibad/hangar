@@ -47,7 +47,17 @@ export async function POST(req: NextRequest) {
     const text = await res.text();
     if (!res.ok) {
       return NextResponse.json(
-        { error: `Transcription failed (${res.status})`, detail: text.slice(0, 500), model: target.alias, latency },
+        {
+          error: `Transcription failed (${res.status})`,
+          detail: text.slice(0, 500),
+          model: target.alias,
+          // Carried on THIS path too, not just the catch below. It is what turns
+          // "start its service" into a button in VoiceErrorBanner, and a service
+          // that answers with an error is exactly as stopped, from the caller's
+          // side, as one that refuses the connection.
+          serviceId: target.serviceId,
+          latency,
+        },
         { status: res.status },
       );
     }

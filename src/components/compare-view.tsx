@@ -6,6 +6,7 @@ import { imageFootprint } from "@/lib/image-footprints";
 import { projectHostRam } from "@/lib/ram-budget";
 import { useLocalFootprints } from "@/lib/use-local-footprints";
 import ModelFootprint, { type Footprint } from "./model-footprint";
+import { useVoiceInput, appendTranscript } from "./voice-input";
 
 /**
  * One prompt, several models, side by side.
@@ -99,6 +100,10 @@ function useNow(active: boolean): number {
 
 export default function CompareView() {
   const [prompt, setPrompt] = useState("");
+  const voice = useVoiceInput({
+    onTranscript: (t) => setPrompt((v) => appendTranscript(v, t)),
+    label: "prompt",
+  });
   const [picked, setPicked] = useState<string[]>([]);
   const [size, setSize] = useState(SIZES[1]);
   const [cloud, setCloud] = useState<CatalogModel[]>([]);
@@ -301,13 +306,17 @@ export default function CompareView() {
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="One prompt, run on every model you pick…"
-          rows={3}
-          className="w-full rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-gray-600 resize-y"
-        />
+        <div className="relative">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="One prompt, run on every model you pick…"
+            rows={3}
+            className="w-full rounded-lg bg-gray-950 border border-gray-800 pl-3 pr-14 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-gray-600 resize-y"
+          />
+          {voice.mic}
+        </div>
+        {voice.banner}
 
         <div className="flex flex-wrap gap-2">
           {options.map((o) => {
