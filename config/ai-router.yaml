@@ -311,6 +311,14 @@ model_list:
       mode: chat
     # wired 2026-08-19 — wire-all
 
+  - model_name: chatgpt-image-latest
+    litellm_params:
+      model: openai/chatgpt-image-latest
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: image_generation
+    # wired 2026-09-18 — gpt-image-2.5 + image catalogue
+
   - model_name: claude-fable-5
     litellm_params:
       model: anthropic/claude-fable-5
@@ -334,6 +342,14 @@ model_list:
     model_info:
       mode: chat
     # wired 2026-08-19 — wire-all
+
+  - model_name: gemini-2.5-flash-image
+    litellm_params:
+      model: gemini/gemini-2.5-flash-image
+      api_key: os.environ/GEMINI_API_KEY
+    model_info:
+      mode: image_generation
+    # wired 2026-09-18 — gpt-image-2.5 + image catalogue
 
   - model_name: gemini-2.5-flash-preview-tts
     litellm_params:
@@ -454,6 +470,46 @@ model_list:
     model_info:
       mode: chat
     # wired 2026-08-19 — wire-all
+
+  - model_name: gpt-image-1
+    litellm_params:
+      model: openai/gpt-image-1
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: image_generation
+    # wired 2026-09-18 — gpt-image-2.5 + image catalogue
+
+  - model_name: gpt-image-1-mini
+    litellm_params:
+      model: openai/gpt-image-1-mini
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: image_generation
+    # wired 2026-09-18 — gpt-image-2.5 + image catalogue
+
+  - model_name: gpt-image-1.5
+    litellm_params:
+      model: openai/gpt-image-1.5
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: image_generation
+    # wired 2026-09-18 — gpt-image-2.5 + image catalogue
+
+  - model_name: gpt-image-2.5-flare
+    litellm_params:
+      model: openai/gpt-image-2.5-flare
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: image_generation
+    # wired 2026-09-18 — gpt-image-2.5 + image catalogue
+
+  - model_name: gpt-image-2.5-sunburst
+    litellm_params:
+      model: openai/gpt-image-2.5-sunburst
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      mode: image_generation
+    # wired 2026-09-18 — gpt-image-2.5 + image catalogue
 
   - model_name: gpt-transcribe
     litellm_params:

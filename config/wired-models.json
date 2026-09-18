@@ -10,6 +10,14 @@
       "source": "wire-all"
     },
     {
+      "alias": "chatgpt-image-latest",
+      "target": "openai/chatgpt-image-latest",
+      "provider": "openai",
+      "mode": "image_generation",
+      "addedAt": "2026-09-18T12:37:11.370Z",
+      "source": "gpt-image-2.5 + image catalogue"
+    },
+    {
       "alias": "claude-fable-5",
       "target": "anthropic/claude-fable-5",
       "provider": "anthropic",
@@ -32,6 +40,14 @@
       "mode": "chat",
       "addedAt": "2026-08-19T08:33:01.302Z",
       "source": "wire-all"
+    },
+    {
+      "alias": "gemini-2.5-flash-image",
+      "target": "gemini/gemini-2.5-flash-image",
+      "provider": "gemini",
+      "mode": "image_generation",
+      "addedAt": "2026-09-18T12:37:11.370Z",
+      "source": "gpt-image-2.5 + image catalogue"
     },
     {
       "alias": "gemini-2.5-flash-preview-tts",
@@ -152,6 +168,46 @@
       "mode": "chat",
       "addedAt": "2026-08-19T08:33:01.302Z",
       "source": "wire-all"
+    },
+    {
+      "alias": "gpt-image-1",
+      "target": "openai/gpt-image-1",
+      "provider": "openai",
+      "mode": "image_generation",
+      "addedAt": "2026-09-18T12:37:11.370Z",
+      "source": "gpt-image-2.5 + image catalogue"
+    },
+    {
+      "alias": "gpt-image-1-mini",
+      "target": "openai/gpt-image-1-mini",
+      "provider": "openai",
+      "mode": "image_generation",
+      "addedAt": "2026-09-18T12:37:11.370Z",
+      "source": "gpt-image-2.5 + image catalogue"
+    },
+    {
+      "alias": "gpt-image-1.5",
+      "target": "openai/gpt-image-1.5",
+      "provider": "openai",
+      "mode": "image_generation",
+      "addedAt": "2026-09-18T12:37:11.370Z",
+      "source": "gpt-image-2.5 + image catalogue"
+    },
+    {
+      "alias": "gpt-image-2.5-flare",
+      "target": "openai/gpt-image-2.5-flare",
+      "provider": "openai",
+      "mode": "image_generation",
+      "addedAt": "2026-09-18T12:37:11.370Z",
+      "source": "gpt-image-2.5 + image catalogue"
+    },
+    {
+      "alias": "gpt-image-2.5-sunburst",
+      "target": "openai/gpt-image-2.5-sunburst",
+      "provider": "openai",
+      "mode": "image_generation",
+      "addedAt": "2026-09-18T12:37:11.370Z",
+      "source": "gpt-image-2.5 + image catalogue"
     },
     {
       "alias": "gpt-transcribe",
