@@ -318,6 +318,7 @@ export default function QwenStudio() {
     window.localStorage.removeItem("bt-qwen-draft");
   }, []);
   const [error, setError] = useState<string | null>(null);
+  const [freeingComfy, setFreeingComfy] = useState(false);
   const [editNotice, setEditNotice] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   // live denoising progress from the server (step X/Y)
@@ -424,6 +425,28 @@ export default function QwenStudio() {
   // hook only polls the manager while a service is down, so keeping this mounted
   // costs nothing once ComfyUI is up.
   const comfyLifecycle = useServiceLifecycle("comfyui", comfyHealth?.up, checkComfy);
+
+  /**
+   * Drop ComfyUI's resident checkpoint, keeping the process. Its idle cost is a
+   * fraction of a gigabyte, so this is worth doing before a big run on another
+   * service rather than paying a cold ComfyUI start afterwards.
+   */
+  const freeComfyWeights = useCallback(async () => {
+    setFreeingComfy(true);
+    try {
+      const r = await fetch("/api/comfyui/unload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      }).then((x) => x.json());
+      if (r.error) setError(`Could not free ComfyUI's weights: ${r.error}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setFreeingComfy(false);
+      void checkComfy();
+    }
+  }, [checkComfy]);
 
   /** Whether the model the picker is pointing at can actually run right now. */
   const modelUp =
@@ -1629,16 +1652,19 @@ export default function QwenStudio() {
               // picking it moves the studio without moving the box.
               const alias = m.serviceId === "qwen" ? qwenAlias : null;
               return (
-                <button
+                <div
                   key={m.id}
-                  onClick={() => { pickModel(m.id, alias); setSetupDialog(null); }}
-                  aria-pressed={active}
-                  disabled={routingBusy === m.id}
-                  className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2 text-left transition ${
+                  className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2 transition ${
                     active
                       ? "border-pink-500/50 bg-pink-500/10"
                       : "border-gray-800 bg-gray-900 hover:border-gray-600"
                   }`}
+                >
+                <button
+                  onClick={() => { pickModel(m.id, alias); setSetupDialog(null); }}
+                  aria-pressed={active}
+                  disabled={routingBusy === m.id}
+                  className="flex flex-1 items-center gap-2.5 text-left"
                 >
                   <span
                     title={up == null ? "checking service" : up ? "service running" : "service stopped"}
@@ -1656,6 +1682,28 @@ export default function QwenStudio() {
                     />
                   </span>
                 </button>
+                {/* Free ComfyUI's weights without stopping it — the same idea as
+                    the Ollama row's unload, and for the same reason: four models
+                    share this one service, so Stop is the wrong verb for all of
+                    them.
+
+                    Only on the ACTIVE ComfyUI row, not all four. ComfyUI holds a
+                    single checkpoint at a time and does not report WHICH, so a
+                    button on every row would be one action wearing four faces,
+                    each implying a per-model unload that does not exist. The row
+                    you have selected is the one whose run put weights on the
+                    card, so that is where the control belongs. */}
+                {m.serviceId === "comfyui" && active && up && (
+                  <button
+                    onClick={() => void freeComfyWeights()}
+                    disabled={freeingComfy}
+                    title="Release ComfyUI's weights without stopping it. All four of its image models stay available; the next run reloads what it needs."
+                    className="flex-shrink-0 rounded-md border border-amber-700/40 px-2 py-1 text-[10px] text-amber-300 transition hover:border-amber-600 hover:text-amber-200 disabled:opacity-40"
+                  >
+                    {freeingComfy ? "Freeing…" : "Free weights"}
+                  </button>
+                )}
+                </div>
               );
             })}
           </div>
