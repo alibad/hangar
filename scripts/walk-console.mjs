@@ -46,7 +46,9 @@ const OUT = join(ROOT, "docs", "images", "console");
 /** Where each console lives. Override either with an env var. */
 const HOSTS = {
   b5: { label: "B5", url: process.env.B5_URL || "http://localhost:8003" },
-  betenshi: { label: "BeTenshi", url: process.env.BETENSHI_URL || "http://192.168.18.36:8003" },
+  // No default for a remote host: a LAN address is someone's network layout,
+  // not a fact about this project. Set BETENSHI_URL to walk it.
+  betenshi: { label: "BeTenshi", url: process.env.BETENSHI_URL || "http://betenshi.local:8003" },
 };
 
 const argHost = (() => {
