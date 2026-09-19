@@ -13,3 +13,18 @@ __pycache__/
 # Ad-hoc dev-server redirects. The task logs to var/console.log (rotated).
 console-dev.log
 console-dev.err.log
+
+# Start commands are absolute paths into one machine's disk, and the list of
+# them names every other project on it. Ship the template, keep the real one
+# local: scripts/service-commands.example.json
+/scripts/service-commands.json
+
+# Design-QA scratch: working comparisons against reference renders, not docs.
+/design-qa.md
+/design-qa-artifacts/
+
+# Walkthrough captures the README does not embed. The walk regenerates them,
+# and some show real usage, spend and voice-library contents.
+docs/images/console/*/usage/
+docs/images/console/*/speech/desktop/step-02-synthesize.png
+docs/images/console/*/speech/desktop/step-03-spoken.png

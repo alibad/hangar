@@ -1,0 +1,144 @@
+{
+  "_doc": "TEMPLATE — copy to service-commands.json and replace every C:\\path\\to\\... with your own. The real file is gitignored, because start commands are absolute paths into one person's disk and the list of them names every other project on that machine. Which file a host reads is set by `commandsFile` in its config/hosts/<id>.json. docker = container name. cmd+args+cwd = spawn a process. skip = externally managed.",
+  "_models-doc": "Model weights live on D: (see HF_HOME below), NOT the default C:\\Users\\<you>\\.cache\\huggingface. HF_HOME is set per-service rather than relied upon from the user environment: the manager runs as a scheduled task and inherits its environment at launch, so a user-level variable set afterwards would not reach spawned services until a re-login — they would silently fall back to the empty default path and re-download every model. Every service that loads Hugging Face weights must carry it.",
+  "vllm": {
+    "docker": "vllm-coder"
+  },
+  "vllm-small": {
+    "docker": "vllm-small"
+  },
+  "whisper": {
+    "cmd": "C:\\path\\to\\Programs\\Python\\Python312\\python.exe",
+    "args": [
+      "-m",
+      "uvicorn",
+      "server:app",
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8001"
+    ],
+    "cwd": "C:\\path\\to\\whisper",
+    "env": {
+      "HF_HOME": "D:\\AI Models\\huggingface"
+    }
+  },
+  "tts": {
+    "cmd": "C:\\path\\to\\Programs\\Python\\Python312\\python.exe",
+    "args": [
+      "-m",
+      "uvicorn",
+      "server:app",
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8002"
+    ],
+    "cwd": "C:\\path\\to\\tts",
+    "env": {
+      "HF_HOME": "D:\\AI Models\\huggingface"
+    }
+  },
+  "voice": {
+    "_doc": "Its OWN interpreter, unlike every other Python service here. chatterbox-tts pins torch==2.6.0, which has no Blackwell kernels and cannot run on the 5090; the venv is built with --system-site-packages so it inherits the working torch 2.11.0+cu128. Installing it into Python312 would have downgraded transformers and numpy under the running Whisper and Kokoro services.",
+    "cmd": "C:\\path\\to\\chatterbox\\.venv\\Scripts\\python.exe",
+    "args": [
+      "-m",
+      "uvicorn",
+      "server:app",
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8004"
+    ],
+    "cwd": "C:\\path\\to\\chatterbox",
+    "env": {
+      "HF_HOME": "D:\\AI Models\\huggingface"
+    }
+  },
+  "webui": {
+    "docker": "open-webui"
+  },
+  "grafana": {
+    "docker": "grafana"
+  },
+  "prometheus": {
+    "docker": "prometheus"
+  },
+  "qwen": {
+    "cmd": "C:\\path\\to\\Programs\\Python\\Python312\\python.exe",
+    "args": [
+      "C:\\path\\to\\your-image-server\\qwen_image.py"
+    ],
+    "env": {
+      "QWEN_EDIT_ENABLED": "1",
+      "HF_HOME": "D:\\AI Models\\huggingface"
+    }
+  },
+  "comfyui": {
+    "cmd": "C:\\path\\to\\Programs\\Python\\Python312\\python.exe",
+    "args": [
+      "main.py",
+      "--port",
+      "8188",
+      "--extra-model-paths-config",
+      "C:\\path\\to\\betenshi-console\\config\\comfy-model-paths.yaml"
+    ],
+    "cwd": "C:\\path\\to\\creative-lab\\image\\ComfyUI",
+    "env": {
+      "HF_HOME": "D:\\AI Models\\huggingface"
+    }
+  },
+  "sam3d": {
+    "cmd": "C:\\path\\to\\Programs\\Python\\Python312\\python.exe",
+    "args": [
+      "services\\sam3d\\server.py"
+    ],
+    "cwd": "C:\\path\\to\\your-vision-services",
+    "env": {
+      "HF_HOME": "D:\\AI Models\\huggingface"
+    }
+  },
+  "sam3": {
+    "cmd": "C:\\path\\to\\Programs\\Python\\Python312\\python.exe",
+    "args": [
+      "services\\sam3\\server.py"
+    ],
+    "cwd": "C:\\path\\to\\your-vision-services",
+    "env": {
+      "HF_HUB_OFFLINE": "1",
+      "HF_HOME": "D:\\AI Models\\huggingface"
+    }
+  },
+  "_ollama-doc": "Second LLM runtime beside vLLM, for models vLLM 0.17.1 cannot load (Gemma 4 needs vLLM >= 0.19) and for on-demand vision. Normally already running from the Ollama tray app, which is fine: the manager adopts the external process and reports it as externally owned. OLLAMA_KEEP_ALIVE is short on purpose - one 31B model is ~20 GB of a 32 GB card, so an idle model left resident is what blocks the next image generation. OLLAMA_MAX_LOADED_MODELS=1 for the same reason: two of these do not coexist.",
+  "ollama": {
+    "cmd": "C:\\path\\to\\Programs\\Ollama\\ollama.exe",
+    "args": [
+      "serve"
+    ],
+    "env": {
+      "OLLAMA_KEEP_ALIVE": "5m",
+      "OLLAMA_MAX_LOADED_MODELS": "1",
+      "OLLAMA_HOST": "127.0.0.1:11434"
+    }
+  },
+  "_ai-router-doc": "LiteLLM proxy. --host 127.0.0.1 is a HARD requirement: this gateway must never be reachable off-box. Cloud API keys come from the environment (OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_KEY); a missing key leaves that model listed but reporting 'no key configured'.",
+  "ai-router": {
+    "cmd": "C:\\path\\to\\Programs\\Python\\Python312\\Scripts\\litellm.exe",
+    "args": [
+      "--config",
+      "C:\\path\\to\\betenshi-console\\config\\ai-router.yaml",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "4000"
+    ],
+    "cwd": "C:\\path\\to\\betenshi-console",
+    "envFile": "C:\\path\\to\\betenshi-console\\.env",
+    "env": {
+      "LITELLM_LOG": "ERROR",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1"
+    }
+  }
+}

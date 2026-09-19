@@ -32,7 +32,23 @@ const HOST_ID = resolveHostId();
 const HOST = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "config", "hosts", `${HOST_ID}.json`), "utf8"));
 
 const PORT = parseInt(process.env.MANAGER_PORT || "8099");
-const COMMANDS_FILE = path.join(__dirname, HOST.commandsFile || "service-commands.json");
+// The real commands file is gitignored: start commands are absolute paths into
+// one machine's disk, and the list of them names every other project on it. A
+// fresh clone therefore has only the template, and falling back to it with a
+// loud message beats dying with ENOENT on a file the repo never shipped.
+const COMMANDS_FILE = (() => {
+  const named = path.join(__dirname, HOST.commandsFile || "service-commands.json");
+  if (fs.existsSync(named)) return named;
+  const example = named.replace(/\.json$/, ".example.json");
+  if (fs.existsSync(example)) {
+    console.warn(
+      `[manager] ${path.basename(named)} not found — using ${path.basename(example)}.\n` +
+      `[manager] Copy it and replace the placeholder paths, or every Start will fail.`,
+    );
+    return example;
+  }
+  return named;
+})();
 const RESOURCE_POLICY_FILE = path.join(__dirname, "..", "config", "resource-policy.json");
 const MODEL_META_FILE = path.join(__dirname, "..", "config", "model-meta.json");
 
@@ -154,7 +170,9 @@ function loadCommands() {
 /**
  * Read a KEY=VALUE env file for a service's `envFile`.
  *
- * Needed because secrets must NOT live in service-commands.json (it's tracked),
+ * Needed because secrets must NOT live in service-commands.json. That file is
+ * gitignored now, but it was tracked for most of this repo's history, so a
+ * secret put there is in git forever — the rule stands.
  * and because a library's own dotenv loading can't be relied on: LiteLLM calls
  * load_dotenv() with no arguments, which resolves relative to its own module
  * inside site-packages rather than the process cwd, so a .env sitting next to
