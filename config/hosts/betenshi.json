@@ -1,5 +1,5 @@
 {
-  "_doc": "Host profile for BeTenshi. THE DEFAULT: any machine the console cannot identify (a Vercel build box, a fresh clone) resolves to this profile, so a deployed console keeps targeting BeTenshi's public hostnames exactly as it always has. Selected by hostname 'BeTenshi' or HOST_ID=betenshi. See src/lib/host.ts.",
+  "_doc": "Host profile for BeTenshi - a Windows box with a discrete NVIDIA GPU, fronted by a Cloudflare tunnel. THE DEFAULT: any machine the console cannot identify (a Vercel build box, a fresh clone) resolves to this profile. Selected by hostname 'BeTenshi' or HOST_ID=betenshi. See src/lib/host.ts. PUBLIC HOSTNAMES ARE A PLACEHOLDER: every publicUrl reads https://<service>.${PUBLIC_DOMAIN}, substituted at load time from the PUBLIC_DOMAIN env var (example.com when unset). The literal hostnames are deliberately not in the repository - together they map which services this machine exposes and what runs behind each, and several of them resolve nowhere, so the repository would be the only place naming them. Put PUBLIC_DOMAIN in .env.local on the real machine.",
   "id": "betenshi",
   "name": "BeTenshi",
   "platform": "win32",
@@ -18,7 +18,7 @@
       "name": "Service Manager",
       "localPort": 8099,
       "localUrl": "http://localhost:8099",
-      "publicUrl": "https://manager.betenshi.com",
+      "publicUrl": "https://manager.${PUBLIC_DOMAIN}",
       "healthPath": "/services",
       "category": "monitoring",
       "authRequired": false,
@@ -29,7 +29,7 @@
       "name": "vLLM (Qwen3-Coder 30B)",
       "localPort": 8005,
       "localUrl": "http://localhost:8005",
-      "publicUrl": "https://llm.betenshi.com",
+      "publicUrl": "https://llm.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
       "serves": {
         "text": "qwen3-coder"
@@ -45,7 +45,7 @@
       "name": "vLLM (Qwen2.5-7B)",
       "localPort": 8006,
       "localUrl": "http://localhost:8006",
-      "publicUrl": "https://llm-small.betenshi.com",
+      "publicUrl": "https://llm-small.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
       "serves": {
         "text": "qwen-small"
@@ -61,7 +61,7 @@
       "name": "Whisper STT",
       "localPort": 8001,
       "localUrl": "http://localhost:8001",
-      "publicUrl": "https://whisper.betenshi.com",
+      "publicUrl": "https://whisper.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
       "serves": {
         "stt": "whisper-1"
@@ -74,7 +74,7 @@
       "name": "Kokoro TTS",
       "localPort": 8002,
       "localUrl": "http://localhost:8002",
-      "publicUrl": "https://tts.betenshi.com",
+      "publicUrl": "https://tts.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
       "serves": {
         "tts": "kokoro"
@@ -87,7 +87,7 @@
       "name": "Chatterbox Voice",
       "localPort": 8004,
       "localUrl": "http://localhost:8004",
-      "publicUrl": "https://voice.betenshi.com",
+      "publicUrl": "https://voice.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
       "serves": {
         "tts": "chatterbox"
@@ -101,7 +101,7 @@
       "name": "Open WebUI",
       "localPort": 3001,
       "localUrl": "http://localhost:3001",
-      "publicUrl": "https://webui.betenshi.com",
+      "publicUrl": "https://webui.${PUBLIC_DOMAIN}",
       "healthPath": "/",
       "category": "app",
       "authRequired": false
@@ -111,7 +111,7 @@
       "name": "Grafana",
       "localPort": 3002,
       "localUrl": "http://localhost:3002",
-      "publicUrl": "https://grafana.betenshi.com",
+      "publicUrl": "https://grafana.${PUBLIC_DOMAIN}",
       "healthPath": "/api/health",
       "category": "monitoring",
       "authRequired": false
@@ -121,7 +121,7 @@
       "name": "Prometheus",
       "localPort": 9090,
       "localUrl": "http://localhost:9090",
-      "publicUrl": "https://prometheus.betenshi.com",
+      "publicUrl": "https://prometheus.${PUBLIC_DOMAIN}",
       "healthPath": "/-/healthy",
       "category": "monitoring",
       "authRequired": false
@@ -131,7 +131,7 @@
       "name": "Qwen-Image",
       "localPort": 8021,
       "localUrl": "http://localhost:8021",
-      "publicUrl": "https://qwen.betenshi.com",
+      "publicUrl": "https://qwen.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
       "serves": {
         "image": "qwen-image"
@@ -145,7 +145,7 @@
       "name": "ComfyUI",
       "localPort": 8188,
       "localUrl": "http://localhost:8188",
-      "publicUrl": "https://comfyui.betenshi.com",
+      "publicUrl": "https://comfyui.${PUBLIC_DOMAIN}",
       "healthPath": "/system_stats",
       "category": "app",
       "authRequired": false,
@@ -156,7 +156,7 @@
       "name": "SAM 3D Body",
       "localPort": 8009,
       "localUrl": "http://localhost:8009",
-      "publicUrl": "https://sam3d.betenshi.com",
+      "publicUrl": "https://sam3d.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
       "category": "ai",
       "authRequired": false,
@@ -167,7 +167,7 @@
       "name": "SAM 3",
       "localPort": 8010,
       "localUrl": "http://localhost:8010",
-      "publicUrl": "https://sam3.betenshi.com",
+      "publicUrl": "https://sam3.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
       "category": "ai",
       "authRequired": false,

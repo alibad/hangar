@@ -117,3 +117,26 @@ test("BeTenshi's audio capabilities are declared, not inferred from a name", () 
     assert.ok(betenshi.services.some((x) => x.id === s.id));
   }
 });
+
+test("no profile commits a literal public hostname", () => {
+  // The guard on a disclosure, not on a secret. A profile's public hostnames
+  // together map which services a machine exposes and what software answers on
+  // each — including services whose names resolve nowhere, where the repository
+  // would be the only place naming them at all. publicUrl must therefore be
+  // either a loopback address (a host with no off-box presence) or the
+  // ${PUBLIC_DOMAIN} placeholder, which src/lib/host.ts substitutes at load
+  // time from the env var. This test exists because twelve literal hostnames
+  // sat in one profile for months without anyone deciding they should.
+  const loopback = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+  for (const [id, h] of HOSTS) {
+    for (const s of h.services) {
+      const ok = loopback.test(s.publicUrl) || s.publicUrl.includes("${PUBLIC_DOMAIN}");
+      assert.ok(
+        ok,
+        `${id}/${s.id} publicUrl is a literal hostname: ${s.publicUrl}\n` +
+          `  Write it as https://<subdomain>.\${PUBLIC_DOMAIN} and put the real ` +
+          `domain in PUBLIC_DOMAIN in .env.local.`,
+      );
+    }
+  }
+});

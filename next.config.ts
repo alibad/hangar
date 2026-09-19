@@ -24,9 +24,20 @@ function detectHostId(): string {
   return "betenshi";
 }
 
+/**
+ * The domain a tunnelled host publishes its services under.
+ *
+ * Host profiles carry `https://llm.${PUBLIC_DOMAIN}` rather than a literal
+ * hostname, so that a shared repository does not also ship a map of which
+ * services a machine exposes and what runs behind each. Resolved in
+ * src/lib/host.ts as the profile loads; `example.com` when unset.
+ *
+ * Set PUBLIC_DOMAIN in .env.local on a machine that really has a tunnel.
+ */
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_HOST_ID: detectHostId(),
+    NEXT_PUBLIC_PUBLIC_DOMAIN: (process.env.PUBLIC_DOMAIN ?? "").trim(),
   },
   // duckdb is a native addon — never bundle it, `require` it at runtime.
   //

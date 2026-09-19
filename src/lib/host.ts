@@ -77,6 +77,34 @@ export type HostProfile = {
   workstreams: Partial<Record<WorkstreamKind, Workstream>>;
 };
 
+/**
+ * The domain a tunnelled host's services are published under.
+ *
+ * Host profiles write `publicUrl` as `https://llm.${PUBLIC_DOMAIN}` rather than
+ * a literal hostname, and it is resolved here, once, as the profile is loaded.
+ *
+ * The reason is disclosure, not configurability. A profile's public hostnames
+ * are a map of which services a machine exposes to the internet and what is
+ * behind each one — including services whose names resolve nowhere, so the
+ * repository would be the only place they are named at all. That is worth
+ * keeping out of a shared repository even though a hostname is not a secret.
+ *
+ * Unset, this is `example.com`: a fresh clone gets an obviously-placeholder URL
+ * instead of a plausible-looking wrong one it might try to call. Set
+ * PUBLIC_DOMAIN in .env.local on a machine that really has a tunnel.
+ *
+ * NEXT_PUBLIC_ because host.ts is imported by client components; next.config.ts
+ * copies PUBLIC_DOMAIN into it at config load, the same way it does HOST_ID.
+ */
+const PUBLIC_DOMAIN = (process.env.NEXT_PUBLIC_PUBLIC_DOMAIN ?? "").trim() || "example.com";
+
+function resolveDomain<T>(value: T): T {
+  if (typeof value === "string") {
+    return value.replace(/\$\{PUBLIC_DOMAIN\}/g, PUBLIC_DOMAIN) as unknown as T;
+  }
+  return value;
+}
+
 // JSON carries `_doc` / `note` fields that the runtime type does not need; strip
 // the profile-level ones and let ServiceEntry's optional `note` keep the rest.
 function asProfile(raw: unknown): HostProfile {
@@ -94,7 +122,12 @@ function asProfile(raw: unknown): HostProfile {
   }
   const { _doc: _m, ...mem } = memory;
   void _m;
-  return { ...rest, memory: mem, workstreams: ws } as HostProfile;
+  const services = (rest.services ?? []).map((s) => ({
+    ...s,
+    publicUrl: resolveDomain(s.publicUrl),
+    localUrl: resolveDomain(s.localUrl),
+  }));
+  return { ...rest, services, memory: mem, workstreams: ws } as HostProfile;
 }
 
 export const HOST_PROFILES: Record<string, HostProfile> = {
