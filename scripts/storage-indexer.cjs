@@ -12,8 +12,23 @@ const fsp = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
 
-const STATE_DIR = path.join(process.env.LOCALAPPDATA || process.cwd(), "betenshi", "storage");
-const DB_PATH = process.env.BETENSHI_STORAGE_DB || path.join(STATE_DIR, "storage-index.sqlite");
+// Mirrors the resolution in src/lib/storage-index.ts exactly. It has to: the
+// console and this worker write the same status, lock and watcher files, so
+// resolving them differently gives two half-states that each look like the
+// other side never ran.
+const STATE_ROOT = process.env.LOCALAPPDATA || process.cwd();
+const LEGACY_STATE = path.join(STATE_ROOT, "betenshi", "storage");
+const STATE_DIR = fs.existsSync(LEGACY_STATE)
+  ? LEGACY_STATE
+  : path.join(STATE_ROOT, "hangar", "storage");
+// Both names: the parent passes HANGAR_STORAGE_DB since the rename, and a
+// machine whose environment still sets the old one must keep working. Reading
+// only one of them makes the worker index a DIFFERENT database from the one
+// the console reads, which looks like a scan that silently found nothing.
+const DB_PATH =
+  process.env.HANGAR_STORAGE_DB ||
+  process.env.BETENSHI_STORAGE_DB ||
+  path.join(STATE_DIR, "storage-index.sqlite");
 const STATUS_PATH = path.join(STATE_DIR, "scan-status.json");
 const LOCK_PATH = path.join(STATE_DIR, "scan.lock");
 const WATCHERS_PATH = path.join(STATE_DIR, "watchers.json");
