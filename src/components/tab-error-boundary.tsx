@@ -14,7 +14,7 @@ export default class TabErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error(`BeTenshi ${this.props.label} tab crashed`, error, info);
+    console.error(`Hangar ${this.props.label} tab crashed`, error, info);
   }
 
   render() {

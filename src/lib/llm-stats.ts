@@ -169,7 +169,7 @@ export async function getLlmStats(opts: { force?: boolean } = {}): Promise<LlmSt
       headers: {
         // Identify honestly. This is a once-every-twelve-hours read of a page
         // robots.txt allows; there is no reason to pretend to be a browser.
-        "User-Agent": "BeTenshi-Console/1.0 (local model dashboard; +https://github.com/alibad/betenshi-console)",
+        "User-Agent": "Hangar/1.0 (local model dashboard; +https://github.com/alibad/hangar)",
         Accept: "text/html",
       },
       signal: AbortSignal.timeout(30_000),

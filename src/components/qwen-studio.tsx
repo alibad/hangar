@@ -193,7 +193,7 @@ export default function QwenStudio() {
   const [choiceRestored, setChoiceRestored] = useState(false);
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("betenshi:image-studio:model");
+      const saved = localStorage.getItem("hangar:image-studio:model");
       if (isImageModelId(saved)) setImageModel(saved);
     } catch { /* Storage may be disabled. */ }
     setChoiceRestored(true);
@@ -201,8 +201,8 @@ export default function QwenStudio() {
   useEffect(() => {
     if (!choiceRestored) return;
     try {
-      if (isImageModelId(imageModel)) localStorage.setItem("betenshi:image-studio:model", imageModel);
-      else localStorage.removeItem("betenshi:image-studio:model");
+      if (isImageModelId(imageModel)) localStorage.setItem("hangar:image-studio:model", imageModel);
+      else localStorage.removeItem("hangar:image-studio:model");
     } catch { /* The active selection still works. */ }
   }, [imageModel, choiceRestored]);
   const [modelTab, setModelTab] = useState<"local" | "cloud">("local");
@@ -2232,7 +2232,7 @@ export default function QwenStudio() {
           </div>
 
           {lastResult && <div className="flex items-center gap-4 flex-wrap">
-            <a href={lastResult.image} download="betenshi-image.png" className="text-xs underline">Download image</a>
+            <a href={lastResult.image} download="hangar-image.png" className="text-xs underline">Download image</a>
             <button onClick={() => { setEditImages([lastResult.image]); if (!activeModel.supportsEdit) setImageModel("flux2-klein-4b"); setMode("edit"); setPrompt(""); }} className="text-sm text-purple-300">Edit this image</button>
           </div>}
 

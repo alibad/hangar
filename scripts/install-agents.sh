@@ -18,14 +18,23 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 agents_dir="$HOME/Library/LaunchAgents"
-labels=(com.betenshi.manager com.betenshi.console)
+labels=(com.hangar.manager com.hangar.console)
 
 if [ "$(uname)" != "Darwin" ]; then
   echo "This installs launchd agents and only works on macOS (found: $(uname))." >&2
   exit 1
 fi
 
+# Agents installed before the project was renamed from betenshi-console. Left in
+# the uninstall list so a machine that upgrades does not end up running BOTH the
+# old and the new agent on the same ports, which looks like a port conflict.
+legacy=(com.betenshi.manager com.betenshi.console)
+
 if [ "${1:-}" = "--uninstall" ]; then
+  for label in "${legacy[@]}"; do
+    launchctl bootout "gui/$UID/$label" 2>/dev/null || true
+    rm -f "$agents_dir/$label.plist"
+  done
   for label in "${labels[@]}"; do
     launchctl bootout "gui/$UID/$label" 2>/dev/null || true
     rm -f "$agents_dir/$label.plist"
@@ -33,6 +42,15 @@ if [ "${1:-}" = "--uninstall" ]; then
   done
   exit 0
 fi
+
+# Retire any pre-rename agent first, for the same reason.
+for label in "${legacy[@]}"; do
+  if launchctl list | grep -q "$label"; then
+    echo "retiring $label (pre-rename agent)"
+    launchctl bootout "gui/$UID/$label" 2>/dev/null || true
+    rm -f "$agents_dir/$label.plist"
+  fi
+done
 
 mkdir -p "$agents_dir"
 
@@ -65,7 +83,7 @@ echo "Both agents are RunAtLoad + KeepAlive: they start now, start at login,"
 echo "and restart if they die."
 echo
 echo "  status    launchctl list | grep betenshi"
-echo "  restart   launchctl kickstart -k gui/\$UID/com.betenshi.console"
+echo "  restart   launchctl kickstart -k gui/\$UID/com.hangar.console"
 echo "  logs      tail -f $root/var/console.log"
 echo
 echo "The console needs a build before it will start: npm run build"

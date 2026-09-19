@@ -315,7 +315,7 @@ html:root[data-theme="claude"] {
   --destructive: var(--err-500);
 }
 
-html:root[data-theme="betenshi"] {
+html:root[data-theme="hangar"] {
   --accent-c: 0.162;
   --accent-h: 272.3;
   --ok-c: 0.153;

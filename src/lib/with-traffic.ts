@@ -14,7 +14,7 @@ import { record } from "./traffic";
  * router depending on the `model` in the body it just parsed. Stripped before
  * the response leaves, so it never reaches the browser.
  */
-export const TARGET_HEADER = "x-betenshi-target";
+export const TARGET_HEADER = "x-hangar-target";
 
 export function withTraffic(
   handler: (req: NextRequest) => Promise<Response>,

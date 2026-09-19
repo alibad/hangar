@@ -15,7 +15,7 @@ export function buildComfyImageWorkflow(model: string, p: ComfyImageParams, refe
     "7": { class_type: "SamplerLCM", inputs: { s_noise: 1, s_noise_end: 1, noise_clip_std: 2.5 } },
     "8": { class_type: "SamplerCustom", inputs: { model: ["5", 0], add_noise: true, noise_seed: seed, cfg: 1, positive: ["2", 0], negative: ["3", 0], sampler: ["7", 0], sigmas: ["6", 0], latent_image: ["4", 0] } },
     "9": { class_type: "VAEDecode", inputs: { samples: ["8", 0], vae: ["1", 2] } },
-    "10": { class_type: "SaveImage", inputs: { images: ["9", 0], filename_prefix: "betenshi-hidream" } },
+    "10": { class_type: "SaveImage", inputs: { images: ["9", 0], filename_prefix: "hangar-hidream" } },
   };
   if (model !== "flux2-klein-4b" && model !== "z-image-turbo") throw new Error(`Unsupported ComfyUI image model: ${model}`);
   const klein = model === "flux2-klein-4b";
@@ -28,7 +28,7 @@ export function buildComfyImageWorkflow(model: string, p: ComfyImageParams, refe
     "5": { class_type: "ConditioningZeroOut", inputs: { conditioning: ["4", 0] } },
     "6": { class_type: klein ? "EmptyFlux2LatentImage" : "EmptySD3LatentImage", inputs: { width, height, batch_size: 1 } },
     "11": { class_type: "VAEDecode", inputs: { samples: ["10", 0], vae: ["3", 0] } },
-    "12": { class_type: "SaveImage", inputs: { images: ["11", 0], filename_prefix: `betenshi-${model}` } },
+    "12": { class_type: "SaveImage", inputs: { images: ["11", 0], filename_prefix: `hangar-${model}` } },
   };
   let positive: [string, number] = ["4", 0];
   for (let i = 0; i < references.length; i++) {

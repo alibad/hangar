@@ -1,4 +1,4 @@
-# BeTenshi Console
+# Hangar
 
 **One console for the AI services running on your own machines.** It starts and
 stops them, keeps them inside a memory budget, routes work to whichever model
@@ -89,8 +89,8 @@ Requires **Node 22 or newer** (`/api/scout` imports `node:sqlite`, a Node 22
 builtin; there is an `.nvmrc`).
 
 ```bash
-git clone https://github.com/alibad/betenshi-console.git
-cd betenshi-console
+git clone https://github.com/alibad/hangar.git
+cd hangar
 npm install
 cp .env.example .env.local     # optional — every variable in it is optional
 npm run dev                    # http://localhost:8003
@@ -213,7 +213,7 @@ eight places.)
 
 ```bash
 launchctl list | grep betenshi                        # status
-launchctl kickstart -k gui/$UID/com.betenshi.console  # restart after a rebuild
+launchctl kickstart -k gui/$UID/com.hangar.console  # restart after a rebuild
 tail -f var/console.log                               # logs
 ./scripts/install-agents.sh --uninstall               # remove
 ```
@@ -234,7 +234,7 @@ and — more usefully — **what breaks without it**.
 | `HOST_ID` | Force a host profile instead of detecting one |
 | `PUBLIC_DOMAIN` | The domain a tunnelled host publishes its services under |
 | `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` | Cloudflare Access service token, for reaching `authRequired` services from a *deployed* console |
-| `BETENSHI_DB_PATH` / `BETENSHI_STORAGE_DB` | Move the local databases off their default path |
+| `HANGAR_DB_PATH` / `HANGAR_STORAGE_DB` | Move the local databases off their default path |
 
 ### A note on public hostnames
 

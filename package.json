@@ -1,5 +1,5 @@
 {
-  "name": "betenshi-console",
+  "name": "hangar",
   "version": "1.0.0",
   "description": "One console for the AI services running on your own machines: start them, budget their memory, route work between them, and see every call.",
   "main": "index.js",

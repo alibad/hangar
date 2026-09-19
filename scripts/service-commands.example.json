@@ -82,7 +82,7 @@
       "--port",
       "8188",
       "--extra-model-paths-config",
-      "C:\\path\\to\\betenshi-console\\config\\comfy-model-paths.yaml"
+      "C:\\path\\to\\hangar\\config\\comfy-model-paths.yaml"
     ],
     "cwd": "C:\\path\\to\\creative-lab\\image\\ComfyUI",
     "env": {
@@ -127,14 +127,14 @@
     "cmd": "C:\\path\\to\\Programs\\Python\\Python312\\Scripts\\litellm.exe",
     "args": [
       "--config",
-      "C:\\path\\to\\betenshi-console\\config\\ai-router.yaml",
+      "C:\\path\\to\\hangar\\config\\ai-router.yaml",
       "--host",
       "127.0.0.1",
       "--port",
       "4000"
     ],
-    "cwd": "C:\\path\\to\\betenshi-console",
-    "envFile": "C:\\path\\to\\betenshi-console\\.env",
+    "cwd": "C:\\path\\to\\hangar",
+    "envFile": "C:\\path\\to\\hangar\\.env",
     "env": {
       "LITELLM_LOG": "ERROR",
       "PYTHONIOENCODING": "utf-8",

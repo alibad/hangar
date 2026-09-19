@@ -17,7 +17,7 @@
 #      said when it started. That is how a stale UI gets mistaken for a missing
 #      feature. launchd owns this process, so KeepAlive actually applies.
 #
-#        Start it with:  launchctl kickstart -k gui/$UID/com.betenshi.console
+#        Start it with:  launchctl kickstart -k gui/$UID/com.hangar.console
 #        Never with:     npm run dev
 #
 #   3) NODE VERSION. node:sqlite is a Node 22 builtin and /api/scout imports it;

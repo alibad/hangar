@@ -5,13 +5,17 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
 
-export const STORAGE_STATE_DIR = path.join(
-  process.env.LOCALAPPDATA || process.cwd(),
-  "betenshi",
-  "storage",
-);
+// Renamed from betenshi-console to Hangar: a machine that already has an index
+// under the old directory keeps it rather than silently starting an empty one.
+const STORAGE_ROOT = process.env.LOCALAPPDATA || process.cwd();
+const LEGACY_STORAGE = path.join(STORAGE_ROOT, "betenshi", "storage");
+export const STORAGE_STATE_DIR = fs.existsSync(LEGACY_STORAGE)
+  ? LEGACY_STORAGE
+  : path.join(STORAGE_ROOT, "hangar", "storage");
 export const STORAGE_DB_PATH =
-  process.env.BETENSHI_STORAGE_DB || path.join(STORAGE_STATE_DIR, "storage-index.sqlite");
+  process.env.HANGAR_STORAGE_DB ||
+  process.env.BETENSHI_STORAGE_DB ||
+  path.join(STORAGE_STATE_DIR, "storage-index.sqlite");
 const STATUS_PATH = path.join(STORAGE_STATE_DIR, "scan-status.json");
 const LOCK_PATH = path.join(STORAGE_STATE_DIR, "scan.lock");
 const WATCHERS_PATH = path.join(STORAGE_STATE_DIR, "watchers.json");
@@ -135,7 +139,25 @@ function driveKind(type: number): StorageDrive["kind"] {
   return "other";
 }
 
+/**
+ * Thrown when a storage operation cannot run on this platform at all, as
+ * opposed to failing. The distinction matters to the caller: one is a bug to
+ * report, the other is a fact about the machine.
+ */
+export class StorageUnsupportedError extends Error {
+  readonly code = "unsupported-platform";
+}
+
 export async function discoverDrives(): Promise<StorageDrive[]> {
+  // Drive enumeration goes through PowerShell's Win32_LogicalDisk, so this
+  // whole surface is Windows-only today. Without this guard the failure
+  // surfaced as `spawn powershell.exe ENOENT` in a 500 — which reads as a
+  // broken install rather than a feature this machine does not have.
+  if (process.platform !== "win32") {
+    throw new StorageUnsupportedError(
+      `Storage Manager enumerates drives through PowerShell (Win32_LogicalDisk), so it only runs on Windows. This host is ${process.platform}.`,
+    );
+  }
   const script = "$ErrorActionPreference='Stop'; Get-CimInstance Win32_LogicalDisk | Where-Object {$_.DriveType -in 2,3,4} | Select-Object DeviceID,VolumeName,DriveType,Size,FreeSpace,ProviderName | ConvertTo-Json -Compress";
   const raw = await execFileText("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script]);
   const parsed = JSON.parse(raw || "[]") as DriveRow | DriveRow[];
@@ -264,7 +286,7 @@ function spawnWorker(command: "scan" | "watch" | "move" | "summarize", argument:
     detached: true,
     windowsHide: true,
     stdio: ["ignore", logFd, logFd],
-    env: { ...process.env, BETENSHI_STORAGE_DB: STORAGE_DB_PATH },
+    env: { ...process.env, HANGAR_STORAGE_DB: STORAGE_DB_PATH },
   });
   child.unref();
   fs.closeSync(logFd);

@@ -187,14 +187,14 @@ export function isNoise(ev: { method: string; path: string }): boolean {
 
 // Persist across dev HMR reloads (module re-eval) so live events survive.
 const g = globalThis as unknown as {
-  __betenshiTraffic?: TrafficEvent[];
-  __betenshiNoise?: TrafficEvent[];
-  __betenshiHops?: TrafficEvent[];
+  __hangarTraffic?: TrafficEvent[];
+  __hangarNoise?: TrafficEvent[];
+  __hangarHops?: TrafficEvent[];
 };
-g.__betenshiTraffic ??= [];
-g.__betenshiNoise ??= [];
-g.__betenshiHops ??= [];
-const ring = g.__betenshiTraffic;
+g.__hangarTraffic ??= [];
+g.__hangarNoise ??= [];
+g.__hangarHops ??= [];
+const ring = g.__hangarTraffic;
 /**
  * Noise gets its OWN small ring. Sharing the main one meant a 70-second image
  * generation — one `/progress` tick per second — or a single scroll through the
@@ -202,13 +202,13 @@ const ring = g.__betenshiTraffic;
  * means the feed you care about has a fixed capacity that chatter can never
  * consume, while recent noise stays inspectable on demand.
  */
-const noiseRing = g.__betenshiNoise;
+const noiseRing = g.__hangarNoise;
 /**
  * Downstream halves of router calls. Their own ring for the same reason noise
  * has one: they arrive 1:1 with real calls, so leaving them in the main ring
  * would halve its effective capacity to hold nothing new.
  */
-const hopRing = g.__betenshiHops;
+const hopRing = g.__hangarHops;
 
 /**
  * Which bucket an event belongs in.

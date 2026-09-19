@@ -5,7 +5,7 @@
 // a palette, change it in both places and re-run the generator.
 
 export type ThemeId =
-  | "claude" | "betenshi" | "openai" | "gemini" | "grok"
+  | "claude" | "hangar" | "openai" | "gemini" | "grok"
   | "mistral" | "stability" | "perplexity" | "huggingface" | "nvidia";
 
 export type ThemeMeta = {
@@ -23,7 +23,7 @@ export const DEFAULT_THEME: ThemeId = "claude";
 
 export const THEMES: ThemeMeta[] = [
   { id: "claude",      name: "Claude clay",       source: "Anthropic",     accent: "#D97757", ok: "#6FA86B", warn: "#E0A54A", err: "#C85A4E", canvas: "#1A1917" },
-  { id: "betenshi",    name: "BeTenshi native",   source: "Your logo",     accent: "#4E60C8", ok: "#34D399", warn: "#FBBF24", err: "#F87171", canvas: "#0F0F1A" },
+  { id: "hangar",      name: "Hangar native",      source: "Your logo",     accent: "#4E60C8", ok: "#34D399", warn: "#FBBF24", err: "#F87171", canvas: "#0F0F1A" },
   { id: "openai",      name: "OpenAI mono",       source: "ChatGPT",       accent: "#10A37F", ok: "#10A37F", warn: "#E5A00D", err: "#EF4146", canvas: "#0D0D0D" },
   { id: "gemini",      name: "Gemini spectrum",   source: "Google",        accent: "#4285F4", ok: "#34A853", warn: "#FBBC04", err: "#EA4335", canvas: "#131314" },
   { id: "grok",        name: "Grok void",         source: "xAI",           accent: "#8E8E93", ok: "#00D26A", warn: "#FFB800", err: "#FF3B30", canvas: "#000000" },

@@ -24,7 +24,7 @@ function buildFluxWorkflow(prompt: string, width: number, height: number, seed: 
     "9": { class_type: "KSamplerSelect", inputs: { sampler_name: "euler" } },
     "10": { class_type: "VAELoader", inputs: { vae_name: "ae.safetensors" } },
     "11": { class_type: "VAEDecode", inputs: { samples: ["8", 0], vae: ["10", 0] } },
-    "12": { class_type: "SaveImage", inputs: { filename_prefix: "betenshi", images: ["11", 0] } },
+    "12": { class_type: "SaveImage", inputs: { filename_prefix: "hangar", images: ["11", 0] } },
   };
 }
 
@@ -64,7 +64,7 @@ export async function generateComfyImage(model: string, params: FluxParams, sign
     const match = /^data:(image\/(?:png|jpeg|webp));base64,([\s\S]+)$/.exec(reference);
     if (!match) throw new Error("Input must be a PNG, JPEG or WebP image");
     const form = new FormData();
-    form.set("image", new Blob([Buffer.from(match[2], "base64")], { type: match[1] }), `betenshi-edit-${crypto.randomUUID()}.${match[1].split("/")[1]}`);
+    form.set("image", new Blob([Buffer.from(match[2], "base64")], { type: match[1] }), `hangar-edit-${crypto.randomUUID()}.${match[1].split("/")[1]}`);
     const upload = await fetch(getServiceUrl("comfyui") + "/upload/image", { method: "POST", body: form, signal });
     if (!upload.ok) throw new Error(`Reference upload failed: ${upload.status}`);
     const file = await upload.json();

@@ -10,11 +10,20 @@ import {
   stopScan,
   startMove,
   startScan,
+  StorageUnsupportedError,
 } from "@/lib/storage-index";
 
 export const dynamic = "force-dynamic";
 
 function errorResponse(error: unknown, status = 500) {
+  // "This machine cannot do that" is a 501, not a 500 — a 500 tells the reader
+  // to go looking for a bug that isn't there.
+  if (error instanceof StorageUnsupportedError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code, available: false },
+      { status: 501 },
+    );
+  }
   return NextResponse.json(
     { error: error instanceof Error ? error.message : String(error) },
     { status },

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  launchd agent for the console (macOS). The Mac counterpart of the
-  "BeTenshi Console" scheduled task on Windows.
+  launchd agent for the service manager (macOS). The Mac counterpart of the
+  "BeTenshi Manager" scheduled task on Windows.
 
   DO NOT COPY THIS FILE INTO ~/Library/LaunchAgents DIRECTLY — it is a
   template. __CONSOLE_DIR__ must be replaced with the absolute path to your
@@ -12,29 +12,29 @@
       ./scripts/install-agents.sh
 
   Or by hand, for one agent:
-      sed "s|__CONSOLE_DIR__|$(pwd)|g" scripts/com.betenshi.console.plist.template \
-        > ~/Library/LaunchAgents/com.betenshi.console.plist
-      launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.betenshi.console.plist
+      sed "s|__CONSOLE_DIR__|$(pwd)|g" scripts/com.hangar.manager.plist.template \
+        > ~/Library/LaunchAgents/com.hangar.manager.plist
+      launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.hangar.manager.plist
 
   Restart after a rebuild:
-      launchctl kickstart -k gui/$UID/com.betenshi.console
+      launchctl kickstart -k gui/$UID/com.hangar.manager
 
   Stop it for good:
       ./scripts/install-agents.sh --uninstall
 
-  RunAtLoad + KeepAlive is the point: the console is meant to be there without
-  anyone starting it, and to come back if it dies. ThrottleInterval is raised
-  from the 10 s default because the failure this guards against — no .next
-  build — is not one that retrying fixes quickly.
+  RunAtLoad + KeepAlive is the point: without this on :8099 the console renders
+  but reports an empty machine — no capacity, no ready counts, every workstream
+  stuck on "On demand". It must be there before anyone looks, and must come back
+  if it dies.
 -->
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.betenshi.console</string>
+  <string>com.hangar.manager</string>
 
   <key>ProgramArguments</key>
   <array>
-    <string>__CONSOLE_DIR__/scripts/start-console.sh</string>
+    <string>__CONSOLE_DIR__/scripts/start-manager.sh</string>
   </array>
 
   <key>WorkingDirectory</key>
@@ -51,8 +51,8 @@
        that fails before it gets that far, which is where the useful message is
        when the agent will not start at all. -->
   <key>StandardOutPath</key>
-  <string>__CONSOLE_DIR__/var/launchd.log</string>
+  <string>__CONSOLE_DIR__/var/launchd-manager.log</string>
   <key>StandardErrorPath</key>
-  <string>__CONSOLE_DIR__/var/launchd.log</string>
+  <string>__CONSOLE_DIR__/var/launchd-manager.log</string>
 </dict>
 </plist>

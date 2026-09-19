@@ -1,15 +1,20 @@
 import * as duckdb from "duckdb";
+import { existsSync } from "fs";
 import path from "path";
 import fs from "fs/promises";
 
-// Store outside the project root so Turbopack's file watcher never touches it
+// Store outside the project root so Turbopack's file watcher never touches it.
+//
+// The project was renamed from betenshi-console to Hangar. New installs use
+// ~/hangar/hangar.db; a machine that already has ~/betenshi/betenshi.db keeps
+// using it, because silently pointing at a fresh empty database would look
+// exactly like losing every record. BETENSHI_DB_PATH still works too.
+const DATA_ROOT = process.env.LOCALAPPDATA || process.env.HOME || process.cwd();
+const LEGACY_DB = path.join(DATA_ROOT, "betenshi", "betenshi.db");
 const DB_PATH =
+  process.env.HANGAR_DB_PATH ||
   process.env.BETENSHI_DB_PATH ||
-  path.join(
-    process.env.LOCALAPPDATA || process.env.HOME || process.cwd(),
-    "betenshi",
-    "betenshi.db",
-  );
+  (existsSync(LEGACY_DB) ? LEGACY_DB : path.join(DATA_ROOT, "hangar", "hangar.db"));
 
 type Row = Record<string, unknown>;
 
