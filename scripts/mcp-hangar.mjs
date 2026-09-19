@@ -54,7 +54,7 @@ const MAX_SPEAK_CHARS = 600;
 
 // stderr only: stdout is the protocol channel, and a stray console.log there
 // corrupts the JSON-RPC stream.
-const log = (...a) => console.error("[mcp-betenshi]", ...a);
+const log = (...a) => console.error("[mcp-hangar]", ...a);
 
 const ok = (text) => ({ text });
 const fail = (error) => ({ error });
@@ -490,7 +490,7 @@ async function handle(msg) {
         // surface is stable across the revisions that differ elsewhere.
         protocolVersion: params?.protocolVersion ?? "2025-06-18",
         capabilities: { tools: {} },
-        serverInfo: { name: "betenshi", version: "2.0.0" },
+        serverInfo: { name: "hangar", version: "2.0.0" },
       });
 
     case "tools/list":

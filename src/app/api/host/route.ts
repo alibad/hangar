@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { NextResponse } from "next/server";
 import { getHost } from "@/lib/host";
 
@@ -18,5 +20,10 @@ export async function GET() {
     gpu: h.gpu,
     memory: h.memory,
     services: h.services.map((s) => s.id),
+    // Absolute path to the MCP server on THIS machine, for the Agent access
+    // snippets. Computed rather than written down: it used to be a string
+    // literal pointing at one person's Windows checkout, so the config every
+    // other user was told to copy named a file they do not have.
+    mcpServer: join(process.cwd(), "scripts", "mcp-hangar.mjs"),
   });
 }

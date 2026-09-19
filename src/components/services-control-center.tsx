@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   ArrowSquareOut,
@@ -199,20 +199,32 @@ export default function ServicesControlCenter({ services, catalogByService, serv
  */
 function AgentAccess() {
   const [copied, setCopied] = useState<string | null>(null);
-  const server = "C:/Users/Admin/Code/AI/betenshi-console/scripts/mcp-betenshi.mjs";
+  // Asked for, not written down. This was a literal absolute path into one
+  // person's Windows checkout, so the snippet every other user was invited to
+  // copy pointed at a file that does not exist on their machine.
+  const [server, setServer] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/host")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d?.mcpServer) setServer(d.mcpServer); })
+      .catch(() => { /* snippet falls back to a relative path below */ });
+    return () => { live = false; };
+  }, []);
+  const serverPath = server ?? "<path to this checkout>/scripts/mcp-hangar.mjs";
 
   const snippets = [
     {
       id: "claude",
       label: "Claude Code",
       where: "~/.claude.json",
-      code: `"mcpServers": {\n  "betenshi": {\n    "type": "stdio",\n    "command": "node",\n    "args": ["${server}"]\n  }\n}`,
+      code: `"mcpServers": {\n  "hangar": {\n    "type": "stdio",\n    "command": "node",\n    "args": ["${serverPath}"]\n  }\n}`,
     },
     {
       id: "codex",
       label: "Codex",
       where: "~/.codex/config.toml",
-      code: `[mcp_servers.betenshi]\ncommand = "node"\nargs = ["${server}"]`,
+      code: `[mcp_servers.hangar]\ncommand = "node"\nargs = ["${serverPath}"]`,
     },
   ];
 
