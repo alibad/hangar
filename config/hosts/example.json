@@ -45,6 +45,7 @@
       "localUrl": "http://localhost:8005",
       "publicUrl": "https://llm.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
+      "metricsPath": "/metrics",
       "category": "ai",
       "authRequired": true,
       "serves": {
@@ -53,7 +54,7 @@
       "llm": {
         "model": "your-served-model-name"
       },
-      "note": "An OpenAI-compatible chat service. `serves.text` is what makes the box routable for text WITHOUT anything naming this service in code; `llm.model` additionally marks it selectable in the LLM picker. Where both are present they MUST agree — the test suite fails the build otherwise. Both carry the served-model-name to send as `model` in /v1/chat/completions, which is frequently NOT the same string as the model's Hub id."
+      "note": "An OpenAI-compatible chat service. metricsPath is optional and names a path serving Prometheus-format counters (vLLM does; Ollama does not). Declaring it is what lets the console show live telemetry without any route naming a service - a host that publishes none simply reports none instead of erroring. `serves.text` is what makes the box routable for text WITHOUT anything naming this service in code; `llm.model` additionally marks it selectable in the LLM picker. Where both are present they MUST agree — the test suite fails the build otherwise. Both carry the served-model-name to send as `model` in /v1/chat/completions, which is frequently NOT the same string as the model's Hub id."
     },
     {
       "id": "my-stt",

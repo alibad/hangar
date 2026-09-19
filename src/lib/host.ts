@@ -215,6 +215,18 @@ const TAB_SERVICES: Record<string, string[]> = {
   sam3: ["sam3"],
 };
 
+/**
+ * Does THIS host declare a service with this id at all?
+ *
+ * The distinction that matters to a reader: "the router is down" and "this
+ * machine has no router" are different sentences, and only one of them should
+ * come with a Start button. Offering to start a service the profile never
+ * declares is an instruction that cannot succeed.
+ */
+export function hostHasService(id: string): boolean {
+  return getHost().services.some((s) => s.id === id);
+}
+
 /** Services on this host that declare they can serve `capability`. */
 export function servicesForCapability(capability: string): ServiceEntry[] {
   return getHost().services.filter((s) => s.serves?.[capability]);

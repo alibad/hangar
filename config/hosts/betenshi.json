@@ -31,6 +31,7 @@
       "localUrl": "http://localhost:8005",
       "publicUrl": "https://llm.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
+      "metricsPath": "/metrics",
       "serves": {
         "text": "qwen3-coder"
       },
@@ -47,6 +48,7 @@
       "localUrl": "http://localhost:8006",
       "publicUrl": "https://llm-small.${PUBLIC_DOMAIN}",
       "healthPath": "/health",
+      "metricsPath": "/metrics",
       "serves": {
         "text": "qwen-small"
       },

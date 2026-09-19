@@ -381,7 +381,7 @@ export async function getCatalogue(): Promise<{
     if (local) {
       if (!svcId) {
         status = "service-stopped";
-        detail = "No BeTenshi service is registered on this port.";
+        detail = "No service on this host is registered on this port.";
       } else if (!health.get(svcId)) {
         status = "service-stopped";
         const name = SERVICE_REGISTRY.find((s) => s.id === svcId)?.name ?? svcId;
@@ -389,7 +389,7 @@ export async function getCatalogue(): Promise<{
       }
     } else if (keyEnv && !process.env[keyEnv]) {
       status = "no-key";
-      detail = `${keyEnv} is not set. Add it to betenshi-console/.env and restart the router.`;
+      detail = `${keyEnv} is not set. Add it to .env.local and restart the router.`;
     }
 
     const perTokIn = info.input_cost_per_token ?? 0;

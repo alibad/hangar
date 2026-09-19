@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useId, useMemo, useRef } from "react";
 import { SERVICE_REGISTRY } from "@/lib/services";
+import { getHost } from "@/lib/host";
 import { Search, X } from "lucide-react";
 import { Pulse } from "@phosphor-icons/react";
 import { ToolPageHeader } from "./tool-page";
@@ -382,7 +383,7 @@ export default function RequestsView() {
         <div className="flex items-center gap-3 flex-wrap">
           <span className={`w-2.5 h-2.5 rounded-full ${live ? "bg-green-500 animate-pulse" : "bg-gray-600"}`} />
           <span className="font-semibold text-sm">Requests</span>
-          <span className="text-xs text-gray-500">every API call across the BeTenshi stack — the console + every service</span>
+          <span className="text-xs text-gray-500">every API call across the {getHost().name} stack — the console + every service</span>
           <span className="text-[11px] text-gray-500 tabular-nums">{filtered.length} shown</span>
           <div className="ml-auto flex items-center gap-2">
             <label className="flex items-center gap-1.5 text-[11px] text-gray-400 cursor-pointer select-none">

@@ -40,6 +40,20 @@ export type ServiceEntry = {
    * scripts/host-profiles.test.mjs fails the build if they do not.
    */
   serves?: Record<string, string>;
+  /**
+   * Path serving Prometheus-format counters, when this service publishes any.
+   *
+   * Declared rather than inferred, for the same reason as `serves`: /api/metrics
+   * used to ask `getServiceUrl("vllm")` directly, so on any host without a
+   * service literally called `vllm` — which is every host but one — the route
+   * threw "Unknown service" and answered 502 on every page load. Naming the
+   * capability instead means a host that publishes counters from something else
+   * works, and a host that publishes none says so instead of erroring.
+   *
+   * Only vLLM does today. Ollama publishes no counters, which is a fact about
+   * Ollama and not a failure.
+   */
+  metricsPath?: string;
   /** Free-text rationale carried from the host profile. Documentation, not behaviour. */
   note?: string;
 };

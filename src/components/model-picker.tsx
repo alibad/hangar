@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CatalogModel, Capability } from "@/lib/providers";
 import ModelFootprint from "./model-footprint";
+import { hostHasService } from "@/lib/host";
 import { ServiceControl } from "./service-control";
 import {
   Select,
@@ -14,6 +15,9 @@ import {
   SelectValue,
 } from "./ui/select";
 
+
+/** The gateway service id, as host profiles spell it. */
+const ROUTER_ID = "ai-router";
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 type CapDef = { id: Capability; label: string; modes: readonly string[]; hint: string };
@@ -211,7 +215,12 @@ export default function ModelPicker({
   // banner above a picker that still works: you can see what exists, see which
   // backing services are warm, start them, and choose what this capability will
   // use — all of which outlives the gateway. Only CALLING a model needs it up.
-  const routerDown = !data.routerUp;
+  // "The router is down" and "this machine has no router" are different
+  // sentences, and only one of them deserves a Start button — offering to start
+  // a service the host profile never declares is an instruction that cannot
+  // succeed. B5 has no ai-router at all and was told the router was down.
+  const routerAbsent = !hostHasService(ROUTER_ID);
+  const routerDown = !routerAbsent && !data.routerUp;
   if (routerDown && !eligible.length) {
     return (
       <div className={`flex items-center gap-3 flex-wrap rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-xs text-gray-400 ${className}`}>
@@ -219,7 +228,7 @@ export default function ModelPicker({
           AI Router is down and <code>config/ai-router.yaml</code> lists no{" "}
           {cap?.label.toLowerCase() ?? capability} model.
         </span>
-        <ServiceControl id="ai-router" up={false} probe={async () => !!(await load())?.routerUp} />
+        <ServiceControl id={ROUTER_ID} up={false} probe={async () => !!(await load())?.routerUp} />
       </div>
     );
   }
@@ -252,13 +261,22 @@ export default function ModelPicker({
           : !serviceUp ? "runtime stopped" : m.loaded ? "loaded" : "ready to load";
     return (
       <div className={className}>
+        {routerAbsent && (
+          // Grey, not amber, and no Start button: nothing is wrong. This host
+          // simply has no gateway, and its models are called directly.
+          <div className="mb-2 rounded-lg border border-gray-800 bg-gray-900 px-2.5 py-1.5">
+            <span className="text-[11px] leading-snug text-gray-400">
+              No AI Router on this machine — models are called directly.
+            </span>
+          </div>
+        )}
         {routerDown && (
           <div className="mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-1.5">
             <span className="flex-1 text-[11px] leading-snug text-amber-300">
               <strong className="font-semibold">AI Router is down</strong> — nothing can be called
               until it starts.
             </span>
-            <ServiceControl id="ai-router" up={false} probe={async () => !!(await load())?.routerUp} />
+            <ServiceControl id={ROUTER_ID} up={false} probe={async () => !!(await load())?.routerUp} />
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-800 bg-gray-900 px-2.5 py-2">
@@ -357,7 +375,7 @@ export default function ModelPicker({
             until it starts. Listed from <code>config/ai-router.yaml</code>; service status below is
             live.
           </span>
-          <ServiceControl id="ai-router" up={false} probe={async () => !!(await load())?.routerUp} />
+          <ServiceControl id={ROUTER_ID} up={false} probe={async () => !!(await load())?.routerUp} />
         </div>
       )}
       <div className="mb-2 flex items-center gap-2">

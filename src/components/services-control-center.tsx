@@ -59,7 +59,7 @@ const descriptions: Record<string, string> = {
   whisper: "Local speech-to-text transcription endpoint.",
   tts: "Local Kokoro speech synthesis endpoint.",
   webui: "Browser workspace for direct conversations with local models.",
-  grafana: "Operational dashboards for the complete BeTenshi stack.",
+  grafana: "Operational dashboards for this machine's whole stack.",
   prometheus: "Metrics collection and time-series query service.",
   qwen: "Local image generation and editing service.",
   comfyui: "Node-based image workflow application.",

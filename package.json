@@ -1,7 +1,7 @@
 {
   "name": "betenshi-console",
   "version": "1.0.0",
-  "description": "",
+  "description": "One console for the AI services running on your own machines: start them, budget their memory, route work between them, and see every call.",
   "main": "index.js",
   "scripts": {
     "dev": "next dev -p 8003",
@@ -10,8 +10,8 @@
     "test": "node --test scripts/*.test.cjs scripts/*.test.mjs"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Ali Badereddin",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@base-ui/react": "^1.3.0",
