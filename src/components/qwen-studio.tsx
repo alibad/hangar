@@ -14,6 +14,26 @@ import CompareView from "./compare-view";
 import CapacityBlocker from "./capacity-blocker";
 import { qwenCheckpointState } from "@/lib/qwen-checkpoint";
 
+
+/**
+ * A request id that works when the console is opened from another machine.
+ *
+ * `crypto.randomUUID()` only exists in a SECURE CONTEXT — HTTPS, or localhost.
+ * Opening this console over the LAN by IP (http://192.168.x.x:8003) is neither,
+ * so the call threw "crypto.randomUUID is not a function" and Generate died
+ * before it sent anything: the button sat spinning and no image ever appeared.
+ * Nothing in the UI said why.
+ *
+ * That is not an exotic setup — a machine that runs models headless is exactly
+ * the one you open from a laptop. Found by driving the console over the network
+ * rather than on the box, which is the only way this shows up at all.
+ */
+function newRequestId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 // ── types ───────────────────────────────────────────────────────────────────
 type QwenHealth = {
   up: boolean;
@@ -752,7 +772,7 @@ export default function QwenStudio() {
   useEffect(() => () => { requestRef.current?.controller.abort(); }, []);
 
   function beginImageRequest() {
-    const request = { id: crypto.randomUUID(), started: Date.now(), controller: new AbortController() };
+    const request = { id: newRequestId(), started: Date.now(), controller: new AbortController() };
     requestRef.current = request;
     setResourceSnapshot(null);
     setServerProgress(null);
