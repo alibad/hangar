@@ -20,6 +20,7 @@ import { ThemePicker } from "@/components/theme-picker";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import TabErrorBoundary from "@/components/tab-error-boundary";
 import HomeCockpit from "@/components/home-cockpit";
+import ForeignProfileNotice from "@/components/foreign-profile-notice";
 import ConsoleHeader from "@/components/console-header";
 import ResourcePulse from "@/components/resource-pulse";
 import { VoiceCloner } from "@/components/voice-cloner";
@@ -137,6 +138,9 @@ type HostInfo = {
   gpu: string;
   memory: { kind: "discrete" | "unified" };
   services: string[];
+  /** This machine's real hostname, and whether the profile above is actually it. */
+  machine?: string;
+  matchesProfile?: boolean;
 };
 
 type ChatMessage = {
@@ -852,6 +856,9 @@ export default function Home() {
         <TabErrorBoundary key={tab} label={tabs.find((item) => item.id === tab)?.label ?? "Console"}>
 
         {/* ── STACK TAB (services + GPU) ── */}
+        {tab === "stack" && host && host.matchesProfile === false && (
+          <ForeignProfileNotice profile={host.name} profileId={host.id} machine={host.machine ?? "this machine"} />
+        )}
         {tab === "stack" && (
           <HomeCockpit
             managedServices={managedServices}

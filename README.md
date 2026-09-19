@@ -101,6 +101,34 @@ set, else a hostname matching a file in `config/hosts/`, else a Mac is `b5`,
 else the default. It will come up against whatever is actually listening on
 this machine and report everything else as on-demand or unavailable.
 
+### The first thing you will see
+
+Hangar decides what it can do by reading one JSON file per machine — and until
+that file exists for *your* computer, it falls back to one of the example
+profiles that ship with it. So a fresh clone shows a working-looking console
+describing somebody else's machine. It says so, in place, rather than letting
+you debug services you never installed:
+
+![The console saying the profile shown is not this machine](docs/images/console/first-run/foreign-profile.png)
+
+Two ways past it. **Ask an agent** — open this repo in Claude Code or Codex and
+run `/hangar-setup`. It probes what is actually listening here, writes the
+profile and its start commands, registers it, and refuses to call itself done
+while that banner is still up. Or **do it by hand** from
+[`config/hosts/example.json`](config/hosts/example.json), which documents every
+field inline.
+
+If you only want the measurement:
+
+```bash
+node scripts/detect-host.mjs
+```
+
+That prints the hostname, platform, accelerator, memory model and every known
+port that answers — and pointedly leaves out ports that are open but answered
+nothing, because an open port is not evidence that the expected service is
+behind it.
+
 **The service manager is the other half.** Start/Stop buttons all go through a
 supervisor on `127.0.0.1:8099`:
 
@@ -256,7 +284,8 @@ src/components/     one component per surface
 src/lib/            host.ts resolves the profile; everything else hangs off it
 config/hosts/       the machines — add one by adding a file
 config/             router aliases, resource policy, model metadata
-scripts/            the service manager, launchd templates, tests, experiments
+scripts/            the service manager, MCP server, launchd templates, tests
+.claude/skills/     /hangar-setup — teaches Hangar about a new machine
 docs/               design notes and model experiments
 ```
 

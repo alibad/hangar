@@ -1,3 +1,4 @@
+import { hostname } from "node:os";
 import { join } from "node:path";
 
 import { NextResponse } from "next/server";
@@ -11,6 +12,8 @@ import { getHost } from "@/lib/host";
  * Image studio, SAM 3 and SAM 3D Body are BeTenshi processes, and a tab for a
  * service that is not registered here would be a permanent "unavailable".
  */
+const MACHINE = hostname();
+
 export async function GET() {
   const h = getHost();
   return NextResponse.json({
@@ -25,5 +28,15 @@ export async function GET() {
     // literal pointing at one person's Windows checkout, so the config every
     // other user was told to copy named a file they do not have.
     mcpServer: join(process.cwd(), "scripts", "mcp-hangar.mjs"),
+
+    // ── Is the profile being shown actually THIS machine? ─────────────────
+    //
+    // Host resolution ends in a guess: a Mac with no matching profile resolves
+    // to `b5`, anything else to the default. That is right for the two machines
+    // this was built on and wrong for everyone else — a stranger's first run
+    // renders another person's services under another person's machine name,
+    // with nothing saying so. The page needs to be able to tell them.
+    machine: MACHINE,
+    matchesProfile: MACHINE.toLowerCase().replace(/\.local$/, "") === h.id.toLowerCase(),
   });
 }
