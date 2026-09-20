@@ -21,6 +21,8 @@ import { ServiceLogsButton } from "@/components/service-control";
 import { SERVICE_REGISTRY } from "@/lib/services";
 import { useFootprintEstimates } from "@/lib/use-local-footprints";
 import { isAdopted, isOnDemand, isReady, needsAttention } from "@/lib/service-state";
+import LocalMachineRequired from "@/components/local-machine-required";
+import { isHostedRuntime } from "@/lib/runtime";
 
 type ManagedService = {
   id: string;
@@ -198,6 +200,20 @@ export default function ServicesControlCenter({ services, catalogByService, serv
  * yet, so that is all this does.
  */
 function AgentAccess() {
+  if (isHostedRuntime()) {
+    return (
+      <LocalMachineRequired
+        compact
+        title="Agent access connects to a local Hangar MCP server"
+        description="The hosted site cannot give an agent a stdio path on your computer. Run Hangar locally, then connect Codex or Claude Code to that checkout's scripts/mcp-hangar.mjs."
+        available={["A real local MCP server path", "Machine service controls and logs", "Local image, speech, and resource tools"]}
+      />
+    );
+  }
+  return <LocalAgentAccess />;
+}
+
+function LocalAgentAccess() {
   const [copied, setCopied] = useState<string | null>(null);
   // Asked for, not written down. This was a literal absolute path into one
   // person's Windows checkout, so the snippet every other user was invited to

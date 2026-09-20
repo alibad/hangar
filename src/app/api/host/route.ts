@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { NextResponse } from "next/server";
 import { getHost } from "@/lib/host";
+import { isHostedRuntime } from "@/lib/runtime";
 
 /**
  * Which machine this console is running on, for the UI.
@@ -16,6 +17,7 @@ const MACHINE = hostname();
 
 export async function GET() {
   const h = getHost();
+  const hosted = isHostedRuntime();
   return NextResponse.json({
     id: h.id,
     name: h.name,
@@ -27,7 +29,8 @@ export async function GET() {
     // snippets. Computed rather than written down: it used to be a string
     // literal pointing at one person's Windows checkout, so the config every
     // other user was told to copy named a file they do not have.
-    mcpServer: join(process.cwd(), "scripts", "mcp-hangar.mjs"),
+    mcpServer: hosted ? null : join(process.cwd(), "scripts", "mcp-hangar.mjs"),
+    runtime: hosted ? "hosted" : "local",
 
     // ── Is the profile being shown actually THIS machine? ─────────────────
     //
@@ -37,6 +40,6 @@ export async function GET() {
     // renders another person's services under another person's machine name,
     // with nothing saying so. The page needs to be able to tell them.
     machine: MACHINE,
-    matchesProfile: MACHINE.toLowerCase().replace(/\.local$/, "") === h.id.toLowerCase(),
+    matchesProfile: hosted ? null : MACHINE.toLowerCase().replace(/\.local$/, "") === h.id.toLowerCase(),
   });
 }

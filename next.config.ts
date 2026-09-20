@@ -38,6 +38,10 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_HOST_ID: detectHostId(),
     NEXT_PUBLIC_PUBLIC_DOMAIN: (process.env.PUBLIC_DOMAIN ?? "").trim(),
+    NEXT_PUBLIC_HANGAR_RUNTIME:
+      (process.env.HANGAR_RUNTIME ?? "").trim().toLowerCase() === "hosted" || process.env.VERCEL
+        ? "hosted"
+        : "local",
   },
   // duckdb is a native addon — never bundle it, `require` it at runtime.
   //

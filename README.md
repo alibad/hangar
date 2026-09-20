@@ -5,12 +5,16 @@ stops them, keeps them inside a memory budget, routes work to whichever model
 should handle it, tells you what the box can and cannot run, and shows every
 call that went through it.
 
-**Hangar is the product; Console is the operator surface.** The public entry
-point is `console.humanquest.net`. The private source repository keeps its
-historical `betenshi-console` slug; BeTenshi itself is only one machine profile.
+**Hangar is the product; Console is the operator surface.** The canonical public
+entry point is `hangar.humanquest.net`, with `console.humanquest.net` as a second
+entry point. The private source repository is `alibad/hangar`; BeTenshi itself
+is only one machine profile.
 
-It is a Next.js app you run on the machine itself. There is no cloud component,
-no account, and no telemetry leaving the box.
+The full console is a Next.js app you run on the machine itself. A hosted copy
+can reach explicitly configured remote services, but any surface that requires
+local drives, logs, developer history, model files, or persistent local output
+shows a **Local machine required** placeholder instead of fabricated empty data.
+See [Hosted mode](docs/hosted-mode.md).
 
 ![The console's Home page, running on a Windows box with an RTX 5090](docs/images/console/betenshi/home/desktop/step-01-arrive.png)
 
@@ -93,7 +97,7 @@ Requires **Node 22 or newer** (`/api/scout` imports `node:sqlite`, a Node 22
 builtin; there is an `.nvmrc`).
 
 ```bash
-git clone https://github.com/alibad/betenshi-console.git hangar
+git clone https://github.com/alibad/hangar.git
 cd hangar
 npm install
 cp .env.example .env.local     # optional — every variable in it is optional
@@ -244,7 +248,7 @@ is what that script does. (They used to hardcode one person's home directory in
 eight places.)
 
 ```bash
-launchctl list | grep betenshi                        # status
+launchctl list | grep hangar                          # status
 launchctl kickstart -k gui/$UID/com.hangar.console  # restart after a rebuild
 tail -f var/console.log                               # logs
 ./scripts/install-agents.sh --uninstall               # remove

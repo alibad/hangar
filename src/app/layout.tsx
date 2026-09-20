@@ -5,14 +5,22 @@ import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_THEME, THEME_IDS } from "@/lib/themes";
 import { getHost } from "@/lib/host";
+import { isHostedRuntime } from "@/lib/runtime";
 
 const HOST = getHost();
+const HOSTED = isHostedRuntime();
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://hangar.humanquest.net";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: `Hangar — ${HOST.name} console`,
-  description: `Operate the AI services, models, memory budget, and request history on ${HOST.name}.`,
+  metadataBase: new URL(SITE_URL),
+  title: HOSTED ? "Hangar — Local AI operations console" : `Hangar — ${HOST.name} console`,
+  description: HOSTED
+    ? "See how Hangar operates local AI services while keeping machine-owned data and controls on the machine that runs them."
+    : `Operate the AI services, models, memory budget, and request history on ${HOST.name}.`,
+  alternates: { canonical: "/" },
+  robots: HOSTED ? { index: false, follow: false } : undefined,
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Hangar" },
   icons: {

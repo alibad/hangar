@@ -17,15 +17,17 @@ Console borrow MCP or Q&A time.
 
 **Hangar is the product. Console is its operator surface.** BeTenshi and B5 are
 machine profiles managed by Hangar. The private repository and Vercel project
-retain the historical `betenshi-console` slug; that is infrastructure history,
-not the product name. The public entry point is `console.humanquest.net`.
+are both named `hangar`. The canonical hosted entry point is
+`hangar.humanquest.net`; `console.humanquest.net` reaches the same deployment.
 
 ## Safe initial state
 
 - Present from B5 on mains power, with Wi-Fi connected.
 - Open the tested production build at `http://127.0.0.1:8003` as the working
-  operator surface. Keep `https://console.humanquest.net` open in a second tab
-  to prove the shipped build and public identity.
+  operator surface. Keep `https://hangar.humanquest.net` open in a second tab
+  to prove the shipped build and public identity. The hosted copy deliberately
+  labels machine-owned surfaces as local-only; do not use it for the live
+  Models or Requests steps.
 - Manager and Ollama are running; Ollama is manager-owned, not an adopted
   process. Text routing is `local-ollama` → `qwen3.8:27b-mlx`.
 - Keep the 27B model warm. Reliability matters more than performing a cold-load

@@ -39,6 +39,10 @@ import {
 } from "lucide-react";
 import { hostHasTab, servicesForCapability } from "@/lib/host";
 import HostUnavailable from "@/components/host-unavailable";
+import LocalMachineRequired, { HostedRuntimeNotice } from "@/components/local-machine-required";
+import { isHostedRuntime } from "@/lib/runtime";
+
+const HOSTED_RUNTIME = isHostedRuntime();
 
 // Small inline spinner shown while a service action (start/stop/restart) is in flight.
 function Spinner() {
@@ -858,10 +862,12 @@ export default function Home() {
 
       <main className="mx-auto max-w-[1500px] space-y-6 px-4 pb-24 pt-4 sm:px-6 sm:pt-5 md:pb-5">
 
+        {HOSTED_RUNTIME && <HostedRuntimeNotice />}
+
         <TabErrorBoundary key={tab} label={tabs.find((item) => item.id === tab)?.label ?? "Console"}>
 
         {/* ── STACK TAB (services + GPU) ── */}
-        {tab === "stack" && host && host.matchesProfile === false && (
+        {tab === "stack" && !HOSTED_RUNTIME && host && host.matchesProfile === false && (
           <ForeignProfileNotice profile={host.name} profileId={host.id} machine={host.machine ?? "this machine"} />
         )}
         {tab === "stack" && (
@@ -900,7 +906,13 @@ export default function Home() {
           />
         )}
 
-        {tab === "storage" && <StorageManager />}
+        {tab === "storage" && (HOSTED_RUNTIME ? (
+          <LocalMachineRequired
+            title="Storage Manager runs on the machine whose disks it manages"
+            description="A hosted server cannot inspect your Mac or PC drives. Run Hangar locally to discover volumes, build the private file index, watch changes, reveal files, and perform guarded moves."
+            available={["Real disk capacity and mounted volumes", "Private SQLite file index and duplicate candidates", "Filesystem watching, Finder or Explorer reveal, and guarded moves"]}
+          />
+        ) : <StorageManager />)}
 
         {/* Kept hidden for one checkpoint so the former Stack markup remains a
             local rollback while the new Home cockpit settles. */}
@@ -1951,23 +1963,47 @@ export default function Home() {
         {/* ── CREATIVE TAB ── */}
 
         {/* ── IMAGE TAB — Qwen-Image + FLUX, model picked inside the studio ── */}
-        {tab === "qwen" && (hostHasTab("qwen") ? <QwenTab /> : <HostUnavailable tab="qwen" title="Image Studio" />)}
+        {tab === "qwen" && (HOSTED_RUNTIME ? (
+          <LocalMachineRequired
+            title="Image Studio keeps its queue and gallery on the machine"
+            description="Generation depends on installed model services and a persistent local gallery. The hosted site does not write generated images into an ephemeral server filesystem."
+            available={["Installed Qwen and ComfyUI checkpoints", "Persistent generated-image gallery and folders", "Local GPU admission control and resumable queues"]}
+          />
+        ) : hostHasTab("qwen") ? <QwenTab /> : <HostUnavailable tab="qwen" title="Image Studio" />)}
 
         {/* Arena — one prompt across several chat/vision models, scored. */}
         {tab === "arena" && <ArenaView />}
 
         {/* ── REQUESTS TAB ── */}
-        {tab === "requests" && <RequestsView />}
+        {tab === "requests" && (HOSTED_RUNTIME ? (
+          <LocalMachineRequired
+            title="Request history is recorded by the local Hangar process"
+            description="The real feed combines an in-process event ring with service access logs from your machine. A hosted function has neither the durable local history nor those log files."
+            available={["Local service and console request history", "Prompt, response, latency, status, and target attribution", "Access-log tailing without uploading logs"]}
+          />
+        ) : <RequestsView />)}
 
         {/* ── USAGE TAB ── */}
-        {tab === "usage" && <UsageView />}
+        {tab === "usage" && (HOSTED_RUNTIME ? (
+          <LocalMachineRequired
+            title="AI usage is read from local Codex, Claude, and router history"
+            description="Those records stay on the developer machine. The hosted site intentionally shows no zero-filled or invented usage dashboard."
+            available={["Codex and Claude task-history accounting", "Durable AI Router usage and cost estimates", "Per-project, model, task, and date breakdowns"]}
+          />
+        ) : <UsageView />)}
 
         {/* ── SAM3D TAB ── */}
         {tab === "sam3d" && (hostHasTab("sam3d") ? <Sam3dView /> : <HostUnavailable tab="sam3d" title="3D Body" />)}
         {tab === "sam3" && (hostHasTab("sam3") ? <Sam3View /> : <HostUnavailable tab="sam3" title="Segment" />)}
 
         {/* ── MODELS / AI ROUTER TAB ── */}
-        {tab === "models" && <ModelsPage />}
+        {tab === "models" && (HOSTED_RUNTIME ? (
+          <LocalMachineRequired
+            title="Model routing and downloads change the local installation"
+            description="Wiring aliases, downloading weights, and deciding what fits all depend on this machine's files, runtimes, and memory. Run Hangar locally to make those changes safely."
+            available={["Fit verdicts against live machine capacity", "Local model downloads and checkpoint discovery", "Persistent router configuration and service restart"]}
+          />
+        ) : <ModelsPage />)}
         </TabErrorBoundary>
 
 
