@@ -20,7 +20,6 @@ type Props = {
   onRefresh: () => void;
   autoRefresh: boolean;
   onAutoRefresh: (value: boolean) => void;
-  hosted?: boolean;
   /** Which machine this console is running as. Falls back to the original name
    *  until /api/host answers, so the header never flashes a placeholder. */
   hostName?: string;
@@ -68,7 +67,6 @@ export default function ConsoleHeader({
   autoRefresh,
   onAutoRefresh,
   hostName,
-  hosted = false,
 }: Props) {
   // The profile, not a hardcoded name, when the prop has not arrived yet.
   // hostName comes from /api/host, so it is undefined on first paint — and on a
@@ -77,7 +75,7 @@ export default function ConsoleHeader({
   // BeTenshi: the other machine's name, on the one surface whose job is to say
   // which machine you are looking at. getHost() needs no fetch — the id is
   // resolved at build time into NEXT_PUBLIC_HOST_ID.
-  const machine = hosted ? "Hosted guide" : hostName || getHost().name;
+  const machine = hostName || getHost().name;
   const { theme, toggle } = useTheme();
   const workstreamsMenuRef = useRef<HTMLDetailsElement>(null);
   const insightsMenuRef = useRef<HTMLDetailsElement>(null);
@@ -126,7 +124,7 @@ export default function ConsoleHeader({
           <Image src="/icons/icon.svg" alt="" width={24} height={24} priority className="h-6 w-6" />
           <span className="text-lg font-semibold tracking-[-0.02em] text-gray-100">Hangar</span>
           <span className="hidden rounded-full border border-gray-800 bg-gray-900 px-2 py-0.5 text-[10px] font-medium text-gray-500 sm:inline">
-            {hosted ? machine : `${machine} console`}
+            {machine} console
           </span>
         </button>
 
@@ -173,27 +171,25 @@ export default function ConsoleHeader({
 
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <CommandPalette active={active} onSelect={onSelect} />
-          {!hosted && <>
-            <button type="button" onClick={onRefresh} disabled={refreshing} aria-label={refreshing ? "Refreshing console" : "Refresh console"} className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-800 text-gray-500 transition hover:border-gray-600 hover:text-gray-100 disabled:opacity-50 md:h-9 md:w-9">
-              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            </button>
-            <button
-              type="button"
-              onClick={() => onSelect("services")}
-              aria-label={`Service status: ${readyServices} ready now, ${onDemandServices} on demand, ${attentionServices} need attention`}
-              className="hidden h-10 items-center gap-2 rounded-lg border border-gray-800 bg-gray-900/55 px-3 lg:flex"
-            >
-              <span className={`h-2 w-2 rounded-full ${overallStatus === "operational" ? "bg-emerald-400" : overallStatus === "degraded" ? "bg-amber-400" : "bg-red-400"}`} />
-              <span className="leading-tight">
-                <span className="block text-xs font-medium text-gray-200">{attentionServices ? `${attentionServices} need attention` : `${readyServices} ready now`}</span>
-                <span className="block text-[9px] text-gray-600">{onDemandServices} on demand</span>
-              </span>
-            </button>
-            <label className="hidden h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-800 px-2 text-[10px] text-gray-500 xl:flex" title="Automatically refresh console data every 15 seconds">
-              <input type="checkbox" role="switch" aria-label="Automatically refresh console every 15 seconds" checked={autoRefresh} onChange={(event) => onAutoRefresh(event.target.checked)} className="accent-orange-500" />
-              Live
-            </label>
-          </>}
+          <button type="button" onClick={onRefresh} disabled={refreshing} aria-label={refreshing ? "Refreshing console" : "Refresh console"} className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-800 text-gray-500 transition hover:border-gray-600 hover:text-gray-100 disabled:opacity-50 md:h-9 md:w-9">
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelect("services")}
+            aria-label={`Service status: ${readyServices} ready now, ${onDemandServices} on demand, ${attentionServices} need attention`}
+            className="hidden h-10 items-center gap-2 rounded-lg border border-gray-800 bg-gray-900/55 px-3 lg:flex"
+          >
+            <span className={`h-2 w-2 rounded-full ${overallStatus === "operational" ? "bg-emerald-400" : overallStatus === "degraded" ? "bg-amber-400" : "bg-red-400"}`} />
+            <span className="leading-tight">
+              <span className="block text-xs font-medium text-gray-200">{attentionServices ? `${attentionServices} need attention` : `${readyServices} ready now`}</span>
+              <span className="block text-[9px] text-gray-600">{onDemandServices} on demand</span>
+            </span>
+          </button>
+          <label className="hidden h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-800 px-2 text-[10px] text-gray-500 xl:flex" title="Automatically refresh console data every 15 seconds">
+            <input type="checkbox" role="switch" aria-label="Automatically refresh console every 15 seconds" checked={autoRefresh} onChange={(event) => onAutoRefresh(event.target.checked)} className="accent-orange-500" />
+            Live
+          </label>
           <button type="button" onClick={toggle} title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"} aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"} className="flex h-11 w-11 items-center justify-center rounded-lg border border-gray-800 text-gray-500 transition hover:border-gray-600 hover:text-gray-100 md:h-9 md:w-9">
             {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
           </button>

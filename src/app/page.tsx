@@ -21,7 +21,6 @@ import { ThemePicker } from "@/components/theme-picker";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import TabErrorBoundary from "@/components/tab-error-boundary";
 import HomeCockpit from "@/components/home-cockpit";
-import HostedOnboarding from "@/components/hosted-onboarding";
 import ForeignProfileNotice from "@/components/foreign-profile-notice";
 import ConsoleHeader from "@/components/console-header";
 import ResourcePulse from "@/components/resource-pulse";
@@ -848,9 +847,8 @@ export default function Home() {
         autoRefresh={autoRefresh}
         onAutoRefresh={setAutoRefresh}
         hostName={host?.name ?? gpu?.host?.name}
-        hosted={HOSTED_RUNTIME}
       />
-      {!HOSTED_RUNTIME && <ResourcePulse
+      <ResourcePulse
         gpu={gpu}
         resources={resourceControl}
         onOpenDetails={() => {
@@ -861,11 +859,11 @@ export default function Home() {
             document.getElementById("resource-map")?.scrollIntoView({ behavior: "smooth", block: "center" });
           }, tab === "stack" ? 0 : 100);
         }}
-      />}
+      />
 
       <main className="mx-auto max-w-[1500px] space-y-6 px-4 pb-24 pt-4 sm:px-6 sm:pt-5 md:pb-5">
 
-        {HOSTED_RUNTIME && tab !== "stack" && <HostedRuntimeNotice />}
+        {HOSTED_RUNTIME && <HostedRuntimeNotice />}
 
         <TabErrorBoundary key={tab} label={tabs.find((item) => item.id === tab)?.label ?? "Console"}>
 
@@ -873,7 +871,7 @@ export default function Home() {
         {tab === "stack" && !HOSTED_RUNTIME && host && host.matchesProfile === false && (
           <ForeignProfileNotice profile={host.name} profileId={host.id} machine={host.machine ?? "this machine"} />
         )}
-        {tab === "stack" && (HOSTED_RUNTIME ? <HostedOnboarding /> : (
+        {tab === "stack" && (
           <HomeCockpit
             managedServices={managedServices}
             catalogByService={catalogByService}
@@ -893,7 +891,7 @@ export default function Home() {
             onTranscribeFile={transcribeAudio}
             openResourceMapSignal={resourceMapSignal}
           />
-        ))}
+        )}
 
         {tab === "services" && (
           <ServicesControlCenter

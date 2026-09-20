@@ -1,5 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+const PUBLIC_GUIDE_HOSTS = new Set(["console.humanquest.net", "hangar.humanquest.net"]);
+
+function requestHost(req: NextRequest): string {
+  return (req.headers.get("x-forwarded-host") || req.headers.get("host") || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase()
+    .replace(/:\d+$/, "");
+}
+
+function isPublicGuideHost(req: NextRequest): boolean {
+  const host = requestHost(req);
+  return PUBLIC_GUIDE_HOSTS.has(host) || host.endsWith(".vercel.app");
+}
+
 // The dashboard polls these constantly to refresh itself — that's the console
 // observing itself, not real traffic, and it would otherwise flood the feed and
 // crowd out real requests. Skip them at ingest (GET only). Keep this in sync with
@@ -38,6 +53,26 @@ function targetFromPath(pathname: string): string | null {
 // and skip /api/traffic itself to avoid a feedback loop.
 export function middleware(req: NextRequest) {
   const { pathname, origin, search } = req.nextUrl;
+
+  // Public Human Quest domains are the installation guide, not an alternate
+  // doorway into Ali's BeTenshi operator console. Keep the guide on its own
+  // route and refuse every API call before it can reach a machine-backed
+  // handler. console.betenshi.com deliberately does not match this branch.
+  if (isPublicGuideHost(req)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Run Hangar locally to use its machine and model APIs." },
+        { status: 404 },
+      );
+    }
+    if (pathname === "/") {
+      const guide = req.nextUrl.clone();
+      guide.pathname = "/guide";
+      return NextResponse.rewrite(guide);
+    }
+  }
+
+  if (!pathname.startsWith("/api/")) return NextResponse.next();
   // Skip: the /api/traffic ingest channel; qwen generate/edit (they self-report a
   // real response status via withTraffic); and the dashboard's own status polling.
   const skip =
@@ -69,4 +104,6 @@ export function middleware(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: "/api/:path*" };
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/).*)"],
+};

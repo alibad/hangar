@@ -1,20 +1,47 @@
 ---
 name: hangar-setup
-description: "Teach Hangar about the machine it is running on. Probes what is actually listening, writes config/hosts/<id>.json and its start commands, registers the profile, and verifies the console comes up describing this computer instead of somebody else's. Use when the console shows another machine's name or services, when someone has just cloned Hangar, when adding a second or third machine, or when they say the console says it is not their machine, /hangar-setup, set up Hangar, add this machine, or configure the host profile."
+description: "Install and configure Hangar on a local machine with a working local LLM. Clones and bootstraps the public repository when needed, probes what is actually listening, writes config/hosts/<id>.json and its start commands, registers the profile, and verifies the console describes this computer instead of somebody else's. Use when someone points you to this skill, has just discovered Hangar, sees another machine's name or services, wants to add a machine, or says /hangar-setup, set up Hangar, add this machine, or configure the host profile."
 ---
 
-# Hangar — set up this machine
+# Hangar — install and set up this machine
 
 Hangar decides what it can do by reading one JSON file per machine. Until that
 file exists for **this** computer, host resolution falls back to a profile that
 ships as an example — so a fresh clone renders another person's services under
 another person's machine name. Your job is to replace that guess with a
-description of what is really here.
+description of what is really here. If Hangar has not been cloned yet, begin by
+putting the public repository on this machine and installing its dependencies.
 
 The one rule: **a host profile is a claim about a machine, and every claim in it
 must be something you measured.** A profile that lists a service which is not
 there is worse than no profile, because the console will report it as *down* and
 send someone debugging a service they never installed.
+
+---
+
+## Before Step 0 — get Hangar onto the machine
+
+First establish whether the current directory is already the Hangar repository:
+
+```bash
+git remote get-url origin
+```
+
+If it is not, check that Git and Node.js 22 or newer are available, then clone
+the public repository into an appropriate development directory:
+
+```bash
+git --version
+node --version
+git clone https://github.com/alibad/hangar.git
+cd hangar
+npm install
+```
+
+If Git or Node is missing, explain what is missing and use the platform's normal
+package manager or official installer after getting the user's approval. Do not
+silently replace an existing Node installation or install a second package
+manager. All remaining commands run from the Hangar repository root.
 
 ---
 
@@ -64,6 +91,37 @@ ceiling, and the first sign is a model that will not load for no visible reason.
 out.** That is deliberate, and you must not override it by assuming. If the user
 says a service really is there, confirm what it is — ask, or read its start
 command — before adding it.
+
+### Ensure there is a local text model
+
+Hangar should open with at least one useful local LLM. Inspect before installing:
+
+```bash
+ollama --version
+ollama list
+curl -s http://localhost:11434/api/tags
+```
+
+- If Ollama is installed but stopped, start it using the platform's normal app
+  or service command, then probe it again.
+- If Ollama is missing, explain that Hangar needs a local inference service and
+  offer to install Ollama from `https://ollama.com/download`. Installation is a
+  system change, so obtain the user's approval before doing it.
+- If Ollama has at least one chat-capable model, reuse it unless it clearly will
+  not fit this machine.
+- If it has no suitable text model, use the measured memory to recommend one.
+  `qwen3:8b` is the default for a machine with at least roughly 8 GB available.
+  Tell the user the download is several gigabytes and get approval before
+  running `ollama pull qwen3:8b`.
+
+Prove the chosen model answers before adding it to the profile:
+
+```bash
+ollama run <model> "Reply with exactly: LOCAL MODEL OK"
+```
+
+Record the exact installed model tag returned by `ollama list`; do not invent or
+normalize it.
 
 ---
 
