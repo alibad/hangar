@@ -11,10 +11,10 @@ const HOST = getHost();
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: `${HOST.name} Console`,
-  description: `Monitor and test ${HOST.name} AI services`,
+  title: `Hangar — ${HOST.name} console`,
+  description: `Operate the AI services, models, memory budget, and request history on ${HOST.name}.`,
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: HOST.name },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Hangar" },
   icons: {
     icon: "/icons/icon.svg",
     apple: "/icons/icon-192.png",

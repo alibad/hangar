@@ -16,13 +16,14 @@ import { record } from "./traffic";
  */
 export const TARGET_HEADER = "x-hangar-target";
 
-export function withTraffic(
-  handler: (req: NextRequest) => Promise<Response>,
-): (req: NextRequest) => Promise<Response> {
-  return async (req: NextRequest) => {
+export function withTraffic<Args extends unknown[]>(
+  handler: (req: NextRequest, ...args: Args) => Promise<Response>,
+): (req: NextRequest, ...args: Args) => Promise<Response> {
+  return async (req: NextRequest, ...args: Args) => {
     const t0 = Date.now();
-    const res = await handler(req);
-    const target = res.headers.get(TARGET_HEADER);
+    const res = await handler(req, ...args);
+    const servicePath = /^\/api\/services\/([^/]+)/.exec(req.nextUrl.pathname);
+    const target = res.headers.get(TARGET_HEADER) ?? servicePath?.[1] ?? null;
     if (target) res.headers.delete(TARGET_HEADER);
     try {
       const ip =

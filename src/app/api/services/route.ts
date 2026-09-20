@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { SERVICE_REGISTRY, isLocalServer, getServiceHeaders, type ServiceEntry } from "@/lib/services";
-
-const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
+import { SERVICE_REGISTRY, isLocalServer, getServiceHeaders, getManagerHeaders, getManagerUrl, type ServiceEntry } from "@/lib/services";
 
 // Health-check a registry service directly (used for the fallback and to reconcile
 // LLM cards, whose real ports live in the registry not the manager's static list).
@@ -37,7 +35,10 @@ async function registryFallback() {
 
 export async function GET() {
   try {
-    const res = await fetch(`${MANAGER_URL}/services`, { signal: AbortSignal.timeout(5000) });
+    const res = await fetch(`${getManagerUrl()}/services`, {
+      headers: getManagerHeaders(),
+      signal: AbortSignal.timeout(5000),
+    });
     const data = await res.json();
     if (!res.ok || !Array.isArray(data)) {
       return NextResponse.json(await registryFallback());

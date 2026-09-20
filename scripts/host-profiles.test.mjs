@@ -140,3 +140,14 @@ test("no profile commits a literal public hostname", () => {
     }
   }
 });
+
+test("a tunnelled service manager requires machine authentication", () => {
+  const betenshi = HOSTS.find(([id]) => id === "betenshi")?.[1];
+  const manager = betenshi?.services.find((s) => s.id === "manager");
+  assert.ok(manager, "the tunnelled host must declare its service manager");
+  assert.equal(
+    manager.authRequired,
+    true,
+    "a deployed console can start and stop processes; its manager tunnel must require Cloudflare Access",
+  );
+});

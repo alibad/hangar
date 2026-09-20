@@ -12,9 +12,11 @@ import fs from "fs/promises";
 const DATA_ROOT = process.env.LOCALAPPDATA || process.env.HOME || process.cwd();
 const LEGACY_DB = path.join(DATA_ROOT, "betenshi", "betenshi.db");
 const DB_PATH =
-  process.env.HANGAR_DB_PATH ||
-  process.env.BETENSHI_DB_PATH ||
-  (existsSync(LEGACY_DB) ? LEGACY_DB : path.join(DATA_ROOT, "hangar", "hangar.db"));
+  process.env.NEXT_PHASE === "phase-production-build"
+    ? ":memory:"
+    : process.env.HANGAR_DB_PATH ||
+      process.env.BETENSHI_DB_PATH ||
+      (existsSync(LEGACY_DB) ? LEGACY_DB : path.join(DATA_ROOT, "hangar", "hangar.db"));
 
 type Row = Record<string, unknown>;
 
@@ -242,7 +244,7 @@ const g = globalThis as typeof globalThis & { __bDb?: Promise<Db> };
 export function getDb(): Promise<Db> {
   if (!g.__bDb) {
     g.__bDb = (async () => {
-      await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
+      if (DB_PATH !== ":memory:") await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
       const db = await open();
       await createSchema(db);
       await migrateJobs(db);

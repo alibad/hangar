@@ -21,7 +21,7 @@
       "publicUrl": "https://manager.${PUBLIC_DOMAIN}",
       "healthPath": "/services",
       "category": "monitoring",
-      "authRequired": false,
+      "authRequired": true,
       "note": "The supervisor every other Start/Stop button goes through — when this is down the console reports 'Manager error: fetch failed' on every service and nothing can be started, so it needs to be visible rather than invisible infrastructure. Owned by the 'BeTenshi Manager' scheduled task: fires at logon and auto-restarts within a minute if the process dies, which also makes a stray Stop on this card self-healing."
     },
     {

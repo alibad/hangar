@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { batchQueue } from "@/lib/batch-queue";
-
-const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
+import { getManagerHeaders, getManagerUrl } from "@/lib/services";
 
 /**
  * One-click VRAM control.
@@ -20,8 +19,9 @@ export async function POST(req: NextRequest) {
     let stopped = false;
     let error: string | null = null;
     try {
-      const res = await fetch(`${MANAGER_URL}/services/qwen/stop`, {
+      const res = await fetch(`${getManagerUrl()}/services/qwen/stop`, {
         method: "POST",
+        headers: getManagerHeaders(),
         signal: AbortSignal.timeout(60000),
       });
       stopped = res.ok;
@@ -36,8 +36,9 @@ export async function POST(req: NextRequest) {
     let started = false;
     let error: string | null = null;
     try {
-      const res = await fetch(`${MANAGER_URL}/services/qwen/start`, {
+      const res = await fetch(`${getManagerUrl()}/services/qwen/start`, {
         method: "POST",
+        headers: getManagerHeaders(),
         signal: AbortSignal.timeout(120000),
       });
       started = res.ok;

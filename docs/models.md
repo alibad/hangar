@@ -249,7 +249,7 @@ judgment, not measurement.
 | Routine | **Hangar model scout (weekly)** — a scheduled Claude routine; find it in your own routine list |
 | Schedule | `47 5 * * 1` UTC — Mondays, 08:47 Asia/Riyadh |
 | Model | `claude-opus-5` |
-| Source | `github.com/alibad/hangar`, commits `config/model-scout.json` to `main` |
+| Source | `github.com/alibad/betenshi-console`, commits `config/model-scout.json` to `main` |
 
 #### The prompt is a pointer, and must stay one
 
@@ -267,7 +267,7 @@ a copy always does.
 So the prompt is now the shortest thing that still works. **This is the whole of it** — if
 it ever needs more than this, the extra belongs above instead:
 
-> Run the weekly Hangar model scout for this repository (alibad/hangar).
+> Run the weekly Hangar model scout for this repository (alibad/betenshi-console).
 >
 > Read `docs/models.md` first and follow it exactly. It is the authoritative brief: what to
 > research, which sources to rank each capability on, the schema of

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-
-const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
+import { getManagerHeaders, getManagerUrl } from "@/lib/services";
 
 export async function GET() {
   try {
-    const response = await fetch(`${MANAGER_URL}/resources`, {
+    const response = await fetch(`${getManagerUrl()}/resources`, {
+      headers: getManagerHeaders(),
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
     });

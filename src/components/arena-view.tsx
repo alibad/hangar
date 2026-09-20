@@ -89,6 +89,7 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 function statusLabel(m: CatalogModel): string | null {
   if (m.status === "ready") return null;
   if (m.status === "no-key") return `needs ${m.keyEnv ?? "a key"}`;
+  if (m.status === "model-missing") return "not installed on this machine";
   if (m.status === "service-stopped") return "will start on run";
   return m.status;
 }
@@ -104,7 +105,7 @@ function statusLabel(m: CatalogModel): string | null {
  * credential.
  */
 function isBlocked(m: CatalogModel): boolean {
-  return m.status === "no-key";
+  return m.status === "no-key" || m.status === "model-missing";
 }
 
 function gb(n: number | undefined): string | null {

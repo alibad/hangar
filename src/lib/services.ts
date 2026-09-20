@@ -109,3 +109,12 @@ export function getServiceHeaders(id: string, extra?: Record<string, string>): R
   }
   return headers;
 }
+
+/** Resolve the supervisor on-box locally and through its tunnel when hosted. */
+export function getManagerUrl(): string {
+  return process.env.MANAGER_URL?.trim() || getServiceUrl("manager");
+}
+
+export function getManagerHeaders(extra?: Record<string, string>): Record<string, string> {
+  return getServiceHeaders("manager", extra);
+}

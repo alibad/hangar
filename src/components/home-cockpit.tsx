@@ -45,6 +45,7 @@ type CatalogEntry = {
   id: string;
   serviceId?: string;
   mode: string;
+  status?: string;
   params?: string;
 };
 

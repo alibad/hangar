@@ -1,7 +1,7 @@
 {
-  "name": "BeTenshi Console",
-  "short_name": "BeTenshi",
-  "description": "Monitor and test BeTenshi AI services",
+  "name": "Hangar",
+  "short_name": "Hangar",
+  "description": "Operate local AI services, models, memory budgets, and request history",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f0f1a",

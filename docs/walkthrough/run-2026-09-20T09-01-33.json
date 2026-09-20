@@ -1,0 +1,76 @@
+{
+  "startedAt": "2026-09-20T09:01:33.015Z",
+  "hosts": {
+    "b5": {
+      "label": "B5",
+      "url": "http://127.0.0.1:8013",
+      "platform": "darwin",
+      "gpu": "apple",
+      "memoryKind": "unified",
+      "services": [
+        {
+          "id": "manager",
+          "status": "up"
+        },
+        {
+          "id": "ollama",
+          "status": "up"
+        }
+      ],
+      "captures": [
+        {
+          "feature": "services",
+          "surface": "desktop",
+          "action": "Opened the services control centre"
+        },
+        {
+          "feature": "models",
+          "surface": "desktop",
+          "action": "Opened Models — local weights and cloud APIs, sized against this machine"
+        }
+      ],
+      "report": {
+        "driver": "playwright",
+        "driverLabel": "Playwright (launched Chromium)",
+        "declares": {
+          "retina": true,
+          "realMobile": true,
+          "video": true,
+          "consoleNetwork": true,
+          "freshContext": true,
+          "animationsFrozen": true,
+          "timeFrozen": true
+        },
+        "verified": {
+          "retina": true,
+          "animationsFrozen": true,
+          "timeFrozen": true,
+          "contentful": true,
+          "consoleNetwork": true,
+          "freshContext": true
+        },
+        "skipped": [],
+        "surfaces": [
+          "desktop"
+        ],
+        "warnings": [
+          "feature \"services\" on desktop: 1 loading indicator(s) still visible after 15049ms — captures may show a loading state",
+          "feature \"models\" on desktop: 1 loading indicator(s) still visible after 15112ms — captures may show a loading state"
+        ],
+        "overflows": [],
+        "suppressed": [
+          "dev-server error overlays (Next.js / Vite) hidden; the console errors behind them are still collected and reported"
+        ],
+        "rejected": [],
+        "captures": 2,
+        "unverified": [
+          "realMobile",
+          "video"
+        ]
+      }
+    }
+  },
+  "issues": [],
+  "skipped": [],
+  "finishedAt": "2026-09-20T09:02:27.154Z"
+}

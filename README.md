@@ -5,6 +5,10 @@ stops them, keeps them inside a memory budget, routes work to whichever model
 should handle it, tells you what the box can and cannot run, and shows every
 call that went through it.
 
+**Hangar is the product; Console is the operator surface.** The public entry
+point is `console.humanquest.net`. The private source repository keeps its
+historical `betenshi-console` slug; BeTenshi itself is only one machine profile.
+
 It is a Next.js app you run on the machine itself. There is no cloud component,
 no account, and no telemetry leaving the box.
 
@@ -89,7 +93,7 @@ Requires **Node 22 or newer** (`/api/scout` imports `node:sqlite`, a Node 22
 builtin; there is an `.nvmrc`).
 
 ```bash
-git clone https://github.com/alibad/hangar.git
+git clone https://github.com/alibad/betenshi-console.git hangar
 cd hangar
 npm install
 cp .env.example .env.local     # optional — every variable in it is optional

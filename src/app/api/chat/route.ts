@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceHeaders } from "@/lib/services";
 import { resolveCallTarget, type CallTarget } from "@/lib/providers";
+import { TARGET_HEADER, withTraffic } from "@/lib/with-traffic";
 
 /**
  * Reasoning models emit their thinking in one of two shapes, and this endpoint
@@ -97,7 +98,7 @@ function fitHistory(raw: unknown): { turns: Turn[]; dropped: number } {
   return { turns: kept, dropped: clean.length - kept.length };
 }
 
-export async function POST(req: NextRequest) {
+async function handlePost(req: NextRequest) {
   const { message, history, max_tokens } = await req.json();
   const maxTokens = Math.min(
     Math.max(Number.isFinite(max_tokens) ? Number(max_tokens) : DEFAULT_MAX_TOKENS, 1),
@@ -141,32 +142,38 @@ export async function POST(req: NextRequest) {
     const latency = Date.now() - start;
 
     if (!res.ok) {
-      return NextResponse.json({ error: data }, { status: res.status });
+      return NextResponse.json(
+        { error: data },
+        { status: res.status, headers: { [TARGET_HEADER]: target.serviceId ?? "ai-router" } },
+      );
     }
 
     const msg = data.choices?.[0]?.message ?? {};
     const { content, thinking } = splitThinking(msg.content ?? "", msg.reasoning_content);
 
-    return NextResponse.json({
-      content,
-      thinking,
-      usage: data.usage,
-      latency,
-      model: data.model ?? target.alias,
-      // Set when the routing could not be honoured and a fallback was used, so
-      // the reply is not silently attributed to the model you picked.
-      degraded: target.degraded,
-      // A reasoning model can spend its whole budget thinking and return an
-      // empty answer. Saying so beats rendering a blank bubble — and when it
-      // spends the budget mid-ANSWER, saying so beats a reply that just stops.
-      truncated: data.choices?.[0]?.finish_reason === "length",
-      maxTokens,
-      // What the model was actually shown. `dropped` is the interesting half:
-      // it is the only signal that the start of a long thread has fallen out of
-      // the budget, which otherwise looks like the model forgetting.
-      carried: turns.length,
-      dropped,
-    });
+    return NextResponse.json(
+      {
+        content,
+        thinking,
+        usage: data.usage,
+        latency,
+        model: data.model ?? target.alias,
+        // Set when the routing could not be honoured and a fallback was used, so
+        // the reply is not silently attributed to the model you picked.
+        degraded: target.degraded,
+        // A reasoning model can spend its whole budget thinking and return an
+        // empty answer. Saying so beats rendering a blank bubble — and when it
+        // spends the budget mid-ANSWER, saying so beats a reply that just stops.
+        truncated: data.choices?.[0]?.finish_reason === "length",
+        maxTokens,
+        // What the model was actually shown. `dropped` is the interesting half:
+        // it is the only signal that the start of a long thread has fallen out of
+        // the budget, which otherwise looks like the model forgetting.
+        carried: turns.length,
+        dropped,
+      },
+      { headers: { [TARGET_HEADER]: target.serviceId ?? "ai-router" } },
+    );
   } catch (err) {
     // "TypeError: fetch failed" on its own is unactionable — it was the entire
     // message the playground showed. Name the model, the address, and the
@@ -183,7 +190,12 @@ export async function POST(req: NextRequest) {
         alias: target?.alias,
         latency: Date.now() - start,
       },
-      { status: 502 }
+      {
+        status: 502,
+        headers: target ? { [TARGET_HEADER]: target.serviceId ?? "ai-router" } : undefined,
+      },
     );
   }
 }
+
+export const POST = withTraffic(handlePost);

@@ -1,6 +1,5 @@
 import policyJson from "../../config/resource-policy.json";
-
-const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
+import { getManagerHeaders, getManagerUrl } from "@/lib/services";
 
 type Lane = "interactive" | "background";
 type Policy = {
@@ -49,9 +48,9 @@ async function acquireResourceLease(
 ): Promise<ResourceLease> {
   let response: Response;
   try {
-    response = await fetch(`${MANAGER_URL}/resources/leases/acquire`, {
+    response = await fetch(`${getManagerUrl()}/resources/leases/acquire`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getManagerHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         workload,
         owner: options.owner,
@@ -90,8 +89,9 @@ async function acquireResourceLease(
 
 async function releaseResourceLease(id: string): Promise<void> {
   try {
-    await fetch(`${MANAGER_URL}/resources/leases/${encodeURIComponent(id)}/release`, {
+    await fetch(`${getManagerUrl()}/resources/leases/${encodeURIComponent(id)}/release`, {
       method: "POST",
+      headers: getManagerHeaders(),
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
     });

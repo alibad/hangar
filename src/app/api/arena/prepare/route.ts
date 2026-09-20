@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCatalogue } from "@/lib/providers";
-import { SERVICE_REGISTRY } from "@/lib/services";
+import { SERVICE_REGISTRY, getManagerHeaders, getManagerUrl } from "@/lib/services";
 import { ollamaModelFromTarget, residentModels, unloadOne } from "@/lib/ollama";
 
 export const dynamic = "force-dynamic";
 /** Starting vLLM means loading ~20 GB of weights. Two minutes is normal. */
 export const maxDuration = 600;
-
-const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
 
 /**
  * Make a model runnable: start its service, stopping whatever is in the way.
@@ -165,7 +163,11 @@ async function healthy(id: string): Promise<boolean> {
 
 async function manager(path: string): Promise<{ ok: boolean; status: number; body: Record<string, unknown> | null }> {
   try {
-    const res = await fetch(`${MANAGER_URL}${path}`, { method: "POST", signal: AbortSignal.timeout(180_000) });
+    const res = await fetch(`${getManagerUrl()}${path}`, {
+      method: "POST",
+      headers: getManagerHeaders(),
+      signal: AbortSignal.timeout(180_000),
+    });
     const body = await res.json().catch(() => null);
     return { ok: res.ok && !body?.error, status: res.status, body };
   } catch (err) {

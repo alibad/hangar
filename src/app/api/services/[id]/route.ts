@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getManagerHeaders, getManagerUrl } from "@/lib/services";
+import { withTraffic } from "@/lib/with-traffic";
 
-const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
-
-export async function POST(
+async function handlePost(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -14,8 +14,9 @@ export async function POST(
   }
 
   try {
-    const res = await fetch(`${MANAGER_URL}/services/${id}/${action}`, {
+    const res = await fetch(`${getManagerUrl()}/services/${id}/${action}`, {
       method: "POST",
+      headers: getManagerHeaders({ "Content-Type": "application/json" }),
       signal: AbortSignal.timeout(120000),
     });
     const data = await res.json();
@@ -28,13 +29,16 @@ export async function POST(
   }
 }
 
+export const POST = withTraffic(handlePost);
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   try {
-    const res = await fetch(`${MANAGER_URL}/services/${id}/logs?tail=50`, {
+    const res = await fetch(`${getManagerUrl()}/services/${id}/logs?tail=50`, {
+      headers: getManagerHeaders(),
       signal: AbortSignal.timeout(5000),
     });
     const data = await res.json();

@@ -36,7 +36,7 @@ type ManagedService = {
   owner?: "manager" | "external" | null;
 };
 
-type CatalogEntry = { id: string; mode: string; params?: string };
+type CatalogEntry = { id: string; mode: string; params?: string; status?: string };
 
 type Props = {
   services: ManagedService[];

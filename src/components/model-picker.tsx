@@ -248,6 +248,7 @@ export default function ModelPicker({
   if (compact) {
     const m = activeModel;
     const serviceUp = m?.status === "ready";
+    const modelMissing = m?.status === "model-missing";
     const onDemand = m?.loaded !== undefined;
     const on = onDemand ? m?.loaded === true : serviceUp;
     const state = !m
@@ -256,6 +257,8 @@ export default function ModelPicker({
         ? m.status === "no-key"
           ? "needs a key"
           : "cloud"
+        : modelMissing
+          ? "not installed"
         : !onDemand
           ? serviceUp ? "running" : "stopped"
           : !serviceUp ? "runtime stopped" : m.loaded ? "loaded" : "ready to load";
@@ -298,9 +301,9 @@ export default function ModelPicker({
                     On this box
                   </SelectLabel>
                   {local.map((o) => (
-                    <SelectItem key={o.id} value={o.id} className="text-xs">
+                    <SelectItem key={o.id} value={o.id} disabled={o.status === "model-missing"} className="text-xs">
                       {o.id}
-                      {o.status !== "ready" ? " · stopped" : ""}
+                      {o.status === "model-missing" ? " · not installed" : o.status !== "ready" ? " · stopped" : ""}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -425,15 +428,18 @@ export default function ModelPicker({
           <ul className="space-y-1.5">
             {local.map((m) => {
               const serviceUp = m.status === "ready";
+              const modelMissing = m.status === "model-missing";
               // `loaded` is only defined for on-demand runtimes (Ollama). For a
               // pinned service like vLLM, the service being up IS the model being
               // up, and there is no separate question to ask.
               const onDemand = m.loaded !== undefined;
               const on = onDemand ? m.loaded === true : serviceUp;
-              const stateLabel = !onDemand
-                ? serviceUp ? "running" : "stopped"
-                : !serviceUp ? "runtime stopped"
-                : m.loaded ? "loaded" : "ready to load";
+              const stateLabel = modelMissing
+                ? "not installed"
+                : !onDemand
+                  ? serviceUp ? "running" : "stopped"
+                  : !serviceUp ? "runtime stopped"
+                  : m.loaded ? "loaded" : "ready to load";
               const chosen = m.id === active;
               return (
                 <li
@@ -470,7 +476,7 @@ export default function ModelPicker({
                       type="button"
                       // Load is only offered when the runtime is up — there is
                       // nothing to load it into otherwise.
-                      disabled={busy === m.id || (!on && !serviceUp)}
+                      disabled={modelMissing || busy === m.id || (!on && !serviceUp)}
                       onClick={() => residency(m.id, on ? "unload" : "load")}
                       title={
                         on
@@ -494,7 +500,7 @@ export default function ModelPicker({
                     )
                   )}
                   <button
-                    disabled={chosen || busy === m.id}
+                    disabled={modelMissing || chosen || busy === m.id}
                     onClick={() => select(m.id)}
                     className="rounded-md bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-900 disabled:opacity-40"
                   >

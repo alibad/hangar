@@ -88,7 +88,7 @@ export type CatalogModel = {
   mode: string;
   local: boolean;
   serviceId?: string;
-  status: "ready" | "no-key" | "service-stopped" | "router-offline";
+  status: "ready" | "no-key" | "model-missing" | "service-stopped" | "router-offline";
   detail?: string;
   checkpoint?: string;
   params?: string;
@@ -202,6 +202,7 @@ export type EntryStatus =
   | "downloading"
   | "available"     // could be downloaded or wired
   | "no-key"
+  | "missing"
   | "wont-fit";
 
 export type Entry = {
@@ -440,6 +441,8 @@ export function buildEntries(p: Payload): Entry[] {
     const status: EntryStatus =
       m.status === "ready"
         ? "ready"
+        : m.status === "model-missing"
+          ? "missing"
         : m.status === "service-stopped"
           ? "stopped"
           : m.status === "no-key"
@@ -461,10 +464,12 @@ export function buildEntries(p: Payload): Entry[] {
       detail: m.detail,
       capabilities: caps,
       activeFor: active,
-      // A wired model runs here by definition — it is either loaded or one
-      // click from loaded. This is what keeps the default filter from hiding
-      // the models the console is actually using.
-      runsHere: true,
+      // A local alias only runs on this host when it resolves to a registered
+      // service and that runtime confirms the exact model is installed. This
+      // keeps aliases for the other Hangar host out of the default view.
+      runsHere: m.local
+        ? Boolean(m.serviceId) && m.status !== "model-missing"
+        : true,
       vramGb: m.footprint?.vramGb,
       measured: !!m.footprint,
       fit: undefined,

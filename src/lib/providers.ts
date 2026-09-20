@@ -47,6 +47,7 @@ const PROVIDER_KEY_ENV: Record<string, string> = {
 export type ModelStatus =
   | "ready"              // usable right now
   | "no-key"             // cloud model, API key absent from the environment
+  | "model-missing"      // runtime is healthy, but this exact checkpoint is not installed
   | "service-stopped"    // local model, its backing service isn't running
   | "router-offline";    // reserved; see above — no model is given this today
 
@@ -166,6 +167,63 @@ async function residentOllamaTargets(): Promise<Set<string>> {
   } catch {
     return new Set();
   }
+}
+
+type OllamaInstalledModel = {
+  name: string;
+  capabilities: string[];
+};
+
+let ollamaInstalledCache: { at: number; models: OllamaInstalledModel[] } | null = null;
+
+/**
+ * Exact checkpoints Ollama can load on this host.
+ *
+ * Service health only proves the runtime is alive. Treating every alias that
+ * points at :11434 as ready made a missing `qwen3:32b` look runnable on B5.
+ * `/api/tags` is the inventory; `/api/show` supplies declared capabilities so
+ * an embedding model is not accidentally offered as chat and vision is not
+ * guessed from a name. Cached because the picker polls every few seconds.
+ */
+async function installedOllamaModels(): Promise<OllamaInstalledModel[]> {
+  if (ollamaInstalledCache && Date.now() - ollamaInstalledCache.at < 30_000) {
+    return ollamaInstalledCache.models;
+  }
+  try {
+    const baseUrl = getServiceUrl("ollama");
+    const tags = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    if (!tags.ok) return [];
+    const data = (await tags.json()) as { models?: { name?: string; model?: string }[] };
+    const names = (data.models ?? []).flatMap((m) => {
+      const name = m.name ?? m.model;
+      return name ? [name] : [];
+    });
+    const models = await Promise.all(
+      names.map(async (name): Promise<OllamaInstalledModel> => {
+        try {
+          const shown = await fetch(`${baseUrl}/api/show`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model: name }),
+            signal: AbortSignal.timeout(3000),
+          });
+          const body = (await shown.json()) as { capabilities?: string[] };
+          return { name, capabilities: Array.isArray(body.capabilities) ? body.capabilities : [] };
+        } catch {
+          return { name, capabilities: [] };
+        }
+      }),
+    );
+    ollamaInstalledCache = { at: Date.now(), models };
+    return models;
+  } catch {
+    return [];
+  }
+}
+
+function ollamaAlias(name: string, defaultModel?: string): string {
+  if (name === defaultModel) return "local-ollama";
+  return `ollama-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`.slice(0, 64);
 }
 
 /** Map a local model's api_base port onto the BeTenshi service that serves it. */
@@ -355,13 +413,38 @@ export async function getCatalogue(): Promise<{
   }
 
   // Probe each distinct local service once, not once per model.
-  const base = raw.map((m) => ({ m, svcId: serviceForBase(m.litellm_params?.api_base) }));
+  let base = raw.map((m) => ({ m, svcId: serviceForBase(m.litellm_params?.api_base) }));
   const localIds = [...new Set(base.map((b) => b.svcId).filter((x): x is string => !!x))];
   const health = new Map<string, boolean>(
     await Promise.all(
       localIds.map(async (id) => [id, await localServiceHealthy(id)] as const),
     ),
   );
+
+  const ollamaService = SERVICE_REGISTRY.find((s) => s.id === "ollama");
+  const installedOllama = health.get("ollama") ? await installedOllamaModels() : [];
+  const installedOllamaTargets = new Set(
+    installedOllama.flatMap((m) => [m.name, `openai/${m.name}`]),
+  );
+
+  // A host can use Ollama directly without the AI Router. Merge that runtime's
+  // live inventory into the catalogue so Models shows what is actually on the
+  // machine, not only aliases written for another host in ai-router.yaml.
+  for (const model of installedOllama) {
+    if (model.capabilities.includes("embedding") && !model.capabilities.includes("completion")) continue;
+    const target = `openai/${model.name}`;
+    if (raw.some((m) => m.litellm_params?.model === target)) continue;
+    raw.push({
+      model_name: ollamaAlias(model.name, ollamaService?.llm?.model),
+      litellm_params: { model: target, api_base: `${ollamaService?.localUrl ?? "http://localhost:11434"}/v1` },
+      model_info: {
+        mode: "chat",
+        litellm_provider: "ollama",
+        supports_vision: model.capabilities.includes("vision"),
+      },
+    });
+  }
+  base = raw.map((m) => ({ m, svcId: serviceForBase(m.litellm_params?.api_base) }));
 
   const meta = loadMeta();
 
@@ -386,6 +469,12 @@ export async function getCatalogue(): Promise<{
         status = "service-stopped";
         const name = SERVICE_REGISTRY.find((s) => s.id === svcId)?.name ?? svcId;
         detail = `${name} isn't running.`;
+      } else if (
+        svcId === "ollama" &&
+        !installedOllamaTargets.has(m.litellm_params?.model ?? "")
+      ) {
+        status = "model-missing";
+        detail = `Ollama is running, but ${String(m.litellm_params?.model ?? m.model_name).replace(/^openai\//, "")} is not installed on this machine.`;
       }
     } else if (keyEnv && !process.env[keyEnv]) {
       status = "no-key";
@@ -422,7 +511,10 @@ export async function getCatalogue(): Promise<{
       // what emptied this capability once already — the filter shipped before
       // any entry carried the flag, so Vision offered nothing at all. A cloud
       // model added later with no model-meta entry now still lands correctly.
-      vision: md.vision ?? info.supports_vision === true,
+      // A live Ollama /api/show answer is stronger than editorial metadata.
+      // The default B5 checkpoint gained vision support while model-meta still
+      // pinned it false; preferring the runtime keeps discovery factual.
+      vision: provider === "ollama" ? info.supports_vision === true : md.vision ?? info.supports_vision === true,
       voices: Array.isArray(md.voices) ? md.voices : undefined,
       loaded: ON_DEMAND_SERVICES.has(svcId ?? "") ? residentTargets.has(m.litellm_params?.model ?? "") : undefined,
     };
@@ -606,6 +698,22 @@ export async function resolveCallTarget(
   const { routerUp, models } = await getCatalogue();
   const chosen = models.find((m) => m.id === alias);
 
+  // A local route does not require the router to be healthy. Check it first:
+  // treating an intentionally direct B5 route as a fallback made every valid
+  // local answer carry the alarming and false "AI Router is down" banner.
+  if (chosen?.local && chosen.serviceId && chosen.status === "ready") {
+    return {
+      alias,
+      baseUrl: getServiceUrl(chosen.serviceId),
+      // litellm_params.model is provider-prefixed ("openai/whisper-1"); the local
+      // server only knows the part after the prefix.
+      model: chosen.target.includes("/") ? chosen.target.split("/").slice(1).join("/") : chosen.target,
+      local: true,
+      via: "service",
+      serviceId: chosen.serviceId,
+    };
+  }
+
   if (!routerUp || !chosen) {
     const declared = defaultServiceFor(capability);
     const svcId = fallbackServiceId ?? declared?.serviceId;
@@ -627,19 +735,6 @@ export async function resolveCallTarget(
       degraded: routerUp
         ? `"${alias}" isn't in the router's model list — used the local model instead.`
         : `AI Router is down — used the local model instead of "${alias}".`,
-    };
-  }
-
-  if (chosen.local && chosen.serviceId) {
-    return {
-      alias,
-      baseUrl: getServiceUrl(chosen.serviceId),
-      // litellm_params.model is provider-prefixed ("openai/whisper-1"); the local
-      // server only knows the part after the prefix.
-      model: chosen.target.includes("/") ? chosen.target.split("/").slice(1).join("/") : chosen.target,
-      local: true,
-      via: "service",
-      serviceId: chosen.serviceId,
     };
   }
 

@@ -1,0 +1,52 @@
+{
+  "label": "round-2-final",
+  "base": "http://127.0.0.1:8013",
+  "startedAt": "2026-09-20T09:01:10.570Z",
+  "finishedAt": "2026-09-20T09:01:21.392Z",
+  "elapsedMs": 10822,
+  "passed": true,
+  "checks": [
+    {
+      "name": "host identity",
+      "ok": true,
+      "detail": "B5; profile=b5; match=true",
+      "durationMs": 15
+    },
+    {
+      "name": "installed model and route",
+      "ok": true,
+      "detail": "text=local-ollama; local-ollama=ready",
+      "durationMs": 12
+    },
+    {
+      "name": "bounded stop",
+      "ok": true,
+      "detail": "HTTP 200; final=down",
+      "durationMs": 9
+    },
+    {
+      "name": "bounded start",
+      "ok": true,
+      "detail": "HTTP 200; final=up",
+      "durationMs": 534
+    },
+    {
+      "name": "visible local result",
+      "ok": true,
+      "detail": "HTTP 200; model=qwen3.8:27b-mlx; 10188ms; answer=\"Because the CPU, GPU, and Neural Engine all draw from one shared physical memory pool, the scheduler no longer needs to partition a separate VRAM budget or stall work to copy model\"",
+      "durationMs": 10193
+    },
+    {
+      "name": "resident-memory accounting",
+      "ok": true,
+      "detail": "Ollama · local-ollama; 18.2 GB unified memory",
+      "durationMs": 55
+    },
+    {
+      "name": "call history",
+      "ok": true,
+      "detail": "6 operator events; chat=true; service-control=true",
+      "durationMs": 3
+    }
+  ]
+}

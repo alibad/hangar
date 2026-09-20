@@ -1,0 +1,133 @@
+{
+  "startedAt": "2026-09-20T08:54:21.225Z",
+  "hosts": {
+    "b5": {
+      "label": "B5",
+      "url": "http://127.0.0.1:8013",
+      "platform": "darwin",
+      "gpu": "apple",
+      "memoryKind": "unified",
+      "services": [
+        {
+          "id": "manager",
+          "status": "up"
+        },
+        {
+          "id": "ollama",
+          "status": "up"
+        }
+      ],
+      "captures": [
+        {
+          "feature": "home",
+          "surface": "desktop",
+          "action": "Opened the console"
+        },
+        {
+          "feature": "home",
+          "surface": "desktop",
+          "action": "Scrolled to the workstreams and the resource map"
+        },
+        {
+          "feature": "home",
+          "surface": "mobile",
+          "action": "Opened the console"
+        },
+        {
+          "feature": "home",
+          "surface": "mobile",
+          "action": "Scrolled to the workstreams and the resource map"
+        },
+        {
+          "feature": "services",
+          "surface": "desktop",
+          "action": "Opened the services control centre"
+        },
+        {
+          "feature": "models",
+          "surface": "desktop",
+          "action": "Opened Models — local weights and cloud APIs, sized against this machine"
+        },
+        {
+          "feature": "chat",
+          "surface": "desktop",
+          "action": "Opened Chat & Code"
+        },
+        {
+          "feature": "chat",
+          "surface": "desktop",
+          "action": "Asked \"In one sentence: what is unified memory on Apple silicon?\" — the local model answered"
+        },
+        {
+          "feature": "usage",
+          "surface": "desktop",
+          "action": "Opened AI Usage — router, providers and cost"
+        },
+        {
+          "feature": "requests",
+          "surface": "desktop",
+          "action": "Opened Requests — the traffic this walk itself produced"
+        }
+      ],
+      "report": {
+        "driver": "playwright",
+        "driverLabel": "Playwright (launched Chromium)",
+        "declares": {
+          "retina": true,
+          "realMobile": true,
+          "video": true,
+          "consoleNetwork": true,
+          "freshContext": true,
+          "animationsFrozen": true,
+          "timeFrozen": true
+        },
+        "verified": {
+          "retina": true,
+          "animationsFrozen": true,
+          "timeFrozen": true,
+          "contentful": true,
+          "consoleNetwork": true,
+          "realMobile": true,
+          "freshContext": true
+        },
+        "skipped": [],
+        "surfaces": [
+          "desktop",
+          "mobile"
+        ],
+        "warnings": [
+          "feature \"home\" on desktop: 1 loading indicator(s) still visible after 15216ms — captures may show a loading state",
+          "feature \"home\" on mobile: 1 loading indicator(s) still visible after 15026ms — captures may show a loading state",
+          "feature \"services\" on desktop: 1 loading indicator(s) still visible after 15145ms — captures may show a loading state",
+          "feature \"models\" on desktop: 1 loading indicator(s) still visible after 15011ms — captures may show a loading state",
+          "feature \"chat\" on desktop: 1 loading indicator(s) still visible after 15165ms — captures may show a loading state",
+          "feature \"usage\" on desktop: 1 loading indicator(s) still visible after 15211ms — captures may show a loading state",
+          "feature \"requests\" on desktop: 1 loading indicator(s) still visible after 15040ms — captures may show a loading state"
+        ],
+        "overflows": [],
+        "suppressed": [
+          "dev-server error overlays (Next.js / Vite) hidden; the console errors behind them are still collected and reported"
+        ],
+        "rejected": [],
+        "captures": 10,
+        "unverified": [
+          "video"
+        ]
+      }
+    }
+  },
+  "issues": [],
+  "skipped": [
+    {
+      "host": "b5",
+      "feature": "image",
+      "reason": "not available on this host"
+    },
+    {
+      "host": "b5",
+      "feature": "speech",
+      "reason": "not available on this host"
+    }
+  ],
+  "finishedAt": "2026-09-20T08:58:07.497Z"
+}

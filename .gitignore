@@ -28,3 +28,4 @@ console-dev.err.log
 docs/images/console/*/usage/
 docs/images/console/*/speech/desktop/step-02-synthesize.png
 docs/images/console/*/speech/desktop/step-03-spoken.png
+.vercel

@@ -32,6 +32,7 @@ const STATUS: Record<EntryStatus, { label: string; cls: string }> = {
   downloading: { label: "downloading", cls: "bg-sky-500/20 text-sky-200 border-sky-400/40" },
   available: { label: "available", cls: "bg-gray-700/40 text-gray-400 border-gray-600/40" },
   "no-key": { label: "no key", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  missing: { label: "not installed", cls: "bg-red-500/10 text-red-400/90 border-red-500/25" },
   "wont-fit": { label: "won't fit", cls: "bg-red-500/10 text-red-400/90 border-red-500/25" },
 };
 
@@ -704,6 +705,7 @@ const DOT: Record<EntryStatus, string> = {
   downloading: "bg-sky-400 animate-pulse",
   available: "bg-gray-600",
   "no-key": "bg-amber-400",
+  missing: "bg-red-500/70",
   "wont-fit": "bg-red-500/70",
 };
 
@@ -798,7 +800,7 @@ export function DetailPanel({
             <button
               key={c.id}
               onClick={() => onUse(e, c.id)}
-              disabled={!!busy || e.status === "no-key"}
+              disabled={!!busy || e.status === "no-key" || e.status === "missing"}
               title={
                 e.status === "stopped"
                   ? `Start ${e.serviceId}, wait for health, then route ${c.label} here.`
@@ -1204,7 +1206,7 @@ function ModelCard({
               <button
                 key={c.id}
                 onClick={() => onUse(e, c.id)}
-                disabled={!!busy || e.status === "no-key"}
+                disabled={!!busy || e.status === "no-key" || e.status === "missing"}
                 title={
                   e.status === "stopped"
                     ? `Start ${e.serviceId}, wait for health, then route ${c.label} here.`

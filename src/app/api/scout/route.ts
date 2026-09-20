@@ -8,8 +8,7 @@ import {
   resolveRepo,
   startDownload,
 } from "@/lib/hf-download";
-
-const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
+import { getManagerHeaders, getManagerUrl } from "@/lib/services";
 
 /**
  * The scout: what exists that this box is not using, and whether it would fit.
@@ -55,8 +54,9 @@ export async function GET(req: NextRequest) {
  */
 async function restartRouter(): Promise<{ ok: boolean; detail?: string }> {
   try {
-    const res = await fetch(`${MANAGER_URL}/services/ai-router/restart`, {
+    const res = await fetch(`${getManagerUrl()}/services/ai-router/restart`, {
       method: "POST",
+      headers: getManagerHeaders(),
       signal: AbortSignal.timeout(120_000),
     });
     const body = await res.json().catch(() => ({}));

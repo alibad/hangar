@@ -123,6 +123,7 @@ type CatalogEntry = {
   id: string;
   serviceId?: string;
   mode: string;
+  status?: string;
   checkpoint?: string;
   params?: string;
   target: string;
@@ -566,6 +567,10 @@ export default function Home() {
       const grouped: Record<string, CatalogEntry[]> = {};
       for (const m of models) {
         if (!m.serviceId) continue; // cloud models have no local process
+        // A configured alias for an Ollama tag that is not installed is not a
+        // model this service serves. Models keeps the unavailable row (with an
+        // explicit status); service cards list only real occupants/candidates.
+        if (m.status === "model-missing") continue;
         (grouped[m.serviceId] ??= []).push(m);
       }
       setCatalogByService(grouped);

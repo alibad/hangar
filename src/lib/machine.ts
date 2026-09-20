@@ -5,7 +5,7 @@ import { promisify } from "util";
 import { SERVICE_REGISTRY, getServiceUrl } from "./services";
 import { gpuReading, hostMemory } from "./sysinfo";
 import { getHost, HOST_PROFILES, declaredMachineProfile } from "./host";
-import { getFootprintsByService } from "./providers";
+import { getCatalogue, getFootprintsByService, ON_DEMAND_SERVICES } from "./providers";
 import { discoverDrives, type StorageDrive } from "./storage-index";
 import { installedRepos, weightsHome } from "./hf-download";
 import { RUNTIME_BY_GPU, type MachineProfile, type Occupant, type KnownMachine } from "./model-fit";
@@ -308,7 +308,7 @@ function volumeLabel(target: string): string {
  */
 export async function readOccupants(): Promise<Occupant[]> {
   const footprints = getFootprintsByService();
-  const ids = Object.keys(footprints);
+  const ids = Object.keys(footprints).filter((id) => !ON_DEMAND_SERVICES.has(id));
 
   const checks = await Promise.all(
     ids.map(async (id) => {
@@ -332,7 +332,29 @@ export async function readOccupants(): Promise<Occupant[]> {
     }),
   );
 
-  return checks.filter((o): o is Occupant => o !== null);
+  const pinned = checks.filter((o): o is Occupant => o !== null);
+
+  // A healthy on-demand runtime holds no model memory by itself. Ollama was
+  // charged 20 GB whenever its tiny server process was up, even with /api/ps
+  // empty, so Models disagreed with both the live memory meter and the resource
+  // coordinator. Count only checkpoints the runtime says are resident now.
+  try {
+    const catalogue = await getCatalogue();
+    const onDemand = catalogue.models.flatMap((model): Occupant[] => {
+      if (!model.local || !model.serviceId || !ON_DEMAND_SERVICES.has(model.serviceId)) return [];
+      if (model.loaded !== true || !model.footprint) return [];
+      const svc = SERVICE_REGISTRY.find((s) => s.id === model.serviceId);
+      return [{
+        serviceId: model.serviceId,
+        name: `${svc?.name ?? model.serviceId} · ${model.id}`,
+        vramGb: model.footprint.vramGb ?? 0,
+        ramGb: model.footprint.ramGb ?? 0,
+      }];
+    });
+    return [...pinned, ...onDemand];
+  } catch {
+    return pinned;
+  }
 }
 
 function round1(n: number): number {
