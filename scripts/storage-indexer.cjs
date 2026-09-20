@@ -1,5 +1,5 @@
 /*
- * BeTenshi Storage Indexer
+ * Hangar Storage Indexer
  *
  * A deterministic, token-free background worker for whole-drive metadata.
  * It deliberately runs outside Next.js so a long scan survives route reloads,
@@ -9,6 +9,7 @@
 const { DatabaseSync } = require("node:sqlite");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
+const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 
@@ -16,11 +17,13 @@ const crypto = require("node:crypto");
 // console and this worker write the same status, lock and watcher files, so
 // resolving them differently gives two half-states that each look like the
 // other side never ran.
-const STATE_ROOT = process.env.LOCALAPPDATA || process.cwd();
+const STATE_ROOT = process.env.LOCALAPPDATA || (process.platform === "darwin"
+  ? path.join(os.homedir(), "Library", "Application Support")
+  : process.cwd());
 const LEGACY_STATE = path.join(STATE_ROOT, "betenshi", "storage");
-const STATE_DIR = fs.existsSync(LEGACY_STATE)
+const STATE_DIR = process.env.HANGAR_STORAGE_STATE_DIR || (fs.existsSync(LEGACY_STATE)
   ? LEGACY_STATE
-  : path.join(STATE_ROOT, "hangar", "storage");
+  : path.join(STATE_ROOT, "Hangar", "storage"));
 // Both names: the parent passes HANGAR_STORAGE_DB since the rename, and a
 // machine whose environment still sets the old one must keep working. Reading
 // only one of them makes the worker index a DIFFERENT database from the one
@@ -39,9 +42,12 @@ const SKIP_NAMES = new Set([
   "recovery",
   "config.msi",
   "msocache",
+  ".spotlight-v100",
+  ".trashes",
+  ".fseventsd",
 ]);
 
-const PROTECTED_PARTS = [
+const PROTECTED_WINDOWS_PARTS = [
   "\\windows",
   "\\program files",
   "\\program files (x86)",
@@ -50,39 +56,70 @@ const PROTECTED_PARTS = [
   "\\$recycle.bin",
 ];
 
+const PROTECTED_POSIX_ROOTS = [
+  "/System",
+  "/Library",
+  "/Applications",
+  "/usr",
+  "/bin",
+  "/sbin",
+  "/private",
+  "/etc",
+  "/var",
+  "/dev",
+];
+
 function nowIso() {
   return new Date().toISOString();
 }
 
 function normalizeAbsolute(input) {
-  if (typeof input !== "string" || !path.win32.isAbsolute(input)) throw new Error("An absolute Windows path is required.");
-  return path.win32.normalize(input);
+  if (typeof input !== "string" || !path.isAbsolute(input)) throw new Error("An absolute storage path is required.");
+  return path.normalize(input);
 }
 
 function rootOf(input) {
-  return path.win32.parse(normalizeAbsolute(input)).root.toUpperCase();
+  const normalized = normalizeAbsolute(input);
+  if (process.platform === "win32") return path.parse(normalized).root.toUpperCase();
+  const volume = /^\/Volumes\/[^/]+/.exec(normalized);
+  return volume ? volume[0] : "/";
 }
 
 function isInside(root, candidate) {
-  const normalizedRoot = normalizeAbsolute(root).toLowerCase();
-  const normalizedCandidate = normalizeAbsolute(candidate).toLowerCase();
-  return normalizedCandidate === normalizedRoot || normalizedCandidate.startsWith(normalizedRoot.endsWith("\\") ? normalizedRoot : `${normalizedRoot}\\`);
+  const normalizedRoot = normalizeAbsolute(root);
+  const normalizedCandidate = normalizeAbsolute(candidate);
+  const relative = path.relative(normalizedRoot, normalizedCandidate);
+  return relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+}
+
+function isStorageRoot(input) {
+  const normalized = normalizeAbsolute(input);
+  if (process.platform === "win32") return normalized === path.parse(normalized).root;
+  if (process.platform === "darwin") return normalized === "/" || /^\/Volumes\/[^/]+$/.test(normalized);
+  return false;
+}
+
+function isProtected(input) {
+  const normalized = normalizeAbsolute(input);
+  if (process.platform === "win32") {
+    const lower = normalized.toLowerCase();
+    return PROTECTED_WINDOWS_PARTS.some((part) => lower.includes(part));
+  }
+  return PROTECTED_POSIX_ROOTS.some((root) => normalized === root || normalized.startsWith(`${root}/`));
 }
 
 function assertManageable(input) {
   const normalized = normalizeAbsolute(input);
-  const lower = normalized.toLowerCase();
-  if (normalized === path.win32.parse(normalized).root) throw new Error("A drive root cannot be moved.");
-  if (PROTECTED_PARTS.some((part) => lower.includes(part))) throw new Error("Protected Windows system paths cannot be moved by Storage Manager.");
-  const base = path.win32.basename(lower);
-  if (["pagefile.sys", "hiberfil.sys", "swapfile.sys"].includes(base)) throw new Error("Protected Windows system files cannot be moved.");
+  if (isStorageRoot(normalized)) throw new Error("A drive root cannot be moved.");
+  if (isProtected(normalized)) throw new Error("Protected system paths cannot be moved by Storage Manager.");
+  const base = path.basename(normalized).toLowerCase();
+  if (["pagefile.sys", "hiberfil.sys", "swapfile.sys"].includes(base)) throw new Error("Protected system files cannot be moved.");
   return normalized;
 }
 
 function assertDestination(input) {
   const normalized = normalizeAbsolute(input);
-  const lower = normalized.toLowerCase();
-  if (PROTECTED_PARTS.some((part) => lower.includes(part))) throw new Error("Protected Windows system paths cannot be used as move destinations.");
+  if (isProtected(normalized)) throw new Error("Protected system paths cannot be used as move destinations.");
   return normalized;
 }
 
@@ -211,7 +248,7 @@ function categoryForExtension(ext) {
   if ([".pt", ".pth", ".safetensors", ".bin", ".gguf", ".onnx", ".ckpt"].includes(ext)) return "AI models";
   if ([".js", ".jsx", ".ts", ".tsx", ".py", ".rs", ".go", ".java", ".cs", ".cpp", ".c", ".h", ".json", ".yaml", ".yml", ".toml"].includes(ext)) return "Code";
   if ([".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".md", ".rtf"].includes(ext)) return "Documents";
-  if ([".exe", ".msi", ".dll", ".sys", ".appx"].includes(ext)) return "Applications";
+  if ([".exe", ".msi", ".dll", ".sys", ".appx", ".app", ".dmg", ".pkg"].includes(ext)) return "Applications";
   return "Other";
 }
 
@@ -221,7 +258,7 @@ function visibleName(name) {
 
 async function scanDrive(rootInput) {
   const root = normalizeAbsolute(rootInput);
-  if (root !== path.win32.parse(root).root) throw new Error("Whole-drive scans must start at a drive root.");
+  if (!isStorageRoot(root)) throw new Error("Whole-drive scans must start at a drive root.");
   await fsp.mkdir(STATE_DIR, { recursive: true });
   let lock;
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -255,6 +292,7 @@ async function scanDrive(rootInput) {
     ON CONFLICT(root) DO UPDATE SET status='scanning', scan_id=excluded.scan_id, last_error=NULL`);
   upsertRoot.run(root, scanId);
   db.prepare("DELETE FROM scan_errors WHERE root = ?").run(root);
+  const rootDevice = (await fsp.stat(root)).dev;
 
   let lastStatusAt = 0;
   async function updateProgress(force = false) {
@@ -285,10 +323,17 @@ async function scanDrive(rootInput) {
     try {
       for await (const entry of handle) {
         if (SKIP_NAMES.has(entry.name.toLowerCase())) continue;
-        const absolute = path.win32.join(directory, entry.name);
+        const absolute = path.join(directory, entry.name);
         if (!isInside(root, absolute)) continue;
         if (entry.isSymbolicLink()) continue;
         if (entry.isDirectory()) {
+          try {
+            if ((await fsp.stat(absolute)).dev !== rootDevice) continue;
+          } catch (error) {
+            progress.errors += 1;
+            insertError.run(root, absolute, error instanceof Error ? error.message : String(error), nowIso());
+            continue;
+          }
           const child = await walk(absolute);
           totalSize += child.totalSize;
           fileCount += child.fileCount;
@@ -300,7 +345,7 @@ async function scanDrive(rootInput) {
         try {
           const stat = await fsp.stat(absolute);
           const size = Number(stat.size || 0);
-          const ext = path.win32.extname(entry.name).toLowerCase();
+          const ext = path.extname(entry.name).toLowerCase();
           upsertEntry.run(absolute, root, directory, entry.name, ext, size, stat.mtimeMs || 0, stat.birthtimeMs || 0, visibleName(entry.name) ? 0 : 1, scanId);
           const category = categoryForExtension(ext);
           const categoryTotal = categories.get(category) || { size: 0, files: 0 };
@@ -325,8 +370,8 @@ async function scanDrive(rootInput) {
 
     let directoryMtime = newest;
     try { directoryMtime = Math.max(directoryMtime, (await fsp.stat(directory)).mtimeMs || 0); } catch {}
-    const parent = directory === root ? "" : path.win32.dirname(directory);
-    const name = directory === root ? root : path.win32.basename(directory);
+    const parent = directory === root ? "" : path.dirname(directory);
+    const name = directory === root ? root : path.basename(directory);
     upsertFolder.run(directory, root, parent, name, totalSize, fileCount, dirCount, directoryMtime, scanId);
     await updateProgress();
     return { totalSize, fileCount, dirCount, newest: directoryMtime };
@@ -363,7 +408,7 @@ async function scanDrive(rootInput) {
 
 async function summarizeDrive(rootInput) {
   const root = normalizeAbsolute(rootInput);
-  if (root !== path.win32.parse(root).root) throw new Error("Storage summaries require a drive root.");
+  if (!isStorageRoot(root)) throw new Error("Storage summaries require a drive root.");
   const db = openDb();
   const setState = db.prepare(`INSERT INTO summary_state(root,status,pid,updated_at,error) VALUES (?,?,?,?,?)
     ON CONFLICT(root) DO UPDATE SET status=excluded.status,pid=excluded.pid,updated_at=excluded.updated_at,error=excluded.error`);
@@ -424,7 +469,7 @@ async function watchDrive(rootInput) {
         const stat = await fsp.stat(absolute);
         if (stat.isFile()) {
           const nextSize = Number(stat.size || 0);
-          upsertEntry.run(absolute, root, path.win32.dirname(absolute), path.win32.basename(absolute), path.win32.extname(absolute).toLowerCase(), nextSize, stat.mtimeMs || 0, stat.birthtimeMs || 0, 0, root);
+          upsertEntry.run(absolute, root, path.dirname(absolute), path.basename(absolute), path.extname(absolute).toLowerCase(), nextSize, stat.mtimeMs || 0, stat.birthtimeMs || 0, 0, root);
           insertChange.run(root, absolute, previous ? "modified" : "created", previous ? Number(previous.size) : null, nextSize, nowIso());
         } else {
           markDirty.run(root);
@@ -448,8 +493,9 @@ async function watchDrive(rootInput) {
   try {
     watcher = fs.watch(root, { recursive: true }, (event, filename) => {
       if (!filename) return;
-      const absolute = path.win32.join(root, filename.toString());
-      pending.set(absolute.toLowerCase(), { path: absolute, event });
+      const absolute = path.join(root, filename.toString());
+      const key = process.platform === "win32" ? absolute.toLowerCase() : absolute;
+      pending.set(key, { path: absolute, event });
       if (flushTimer) clearTimeout(flushTimer);
       flushTimer = setTimeout(() => void flush(), 700);
     });
@@ -480,8 +526,8 @@ async function moveItem(payloadText) {
   const destinationDirectory = assertDestination(payload.destinationDirectory);
   if (isInside(source, destinationDirectory)) throw new Error("A folder cannot be moved inside itself.");
   const sourceStat = await fsp.stat(source);
-  const originalName = path.win32.basename(source);
-  let destination = path.win32.join(destinationDirectory, originalName);
+  const originalName = path.basename(source);
+  let destination = path.join(destinationDirectory, originalName);
   const operationId = String(payload.operationId || crypto.randomUUID());
   const conflict = payload.conflict === "rename" ? "rename" : "error";
   const db = openDb();
@@ -491,19 +537,25 @@ async function moveItem(payloadText) {
     try {
       await fsp.access(destination);
       if (conflict !== "rename") throw new Error(`Destination already exists: ${destination}`);
-      const parsed = path.win32.parse(originalName);
+      const parsed = path.parse(originalName);
       for (let i = 2; ; i += 1) {
-        const candidate = path.win32.join(destinationDirectory, `${parsed.name} (${i})${parsed.ext}`);
+        const candidate = path.join(destinationDirectory, `${parsed.name} (${i})${parsed.ext}`);
         try { await fsp.access(candidate); } catch { destination = candidate; break; }
       }
     } catch (error) {
       if (error instanceof Error && !error.message.includes("ENOENT") && !error.message.includes("no such file") && error.message.startsWith("Destination")) throw error;
     }
 
-    const sameVolume = rootOf(source) === rootOf(destination);
+    let sameVolume = rootOf(source) === rootOf(destination);
     if (sameVolume) {
-      await fsp.rename(source, destination);
-    } else {
+      try {
+        await fsp.rename(source, destination);
+      } catch (error) {
+        if (!error || typeof error !== "object" || error.code !== "EXDEV") throw error;
+        sameVolume = false;
+      }
+    }
+    if (!sameVolume) {
       await fsp.cp(source, destination, { recursive: sourceStat.isDirectory(), errorOnExist: true, force: false, preserveTimestamps: true });
       await fsp.rm(source, { recursive: sourceStat.isDirectory(), force: false });
     }
@@ -527,8 +579,12 @@ async function main() {
   throw new Error(`Unknown storage worker command: ${command || "(none)"}`);
 }
 
-main().catch(async (error) => {
-  const message = error instanceof Error ? error.stack || error.message : String(error);
-  console.error(message);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch(async (error) => {
+    const message = error instanceof Error ? error.stack || error.message : String(error);
+    console.error(message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { assertDestination, assertManageable, isInside, isStorageRoot, normalizeAbsolute, rootOf };

@@ -123,15 +123,23 @@ function relativeTime(value: string | number | null | undefined) {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
-function parentWindowsPath(value: string, fallback: string) {
-  const trimmed = value.replace(/\\+$/, "");
-  const index = trimmed.lastIndexOf("\\");
-  if (index <= 2) return `${trimmed.slice(0, 2)}\\` || fallback;
-  return trimmed.slice(0, index);
+function driveBadge(drive: Drive) {
+  if (/^[a-z]:\\/i.test(drive.root)) return drive.root.slice(0, 2).toUpperCase();
+  if (drive.root === "/") return "HD";
+  return (drive.label || drive.root).slice(0, 2).toUpperCase();
 }
 
-function isWindowsPath(value: string) {
-  return /^[a-z]:\\/i.test(value);
+function storageName(value: unknown) {
+  return String(value || "").split(/[\\/]/).filter(Boolean).pop() || String(value || "");
+}
+
+function storageParent(value: unknown) {
+  const path = String(value || "");
+  const separator = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  if (separator < 0) return "";
+  if (separator === 0) return "/";
+  if (/^[a-z]:\\/i.test(path) && separator === 2) return path.slice(0, 3);
+  return path.slice(0, separator);
 }
 
 function itemFromRow(row: Record<string, unknown>, kind: "file" | "folder"): IndexedItem {
@@ -195,6 +203,7 @@ export default function StorageManager() {
   const [activeDrive, setActiveDrive] = useState<string>("");
   const [mode, setMode] = useState<"overview" | "explorer" | "changes" | "duplicates">("overview");
   const [currentPath, setCurrentPath] = useState<string>("");
+  const [currentParent, setCurrentParent] = useState<string | null>(null);
   const [items, setItems] = useState<IndexedItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -227,6 +236,7 @@ export default function StorageManager() {
     try {
       const data = await jsonRequest(`/api/storage?view=browse&path=${encodeURIComponent(target)}`);
       setCurrentPath(data.path);
+      setCurrentParent(typeof data.parent === "string" ? data.parent : null);
       setItems(Array.isArray(data.items) ? data.items : []);
       setSelected(null);
       setMode("explorer");
@@ -288,6 +298,7 @@ export default function StorageManager() {
       const data = await jsonRequest(`/api/storage?view=search&q=${encodeURIComponent(searchQuery)}${activeDrive ? `&root=${encodeURIComponent(activeDrive)}` : ""}`);
       setItems(Array.isArray(data.items) ? data.items : []);
       setCurrentPath(`Search: ${searchQuery}`);
+      setCurrentParent(null);
       setSelected(null);
       setMode("explorer");
     } catch (searchError) {
@@ -313,10 +324,8 @@ export default function StorageManager() {
   }
 
   function goBackFromExplorer() {
-    const isFolderPath = isWindowsPath(currentPath);
-    const isDriveRoot = /^[a-z]:\\$/i.test(currentPath);
-    if (isFolderPath && !isDriveRoot) {
-      void browse(parentWindowsPath(currentPath, activeDrive));
+    if (currentParent) {
+      void browse(currentParent);
       return;
     }
     setSelected(null);
@@ -358,7 +367,7 @@ export default function StorageManager() {
           return (
             <article key={drive.root} className={`storage-drive-card ${activeDrive === drive.root ? "is-active" : ""}`} onClick={() => setActiveDrive(drive.root)}>
               <button type="button" className="storage-drive-main" onClick={() => { setActiveDrive(drive.root); if (drive.scannedAt) void browse(drive.root); }}>
-                <span className="storage-drive-letter">{drive.root.slice(0, 2)}</span>
+                <span className="storage-drive-letter">{driveBadge(drive)}</span>
                 <span className="min-w-0 flex-1 text-left"><strong>{drive.label || drive.root}</strong><small>{formatBytes(drive.usedBytes)} of {formatBytes(drive.totalBytes)}</small></span>
                 <span className="tabular-nums">{usedPercent.toFixed(0)}%</span>
               </button>
@@ -395,7 +404,7 @@ export default function StorageManager() {
       <nav className="storage-tabs" aria-label="Storage Manager views">
         {(["overview", "explorer", "changes", "duplicates"] as const).map((tab) => (
           <button key={tab} type="button" aria-current={mode === tab ? "page" : undefined} onClick={() => { setMode(tab); if (tab === "explorer" && active?.scannedAt) void browse(currentPath && !currentPath.startsWith("Search:") ? currentPath : active.root); }}>
-            {tab === "overview" ? "Space map" : tab === "explorer" ? "Explorer" : tab === "changes" ? "Changes" : "Duplicates"}
+            {tab === "overview" ? "Space map" : tab === "explorer" ? "Files" : tab === "changes" ? "Changes" : "Duplicates"}
           </button>
         ))}
       </nav>
@@ -447,7 +456,7 @@ export default function StorageManager() {
             <ul>
               <li><Check /> Metadata stays in the local SQLite cache.</li>
               <li><Check /> No prompts, embeddings, or AI model calls.</li>
-              <li><Check /> Windows and program directories are move-protected.</li>
+              <li><Check /> Operating-system and application directories are move-protected.</li>
               <li><Check /> Cross-drive moves copy before source removal.</li>
               <li><Check /> Conflicts stop by default; renaming is opt-in.</li>
             </ul>
@@ -458,7 +467,7 @@ export default function StorageManager() {
       {mode === "explorer" && (
         <section className="storage-panel storage-explorer">
           <div className="storage-explorer-toolbar">
-            <button type="button" className="storage-icon-button" disabled={!currentPath && !active?.scannedAt} onClick={goBackFromExplorer} aria-label={isWindowsPath(currentPath) && !/^[a-z]:\\$/i.test(currentPath) ? "Open parent folder" : "Back to space map"}><ArrowLeft /></button>
+            <button type="button" className="storage-icon-button" disabled={!currentPath && !active?.scannedAt} onClick={goBackFromExplorer} aria-label={currentParent ? "Open parent folder" : "Back to space map"}><ArrowLeft /></button>
             <div className="storage-path"><HardDrive /><span>{currentPath || activeDrive || "Choose a drive"}</span></div>
             <form onSubmit={(event) => { event.preventDefault(); void search(); }} className="storage-search"><Search /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search cached names…" aria-label="Search indexed files and folders" /><button type="submit" disabled={searching || searchQuery.trim().length < 2}>{searching ? <LoaderCircle className="animate-spin" /> : "Search"}</button></form>
           </div>
@@ -473,7 +482,7 @@ export default function StorageManager() {
               {!busy && items.length === 0 && <div className="storage-empty"><Folder className="h-6 w-6" /><strong>No cached items here</strong><span>Scan this drive first, or try another folder.</span></div>}
             </div>
             <aside className="storage-inspector" aria-label="Selected item">
-              {selected ? <><span className="storage-inspector-icon">{selected.kind === "folder" ? <Folder /> : <File />}</span><p>{selected.kind}</p><h3>{selected.name}</h3><code>{selected.path}</code><dl><div><dt>Size</dt><dd>{formatBytes(selected.size, 2)}</dd></div>{selected.kind === "folder" && <><div><dt>Files</dt><dd>{(selected.fileCount || 0).toLocaleString()}</dd></div><div><dt>Folders</dt><dd>{(selected.dirCount || 0).toLocaleString()}</dd></div></>}<div><dt>Modified</dt><dd>{relativeTime(selected.modifiedAt || selected.mtime_ms)}</dd></div></dl><button type="button" onClick={() => void action("reveal", { action: "reveal", path: selected.path })}><Eye /> Reveal in Explorer</button><button type="button" className="is-primary" onClick={() => { setMoveTarget(selected); setDestination(selected.parent || selected.root); }}><MoveRight /> Move item…</button></> : <div className="storage-empty"><Search className="h-6 w-6" /><strong>Select an item</strong><span>Inspect its exact path and size, reveal it, or prepare a guarded move.</span></div>}
+              {selected ? <><span className="storage-inspector-icon">{selected.kind === "folder" ? <Folder /> : <File />}</span><p>{selected.kind}</p><h3>{selected.name}</h3><code>{selected.path}</code><dl><div><dt>Size</dt><dd>{formatBytes(selected.size, 2)}</dd></div>{selected.kind === "folder" && <><div><dt>Files</dt><dd>{(selected.fileCount || 0).toLocaleString()}</dd></div><div><dt>Folders</dt><dd>{(selected.dirCount || 0).toLocaleString()}</dd></div></>}<div><dt>Modified</dt><dd>{relativeTime(selected.modifiedAt || selected.mtime_ms)}</dd></div></dl><button type="button" onClick={() => void action("reveal", { action: "reveal", path: selected.path })}><Eye /> Reveal in file manager</button><button type="button" className="is-primary" onClick={() => { setMoveTarget(selected); setDestination(selected.parent || selected.root); }}><MoveRight /> Move item…</button></> : <div className="storage-empty"><Search className="h-6 w-6" /><strong>Select an item</strong><span>Inspect its exact path and size, reveal it, or prepare a guarded move.</span></div>}
             </aside>
           </div>
         </section>
@@ -483,7 +492,7 @@ export default function StorageManager() {
         <section className="storage-panel">
           <div className="storage-panel-heading"><div><p>Filesystem listener</p><h2>Recent changes</h2></div><span>Newest first · retained locally</span></div>
           <div className="storage-change-list">
-            {overview.recentChanges.map((row) => <div key={String(row.id)}><span className={`storage-change-kind is-${String(row.event)}`}>{String(row.event)}</span><span><strong>{String(row.path).split("\\").pop()}</strong><small>{String(row.path)}</small></span><b>{row.new_size != null ? formatBytes(Number(row.new_size)) : row.old_size != null ? `was ${formatBytes(Number(row.old_size))}` : "folder"}</b><time>{relativeTime(String(row.observed_at))}</time></div>)}
+            {overview.recentChanges.map((row) => <div key={String(row.id)}><span className={`storage-change-kind is-${String(row.event)}`}>{String(row.event)}</span><span><strong>{storageName(row.path)}</strong><small>{String(row.path)}</small></span><b>{row.new_size != null ? formatBytes(Number(row.new_size)) : row.old_size != null ? `was ${formatBytes(Number(row.old_size))}` : "folder"}</b><time>{relativeTime(String(row.observed_at))}</time></div>)}
             {overview.recentChanges.length === 0 && <div className="storage-empty"><Activity className="h-6 w-6" /><strong>No captured changes</strong><span>Index a drive, then turn on Watch changes to begin the local activity stream.</span></div>}
           </div>
         </section>
@@ -494,7 +503,7 @@ export default function StorageManager() {
           <div className="storage-panel-heading"><div><p>Cleanup candidates</p><h2>Potential duplicate groups</h2></div><span>Same byte size · not auto-deleted</span></div>
           <p className="storage-note"><AlertTriangle /> These are fast metadata candidates, not content-hash proof. Review them before moving or deleting anything.</p>
           <div className="storage-duplicate-list">
-            {duplicateCandidates.map((row, index) => { const paths = String(row.paths || "").split("\n").filter(Boolean); return <details key={`${row.size}-${index}`}><summary><span><strong>{Number(row.files).toLocaleString()} files</strong><small>{formatBytes(Number(row.size))} each</small></span><b>{formatBytes(Number(row.size) * (Number(row.files) - 1))} potentially recoverable</b><ChevronRight /></summary><div>{paths.map((itemPath) => <button key={itemPath} type="button" onClick={() => { const item = largestFiles.find((file) => file.path === itemPath) || { path: itemPath, root: itemPath.slice(0, 3), parent: itemPath.slice(0, itemPath.lastIndexOf("\\")), name: itemPath.split("\\").pop() || itemPath, kind: "file" as const, size: Number(row.size) }; setItems([item]); setSelected(item); setCurrentPath("Duplicate candidates"); setMode("explorer"); }}><File /><span>{itemPath}</span></button>)}</div></details>; })}
+            {duplicateCandidates.map((row, index) => { const paths = String(row.paths || "").split("\n").filter(Boolean); return <details key={`${row.size}-${index}`}><summary><span><strong>{Number(row.files).toLocaleString()} files</strong><small>{formatBytes(Number(row.size))} each</small></span><b>{formatBytes(Number(row.size) * (Number(row.files) - 1))} potentially recoverable</b><ChevronRight /></summary><div>{paths.map((itemPath) => <button key={itemPath} type="button" onClick={() => { const item = largestFiles.find((file) => file.path === itemPath) || { path: itemPath, root: activeDrive, parent: storageParent(itemPath), name: storageName(itemPath), kind: "file" as const, size: Number(row.size) }; setItems([item]); setSelected(item); setCurrentPath("Duplicate candidates"); setMode("explorer"); }}><File /><span>{itemPath}</span></button>)}</div></details>; })}
             {loadingDuplicates && <div className="storage-empty"><LoaderCircle className="animate-spin" /> Finding same-size candidates…</div>}
             {!loadingDuplicates && duplicateCandidates.length === 0 && <div className="storage-empty">No same-size candidates over 10 MB in the current cache.</div>}
           </div>
@@ -517,12 +526,12 @@ export default function StorageManager() {
       )}
 
       {moveTarget && (
-        <Modal title="Move item" description="The source is removed only after the destination succeeds. Protected Windows paths are blocked." onClose={() => setMoveTarget(null)}>
+        <Modal title="Move item" description="The source is removed only after the destination succeeds. Protected system paths are blocked." onClose={() => setMoveTarget(null)}>
           <div className="storage-move-form">
             <label>Source<input value={moveTarget.path} readOnly /></label>
-            <label>Destination folder<input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="D:\\Archive" /></label>
+            <label>Destination folder<input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="/Volumes/Archive or D:\\Archive" /></label>
             <fieldset><legend>If the name already exists</legend><label><input type="radio" checked={conflict === "error"} onChange={() => setConflict("error")} /> Stop and report the conflict</label><label><input type="radio" checked={conflict === "rename"} onChange={() => setConflict("rename")} /> Keep both by adding a number</label></fieldset>
-            <div className="storage-move-summary"><MoveRight /><span><strong>{moveTarget.name}</strong><small>{moveTarget.root === destination.slice(0, 3) ? "Same-drive rename when possible" : "Cross-drive copy, then source removal"}</small></span></div>
+            <div className="storage-move-summary"><MoveRight /><span><strong>{moveTarget.name}</strong><small>Same-volume rename when possible; cross-volume moves copy before removing the source</small></span></div>
             <div className="storage-modal-actions"><button type="button" onClick={() => setMoveTarget(null)}>Cancel</button><button type="button" className="is-primary" disabled={!destination.trim() || busy === "move"} onClick={() => void submitMove()}>{busy === "move" ? <LoaderCircle className="animate-spin" /> : <MoveRight />} Start move</button></div>
           </div>
         </Modal>

@@ -169,11 +169,9 @@ async function readWeightsDrive(): Promise<
     | "weightsIndexed"
   >
 > {
-  // The storage index is a Windows component: it enumerates Win32_LogicalDisk
-  // and normalises every path with path.win32, which throws on a POSIX path. A
-  // host without drive letters reads its volume directly instead — the same
-  // free-space number, without the "what else is down there" breakdown that
-  // only the index can give.
+  // POSIX hosts read this one latency-sensitive number directly. Storage
+  // Manager can index macOS volumes, but model-fit must not depend on a user
+  // having completed a whole-volume scan first.
   if (getHost().platform !== "win32") {
     const live = installedReposGb();
     return {

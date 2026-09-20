@@ -2,16 +2,19 @@ import { DatabaseSync } from "node:sqlite";
 import { execFile, spawn } from "node:child_process";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 
 // Renamed from betenshi-console to Hangar: a machine that already has an index
 // under the old directory keeps it rather than silently starting an empty one.
-const STORAGE_ROOT = process.env.LOCALAPPDATA || process.cwd();
+const STORAGE_ROOT = process.env.LOCALAPPDATA || (process.platform === "darwin"
+  ? path.join(os.homedir(), "Library", "Application Support")
+  : process.cwd());
 const LEGACY_STORAGE = path.join(STORAGE_ROOT, "betenshi", "storage");
-export const STORAGE_STATE_DIR = fs.existsSync(LEGACY_STORAGE)
+export const STORAGE_STATE_DIR = process.env.HANGAR_STORAGE_STATE_DIR || (fs.existsSync(LEGACY_STORAGE)
   ? LEGACY_STORAGE
-  : path.join(STORAGE_ROOT, "hangar", "storage");
+  : path.join(STORAGE_ROOT, "Hangar", "storage"));
 export const STORAGE_DB_PATH =
   process.env.HANGAR_STORAGE_DB ||
   process.env.BETENSHI_STORAGE_DB ||
@@ -76,6 +79,14 @@ type DriveRow = {
   ProviderName?: string | null;
 };
 
+type DiscoveredDrive = {
+  root: string;
+  label: string;
+  kind: StorageDrive["kind"];
+  totalBytes: number;
+  freeBytes: number;
+};
+
 type RootRow = {
   root: string;
   indexed_bytes: number;
@@ -96,7 +107,7 @@ const CATEGORY_EXTENSIONS: Record<string, string[]> = {
   "AI models": [".pt", ".pth", ".safetensors", ".bin", ".gguf", ".onnx", ".ckpt"],
   Code: [".js", ".jsx", ".ts", ".tsx", ".py", ".rs", ".go", ".java", ".cs", ".cpp", ".c", ".h", ".json", ".yaml", ".yml", ".toml"],
   Documents: [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".md", ".rtf"],
-  Applications: [".exe", ".msi", ".dll", ".sys", ".appx"],
+  Applications: [".exe", ".msi", ".dll", ".sys", ".appx", ".app", ".dmg", ".pkg"],
 };
 const KNOWN_CATEGORY_EXTENSIONS = Object.values(CATEGORY_EXTENSIONS).flat();
 
@@ -139,6 +150,80 @@ function driveKind(type: number): StorageDrive["kind"] {
   return "other";
 }
 
+const storagePath = process.platform === "win32" ? path.win32 : path.posix;
+
+function storagePathKey(value: string) {
+  const normalized = storagePath.normalize(value);
+  return process.platform === "win32" ? normalized.toUpperCase() : normalized;
+}
+
+function decodeMountPath(value: string) {
+  return value
+    .replace(/\\040/g, " ")
+    .replace(/\\011/g, "\t")
+    .replace(/\\134/g, "\\");
+}
+
+function parseDarwinMounts(raw: string) {
+  return raw.split("\n").flatMap((line) => {
+    const match = /^.+ on (.+) \(([^,()]+)(?:, (.*))?\)$/.exec(line.trim());
+    if (!match) return [];
+    return [{
+      root: decodeMountPath(match[1]),
+      fsType: match[2],
+      options: new Set((match[3] || "").split(/,\s*/).filter(Boolean)),
+    }];
+  });
+}
+
+async function discoverDarwinDrives(): Promise<DiscoveredDrive[]> {
+  const raw = await execFileText("/sbin/mount", []);
+  const mounts = parseDarwinMounts(raw).filter((mount) =>
+    mount.root === "/" ||
+    (mount.root.startsWith("/Volumes/") && !mount.options.has("nobrowse")),
+  );
+  const seen = new Set<string>();
+  const rows: DiscoveredDrive[] = [];
+  const networkTypes = new Set(["afpfs", "nfs", "smbfs", "webdav"]);
+  for (const mount of mounts) {
+    const root = storagePath.normalize(mount.root);
+    if (seen.has(root)) continue;
+    seen.add(root);
+    const stats = await fsp.statfs(root);
+    const totalBytes = Number(stats.blocks) * Number(stats.bsize);
+    const freeBytes = Number(stats.bavail) * Number(stats.bsize);
+    if (!Number.isFinite(totalBytes) || totalBytes <= 0) continue;
+    rows.push({
+      root,
+      label: root === "/" ? "Macintosh HD" : storagePath.basename(root),
+      kind: networkTypes.has(mount.fsType) ? "network" : root === "/" ? "fixed" : "removable",
+      totalBytes,
+      freeBytes: Math.max(0, freeBytes),
+    });
+  }
+  return rows;
+}
+
+async function discoverWindowsDrives(): Promise<DiscoveredDrive[]> {
+  const script = "$ErrorActionPreference='Stop'; Get-CimInstance Win32_LogicalDisk | Where-Object {$_.DriveType -in 2,3,4} | Select-Object DeviceID,VolumeName,DriveType,Size,FreeSpace,ProviderName | ConvertTo-Json -Compress";
+  const raw = await execFileText("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script]);
+  const parsed = JSON.parse(raw || "[]") as DriveRow | DriveRow[];
+  const rows = Array.isArray(parsed) ? parsed : [parsed];
+  return rows
+    .filter((row) => row.DeviceID && Number(row.Size || 0) > 0)
+    .map((row) => {
+      const root = `${row.DeviceID.toUpperCase()}\\`;
+      const label = String(row.VolumeName || row.DeviceID);
+      return {
+        root,
+        label,
+        kind: row.ProviderName || /google drive/i.test(label) ? "network" : driveKind(Number(row.DriveType)),
+        totalBytes: Number(row.Size || 0),
+        freeBytes: Number(row.FreeSpace || 0),
+      };
+    });
+}
+
 /**
  * Thrown when a storage operation cannot run on this platform at all, as
  * opposed to failing. The distinction matters to the caller: one is a bug to
@@ -149,51 +234,40 @@ export class StorageUnsupportedError extends Error {
 }
 
 export async function discoverDrives(): Promise<StorageDrive[]> {
-  // Drive enumeration goes through PowerShell's Win32_LogicalDisk, so this
-  // whole surface is Windows-only today. Without this guard the failure
-  // surfaced as `spawn powershell.exe ENOENT` in a 500 — which reads as a
-  // broken install rather than a feature this machine does not have.
-  if (process.platform !== "win32") {
+  if (process.platform !== "win32" && process.platform !== "darwin") {
     throw new StorageUnsupportedError(
-      `Storage Manager enumerates drives through PowerShell (Win32_LogicalDisk), so it only runs on Windows. This host is ${process.platform}.`,
+      `Storage Manager supports Windows and macOS hosts. This host is ${process.platform}.`,
     );
   }
-  const script = "$ErrorActionPreference='Stop'; Get-CimInstance Win32_LogicalDisk | Where-Object {$_.DriveType -in 2,3,4} | Select-Object DeviceID,VolumeName,DriveType,Size,FreeSpace,ProviderName | ConvertTo-Json -Compress";
-  const raw = await execFileText("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script]);
-  const parsed = JSON.parse(raw || "[]") as DriveRow | DriveRow[];
-  const rows = Array.isArray(parsed) ? parsed : [parsed];
+  const rows = process.platform === "win32"
+    ? await discoverWindowsDrives()
+    : await discoverDarwinDrives();
   const db = openDb();
   try {
     const rootRows = db.prepare("SELECT root,indexed_bytes,file_count,dir_count,scanned_at,status,dirty,watching,last_error FROM roots").all() as unknown as RootRow[];
-    const indexed = new Map(rootRows.map((row) => [row.root.toUpperCase(), row]));
+    const indexed = new Map(rootRows.map((row) => [storagePathKey(row.root), row]));
     const upsert = db.prepare(`INSERT INTO roots(root,label,total_bytes,free_bytes) VALUES (?,?,?,?)
       ON CONFLICT(root) DO UPDATE SET label=excluded.label,total_bytes=excluded.total_bytes,free_bytes=excluded.free_bytes`);
-    return rows
-      .filter((row) => row.DeviceID && Number(row.Size || 0) > 0)
-      .map((row) => {
-        const root = `${row.DeviceID.toUpperCase()}\\`;
-        const totalBytes = Number(row.Size || 0);
-        const freeBytes = Number(row.FreeSpace || 0);
-        const cached = indexed.get(root.toUpperCase());
-        const label = String(row.VolumeName || row.DeviceID);
-        upsert.run(root, label, totalBytes, freeBytes);
-        return {
-          root,
-          label,
-          kind: row.ProviderName || /google drive/i.test(label) ? "network" : driveKind(Number(row.DriveType)),
-          totalBytes,
-          freeBytes,
-          usedBytes: Math.max(0, totalBytes - freeBytes),
-          indexedBytes: Number(cached?.indexed_bytes || 0),
-          fileCount: Number(cached?.file_count || 0),
-          dirCount: Number(cached?.dir_count || 0),
-          scannedAt: cached?.scanned_at || null,
-          status: cached?.status || "never",
-          dirty: Boolean(cached?.dirty && cached?.scanned_at),
-          watching: Boolean(cached?.watching),
-          lastError: cached?.last_error || null,
-        } satisfies StorageDrive;
-      });
+    return rows.map((row) => {
+      const cached = indexed.get(storagePathKey(row.root));
+      upsert.run(row.root, row.label, row.totalBytes, row.freeBytes);
+      return {
+        root: row.root,
+        label: row.label,
+        kind: row.kind,
+        totalBytes: row.totalBytes,
+        freeBytes: row.freeBytes,
+        usedBytes: Math.max(0, row.totalBytes - row.freeBytes),
+        indexedBytes: Number(cached?.indexed_bytes || 0),
+        fileCount: Number(cached?.file_count || 0),
+        dirCount: Number(cached?.dir_count || 0),
+        scannedAt: cached?.scanned_at || null,
+        status: cached?.status || "never",
+        dirty: Boolean(cached?.dirty && cached?.scanned_at),
+        watching: Boolean(cached?.watching),
+        lastError: cached?.last_error || null,
+      } satisfies StorageDrive;
+    });
   } finally {
     db.close();
   }
@@ -294,11 +368,12 @@ function spawnWorker(command: "scan" | "watch" | "move" | "summarize", argument:
 }
 
 export async function startScan(root: string) {
-  const allowed = (await discoverDrives()).some((drive) => drive.root.toUpperCase() === path.win32.normalize(root).toUpperCase());
+  const normalized = normalizeIndexedPath(root);
+  const allowed = (await discoverDrives()).some((drive) => storagePathKey(drive.root) === storagePathKey(normalized));
   if (!allowed) throw new Error("Unknown or unavailable drive root.");
   const status = await getScanStatus();
   if (status.state === "scanning") throw new Error(`A scan is already running on ${status.root}.`);
-  return { pid: spawnWorker("scan", path.win32.normalize(root)) };
+  return { pid: spawnWorker("scan", normalized) };
 }
 
 export async function stopScan() {
@@ -317,8 +392,8 @@ export async function stopScan() {
 }
 
 export async function setWatching(root: string, enabled: boolean) {
-  const normalized = path.win32.normalize(root);
-  const allowed = (await discoverDrives()).some((drive) => drive.root.toUpperCase() === normalized.toUpperCase());
+  const normalized = normalizeIndexedPath(root);
+  const allowed = (await discoverDrives()).some((drive) => storagePathKey(drive.root) === storagePathKey(normalized));
   if (!allowed) throw new Error("Unknown or unavailable drive root.");
   if (enabled) {
     const db = openDb();
@@ -345,8 +420,8 @@ export async function setWatching(root: string, enabled: boolean) {
 }
 
 function normalizeIndexedPath(input: string) {
-  if (!path.win32.isAbsolute(input)) throw new Error("An absolute Windows path is required.");
-  return path.win32.normalize(input);
+  if (!storagePath.isAbsolute(input)) throw new Error("An absolute storage path is required.");
+  return storagePath.normalize(input);
 }
 
 export async function getStorageOverview() {
@@ -393,7 +468,7 @@ export async function getStorageOverview() {
 export async function getDuplicateCandidates(root?: string) {
   const db = openDb();
   try {
-    const normalizedRoot = root ? path.win32.normalize(root) : undefined;
+    const normalizedRoot = root ? normalizeIndexedPath(root) : undefined;
     const rootClause = normalizedRoot ? " AND root=?" : "";
     const query = db.prepare(`SELECT size,COUNT(*) AS files,GROUP_CONCAT(path, char(10)) AS paths
       FROM entries WHERE size >= 10485760${rootClause}
@@ -405,7 +480,7 @@ export async function getDuplicateCandidates(root?: string) {
 }
 
 export async function getCategoryFiles(root: string, category: string) {
-  const normalizedRoot = path.win32.normalize(root);
+  const normalizedRoot = normalizeIndexedPath(root);
   if (![...Object.keys(CATEGORY_EXTENSIONS), "Other"].includes(category)) throw new Error("Unknown storage category.");
   const extensions = category === "Other" ? KNOWN_CATEGORY_EXTENSIONS : CATEGORY_EXTENSIONS[category];
   const placeholders = extensions.map(() => "?").join(",");
@@ -425,7 +500,11 @@ export async function getCategoryFiles(root: string, category: string) {
 
 export async function browseStorage(input: string): Promise<{ path: string; parent: string | null; items: StorageItem[] }> {
   const target = normalizeIndexedPath(input);
-  const root = path.win32.parse(target).root;
+  const roots = (await discoverDrives()).map((drive) => drive.root).sort((a, b) => b.length - a.length);
+  const root = roots.find((candidate) => {
+    const relative = storagePath.relative(candidate, target);
+    return relative === "" || (!relative.startsWith(`..${storagePath.sep}`) && relative !== "..");
+  }) || storagePath.parse(target).root;
   const db = openDb();
   try {
     const folders = db.prepare("SELECT path,root,parent,name,size,file_count,dir_count,mtime_ms FROM folders WHERE parent=? ORDER BY size DESC,name COLLATE NOCASE").all(target) as Array<Record<string, unknown>>;
@@ -434,7 +513,7 @@ export async function browseStorage(input: string): Promise<{ path: string; pare
       ...folders.map((row) => ({ path: String(row.path), root: String(row.root), parent: String(row.parent), name: String(row.name), kind: "folder" as const, extension: "", size: Number(row.size), fileCount: Number(row.file_count), dirCount: Number(row.dir_count), modifiedAt: Number(row.mtime_ms) })),
       ...files.map((row) => ({ path: String(row.path), root: String(row.root), parent: String(row.parent), name: String(row.name), kind: "file" as const, extension: String(row.ext || ""), size: Number(row.size), fileCount: 1, dirCount: 0, modifiedAt: Number(row.mtime_ms) })),
     ];
-    return { path: target, parent: target === root ? null : path.win32.dirname(target), items };
+    return { path: target, parent: target === root ? null : storagePath.dirname(target), items };
   } finally {
     db.close();
   }
@@ -462,8 +541,14 @@ export async function searchStorage(query: string, root?: string) {
 export async function revealStoragePath(input: string) {
   const target = normalizeIndexedPath(input);
   const stats = await fsp.stat(target);
-  const args = stats.isDirectory() ? [target] : ["/select,", target];
-  execFile("explorer.exe", args, { windowsHide: false }, () => {});
+  if (process.platform === "win32") {
+    const args = stats.isDirectory() ? [target] : ["/select,", target];
+    execFile("explorer.exe", args, { windowsHide: false }, () => {});
+  } else if (process.platform === "darwin") {
+    execFile("/usr/bin/open", stats.isDirectory() ? [target] : ["-R", target], () => {});
+  } else {
+    throw new StorageUnsupportedError(`Reveal is not supported on ${process.platform}.`);
+  }
   return { path: target, selected: !stats.isDirectory() };
 }
 
