@@ -44,15 +44,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Reveal the folder in Windows Explorer on the machine running the console.
+  // Reveal the folder in the native file manager on the machine running the console.
   if (action === "reveal") {
     const folder = safeFolder(body.path) ?? "";
     const abs = resolveInside(folder);
     if (!abs) return NextResponse.json({ error: "bad path" }, { status: 400 });
     try {
-      execFile("explorer.exe", [abs.replace(/\//g, "\\")], () => {
-        /* explorer.exe returns exit code 1 even on success — ignore it */
-      });
+      if (process.platform === "darwin") execFile("/usr/bin/open", [abs], () => {});
+      else if (process.platform === "win32") execFile("explorer.exe", [abs.replace(/\//g, "\\")], () => {});
+      else execFile("xdg-open", [abs], () => {});
       return NextResponse.json({ ok: true, path: abs });
     } catch (err) {
       return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });

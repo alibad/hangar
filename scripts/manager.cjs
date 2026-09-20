@@ -60,7 +60,13 @@ const SERVICES = HOST.services
 // id -> { proc, logs: string[], startedAt }
 const managed = new Map();
 
-const resourcePolicy = JSON.parse(fs.readFileSync(RESOURCE_POLICY_FILE, "utf8"));
+const rawResourcePolicy = JSON.parse(fs.readFileSync(RESOURCE_POLICY_FILE, "utf8"));
+const hostResourcePolicy = rawResourcePolicy.hosts?.[HOST_ID] || {};
+const resourcePolicy = {
+  ...rawResourcePolicy,
+  services: { ...(rawResourcePolicy.services || {}), ...(hostResourcePolicy.services || {}) },
+  workloads: { ...(rawResourcePolicy.workloads || {}), ...(hostResourcePolicy.workloads || {}) },
+};
 const resourceProfiles = buildResourceProfiles(
   resourcePolicy,
   JSON.parse(fs.readFileSync(MODEL_META_FILE, "utf8"))

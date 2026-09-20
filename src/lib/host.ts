@@ -198,6 +198,7 @@ export function memoryLabel(): string {
  */
 const TAB_CAPABILITIES: Record<string, string[]> = {
   speech: ["stt", "tts"],
+  video: ["video"],
 };
 
 /**
@@ -258,6 +259,8 @@ const CAPABILITY_LABELS: Record<string, string> = {
   image: "image generation",
   stt: "speech-to-text",
   tts: "text-to-speech",
+  embedding: "embeddings",
+  video: "video generation",
 };
 
 export type TabSupport = {

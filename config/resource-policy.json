@@ -15,6 +15,18 @@
     "sam3d": {},
     "ollama": { "model": "local-ollama" }
   },
+  "hosts": {
+    "b5": {
+      "services": {
+        "qwen": { "model": "local-draw-things-flux2-klein" }
+      },
+      "workloads": {
+        "draw-things-image": { "service": "qwen", "model": "local-draw-things-flux2-klein", "slot": "gpu-heavy", "aliases": ["draw-things-flux2-klein"], "ttlMs": 900000 },
+        "qwen-edit": { "service": "qwen", "model": "local-draw-things-flux2-klein", "slot": "gpu-heavy", "ttlMs": 900000 },
+        "draw-things-video": { "service": "qwen", "model": "local-draw-things-wan-video", "slot": "gpu-heavy", "aliases": ["draw-things-wan2.2-ti2v"], "ttlMs": 1800000 }
+      }
+    }
+  },
   "workloads": {
     "flux2-klein-generate": { "service": "comfyui", "model": "local-flux2-klein-4b", "slot": "gpu-heavy", "aliases": ["flux2-klein-4b"], "ttlMs": 900000 },
     "hidream-o1-generate": { "service": "comfyui", "model": "local-hidream-o1-dev", "slot": "gpu-heavy", "aliases": ["hidream-o1-dev"], "ttlMs": 900000 },

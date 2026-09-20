@@ -22,11 +22,22 @@ const execFileP = promisify(execFile);
  * server reload.
  */
 
-const HF_BIN =
-  process.env.HF_CLI ??
-  (getHost().platform === "win32"
+function findExecutable(name: string): string | null {
+  if (path.isAbsolute(name)) return fs.existsSync(name) ? name : null;
+  for (const dir of (process.env.PATH ?? "").split(path.delimiter)) {
+    if (!dir) continue;
+    const candidate = path.join(dir, name);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+const configuredHf = process.env.HF_CLI?.trim();
+const HF_BIN = configuredHf
+  ? findExecutable(configuredHf) ?? configuredHf
+  : getHost().platform === "win32"
     ? "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\hf.exe"
-    : "hf");
+    : findExecutable("hf") ?? "/opt/anaconda3/bin/hf";
 
 /**
  * Where weights live, which is not the same answer on both machines.

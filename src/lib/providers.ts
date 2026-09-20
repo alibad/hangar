@@ -4,7 +4,7 @@ import path from "path";
 // default export, so `import yaml from "js-yaml"` fails to compile.
 import { load as parseYaml } from "js-yaml";
 import { SERVICE_REGISTRY, getServiceUrl } from "./services";
-import { defaultServiceFor } from "./host";
+import { defaultServiceFor, getHostId } from "./host";
 
 /**
  * Model catalogue, read from the AI Router (LiteLLM) rather than duplicated here.
@@ -412,6 +412,32 @@ export async function getCatalogue(): Promise<{
     source = "config";
   }
 
+  // Host profiles are also executable catalogue declarations. Some local
+  // runtimes (notably B5's Draw Things/MLX adapter) intentionally sit outside
+  // LiteLLM, so relying on ai-router.yaml alone made installed capabilities
+  // disappear from Models and left routing unable to select them directly.
+  const directModes: Record<string, string> = {
+    image: "image_generation",
+    video: "video_generation",
+    stt: "audio_transcription",
+    tts: "audio_speech",
+    embedding: "embedding",
+  };
+  for (const svc of SERVICE_REGISTRY) {
+    for (const [capability, model] of Object.entries(svc.serves ?? {})) {
+      const mode = directModes[capability];
+      if (!mode) continue; // Ollama text/vision are merged from live inventory below.
+      const apiBase = `${svc.localUrl.replace(/\/$/, "")}/v1`;
+      if (raw.some((entry) => entry.litellm_params?.model === `openai/${model}` && serviceForBase(entry.litellm_params?.api_base) === svc.id)) continue;
+      const slug = model.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      raw.push({
+        model_name: `local-${slug}`.slice(0, 64),
+        litellm_params: { model: `openai/${model}`, api_base: apiBase },
+        model_info: { mode, litellm_provider: "local" },
+      });
+    }
+  }
+
   // Probe each distinct local service once, not once per model.
   let base = raw.map((m) => ({ m, svcId: serviceForBase(m.litellm_params?.api_base) }));
   const localIds = [...new Set(base.map((b) => b.svcId).filter((x): x is string => !!x))];
@@ -580,6 +606,18 @@ export const CAPABILITIES = [
     modes: ["audio_speech"],
     hint: "Voice output.",
   },
+  {
+    id: "embedding",
+    label: "Embeddings",
+    modes: ["embedding"],
+    hint: "Vector representations for semantic search, retrieval, clustering, and similarity.",
+  },
+  {
+    id: "video",
+    label: "Video generation",
+    modes: ["video_generation"],
+    hint: "Local text-to-video and image-to-video generation where the host supports it.",
+  },
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number]["id"];
@@ -592,12 +630,16 @@ const ROUTING_FILE = path.join(process.cwd(), "generated", "ai-routing.json");
  * nothing depends on a GPU service being warm. Every one of these is overridable
  * per-capability from the console's Models tab.
  */
+const B5_DEFAULTS = getHostId() === "b5";
+
 export const DEFAULT_ROUTING: Routing = {
   text: "gpt-5.5",
   vision: "gpt-5.5",
-  image: "local-qwen-image",
-  stt: "openai-transcribe",
-  tts: "openai-tts",
+  image: B5_DEFAULTS ? "local-flux2-klein-4b-draw-things" : "local-qwen-image",
+  stt: B5_DEFAULTS ? "local-qwen3-asr-1-7b-8bit" : "openai-transcribe",
+  tts: B5_DEFAULTS ? "local-qwen3-tts-1-7b-customvoice" : "openai-tts",
+  embedding: "local-qwen3-embedding-0-6b",
+  video: "local-wan2-2-ti2v-5b-draw-things",
 };
 
 export function getRouting(): Routing {

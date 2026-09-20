@@ -38,6 +38,8 @@ export const WIRABLE_MODES = [
   "image_generation",
   "audio_transcription",
   "audio_speech",
+  "embedding",
+  "video_generation",
 ] as const;
 
 /**

@@ -5,6 +5,7 @@ import QwenStudio from "./qwen-studio";
 import QwenActivity from "./qwen-activity";
 import { ImageSquare } from "@phosphor-icons/react";
 import { ToolPageHeader } from "./tool-page";
+import { getHostId } from "@/lib/host";
 
 // The Qwen Image tab has two surfaces:
 //  • Studio   — the curated, human-driven workspace (generate/edit/batch + a
@@ -41,6 +42,11 @@ export default function QwenTab() {
           </div>
         }
       />
+      {getHostId() === "b5" && (
+        <div role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-3 text-xs leading-relaxed text-amber-200">
+          Draw Things is installed and wired, but the current standalone CLI visual smoke test produced undecoded noise while the native app rendered correctly. Use the native Draw Things app for visual work until its HTTP API can be bound to localhost-only and reverified here.
+        </div>
+      )}
       {/* No ModelPicker here. This tab is the one place it duplicated something
           that already existed: the studio has its own Model row, so the model
           appeared twice — once as a routing card at the top and again as the

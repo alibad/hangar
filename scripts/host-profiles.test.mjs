@@ -18,7 +18,7 @@ const HOSTS = readdirSync(new URL("../config/hosts", import.meta.url))
   .map((f) => [f.replace(/\.json$/, ""), JSON.parse(readFileSync(new URL(`../config/hosts/${f}`, import.meta.url), "utf8"))]);
 
 /** Mirrors CAPABILITIES in src/lib/providers.ts. */
-const CAPABILITY_IDS = new Set(["text", "vision", "image", "stt", "tts"]);
+const CAPABILITY_IDS = new Set(["text", "vision", "image", "stt", "tts", "embedding", "video"]);
 
 test("there is at least one host profile and every one has the basics", () => {
   assert.ok(HOSTS.length > 0, "config/hosts must contain at least one profile");
@@ -116,6 +116,18 @@ test("BeTenshi's audio capabilities are declared, not inferred from a name", () 
     assert.ok(s.serves.tts.length, `${s.id} must name what to send as \`model\``);
     assert.ok(betenshi.services.some((x) => x.id === s.id));
   }
+});
+
+test("B5 exposes the installed Mac AI stack through declared capabilities", () => {
+  const b5 = HOSTS.find(([id]) => id === "b5")?.[1];
+  assert.ok(b5, "the b5 profile must exist");
+  const served = new Set(b5.services.flatMap((service) => Object.keys(service.serves ?? {})));
+  for (const capability of ["text", "vision", "embedding", "image", "video", "stt", "tts"]) {
+    assert.ok(served.has(capability), `B5 must declare its installed ${capability} capability`);
+  }
+  const toolkit = b5.services.find((service) => service.id === "qwen");
+  assert.equal(toolkit?.localOnly, true, "the LocalAI adapter must never be exposed off-box");
+  assert.match(toolkit?.localUrl ?? "", /^http:\/\/127\.0\.0\.1:/, "the LocalAI adapter must bind to loopback");
 });
 
 test("no profile commits a literal public hostname", () => {

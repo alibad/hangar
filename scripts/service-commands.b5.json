@@ -9,5 +9,15 @@
       "OLLAMA_HOST": "127.0.0.1:11434",
       "OLLAMA_KEEP_ALIVE": "10m"
     }
+  },
+
+  "_local-ai-doc": "One loopback adapter exposes the already-installed LocalAI toolkit to Hangar. It does not load weights at startup; Draw Things and MLX models load per request and the toolkit lock prevents concurrent heavy jobs.",
+  "qwen": {
+    "cmd": "node",
+    "args": ["scripts/local-ai-adapter.mjs", "--port", "8111"],
+    "cwd": "/Users/alibadereddin/Code/GitHub/ai/hangar",
+    "env": {
+      "LOCAL_AI_BIN": "/Users/alibadereddin/LocalAI/bin/local-ai"
+    }
   }
 }

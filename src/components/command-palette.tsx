@@ -8,6 +8,7 @@ import {
   Gauge,
   HardDrive,
   Image,
+  Film,
   Mic,
   Scan,
   Search,
@@ -18,7 +19,7 @@ import {
   Swords,
 } from "lucide-react";
 
-export type ConsoleTab = "stack" | "services" | "storage" | "llm" | "arena" | "speech" | "qwen" | "requests" | "usage" | "sam3d" | "sam3" | "models";
+export type ConsoleTab = "stack" | "services" | "storage" | "llm" | "arena" | "speech" | "qwen" | "video" | "requests" | "usage" | "sam3d" | "sam3" | "models";
 
 type Destination = {
   id: ConsoleTab;
@@ -36,6 +37,7 @@ const DESTINATIONS: Destination[] = [
   { id: "arena", label: "Arena", hint: "Compare several models on one prompt", keywords: "compare benchmark arabic ocr vision judge side by side", icon: Swords },
   { id: "speech", label: "Speech", hint: "Transcribe and synthesize audio", keywords: "whisper stt tts voice audio", icon: Mic },
   { id: "qwen", label: "Image", hint: "Local app · generate, queue and browse", keywords: "local machine qwen flux creative gallery", icon: Image },
+  { id: "video", label: "Video", hint: "Local app · text and image to video", keywords: "local machine wan draw things movie mp4", icon: Film },
   { id: "requests", label: "Requests", hint: "Local app · inspect traffic and failures", keywords: "local machine logs activity api traffic errors", icon: Activity },
   { id: "usage", label: "AI Usage", hint: "Local app · Codex, Claude and router usage", keywords: "local machine claude codex chatgpt gpt openai tokens cost spend billing daily monthly", icon: Gauge },
   { id: "sam3d", label: "3D Body", hint: "Recover human mesh and pose", keywords: "sam 3d pose body mesh", icon: Box },

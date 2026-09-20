@@ -1,4 +1,34 @@
 {
+  "local-draw-things-flux2-klein": {
+    "checkpoint": "black-forest-labs/FLUX.2-klein-4B",
+    "service": "qwen",
+    "params": "4B · Draw Things 8-bit S",
+    "docs": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B",
+    "note": "B5 only. Native Draw Things CLI, offline, with text-to-image and one-reference image editing through Hangar's loopback LocalAI adapter.",
+    "footprint": {
+      "ramGb": 12,
+      "vramGb": 12,
+      "idleRamGb": 0,
+      "idleVramGb": 0,
+      "kind": "peak",
+      "basis": "Apple unified memory. The adapter holds no model at idle; 12 GB is the conservative existing FLUX.2 Klein admission estimate used by Hangar, checked against the same unified pool on both RAM and GPU axes."
+    }
+  },
+  "local-draw-things-wan-video": {
+    "checkpoint": "Wan-AI/Wan2.2-TI2V-5B",
+    "service": "qwen",
+    "params": "5B · Draw Things 8-bit",
+    "docs": "https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B",
+    "note": "B5 only. Offline text/image-to-video through Draw Things; 49 frames at 768x448 is the verified baseline.",
+    "footprint": {
+      "ramGb": 24,
+      "vramGb": 24,
+      "idleRamGb": 0,
+      "idleVramGb": 0,
+      "kind": "peak",
+      "basis": "Conservative unified-memory admission estimate for the verified Wan 2.2 TI2V 5B Draw Things workflow. The adapter holds no model at idle."
+    }
+  },
   "local-flux2-klein-4b": {
     "checkpoint": "black-forest-labs/FLUX.2-klein-4B",
     "service": "comfyui",

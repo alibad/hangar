@@ -1,12 +1,18 @@
 import policyJson from "../../config/resource-policy.json";
 import { getManagerHeaders, getManagerUrl } from "@/lib/services";
+import { getHostId } from "@/lib/host";
 
 type Lane = "interactive" | "background";
 type Policy = {
   workloads: Record<string, { aliases?: string[]; ttlMs?: number }>;
+  hosts?: Record<string, { workloads?: Record<string, { aliases?: string[]; ttlMs?: number }> }>;
 };
 
 const policy = policyJson as Policy;
+const workloads = {
+  ...policy.workloads,
+  ...(policy.hosts?.[getHostId()]?.workloads ?? {}),
+};
 
 export type ResourceLease = {
   id: string;
@@ -36,7 +42,7 @@ export class ResourceLeaseError extends Error {
 
 export function workloadForImageModel(model: string | undefined): string | null {
   if (!model) return null;
-  for (const [workload, entry] of Object.entries(policy.workloads)) {
+  for (const [workload, entry] of Object.entries(workloads)) {
     if (entry.aliases?.includes(model)) return workload;
   }
   return null;

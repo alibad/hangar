@@ -30,7 +30,7 @@ export type ServiceEntry = {
    * that transcribes perfectly well.
    *
    * Capability ids are the ones in CAPABILITIES (text, vision, image, stt,
-   * tts). The value is what to send as `model` when calling the service
+   * tts, embedding, video). The value is what to send as `model` when calling the service
    * directly, which is what makes a fallback possible without naming a
    * service in code.
    *

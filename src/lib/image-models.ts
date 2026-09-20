@@ -9,7 +9,7 @@
 // The real axis between them is speed, not capability: FLUX schnell is a 4-step
 // distilled model, Qwen-Image is a 28-step 20B. Keep both.
 
-export type ImageModelId = "qwen-image" | "flux-schnell" | "flux2-klein-4b" | "hidream-o1-dev" | "z-image-turbo";
+export type ImageModelId = "qwen-image" | "flux-schnell" | "flux2-klein-4b" | "hidream-o1-dev" | "z-image-turbo" | "draw-things-flux2-klein";
 
 export type ImageModel = {
   /** A local id, or a router alias when this is a cloud model. */
@@ -42,7 +42,7 @@ export type ImageModel = {
  */
 export type LocalImageModel = ImageModel & { serviceId: "qwen" | "comfyui" };
 
-export const IMAGE_MODELS: LocalImageModel[] = [
+const NVIDIA_IMAGE_MODELS: LocalImageModel[] = [
   { id: "flux2-klein-4b", name: "FLUX.2 Klein 4B", tier: "4-step · generate + edit", serviceId: "comfyui", steps: [4], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: true, supportsBatch: false },
   { id: "hidream-o1-dev", name: "HiDream-O1 Dev", tier: "8B FP8 · native 2K · experimental", serviceId: "comfyui", steps: [28], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: false, supportsBatch: false },
   { id: "z-image-turbo", name: "Z-Image Turbo", tier: "6B NVFP4 · 8-step fast draft", serviceId: "comfyui", steps: [8, 9], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: false, supportsBatch: false },
@@ -72,7 +72,30 @@ export const IMAGE_MODELS: LocalImageModel[] = [
   },
 ];
 
-export const DEFAULT_IMAGE_MODEL: ImageModelId = "qwen-image";
+/**
+ * B5 already has Draw Things and its verified native FLUX.2 checkpoint. The
+ * local adapter occupies the established `qwen` image-service slot so the same
+ * gallery, queue, edit and lifecycle code works without pretending CUDA-only
+ * ComfyUI or Qwen checkpoints exist on the Mac.
+ */
+const APPLE_IMAGE_MODELS: LocalImageModel[] = [
+  {
+    id: "draw-things-flux2-klein",
+    name: "FLUX.2 Klein 4B",
+    tier: "Draw Things · Apple silicon · generate + edit",
+    serviceId: "qwen",
+    steps: [4, 6, 8],
+    defaultCfg: 1,
+    supportsNegative: false,
+    supportsCfg: false,
+    supportsEdit: true,
+    supportsBatch: true,
+  },
+];
+
+const APPLE_HOST = process.env.NEXT_PUBLIC_HOST_ID === "b5";
+export const IMAGE_MODELS: LocalImageModel[] = APPLE_HOST ? APPLE_IMAGE_MODELS : NVIDIA_IMAGE_MODELS;
+export const DEFAULT_IMAGE_MODEL: ImageModelId = APPLE_HOST ? "draw-things-flux2-klein" : "qwen-image";
 
 /**
  * The local models that support a capability, as prose for the tooltip that

@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import ModelPicker from "@/components/model-picker";
 import ModelDiscovery from "@/components/model-discovery";
 import QwenTab from "@/components/qwen-tab";
+import VideoStudio from "@/components/video-studio";
 import RequestsView from "@/components/requests-view";
 import UsageView from "@/components/usage-view";
 import Sam3dView from "@/components/sam3d-view";
@@ -428,7 +429,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const valid = new Set<ConsoleTab>(["stack", "services", "storage", "llm", "arena", "speech", "qwen", "requests", "usage", "sam3d", "sam3", "models"]);
+    const valid = new Set<ConsoleTab>(["stack", "services", "storage", "llm", "arena", "speech", "qwen", "video", "requests", "usage", "sam3d", "sam3", "models"]);
     const resolve = () => {
       const hash = window.location.hash.slice(1) as ConsoleTab;
       const saved = window.localStorage.getItem("bt-active-tab") as ConsoleTab | null;
@@ -1970,6 +1971,14 @@ export default function Home() {
             available={["Installed Qwen and ComfyUI checkpoints", "Persistent generated-image gallery and folders", "Local GPU admission control and resumable queues"]}
           />
         ) : hostHasTab("qwen") ? <QwenTab /> : <HostUnavailable tab="qwen" title="Image Studio" />)}
+
+        {tab === "video" && (HOSTED_RUNTIME ? (
+          <LocalMachineRequired
+            title="Video Studio runs on the local machine"
+            description="Wan video generation uses the installed Draw Things models and substantial unified memory. The hosted site cannot reach or run those local checkpoints."
+            available={["Local text-to-video with Wan 2.2", "Optional image-to-video starting frame", "Serialized generation that shares memory safely with image and speech"]}
+          />
+        ) : hostHasTab("video") ? <VideoStudio /> : <HostUnavailable tab="video" title="Video Studio" />)}
 
         {/* Arena — one prompt across several chat/vision models, scored. */}
         {tab === "arena" && <ArenaView />}

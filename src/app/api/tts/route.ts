@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(target.via === "service" ? getServiceHeaders("tts") : {}),
+        ...(target.via === "service" ? getServiceHeaders(target.serviceId!) : {}),
       },
       body: JSON.stringify({ ...body, model: target.model }),
       signal: AbortSignal.timeout(60000),

@@ -52,7 +52,7 @@ the code, everything a machine differs by lives in one JSON file.
 
 ```
 config/hosts/
-  b5.json          a MacBook Pro — Apple silicon, unified memory, Ollama
+  b5.json          a MacBook Pro — Apple silicon, unified memory, Ollama + LocalAI
   betenshi.json    a Windows box — discrete NVIDIA GPU, vLLM, tunnelled services
   example.json     an annotated template — start here
 ```
@@ -60,9 +60,11 @@ config/hosts/
 A profile declares the machine's services, how its memory is budgeted, what kind
 of GPU it has, and — importantly — **which workstreams it can actually back.**
 
-Here is the same page on both machines. The Windows box has fifteen services and
-offers every workstream; the Mac has two, so Image Studio, Speech and Vision & 3D
-each say *Not on this machine* rather than offering a button into a dead tab:
+Here is the same page on both machines. The screenshots predate B5's LocalAI
+adapter, so they show the intentionally smaller initial Mac profile. The current
+profile also exposes Draw Things image/video, Qwen speech, and embeddings through
+one loopback-only adapter; genuinely absent CUDA-only tools such as SAM3/SAM3D
+still say *Not on this machine* rather than offering a button into a dead tab:
 
 | BeTenshi — RTX 5090, 15 services | B5 — Apple M5 Max, 2 services |
 |---|---|
@@ -352,10 +354,11 @@ node scripts/walk-console.mjs --host betenshi
 node scripts/walk-console.mjs --host b5 --features chat,models
 ```
 
-**Two hosts, because one host cannot show this product.** A walk of the Mac is
-an honest picture of a small machine and a misleading picture of the console:
-no image generation, no speech, no gateway, nothing to route between. So the
-same walk runs against both and the captures sit side by side.
+**Two hosts, because one host cannot show this product.** The same walk runs
+against both and the captures sit side by side. B5 now backs text, vision,
+embeddings, speech, image, and video with its existing local installations; the
+captured September 19 walk is a historical snapshot from before that adapter was
+added and should not be read as the current capability list.
 
 It uses the capture layer from
 [Walkthrough Studio](https://github.com/alibad/walkthrough-studio), which

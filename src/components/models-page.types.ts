@@ -184,6 +184,8 @@ export const CAP_OF_MODE: Record<string, string[]> = {
   image_generation: ["image"],
   audio_transcription: ["stt"],
   audio_speech: ["tts"],
+  embedding: ["embedding"],
+  video_generation: ["video"],
 };
 
 /**

@@ -161,21 +161,22 @@ const DISCOVERY_HORIZON_DAYS = 400;
 const NEW_FAMILY_WINDOW_DAYS = 120;
 
 /** Modes the router can serve. Everything else is filtered out of discovery. */
-const KEEP_MODES = new Set(["chat", "image_generation", "audio_transcription", "audio_speech"]);
+const KEEP_MODES = new Set(["chat", "image_generation", "audio_transcription", "audio_speech", "embedding", "video_generation"]);
 
 /**
  * What a vendor id is for, read off the id itself.
  *
  * Order matters: "gpt-4o-mini-tts" is a speech model that also matches nothing
  * else, but "gpt-image-1" would fall through to chat if image were not tested
- * first. Returns null for ids the router has no mode for — embeddings,
- * moderation, realtime sockets, video — which is how they get dropped.
+ * first. Returns null for APIs the router cannot serve.
  */
 function modeFromId(id: string): string | null {
   const s = id.toLowerCase();
-  if (/embed|moderation|deep-research|search-api|search-preview/.test(s)) return null;
+  if (/moderation|deep-research|search-api|search-preview/.test(s)) return null;
   if (/realtime|live|native-audio|bidi/.test(s)) return null;      // websocket APIs, not OpenAI-compatible REST
-  if (/^(veo|sora|lyria)|video|robotics|computer-use|antigravity/.test(s)) return null;
+  if (/robotics|computer-use|antigravity/.test(s)) return null;
+  if (/embed/.test(s)) return "embedding";
+  if (/^(veo|sora)|video/.test(s)) return "video_generation";
   if (/-tts|tts-|text-to-speech/.test(s)) return "audio_speech";
   if (/transcribe|whisper/.test(s)) return "audio_transcription";
   if (/image|nano-banana/.test(s)) return "image_generation";

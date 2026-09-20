@@ -31,7 +31,9 @@
       "publicUrl": "http://localhost:11434",
       "healthPath": "/api/tags",
       "serves": {
-        "text": "qwen3.8:27b-mlx"
+        "text": "qwen3.8:27b-mlx",
+        "vision": "qwen3.8:27b-mlx",
+        "embedding": "qwen3-embedding:0.6b"
       },
       "category": "ai",
       "authRequired": false,
@@ -39,6 +41,24 @@
         "model": "qwen3.8:27b-mlx"
       },
       "note": "Every text and vision model on this box is served here, on Ollama's OpenAI-compatible /v1 surface. `llm.model` is the default the LLM tab talks to; the other pulled checkpoints (gemma4:31b-mlx, qwen3-vl:32b-instruct) are one `model` field away. Usually owned by Ollama.app (menu bar), in which case the manager adopts the process rather than spawning its own. Cloud is disabled in ~/.ollama/server.json and it listens on loopback only."
+    },
+    {
+      "id": "qwen",
+      "name": "Local AI Toolkit",
+      "localPort": 8111,
+      "localUrl": "http://127.0.0.1:8111",
+      "publicUrl": "http://127.0.0.1:8111",
+      "healthPath": "/health",
+      "serves": {
+        "image": "flux2-klein-4b-draw-things",
+        "video": "wan2.2-ti2v-5b-draw-things",
+        "stt": "qwen3-asr-1.7b-8bit",
+        "tts": "qwen3-tts-1.7b-customvoice"
+      },
+      "category": "ai",
+      "authRequired": false,
+      "localOnly": true,
+      "note": "Loopback adapter over the verified /Users/alibadereddin/LocalAI toolkit. Draw Things supplies FLUX.2 image generation/editing and Wan video; MLX-Audio supplies Qwen3 ASR and preset-voice TTS. The adapter serializes heavy work and never downloads models or exposes a public listener. The historical service id `qwen` is retained because Image Studio routes that id through its established generation, gallery, queue, and edit paths."
     }
   ],
   "workstreams": {
@@ -53,6 +73,28 @@
       "ramGb": 18.2,
       "color": "orange",
       "action": "Open chat"
+    },
+    "image": {
+      "label": "Image Studio",
+      "description": "Generate and edit images locally with Draw Things",
+      "model": "FLUX.2 Klein 4B",
+      "serviceId": "qwen",
+      "tab": "qwen",
+      "vramGb": 12,
+      "ramGb": 12,
+      "color": "violet",
+      "action": "Generate"
+    },
+    "audio": {
+      "label": "Speech",
+      "description": "Transcribe audio and synthesize preset voices locally",
+      "model": "Qwen3-ASR + Qwen3-TTS",
+      "serviceId": "qwen",
+      "tab": "speech",
+      "vramGb": 9,
+      "ramGb": 9,
+      "color": "blue",
+      "action": "Open speech"
     }
   }
 }
