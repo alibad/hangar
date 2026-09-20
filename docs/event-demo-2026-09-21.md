@@ -1,6 +1,17 @@
 # Hangar at AI Tinkerers Doha Round 3
 
-Monday, 21 September 2026 · 15-minute live segment
+Monday, 21 September 2026 · Console + MCP · 8:10–8:30 PM
+
+## Locked event timing
+
+- Doors: **6:00 PM**.
+- Isha and settle: **6:50–7:15 PM**.
+- Kickoff: **7:15–7:30 PM**.
+- Hangar Console + MCP: **8:10–8:30 PM**, the final program slot.
+- Live demo: **8:10–8:25 PM**. Audience Q&A: **8:25–8:30 PM**.
+
+Console owns 5:45 of the live demo, then hands off cleanly to MCP. Do not let
+Console borrow MCP or Q&A time.
 
 ## Name the product once
 
@@ -21,24 +32,38 @@ not the product name. The public entry point is `console.humanquest.net`.
   delay on stage.
 - Close unrelated windows and disable notifications. Keep the fallback video
   and this runbook available offline.
+- Be at the ready screen by **8:08 PM**. Home is the opening tab; Requests is
+  pre-opened in a second tab; the fallback video is paused at 0:00.
 
-## The 15:00 run of show
+## Combined 15:00 live demo
 
-| Time | Surface | Show and say | Visible proof |
+| Clock | Owner / surface | Show and say | Visible proof |
 | --- | --- | --- | --- |
-| 0:00–1:15 | Home | “A Hangar is where models and services wait, fit, and move. This is its Console.” | Header reads **Hangar** and **B5 console**. |
-| 1:15–3:15 | Home | This UI comes from the host profile rather than pretending every machine is the same. | Apple M5 Max, 128 GB unified memory, exactly two declared services. |
-| 3:15–5:15 | Services | Stop Ollama, wait for **On demand**, then Start and wait for **Ready**. Do not click twice. | Each transition completes before the next action; manager remains ready. |
-| 5:15–7:45 | Models | Show installed Ollama tags, capability badges, exact/estimated footprint language, and unavailable aliases marked **not installed**. | `local-ollama` is ready; resident memory is 18.2 GB only after the model is loaded. |
-| 7:45–10:45 | Chat & Code | Ask: “In one sentence, explain why unified memory changes AI model scheduling on Apple silicon.” | A local answer appears, attributed to the actual Ollama model, without a fallback warning. |
-| 10:45–12:45 | Home → Requests | Return Home to show the resident model and live memory. Open Requests. | Stop, start, and chat rows name target **ollama**, status **200**, and measured latency. |
-| 12:45–14:15 | Public tab | Open the public domain and point out the same Hangar identity. | HTTPS serves the deployed commit. Remote machine controls are deliberately not claimed unless the private manager tunnel is live. |
-| 14:15–15:00 | Close | “The important part is not a model list. It is an operator seeing what is actually installed, what fits, what is resident, and what just happened.” | Leave Requests visible. |
+| 8:10:00–8:10:30 | Shared frame | “Hangar makes local AI infrastructure legible and operable. Console is the human surface; MCP is the agent surface.” | One system, two interfaces. |
+| 8:10:30–8:11:30 | Console · Home | “This is B5, live—not a generic dashboard.” Show the ready state and capacity strip. | **Hangar**, **B5 console**, Apple M5 Max, 128 GB unified memory, 2/2 services. |
+| 8:11:30–8:12:40 | Console · Models | Point to the installed route, unavailable aliases, and the resident footprint. | `local-ollama` is ready; `qwen3.8:27b-mlx` occupies 18.2 GB; absent tags are not presented as runnable. |
+| 8:12:40–8:14:35 | Console · Chat & Code | Ask the prepared one-sentence unified-memory question. Speak while the warm local model answers. | The actual Ollama model responds locally without a fallback warning. |
+| 8:14:35–8:15:45 | Console · Requests | Show the chat row and the preflight stop/start rows. “The UI records what happened, where, how long it took, and whether it worked.” | Target **ollama**, HTTP **200**, measured latency; bounded controls are already evidenced without risking a live restart. |
+| 8:15:45–8:16:15 | Console → MCP | “That is the operator view. Now we expose the same real machine to an agent through MCP.” Stop speaking and hand over. | Leave Requests visible as the continuity surface. |
+| 8:16:15–8:24:40 | MCP | MCP-owned live flow. Console presenter stays out unless called on. | MCP demonstrates the agent surface against the same Hangar runtime. |
+| 8:24:40–8:25:00 | Shared close | “One runtime: observable for humans, usable by agents.” | End on the result, not setup. |
+
+## Q&A · 8:25–8:30 PM
+
+- First answer questions from the surface already visible; do not navigate while
+  another presenter is answering.
+- Console's shortest proof line: “Installed, fits, resident, and happened are
+  four different facts; Hangar keeps them different.”
+- If asked about start/stop, point to the successful Requests rows and explain
+  that the bounded control was rehearsed twice. Do not restart Ollama during the
+  five-minute Q&A.
+- At **8:29:30**, take the last question. At **8:30:00**, thank the room and end.
 
 ## Presenter guardrails
 
-- Stop/start only `ollama`. Never stop `manager` or the console presenting the
-  demo.
+- Do not perform live stop/start in the locked 15-minute flow. The rehearsed
+  stop/start rows are the proof. If an organizer explicitly asks for the control
+  after the program, stop/start only `ollama`, never `manager` or the console.
 - Wait for the status badge to settle before another control action. The API
   also enforces a 120-second upper bound.
 - Do not claim that Vercel itself controls B5. The public deployment is the
@@ -47,8 +72,8 @@ not the product name. The public entry point is `console.humanquest.net`.
 - Do not describe the 18.2 GB figure as measured physical RAM. It is the
   configured resident footprint used for admission decisions; Home's system
   memory gauge is the live machine measurement.
-- If a service transition exceeds 20 seconds, skip to the fallback video rather
-  than debugging on stage.
+- If the model has not answered 20 seconds after submission, play the fallback
+  immediately. The Console segment has no recovery budget.
 
 ## Reset between runs
 
@@ -68,13 +93,13 @@ not the product name. The public entry point is `console.humanquest.net`.
 - **Wi-Fi/public DNS fails:** continue on the localhost production build and say
   that machine operation is local-first. Show the fallback public-site capture
   at the end.
-- **Ollama does not restart:** do not retry repeatedly. Keep manager running,
-  play the fallback video, and use its captured Requests view as evidence.
+- **Ollama is not ready at 8:08:** do not restart it on stage. Play the fallback
+  for the Console portion and preserve the MCP handoff at 8:16:15.
 - **Model reply stalls:** wait 20 seconds, then switch to the fallback. The
   model is intentionally warm, so a longer delay signals a real fault.
 - **Browser layout is wrong:** use 1440×900 or larger and reset zoom to 100%.
-- **Public site is healthy but machine cards are down:** state the boundary:
-  the deployed UI is live; this B5 operator session is the verified control
+- **Public site is healthy but machine cards are down:** omit the public tab; it
+  is not part of the timed path. This B5 operator session is the verified control
   plane. Do not turn missing remote connectivity into a green status.
 
 ## Evidence checklist
