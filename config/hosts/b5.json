@@ -76,14 +76,14 @@
     },
     "image": {
       "label": "Image Studio",
-      "description": "Generate and edit images locally with Draw Things",
+      "description": "Create locally with the installed FLUX image app",
       "model": "FLUX.2 Klein 4B",
       "serviceId": "qwen",
       "tab": "qwen",
       "vramGb": 12,
       "ramGb": 12,
       "color": "violet",
-      "action": "Generate"
+      "action": "Open image tools"
     },
     "audio": {
       "label": "Speech",
