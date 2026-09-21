@@ -109,6 +109,10 @@ export default function ModelPicker({
   const cloud = useMemo(() => eligible.filter((m) => !m.local), [eligible]);
   const active = data?.routing?.[capability];
   const activeModel = eligible.find((m) => m.id === active);
+  const localAlternative =
+    local.find((m) => m.status === "ready") ??
+    local.find((m) => m.status !== "model-missing") ??
+    null;
 
   // Default the toggle to wherever the active model already lives, so opening a
   // tab shows the thing that is actually in use rather than an arbitrary side.
@@ -255,7 +259,7 @@ export default function ModelPicker({
       ? "none selected"
       : !m.local
         ? m.status === "no-key"
-          ? "needs a key"
+          ? "cloud key required"
           : "cloud"
         : modelMissing
           ? "not installed"
@@ -276,8 +280,8 @@ export default function ModelPicker({
         {routerDown && (
           <div className="mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-1.5">
             <span className="flex-1 text-[11px] leading-snug text-amber-300">
-              <strong className="font-semibold">AI Router is down</strong> — nothing can be called
-              until it starts.
+              <strong className="font-semibold">AI Router is down</strong> — cloud models are
+              unavailable. Local models can still be selected and called directly.
             </span>
             <ServiceControl id={ROUTER_ID} up={false} probe={async () => !!(await load())?.routerUp} />
           </div>
@@ -359,9 +363,31 @@ export default function ModelPicker({
           )}
         </div>
         {error && <p className="mt-1.5 text-xs text-red-400">{error}</p>}
-        {m && !serviceUp && m.detail && (
+        {m?.status === "no-key" ? (
+          <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] px-3 py-2">
+            <p className="text-[11px] leading-relaxed text-amber-200/90">
+              <strong className="font-semibold">{m.id} is a cloud model.</strong>{" "}
+              {m.detail}
+            </p>
+            {localAlternative && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={busy === localAlternative.id}
+                  onClick={() => select(localAlternative.id)}
+                  className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-medium text-emerald-200 transition hover:border-emerald-500/50 disabled:opacity-40"
+                >
+                  {busy === localAlternative.id ? "Switching…" : `Use ${localAlternative.id} locally`}
+                </button>
+                <span className="text-[10px] text-gray-500">
+                  No API key required{localAlternative.status === "ready" ? "." : "; start its service after switching."}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : m && !serviceUp && m.detail ? (
           <p className="mt-1 text-[11px] text-gray-500">{m.detail}</p>
-        )}
+        ) : null}
       </div>
     );
   }
@@ -374,9 +400,9 @@ export default function ModelPicker({
         // the question someone opening this tab is really asking.
         <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2">
           <span className="flex-1 text-[11px] leading-snug text-amber-300">
-            <strong className="font-semibold">AI Router is down</strong> — nothing can be called
-            until it starts. Listed from <code>config/ai-router.yaml</code>; service status below is
-            live.
+            <strong className="font-semibold">AI Router is down</strong> — cloud models are
+            unavailable. Local models below can still be managed and called directly. Listed from{" "}
+            <code>config/ai-router.yaml</code>; service status is live.
           </span>
           <ServiceControl id={ROUTER_ID} up={false} probe={async () => !!(await load())?.routerUp} />
         </div>
@@ -549,8 +575,11 @@ export default function ModelPicker({
                       <p className="truncate text-xs font-medium text-gray-100">{m.id}</p>
                       <p className="truncate text-[10px] text-gray-500">
                         {m.target}
-                        {keyMissing ? ` · needs ${m.keyEnv}` : ""}
+                        {keyMissing ? ` · ${m.keyEnv} required` : ""}
                       </p>
+                      {keyMissing && m.detail && (
+                        <p className="mt-1 text-[10px] leading-relaxed text-amber-300/75">{m.detail}</p>
+                      )}
                     </div>
                     <button
                       disabled={chosen || keyMissing || busy === m.id}

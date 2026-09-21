@@ -8,7 +8,7 @@
 #
 # ── LOCAL-ONLY BOUNDARY (important) ─────────────────────────────────────────
 # This router exists for systems that use LOCAL resources on this box:
-#   betenshi-console, quote-forge, move-quest.
+#   Hangar, quote-forge, move-quest.
 # It is deliberately NOT reachable off-box and has NO public/tunnel hostname,
 # unlike every other BeTenshi service. Cloud projects (globe_quest, ColdClub,
 # avatar-lab, tinkerer-presenter) must keep calling vendor APIs directly with

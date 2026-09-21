@@ -65,7 +65,11 @@ export function middleware(req: NextRequest) {
         { status: 404 },
       );
     }
-    if (pathname === "/") {
+    // Every public-facing path is the setup guide. This includes bookmarks such
+    // as /llm and /models from the operator console: a visitor should never land
+    // in a machine dashboard that cannot actually see their machine. Keep the
+    // guide route and installable-app manifest reachable as themselves.
+    if (pathname !== "/guide" && pathname !== "/manifest.json") {
       const guide = req.nextUrl.clone();
       guide.pathname = "/guide";
       return NextResponse.rewrite(guide);

@@ -71,18 +71,20 @@ export default function HostedOnboarding() {
       <section className="relative overflow-hidden rounded-3xl border border-orange-500/25 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.16),transparent_42%),linear-gradient(135deg,rgba(17,24,39,0.96),rgba(3,7,18,0.98))] px-5 py-8 sm:px-8 sm:py-12">
         <div className="relative mx-auto max-w-4xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-300">
-            <Sparkles className="h-3.5 w-3.5" /> One skill. Your local AI stack.
+            <Sparkles className="h-3.5 w-3.5" /> Public setup page · not your console
           </div>
           <h1 className="mt-5 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">
-            Give your coding agent the Hangar skill.
+            Give this Hangar skill to your coding agent.
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-gray-400 sm:text-base">
-            It will inspect your computer, connect the local AI services you actually have, set up a local LLM, and verify Hangar at <span className="font-mono text-gray-200">localhost:8003</span>.
+            This website cannot see your computer or run its models. The skill will inspect your
+            machine, connect the local AI services you actually have, set up a local LLM, and verify
+            your private Hangar console at <span className="font-mono text-gray-200">localhost:8003</span>.
           </p>
 
           <div className="mx-auto mt-7 max-w-3xl rounded-2xl border border-violet-500/25 bg-violet-500/[0.07] p-3 text-left sm:p-4">
             <div className="mb-3 flex items-center gap-2 px-1 text-xs font-semibold text-violet-200">
-              <Bot className="h-4 w-4" /> Paste this into Codex, Claude Code, or another coding agent
+              <Bot className="h-4 w-4" /> One step: paste this into Codex, Claude Code, or another coding agent
             </div>
             <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border border-gray-800 bg-gray-950/80 p-4 font-mono text-xs leading-6 text-gray-300">{AGENT_PROMPT}</pre>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">

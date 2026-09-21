@@ -138,7 +138,18 @@ async function handlePost(req: NextRequest) {
       }),
     });
 
-    const data = await res.json();
+    const raw = await res.text();
+    let data: Record<string, any>;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      const returnedHtml = /^\s*</.test(raw);
+      throw new Error(
+        returnedHtml
+          ? "The model endpoint returned a web page instead of a model response. It may be behind a login page or pointed at the wrong URL."
+          : "The model endpoint returned a response Hangar could not read.",
+      );
+    }
     const latency = Date.now() - start;
 
     if (!res.ok) {
