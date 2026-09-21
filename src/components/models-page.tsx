@@ -302,8 +302,20 @@ export default function ModelsPage() {
         busy={busy}
         diskFreeGb={data.machine.weightsDiskFreeGb}
         initialQuery={hubSearchIntent}
+        downloads={data.downloads}
         onDownload={(repo) =>
           act("/api/scout", { action: "download", repo }, `dl:${repo}`, `Downloading ${repo}.`)
+        }
+        onInstall={(repo, file) =>
+          act(
+            "/api/scout",
+            { action: "install-runtime", repo, file },
+            `install:${repo}`,
+            `Installing ${repo} and adding it to Ollama.`,
+          )
+        }
+        onCancel={(repo) =>
+          act("/api/scout", { action: "cancel-download", repo }, `cancel:${repo}`, `Cancelled ${repo}.`)
         }
       />
 

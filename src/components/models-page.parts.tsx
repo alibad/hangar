@@ -248,6 +248,16 @@ type HubVariant = {
   installed: boolean;
   downloads: number;
   runtimes?: string[];
+  setup?: {
+    kind: "ollama-gguf" | "ollama-safetensors";
+    runtime: "Ollama";
+    model: string;
+    file?: string;
+    gb: number;
+    experimental: boolean;
+    note: string;
+  };
+  setupReason?: string;
 };
 
 /**
@@ -263,12 +273,18 @@ export function HubModelSearch({
   busy,
   diskFreeGb,
   initialQuery = "",
+  downloads,
   onDownload,
+  onInstall,
+  onCancel,
 }: {
   busy: string | null;
   diskFreeGb: number;
   initialQuery?: string;
+  downloads: Payload["downloads"];
   onDownload: (repo: string) => void;
+  onInstall: (repo: string, file?: string) => void;
+  onCancel: (repo: string) => void;
 }) {
   const [open, setOpen] = useState(Boolean(initialQuery));
   const [query, setQuery] = useState(initialQuery);
@@ -356,7 +372,11 @@ export function HubModelSearch({
             </div>
             <div className="grid gap-2 lg:grid-cols-2">
               {options.map((variant) => {
-                const tooLarge = variant.gb > 0 && variant.gb > diskFreeGb;
+                const transferGb = variant.setup?.gb || variant.gb;
+                const tooLarge = transferGb > 0 && transferGb > diskFreeGb;
+                const job = downloads.find((download) => download.repo === variant.repo);
+                const installing = job?.status === "running";
+                const runtimeReady = job?.status === "done" && job.kind === "runtime-install";
                 return (
                   <article key={variant.repo} className="rounded-xl border border-gray-800 bg-gray-950/45 p-3">
                     <div className="flex min-w-0 items-start gap-2">
@@ -369,9 +389,36 @@ export function HubModelSearch({
                           {variant.runtimes?.length ? <span>{variant.runtimes.join(" · ")}</span> : null}
                           {variant.gated && <span className="text-amber-300">access required</span>}
                         </p>
+                        {variant.setup ? (
+                          <p className="mt-1 text-[10px] text-emerald-300/80">
+                            {variant.setup.experimental ? "Experimental " : ""}{variant.setup.runtime} setup · {variant.setup.gb || "?"} GB transfer
+                            {variant.setup.file ? ` · ${variant.setup.file}` : ""}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-[10px] text-amber-300/70" title={variant.setupReason}>Weights only · no automatic runtime</p>
+                        )}
                       </div>
-                      {variant.installed ? (
-                        <span className="shrink-0 rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-300">Downloaded</span>
+                      {runtimeReady ? (
+                        <span className="shrink-0 rounded-md bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-300">Ready in Ollama</span>
+                      ) : variant.setup ? (
+                        <button
+                          type="button"
+                          onClick={() => installing ? onCancel(variant.repo) : onInstall(variant.repo, variant.setup?.file)}
+                          disabled={Boolean(busy) || (!installing && tooLarge)}
+                          title={
+                            installing
+                              ? "Stop this install. Downloaded cache files are kept so a retry can resume."
+                              : tooLarge
+                              ? `Needs ${transferGb} GB, but only ${diskFreeGb.toFixed(1)} GB is free.`
+                              : variant.setup.note
+                          }
+                          className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[10px] font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-40 ${installing ? "bg-red-500 hover:bg-red-400" : "bg-emerald-500 hover:bg-emerald-400"}`}
+                        >
+                          <CloudArrowDown size={12} weight="bold" />
+                          {installing ? `Cancel${job?.percent != null ? ` · ${job.percent}%` : " install"}` : tooLarge ? "Not enough disk" : variant.installed ? "Add to Ollama" : "Install with Ollama"}
+                        </button>
+                      ) : variant.installed ? (
+                        <span className="shrink-0 rounded-md bg-sky-500/10 px-2 py-1 text-[10px] font-medium text-sky-300">Weights downloaded</span>
                       ) : (
                         <button
                           type="button"
@@ -385,12 +432,18 @@ export function HubModelSearch({
                         </button>
                       )}
                     </div>
+                    {runtimeReady && (
+                      <p className="mt-2 text-[10px] text-emerald-300/80">It now appears in the local models below. Choose “Use for text” there to make it active.</p>
+                    )}
+                    {job?.status === "failed" && job.kind === "runtime-install" && (
+                      <p className="mt-2 text-[10px] text-red-300" title={job.detail}>Runtime setup failed. Review the model format or retry the install.</p>
+                    )}
                   </article>
                 );
               })}
             </div>
             <p className="text-[10px] leading-5 text-gray-600">
-              Downloading stores the weights locally. A repository still needs a compatible runtime before Hangar can serve it; curated models below show that setup status explicitly.
+              “Install with Ollama” downloads only the planned artifact and registers a runnable local model. “Download” stores weights for a manual runtime; Hangar does not claim those are runnable yet.
             </p>
           </div>
         )}

@@ -7,6 +7,7 @@ import {
   clearDownload,
   resolveRepo,
   startDownload,
+  startRuntimeInstall,
 } from "@/lib/hf-download";
 import { getManagerHeaders, getManagerUrl } from "@/lib/services";
 
@@ -180,6 +181,24 @@ export async function POST(req: NextRequest) {
      */
     if (action === "download") {
       return NextResponse.json({ ok: true, job: startDownload(String(body?.repo ?? "").trim()) });
+    }
+    if (action === "install-runtime") {
+      const repo = String(body?.repo ?? "").trim();
+      const file = String(body?.file ?? "").trim();
+      // Re-resolve server-side: runtime kind, executable arguments, and the
+      // selected artifact are never trusted just because a browser posted them.
+      const resolution = await resolveRepo(repo);
+      const variant = [resolution.primary, ...resolution.variants].find((item) => item?.repo === repo);
+      if (!variant?.setup) {
+        return NextResponse.json(
+          { error: variant?.setupReason ?? `No automatic runtime adapter is available for ${repo}.` },
+          { status: 400 },
+        );
+      }
+      if (variant.setup.file && file && variant.setup.file !== file) {
+        return NextResponse.json({ error: "The selected artifact no longer matches the repository plan." }, { status: 409 });
+      }
+      return NextResponse.json({ ok: true, job: startRuntimeInstall(repo, variant.setup) });
     }
     if (action === "cancel-download") {
       await cancelDownload(String(body?.repo ?? "").trim());

@@ -108,6 +108,10 @@ export type DownloadJob = {
   percent?: number;
   detail?: string;
   startedAt: string;
+  kind?: "download" | "runtime-install";
+  runtime?: "ollama";
+  runtimeModel?: string;
+  file?: string;
 };
 
 export type Machine = {
