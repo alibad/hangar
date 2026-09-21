@@ -6,21 +6,22 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_THEME, THEME_IDS } from "@/lib/themes";
 import { getHost } from "@/lib/host";
 import { isHostedRuntime } from "@/lib/runtime";
+import PublicHostGuard from "@/components/public-host-guard";
 
 const HOST = getHost();
 const HOSTED = isHostedRuntime();
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://hangar.humanquest.net";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://console.humanquest.net";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: HOSTED ? "Hangar — Local AI operations console" : `Hangar — ${HOST.name} console`,
+  title: HOSTED ? "Hangar — Set up local AI for your machine" : `Hangar — ${HOST.name} console`,
   description: HOSTED
-    ? "See how Hangar operates local AI services while keeping machine-owned data and controls on the machine that runs them."
+    ? "Give the Hangar setup skill to Codex or Claude Code. It measures your machine, chooses a local LLM that fits, and verifies your private local AI console."
     : `Operate the AI services, models, memory budget, and request history on ${HOST.name}.`,
   alternates: { canonical: "/" },
-  robots: HOSTED ? { index: false, follow: false } : undefined,
+  robots: HOSTED ? { index: true, follow: true } : undefined,
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Hangar" },
   icons: {
@@ -55,6 +56,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-gray-950 text-gray-100 min-h-screen">
+        <PublicHostGuard />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

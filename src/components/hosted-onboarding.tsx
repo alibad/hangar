@@ -17,13 +17,28 @@ import {
 } from "lucide-react";
 
 const REPOSITORY_URL = "https://github.com/alibad/hangar";
-const SKILL_URL = `${REPOSITORY_URL}/blob/main/.claude/skills/hangar-setup/SKILL.md`;
 const OLLAMA_URL = "https://ollama.com/download";
 const NODE_URL = "https://nodejs.org/en/download";
-const AGENT_PROMPT = `Set up Hangar on this machine by following this skill:
-${SKILL_URL}
 
-Clone the repository if needed, detect what is actually installed, configure only verified local services, make sure a local text model is available, and prove the console works at http://localhost:8003.`;
+const AGENTS = {
+  codex: {
+    label: "Codex",
+    skillUrl: `${REPOSITORY_URL}/blob/main/.agents/skills/hangar-setup/SKILL.md`,
+  },
+  claude: {
+    label: "Claude Code",
+    skillUrl: `${REPOSITORY_URL}/blob/main/.claude/skills/hangar-setup/SKILL.md`,
+  },
+} as const;
+
+type AgentId = keyof typeof AGENTS;
+
+function setupPrompt(agent: (typeof AGENTS)[AgentId]) {
+  return `Use the Hangar setup skill at:
+${agent.skillUrl}
+
+Set up Hangar on this machine. Measure the machine first, choose a local model that fits, configure only services you verify, and prove the console works locally before you finish.`;
+}
 
 function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -66,39 +81,66 @@ function CommandBlock({ command, label }: { command: string; label: string }) {
 }
 
 export default function HostedOnboarding() {
+  const [agentId, setAgentId] = useState<AgentId>("codex");
+  const agent = AGENTS[agentId];
+  const agentPrompt = setupPrompt(agent);
+
   return (
     <div className="space-y-5">
       <section className="relative overflow-hidden rounded-3xl border border-orange-500/25 bg-[radial-gradient(circle_at_top_right,rgba(249,115,22,0.16),transparent_42%),linear-gradient(135deg,rgba(17,24,39,0.96),rgba(3,7,18,0.98))] px-5 py-8 sm:px-8 sm:py-12">
         <div className="relative mx-auto max-w-4xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-300">
-            <Sparkles className="h-3.5 w-3.5" /> Public setup page · not your console
+            <Sparkles className="h-3.5 w-3.5" /> Local AI, fitted to your machine
           </div>
           <h1 className="mt-5 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-5xl">
-            Give this Hangar skill to your coding agent.
+            Set up your local AI stack with one skill.
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-gray-400 sm:text-base">
-            This website cannot see your computer or run its models. The skill will inspect your
-            machine, connect the local AI services you actually have, set up a local LLM, and verify
-            your private Hangar console at <span className="font-mono text-gray-200">localhost:8003</span>.
+            Choose Codex or Claude Code. Your agent measures your Mac, Windows PC, or Linux box,
+            finds what is installed, chooses a local LLM that fits, and launches your private Hangar
+            console at <span className="font-mono text-gray-200">localhost:8003</span>.
           </p>
 
           <div className="mx-auto mt-7 max-w-3xl rounded-2xl border border-violet-500/25 bg-violet-500/[0.07] p-3 text-left sm:p-4">
-            <div className="mb-3 flex items-center gap-2 px-1 text-xs font-semibold text-violet-200">
-              <Bot className="h-4 w-4" /> One step: paste this into Codex, Claude Code, or another coding agent
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 px-1 text-xs font-semibold text-violet-200">
+                <Bot className="h-4 w-4" /> Pick your coding agent, then paste the prompt
+              </div>
+              <div className="grid grid-cols-2 rounded-xl border border-gray-800 bg-gray-950/70 p-1" aria-label="Choose your coding agent">
+                {(Object.entries(AGENTS) as [AgentId, (typeof AGENTS)[AgentId]][]).map(([id, option]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setAgentId(id)}
+                    aria-pressed={agentId === id}
+                    className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${agentId === id ? "bg-violet-500/20 text-violet-100" : "text-gray-500 hover:text-gray-200"}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border border-gray-800 bg-gray-950/80 p-4 font-mono text-xs leading-6 text-gray-300">{AGENT_PROMPT}</pre>
+            <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border border-gray-800 bg-gray-950/80 p-4 font-mono text-xs leading-6 text-gray-300">{agentPrompt}</pre>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <CopyButton value={AGENT_PROMPT} label="Copy setup prompt" />
-              <a href={SKILL_URL} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-700 bg-gray-950/45 px-4 py-3 text-sm font-semibold text-gray-200 transition hover:border-gray-500">
-                Read the skill <ExternalLink className="h-3.5 w-3.5" />
+              <CopyButton value={agentPrompt} label={`Copy for ${agent.label}`} />
+              <a href={agent.skillUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-700 bg-gray-950/45 px-4 py-3 text-sm font-semibold text-gray-200 transition hover:border-gray-500">
+                Open {agent.label} skill <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </div>
           </div>
 
           <p className="mt-4 text-xs text-gray-600">
-            Hangar is open source. The skill measures before it configures and never assumes a service exists.
+            Open source · local by default · no account required. This website is the launch point, not the console running on your computer.
           </p>
         </div>
+      </section>
+
+      <section className="grid gap-px overflow-hidden rounded-2xl border border-gray-800 bg-gray-800 sm:grid-cols-2 lg:grid-cols-4" aria-label="Setup outcomes">
+        {["Measures RAM + GPU", "Uses what is installed", "Chooses a fitting local LLM", "Verifies before it finishes"].map((outcome) => (
+          <div key={outcome} className="flex items-center gap-2 bg-gray-950 px-4 py-3 text-xs font-medium text-gray-300">
+            <Check className="h-4 w-4 shrink-0 text-emerald-400" /> {outcome}
+          </div>
+        ))}
       </section>
 
       <section className="grid gap-3 md:grid-cols-3" aria-label="What the Hangar skill does">

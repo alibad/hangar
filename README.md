@@ -122,7 +122,8 @@ you debug services you never installed:
 ![The console saying the profile shown is not this machine](docs/images/console/first-run/foreign-profile.png)
 
 Two ways past it. **Ask an agent** — open this repo in Claude Code or Codex and
-run `/hangar-setup`. It probes what is actually listening here, writes the
+run `/hangar-setup`. Codex can use `.agents/skills/hangar-setup/SKILL.md`, and
+Claude Code can use `.claude/skills/hangar-setup/SKILL.md`. The skill probes what is actually listening here, writes the
 profile and its start commands, registers it, and refuses to call itself done
 while that banner is still up. Or **do it by hand** from
 [`config/hosts/example.json`](config/hosts/example.json), which documents every
@@ -295,7 +296,8 @@ src/lib/            host.ts resolves the profile; everything else hangs off it
 config/hosts/       the machines — add one by adding a file
 config/             router aliases, resource policy, model metadata
 scripts/            the service manager, MCP server, launchd templates, tests
-.claude/skills/     /hangar-setup — teaches Hangar about a new machine
+.agents/skills/     /hangar-setup — Codex setup skill for a new machine
+.claude/skills/     /hangar-setup — Claude Code setup skill for a new machine
 docs/               design notes and model experiments
 ```
 

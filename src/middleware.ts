@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_GUIDE_HOSTS = new Set(["console.humanquest.net", "hangar.humanquest.net"]);
+const PRIVATE_OPERATOR_HOSTS = new Set(["console.betenshi.com"]);
 
 function requestHost(req: NextRequest): string {
   return (req.headers.get("x-forwarded-host") || req.headers.get("host") || "")
@@ -72,11 +73,21 @@ export function middleware(req: NextRequest) {
     if (pathname !== "/guide" && pathname !== "/manifest.json") {
       const guide = req.nextUrl.clone();
       guide.pathname = "/guide";
-      return NextResponse.rewrite(guide);
+      const response = NextResponse.rewrite(guide);
+      // Do not let browsers preserve an old operator document for a public
+      // hostname. The guide itself can still cache its immutable assets.
+      response.headers.set("Cache-Control", "no-store, max-age=0");
+      return response;
     }
   }
 
-  if (!pathname.startsWith("/api/")) return NextResponse.next();
+  if (!pathname.startsWith("/api/")) {
+    const response = NextResponse.next();
+    if (PRIVATE_OPERATOR_HOSTS.has(requestHost(req))) {
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    }
+    return response;
+  }
   // Skip: the /api/traffic ingest channel; qwen generate/edit (they self-report a
   // real response status via withTraffic); and the dashboard's own status polling.
   const skip =
