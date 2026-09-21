@@ -1,5 +1,6 @@
 "use client";
 
+import Image, { type StaticImageData } from "next/image";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -15,6 +16,10 @@ import {
   Sparkles,
   TerminalSquare,
 } from "lucide-react";
+import homeScreenshot from "../../docs/images/console/b5/home/desktop/step-01-arrive.png";
+import servicesScreenshot from "../../docs/images/console/b5/services/desktop/step-01-arrive.png";
+import modelsScreenshot from "../../docs/images/console/b5/models/desktop/step-01-arrive.png";
+import imageStudioScreenshot from "../../docs/images/console/betenshi/image/desktop/step-02-generated.png";
 
 const REPOSITORY_URL = "https://github.com/alibad/hangar";
 const OLLAMA_URL = "https://ollama.com/download";
@@ -32,6 +37,40 @@ const AGENTS = {
 } as const;
 
 type AgentId = keyof typeof AGENTS;
+
+const SHOWCASE: Array<{
+  title: string;
+  description: string;
+  image: StaticImageData;
+  alt: string;
+  note?: string;
+}> = [
+  {
+    title: "One view of your machine",
+    description: "See memory headroom, what is ready, recent requests, and whether a workflow can run before you launch it.",
+    image: homeScreenshot,
+    alt: "Hangar home showing machine capacity, ready services, workstreams, and a local model fit check",
+  },
+  {
+    title: "Models sized to your hardware",
+    description: "Compare installed and available models against the RAM, GPU, and storage this computer actually has.",
+    image: modelsScreenshot,
+    alt: "Hangar model catalog filtered to models that fit an Apple M5 Max machine",
+  },
+  {
+    title: "Control every local service",
+    description: "Start, stop, inspect, and connect services to Codex or Claude Code without hunting through terminals.",
+    image: servicesScreenshot,
+    alt: "Hangar services control center showing Ollama, the service manager, and agent access configuration",
+  },
+  {
+    title: "Create with the stack",
+    description: "Use the same console for chat, local image generation, speech, vision, and 3D when the machine supports them.",
+    image: imageStudioScreenshot,
+    alt: "Hangar Image Studio on a configured NVIDIA host showing a locally generated lighthouse image",
+    note: "Shown on a configured NVIDIA host named BeTenshi",
+  },
+];
 
 function setupPrompt(agent: (typeof AGENTS)[AgentId]) {
   return `Use the Hangar setup skill at:
@@ -141,6 +180,51 @@ export default function HostedOnboarding() {
             <Check className="h-4 w-4 shrink-0 text-emerald-400" /> {outcome}
           </div>
         ))}
+      </section>
+
+      <section className="rounded-3xl border border-gray-800 bg-gray-900/35 p-4 sm:p-6" aria-labelledby="showcase-title">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-300">The local console</p>
+            <h2 id="showcase-title" className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+              See what Hangar gives you.
+            </h2>
+          </div>
+          <p className="max-w-xl text-sm leading-6 text-gray-500">
+            These are real captures from configured machines. Hangar changes with the hardware and services it discovers—so a Mac and a GPU workstation will not pretend to have the same capabilities.
+          </p>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          {SHOWCASE.map((item) => (
+            <figure key={item.title} className="group overflow-hidden rounded-2xl border border-gray-800 bg-gray-950/70">
+              <a
+                href={item.image.src}
+                target="_blank"
+                rel="noreferrer"
+                className="block overflow-hidden border-b border-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400"
+                aria-label={`Open full-size screenshot: ${item.title}`}
+              >
+                <Image
+                  src={item.image}
+                  alt={item.alt}
+                  placeholder="blur"
+                  sizes="(min-width: 1024px) 48vw, 100vw"
+                  className="aspect-[16/10] h-auto w-full object-cover object-top transition duration-300 group-hover:scale-[1.01]"
+                />
+              </a>
+              <figcaption className="p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-semibold text-gray-100">{item.title}</h3>
+                  {item.note ? (
+                    <span className="rounded-full border border-gray-800 px-2 py-0.5 text-[10px] font-medium text-gray-500">{item.note}</span>
+                  ) : null}
+                </div>
+                <p className="mt-1.5 text-xs leading-5 text-gray-500">{item.description}</p>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
       </section>
 
       <section className="grid gap-3 md:grid-cols-3" aria-label="What the Hangar skill does">
