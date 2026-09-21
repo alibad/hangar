@@ -14,8 +14,10 @@ export default function PublicHostGuard() {
     const host = window.location.hostname.toLowerCase();
     const isPublicGuide = PUBLIC_GUIDE_HOSTS.has(host) || host.endsWith(".vercel.app");
 
-    if (isPublicGuide && window.location.pathname !== "/guide") {
-      window.location.replace(`/guide${window.location.search}`);
+    const isGuidePath = window.location.pathname === "/" || window.location.pathname === "/guide";
+
+    if (isPublicGuide && !isGuidePath) {
+      window.location.replace(`/${window.location.search}`);
     }
   }, []);
 
