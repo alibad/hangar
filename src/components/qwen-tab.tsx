@@ -4,7 +4,7 @@ import { useState } from "react";
 import QwenStudio from "./qwen-studio";
 import QwenActivity from "./qwen-activity";
 import { ImageSquare } from "@phosphor-icons/react";
-import { AlertTriangle, CheckCircle2, ExternalLink, LoaderCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ExternalLink, LoaderCircle, Search } from "lucide-react";
 import { ToolPageHeader } from "./tool-page";
 import { getHostId } from "@/lib/host";
 
@@ -26,6 +26,15 @@ function MacImagePlaceholder({ onActivity }: { onActivity: () => void }) {
     }
   };
 
+  const findImageModels = () => {
+    window.sessionStorage.setItem("hangar-model-setup-capability", "image");
+    window.sessionStorage.setItem("hangar-model-search", "Qwen-Image");
+    window.localStorage.setItem("bt-active-tab", "models");
+    window.history.pushState({ tab: "models" }, "", "#models");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <section className="rounded-2xl border border-gray-800 bg-gray-900/70 p-5 sm:p-6">
       <div className="flex max-w-3xl items-start gap-3">
@@ -33,10 +42,10 @@ function MacImagePlaceholder({ onActivity }: { onActivity: () => void }) {
           <AlertTriangle className="h-5 w-5" />
         </span>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Hangar connection needs repair</p>
-          <h2 className="mt-1 text-xl font-semibold text-gray-100">Local image generation is installed, but not reliable inside Hangar yet.</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Image setup</p>
+          <h2 className="mt-1 text-xl font-semibold text-gray-100">Use Draw Things now, or set up another image model.</h2>
           <p className="mt-2 text-sm leading-relaxed text-gray-400">
-            This Mac keeps the FLUX.2 Klein image model inside <strong className="font-medium text-gray-200">Draw Things</strong>, a local image-generation app. The model works there, but Hangar&apos;s current command-line connection returns corrupted images. Generation is disabled here so you do not wait for unusable results.
+            This Mac already has FLUX.2 Klein in <strong className="font-medium text-gray-200">Draw Things</strong>, and Hangar can open that working app. Direct generation in this page is paused because its current command-line connection returns corrupted images. You can keep using Draw Things or browse other image models that fit this machine.
           </p>
         </div>
       </div>
@@ -64,7 +73,15 @@ function MacImagePlaceholder({ onActivity }: { onActivity: () => void }) {
           className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-400 disabled:cursor-wait disabled:opacity-60"
         >
           {opening ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-          {opening ? "Opening…" : "Open image generator"}
+          {opening ? "Opening…" : "Open Draw Things"}
+        </button>
+        <button
+          type="button"
+          onClick={findImageModels}
+          className="inline-flex items-center gap-2 rounded-lg border border-sky-500/35 bg-sky-500/[0.06] px-4 py-2 text-sm font-semibold text-sky-200 transition hover:border-sky-400/60 hover:bg-sky-500/10"
+        >
+          <Search className="h-4 w-4" />
+          Find image models
         </button>
         <button
           type="button"
