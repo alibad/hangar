@@ -93,6 +93,85 @@ cannot silently rot.
 
 ---
 
+## The second idea: a capability is verified by its output
+
+A host profile says what a machine **has**. It cannot say whether any of it
+**works**, and for a long time nothing here could.
+
+On 21 September 2026 an audit of this console found that every image it had
+produced on the Mac for four days was high-frequency colour static. Nothing
+noticed, because nothing looked:
+
+| Layer | What it checked | What it said |
+|---|---|---|
+| health probe | is the port answering | up |
+| the adapter | did the command exit 0 | yes |
+| `file` | is it a valid PNG | yes — signature, CRC, IEND all correct |
+| the gallery | did a file arrive | shown, with a latency badge |
+| Requests | did the HTTP call return | `200` |
+
+The cause was environmental: Draw Things' standalone CLI ships Metal 4
+cooperative-tensor shaders that macOS 27's Metal compiler rejects. The older
+build fails **silently**, returning a structurally perfect PNG of noise. The
+same weights render correctly in the Draw Things GUI app, so it was the binary,
+not the machine, and not the model.
+
+The engine was the accident. The lesson is that **a 200 is not evidence**, so
+profiles now declare a `runtimes` block — which engine drives each capability,
+and when its output was last inspected:
+
+```json
+"runtimes": {
+  "image": {
+    "driver": "mflux",
+    "model": "flux2-klein-4b",
+    "serviceId": "qwen",
+    "verifiedAt": "2026-09-21T12:16:20.000Z",
+    "verifiedNote": "512×512 in 32.9s, 78% smooth"
+  }
+}
+```
+
+`verifiedAt` is written by exactly one thing:
+
+```bash
+node scripts/doctor.mjs           # run everything, record nothing
+node scripts/doctor.mjs --write   # record only what genuinely passed
+```
+
+The doctor runs a **real job per capability and inspects the result** — it does
+not ask whether a service replied:
+
+| Capability | The job | What is checked |
+|---|---|---|
+| text | a question with one correct answer | the answer, and that it is not an empty string |
+| vision | a red square | that it says red |
+| image | 512², 4 steps | pixel statistics: a picture has flat regions, static has none |
+| tts | one spoken sentence | that the audio is long enough and not silent |
+| stt | that same audio | that the words come back |
+| embedding | three strings | that related text really does score closer than unrelated |
+| video | a few frames | the container, and a decoded frame through the image test |
+
+A failure **clears** a previous pass. A stale claim that something works is the
+exact lie the mechanism exists to prevent — which is what an OS upgrade
+produced here, silently, overnight.
+
+The same check runs inline: every image is measured before it is saved, so a
+backend that starts emitting noise returns a 502 naming the driver instead of
+filling a gallery with plausible-looking rows. The measurement and the numbers
+behind the threshold are in [`src/lib/image-quality.ts`](src/lib/image-quality.ts).
+
+**Engines are drivers, not assumptions.** The same capability has different
+right answers per machine, so the profile picks one:
+
+| Capability | Apple silicon | NVIDIA | CPU-only |
+|---|---|---|---|
+| text, vision, embedding | Ollama | Ollama or vLLM | Ollama |
+| image | mflux (MLX) | ComfyUI or Qwen-Image | not yet |
+| speech in / out | mlx-audio | Whisper / Kokoro | not yet |
+
+---
+
 ## Quick start
 
 Requires **Node 22 or newer** (`/api/scout` imports `node:sqlite`, a Node 22
@@ -152,7 +231,15 @@ ready counts, every workstream stuck on "On demand". That does not look like a
 missing supervisor; it looks like an empty box. Start it first.
 
 ```bash
-npm test          # 110 tests, run by node --test, no bundler needed
+npm test          # 126 tests, run by node --test, no bundler needed
+```
+
+Then prove the machine can do what its profile claims. This is a separate
+question from whether the services are up, and the answer is frequently
+different:
+
+```bash
+node scripts/doctor.mjs
 ```
 
 ---
@@ -295,7 +382,7 @@ src/components/     one component per surface
 src/lib/            host.ts resolves the profile; everything else hangs off it
 config/hosts/       the machines — add one by adding a file
 config/             router aliases, resource policy, model metadata
-scripts/            the service manager, MCP server, launchd templates, tests
+scripts/            the service manager, MCP server, doctor, launchd templates, tests
 .agents/skills/     /hangar-setup — Codex setup skill for a new machine
 .claude/skills/     /hangar-setup — Claude Code setup skill for a new machine
 docs/               design notes and model experiments
@@ -331,6 +418,17 @@ product. Concretely:
   - The Windows box runs a build that is **ahead of this repository** — its
     Speech Lab has two panes and voice cloning, which are not committed here.
     The BeTenshi captures document that machine, not `main`.
+  - **Video generation on the Mac is declared and unverified.** Wan 2.2 is
+    installed and wired, but its only driver is the same Draw Things CLI that
+    macOS 27 broke, so `scripts/doctor.mjs video` fails and the Video tab
+    refuses to submit. Left declared rather than deleted: the machine really
+    does have the weights, and hiding that would misreport what is here.
+  - **BeTenshi's runtimes have never been checked.** Its `runtimes` block is
+    written but carries no `verifiedAt`, because the doctor has not been run on
+    that machine. The console says "never checked" rather than guessing either
+    way.
+  - The screenshots below predate all of this and show the Image Studio's older
+    state.
 
 **Fixed in this repository, found the same way:**
 

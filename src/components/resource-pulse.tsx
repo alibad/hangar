@@ -45,7 +45,21 @@ export default function ResourcePulse({ gpu, resources, onOpenDetails }: Props) 
   const ramFree = Math.max(0, ramTotal - ramUsed);
   const queueDepth = (resources?.queue.length ?? 0) + (resources?.starts.length ?? 0);
   const constrained = gpu?.impact === "critical" || gpu?.impact === "warning";
-  const unavailable = !gpu || Boolean(gpu.error);
+  /**
+   * Three states, not two.
+   *
+   * `gpu` is null both BEFORE the first fetch lands and WHEN telemetry has
+   * genuinely failed, and this treated them identically — so for the two or
+   * three seconds after every page load the strip asserted "Telemetry
+   * unavailable · 0.0 / 128.0 GB" on a perfectly healthy machine. Read at a
+   * glance, that is a broken box. A default value rendered as a measurement is
+   * not a neutral placeholder; it is a wrong reading.
+   *
+   * `loading` is the honest first state: say nothing has arrived yet, and show
+   * the meters as unfilled rather than as zero.
+   */
+  const loading = !gpu && !resources;
+  const unavailable = !loading && (!gpu || Boolean(gpu.error));
   const unified = gpu?.memory_model === "unified";
 
   return (
@@ -63,9 +77,15 @@ export default function ResourcePulse({ gpu, resources, onOpenDetails }: Props) 
             </span>
             <span className="hidden sm:block">
               <span className="block text-xs font-semibold text-gray-100">Machine capacity</span>
-              <span className={`mt-0.5 flex items-center gap-1 text-[10px] ${unavailable ? "text-gray-500" : constrained ? "text-amber-300" : "text-emerald-300"}`}>
-                {unavailable || constrained ? <WarningCircle size={11} weight="fill" /> : <CheckCircle size={11} weight="fill" />}
-                {unavailable ? "Telemetry unavailable" : constrained ? "Headroom limited" : "Healthy headroom"}
+              <span className={`mt-0.5 flex items-center gap-1 text-[10px] ${loading ? "text-gray-600" : unavailable ? "text-gray-500" : constrained ? "text-amber-300" : "text-emerald-300"}`}>
+                {loading ? (
+                  <span className="h-[11px] w-[11px] animate-pulse rounded-full bg-gray-700" />
+                ) : unavailable || constrained ? (
+                  <WarningCircle size={11} weight="fill" />
+                ) : (
+                  <CheckCircle size={11} weight="fill" />
+                )}
+                {loading ? "Reading the machine…" : unavailable ? "Telemetry unavailable" : constrained ? "Headroom limited" : "Healthy headroom"}
               </span>
             </span>
           </span>
@@ -73,11 +93,11 @@ export default function ResourcePulse({ gpu, resources, onOpenDetails }: Props) 
           <span className="grid min-w-0 gap-1.5 lg:grid-cols-2 lg:gap-5">
             {/* One pool on a unified-memory host: two meters would show the same number twice. */}
             {unified ? (
-              <CapacityMeter label="Memory" used={ramUsed} free={ramFree} total={ramTotal} tone="ram" />
+              <CapacityMeter label="Memory" used={ramUsed} free={ramFree} total={ramTotal} tone="ram" loading={loading} />
             ) : (
               <>
-                <CapacityMeter label="GPU" used={vramUsed} free={vramFree} total={vramTotal} tone="vram" />
-                <CapacityMeter label="RAM" used={ramUsed} free={ramFree} total={ramTotal} tone="ram" />
+                <CapacityMeter label="GPU" used={vramUsed} free={vramFree} total={vramTotal} tone="vram" loading={loading} />
+                <CapacityMeter label="RAM" used={ramUsed} free={ramFree} total={ramTotal} tone="ram" loading={loading} />
               </>
             )}
           </span>
@@ -100,8 +120,10 @@ export default function ResourcePulse({ gpu, resources, onOpenDetails }: Props) 
   );
 }
 
-function CapacityMeter({ label, used, free, total, tone }: { label: string; used: number; free: number; total: number; tone: "vram" | "ram" }) {
-  const percent = clampPercent(used, total);
+function CapacityMeter({ label, used, free, total, tone, loading = false }: { label: string; used: number; free: number; total: number; tone: "vram" | "ram"; loading?: boolean }) {
+  // An unfilled bar while the first reading is in flight. Drawing `used` here
+  // would draw 0, and a meter pinned at zero reads as a measurement.
+  const percent = loading ? 0 : clampPercent(used, total);
   return (
     <span className="grid min-w-0 grid-cols-[34px_minmax(72px,1fr)_78px] items-center gap-2 sm:grid-cols-[38px_minmax(100px,1fr)_100px]">
       <span className="text-[10px] font-semibold text-gray-300">{label}</span>

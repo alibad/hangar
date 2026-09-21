@@ -32,6 +32,12 @@ const KNOWN = [
   { port: 8001, id: "whisper",     name: "Whisper STT",      healthPath: "/health",        category: "ai", serves: { stt: "whisper-1" } },
   { port: 8002, id: "tts",         name: "Kokoro TTS",       healthPath: "/health",        category: "ai", serves: { tts: "kokoro" } },
   { port: 8021, id: "qwen",        name: "Qwen-Image",       healthPath: "/health",        category: "ai", serves: { image: "qwen-image" } },
+  // The Mac toolkit adapter (scripts/local-ai-adapter.mjs). Shares the `qwen`
+  // id with the line above because Image Studio routes that id through its
+  // established generate/gallery/queue/edit paths; only one of the two ports
+  // is ever bound on a given machine. Omitting it is what made the detector
+  // report "2 of 14 known ports" on a box that was serving five capabilities.
+  { port: 8111, id: "qwen",        name: "Local AI Toolkit", healthPath: "/health",        category: "ai", localOnly: true, serves: { image: "", stt: "", tts: "" } },
   { port: 8188, id: "comfyui",     name: "ComfyUI",          healthPath: "/system_stats",  category: "app" },
   { port: 8009, id: "sam3d",       name: "SAM 3D Body",      healthPath: "/health",        category: "ai" },
   { port: 8010, id: "sam3",        name: "SAM 3",            healthPath: "/health",        category: "ai" },
@@ -67,10 +73,43 @@ async function ollamaModels() {
   try {
     const res = await fetch("http://127.0.0.1:11434/api/tags", { signal: AbortSignal.timeout(3000) });
     const d = await res.json();
-    return (d.models ?? []).map((m) => m.name);
+    return (d.models ?? []).map((m) => ({
+      name: m.name,
+      bytes: m.size ?? 0,
+      capabilities: m.capabilities ?? m.details?.capabilities ?? [],
+      family: m.details?.family ?? "",
+    }));
   } catch {
     return [];
   }
+}
+
+/**
+ * The model a person would actually want to chat with.
+ *
+ * This used to be `models[0]` — whatever Ollama happened to list first, which
+ * is by modification time. On B5 that drafted `qwen3-vl:32b-instruct`, a vision
+ * model, as the machine's text default, while the 27B it actually chats with
+ * sat fourth in the list. First-in-the-list is not a judgement about anything.
+ *
+ * Embedding models are excluded outright: they cannot hold a conversation, and
+ * a box whose only model is an embedder should draft no text capability at all
+ * rather than a broken one. Among the rest this prefers the largest, on the
+ * theory that the big checkpoint is the one that was pulled on purpose.
+ *
+ * That is a GUESS and the detector says so, because no port scan can answer it.
+ * Two models can both chat and differ in ways only a real call reveals: on this
+ * machine `qwen3-vl:32b` and `qwen3-vl:32b-instruct` are the same weights and
+ * the same size, and the first spends its whole token budget in `thinking` and
+ * returns an empty string. That is what `node scripts/doctor.mjs text` is for —
+ * the detector proposes, the doctor proves.
+ */
+function bestTextModel(models) {
+  const chat = models.filter(
+    (m) => !/embed/i.test(m.name) && !/embed/i.test(m.family) && !m.capabilities.includes("embedding"),
+  );
+  if (!chat.length) return null;
+  return [...chat].sort((a, b) => b.bytes - a.bytes)[0].name;
 }
 
 async function detectGpu() {
@@ -128,7 +167,17 @@ const services = found.map((s) => {
   if (s.localOnly) entry.localOnly = true;
   if (s.serves) {
     const serves = { ...s.serves };
-    if (s.id === "ollama" && models.length) serves.text = models[0];
+    if (s.id === "ollama" && models.length) {
+      const text = bestTextModel(models);
+      if (text) serves.text = text;
+      // A model that declares vision is worth naming separately: chatting with
+      // a text-only model and asking it to look at a screenshot is a confusing
+      // failure, and the profile is the only place that distinction can live.
+      const vision = models.find((m) => m.capabilities.includes("vision") && !/thinking/i.test(m.name));
+      if (vision) serves.vision = vision.name;
+      const embed = models.find((m) => /embed/i.test(m.name));
+      if (embed) serves.embedding = embed.name;
+    }
     // Only keep capabilities we could name a real served-model for.
     for (const [k, v] of Object.entries(serves)) if (!v) delete serves[k];
     if (Object.keys(serves).length) entry.serves = serves;
@@ -172,7 +221,21 @@ if (process.argv.includes("--json")) {
       console.log(`         If it really is ${s.name}, add it by hand. An open port is not evidence.`);
     }
   }
-  if (models.length) console.log(`\nollama models: ${models.join(", ")}`);
+  if (models.length) {
+    console.log(`\nollama models: ${models.map((m) => m.name).join(", ")}`);
+    const chat = models.filter((m) => !/embed/i.test(m.name));
+    const picked = bestTextModel(models);
+    if (picked && chat.length > 1) {
+      console.log(
+        `\n  drafted "${picked}" for text because it is the largest of ${chat.length} chat-capable\n` +
+        `  models here. That is a GUESS — size is not preference, and two models can look\n` +
+        `  identical from outside and behave differently (a "thinking" build can spend its\n` +
+        `  whole budget reasoning and return an empty string). Change it in the profile if\n` +
+        `  it is wrong, then prove whichever you choose:\n` +
+        `      node scripts/doctor.mjs text --write`,
+      );
+    }
+  }
   if (!found.length) console.log("  nothing — start your services first, or add them by hand.");
   console.log(`\nworkstreams are left EMPTY on purpose: which work this machine offers is a\njudgement about what it is FOR, not something a port scan can answer.\n`);
   console.log("--- draft profile ---");

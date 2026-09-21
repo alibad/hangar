@@ -42,6 +42,22 @@ export type ImageModel = {
  */
 export type LocalImageModel = ImageModel & { serviceId: "qwen" | "comfyui" };
 
+/**
+ * Resolved in next.config.ts and published as a plain string, the same way the
+ * host id is. NOT read from src/lib/runtimes.ts: this module is imported by a
+ * bundler-free `node --test` suite, where a relative TypeScript import chain
+ * does not resolve.
+ */
+const IMAGE_RUNTIME: { driver: string | null; label: string | null } = (() => {
+  try {
+    return JSON.parse(process.env.NEXT_PUBLIC_IMAGE_RUNTIME || "{}");
+  } catch {
+    return { driver: null, label: null };
+  }
+})();
+
+const IMAGE_DRIVER = IMAGE_RUNTIME.driver;
+
 const NVIDIA_IMAGE_MODELS: LocalImageModel[] = [
   { id: "flux2-klein-4b", name: "FLUX.2 Klein 4B", tier: "4-step · generate + edit", serviceId: "comfyui", steps: [4], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: true, supportsBatch: false },
   { id: "hidream-o1-dev", name: "HiDream-O1 Dev", tier: "8B FP8 · native 2K · experimental", serviceId: "comfyui", steps: [28], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: false, supportsBatch: false },
@@ -80,9 +96,13 @@ const NVIDIA_IMAGE_MODELS: LocalImageModel[] = [
  */
 const APPLE_IMAGE_MODELS: LocalImageModel[] = [
   {
+    // The id is historical and deliberately unchanged: it is written into every
+    // gallery row and DuckDB record this machine has produced, and renaming it
+    // would orphan them. The NAME comes from the profile, so the card says
+    // which engine is really behind it today.
     id: "draw-things-flux2-klein",
-    name: "FLUX.2 Klein 4B",
-    tier: "Draw Things · Apple silicon · generate + edit",
+    name: IMAGE_RUNTIME.label ?? "Local image model",
+    tier: IMAGE_RUNTIME.driver ? `${IMAGE_RUNTIME.driver} · generate + edit` : "local · generate + edit",
     serviceId: "qwen",
     steps: [4, 6, 8],
     defaultCfg: 1,
@@ -93,9 +113,24 @@ const APPLE_IMAGE_MODELS: LocalImageModel[] = [
   },
 ];
 
-const APPLE_HOST = process.env.NEXT_PUBLIC_HOST_ID === "b5";
-export const IMAGE_MODELS: LocalImageModel[] = APPLE_HOST ? APPLE_IMAGE_MODELS : NVIDIA_IMAGE_MODELS;
-export const DEFAULT_IMAGE_MODEL: ImageModelId = APPLE_HOST ? "draw-things-flux2-klein" : "qwen-image";
+/**
+ * Which list this host uses, decided by its DECLARED IMAGE DRIVER.
+ *
+ * This was `process.env.NEXT_PUBLIC_HOST_ID === "b5"` — one machine's name,
+ * compiled into a module that decides what every machine can generate with.
+ * Any other Mac got BeTenshi's CUDA-only ComfyUI checkpoints offered to it, and
+ * B5 could not be moved off Draw Things without editing this file.
+ *
+ * The driver is the honest axis anyway: what distinguishes these lists is not
+ * Apple-versus-NVIDIA, it is whether images come from a ComfyUI graph or from a
+ * single-model local engine. A Linux box running mflux would want the second
+ * list, and it now gets it without this module learning its hostname.
+ */
+const SINGLE_MODEL_DRIVERS = ["mflux", "draw-things-cli", "draw-things-app"] as const;
+const USES_SINGLE_MODEL = SINGLE_MODEL_DRIVERS.includes(IMAGE_DRIVER as (typeof SINGLE_MODEL_DRIVERS)[number]);
+
+export const IMAGE_MODELS: LocalImageModel[] = USES_SINGLE_MODEL ? APPLE_IMAGE_MODELS : NVIDIA_IMAGE_MODELS;
+export const DEFAULT_IMAGE_MODEL: ImageModelId = USES_SINGLE_MODEL ? "draw-things-flux2-klein" : "qwen-image";
 
 /**
  * The local models that support a capability, as prose for the tooltip that

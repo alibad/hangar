@@ -1,30 +1,22 @@
 {
   "_doc": "TEMPLATE — copy this to config/hosts/<your-host-id>.json and edit. This is the whole contract for adding a machine to the console: there is no code to write. The filename IS the host id and must equal the `id` field below (scripts/host-profiles.test.mjs enforces it). After copying, register the profile in the HOST_PROFILES map and the `known` set in next.config.ts — two one-line edits, listed at the bottom of this file. Every `_doc` and `note` key is stripped at load time and exists only for whoever reads this next. This template is validated by the same test suite as the real profiles, so it cannot silently rot.",
-
   "id": "example",
   "name": "Example Box",
-
   "_doc_selection": "HOW THIS PROFILE GETS CHOSEN: HOST_ID env var → a hostname equal to this id (case-insensitive, .local stripped) → platform inference → the default profile. So naming the file after the machine's actual hostname is usually all the wiring needed. Resolution happens ONCE, in next.config.ts, and is published as NEXT_PUBLIC_HOST_ID; see src/lib/host.ts.",
-
   "platform": "linux",
   "_doc_platform": "win32 | darwin | linux. Drives platform-specific probes — notably how the GPU is read (nvidia-smi vs. IOAccelerator counters).",
-
   "gpu": "nvidia",
   "_doc_gpu": "nvidia | apple | none. `none` is legitimate: a CPU-only box still runs the console, still supervises services, and simply reports no accelerator.",
-
   "memory": {
     "_doc": "THE MOST IMPORTANT FIELD IN THE FILE. `kind` decides whether VRAM and system RAM are one budget or two, and that reshapes the UI and the model-fit maths. discrete → a card and a host with SEPARATE budgets; give vramTotalGb and ramTotalGb, and the console shows two bars and refuses a model that will not fit the card. unified → Apple silicon, ONE pool shared by CPU and GPU; give totalGb only, and the console shows a single Memory bar and treats a model's footprint as one number. Getting this wrong does not error — it silently budgets against the wrong ceiling. Totals are a last-resort label used only until live telemetry arrives.",
     "kind": "discrete",
     "vramTotalGb": 24,
     "ramTotalGb": 64
   },
-
   "logsDir": null,
   "_doc_logsDir": "Where per-service uvicorn access logs live, for the Requests tab's traffic tail. `~` is expanded. null means this host keeps no such directory — the tab still works, it just has no on-disk history to read.",
-
   "commandsFile": "service-commands.example.json",
   "_doc_commandsFile": "scripts/<file> that scripts/manager.cjs reads start commands from. Each host gets its own, because the command that starts vLLM on a Windows box is not the command that starts it anywhere else. Create it alongside this profile; without it the manager has nothing to Start.",
-
   "_doc_services": "Everything this machine runs. `id` is referenced by workstreams, footprints and the tab-availability maps, so treat it as stable. Ports must be unique. A service listed here appears on the Services page whether or not it is running — that is the point: a host says what it HAS, and the console reports which of those are up.",
   "services": [
     {
@@ -94,11 +86,30 @@
       "note": "localOnly: this NEVER leaves the box. getServiceUrl() returns localUrl for it even from a deployed build, so a hosted console physically cannot route to it. Set this on anything that is a bare HTTP API with no auth of its own — such a thing must never acquire a public hostname, and marking it here is stronger than remembering not to give it one."
     }
   ],
-
+  "runtimes": {
+    "_doc": "WHICH ENGINE DRIVES EACH CAPABILITY, AND WHETHER ITS OUTPUT HAS BEEN PROVEN. This is the newest block and the one that stops the console lying to you. `services` says what is INSTALLED and listening; `runtimes` says what is DRIVING a capability and when someone last checked that what comes out is real. The two are not one-to-one: one service can serve five capabilities, and one capability can have several possible engines of which only some work on a given OS. WHY IT EXISTS: in September 2026 every image one machine produced for four days was pure colour static. The service was up, the port answered, the PNG was structurally valid, the gallery showed it with a latency badge and the request log said 200. Nothing anywhere looked at the pixels. THE RULE: `verifiedAt` and `verifiedNote` are written ONLY by scripts/doctor.mjs, and only after it ran a real job and inspected the OUTPUT — an image is measured for noise, speech is transcribed back, embeddings must score related text above unrelated. Never set them by hand, and never let a UI infer 'ready' from a health check. A runtime with no verifiedAt is shown as unproven, which is honest and is NOT the same as broken.",
+    "_doc_drivers": "driver must be one of: ollama | vllm | comfyui | qwen-native | draw-things-cli | draw-things-app | mflux | mlx-audio | whisper | kokoro. The list lives in RuntimeDriver in src/lib/runtimes.ts and is enforced by scripts/host-profiles.test.mjs, so a typo fails the build instead of silently disabling a capability. null is legitimate and means 'declared, nothing drives it here yet'. PICKING ONE: text/vision/embedding — ollama on any OS, vllm on a big NVIDIA box. image — comfyui or qwen-native on NVIDIA; on Apple silicon prefer mflux (pure MLX, headless, pip-installable) over draw-things-cli, which shipped Metal 4 shaders that macOS 27's compiler rejects and which fails SILENTLY by returning noise. stt/tts — whisper+kokoro on NVIDIA, mlx-audio on Apple silicon.",
+    "text": {
+      "driver": "vllm",
+      "model": "your-served-model-name",
+      "label": "Your Model",
+      "serviceId": "my-llm",
+      "_doc": "`model` must equal the matching services[].serves.text where both are present — the test suite fails the build otherwise, because the console would call one model and name another. `label` is what the UI shows; `serviceId` must name a service in the array above."
+    },
+    "image": {
+      "driver": null,
+      "model": "",
+      "_doc": "A capability this machine does not do yet. Declared with a null driver rather than omitted, so the console can say 'no image engine is set up here' instead of the tab silently reporting itself unavailable. Set mirrorsToArchive: true ONLY if the backend writes its own Activity archive entry (the native Qwen-Image service is the only one that does); otherwise the console mirrors for it, and getting this backwards either empties the Activity feed or doubles every image on disk."
+    },
+    "stt": {
+      "driver": "whisper",
+      "model": "whisper-1",
+      "label": "Whisper",
+      "serviceId": "my-stt"
+    }
+  },
   "_doc_publicUrl": "publicUrl is only ever used when the console runs somewhere OTHER than this machine (VERCEL is set); locally, getServiceUrl() always returns localUrl. Write the domain as ${PUBLIC_DOMAIN} rather than a literal hostname — it is substituted at load time from the PUBLIC_DOMAIN env var and falls back to example.com. This keeps the list of what a machine exposes out of the repository. If a host has no off-box address at all, set publicUrl equal to localUrl, as `manager` does above.",
-
   "_doc_authRequired": "true means the public hostname sits behind Cloudflare Access, so a DEPLOYED console must present CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET (see .env.example). It has no effect locally. Setting it true without providing the token does not fail loudly — the service reports UP and returns an HTML login page to every call.",
-
   "_doc_workstreams": "What this machine can be asked to DO, as the Home page offers it. Keys are fixed: text | image | audio | files. DECLARE ONLY WHAT THIS HOST CAN ACTUALLY BACK — this section exists because the Home page used to hardcode one machine's four workstreams, so every other host advertised work it could not do and offered buttons into tabs that were not there. `serviceId` must name a service in the array above. vramGb/ramGb are measured footprints, used by the pre-flight 'can it run?' panel. `color` is one of orange | violet | blue | emerald; the icon is chosen in code.",
   "workstreams": {
     "text": {
@@ -124,6 +135,5 @@
       "action": "Open speech"
     }
   },
-
-  "_doc_finally": "TWO EDITS OUTSIDE THIS FILE, then you are done: (1) src/lib/host.ts — import the JSON and add it to HOST_PROFILES; (2) next.config.ts — add the id to the `known` set in detectHostId(). The duplication is deliberate and commented there: next.config.ts cannot import from src/, and host.ts must not import `os` because two client components pull in the service registry. Then run `npm test` — host-profiles.test.mjs validates every file in this directory, including this one."
+  "_doc_finally": "TWO EDITS OUTSIDE THIS FILE, then you are done: (1) src/lib/host.ts — import the JSON and add it to HOST_PROFILES; (2) next.config.ts — add the id to the `known` set in detectHostId(). The duplication is deliberate and commented there: next.config.ts cannot import from src/, and host.ts must not import `os` because two client components pull in the service registry. Then run `npm test` — host-profiles.test.mjs validates every file in this directory, including this one. THEN PROVE IT: `node scripts/doctor.mjs --write` runs a real job through every runtime you declared and records only what genuinely passed. Until you do, the console shows each capability as unproven — which is the truth, and is the whole point of the runtimes block."
 }

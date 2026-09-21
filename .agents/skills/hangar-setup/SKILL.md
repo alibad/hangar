@@ -79,7 +79,46 @@ removed. Read `config/hosts/example.json` for the schema.
 - `services` contains only verified services.
 - Capability ids are `text`, `vision`, `image`, `stt`, and `tts`.
 - `workstreams` contains only work actually backed by a listed service.
+- `runtimes` declares which ENGINE drives each capability. `services` says what
+  is listening; `runtimes` says what does the work and whether its output has
+  been checked. Add it — `example.json` documents every field.
 - Keep `publicUrl` expressed with `${PUBLIC_DOMAIN}`; do not hard-code a host.
+
+### Choosing a driver
+
+| Capability | Apple silicon | NVIDIA | CPU-only / other |
+|---|---|---|---|
+| text, vision, embedding | `ollama` | `ollama` or `vllm` | `ollama` |
+| image | `mflux` | `comfyui` or `qwen-native` | `null` |
+| stt / tts | `mlx-audio` | `whisper` / `kokoro` | `null` |
+| video | `draw-things-cli` | `comfyui` | `null` |
+
+`driver: null` is a legitimate answer and is better than a guess: it makes the
+console say the capability is not set up rather than offering a dead button.
+
+On Apple silicon prefer `mflux` over `draw-things-cli`. The standalone Draw
+Things CLI ships Metal 4 cooperative-tensor shaders that macOS 27's Metal
+compiler rejects; the older build returns a valid PNG of pure noise without
+erroring, and the current one crashes. The same weights render correctly in the
+Draw Things GUI app. Install mflux with `uv tool install mflux` after asking,
+and expect roughly 5 GB of weights on the first run.
+
+### Prove every runtime
+
+```bash
+node scripts/doctor.mjs            # run everything, record nothing
+node scripts/doctor.mjs --write    # record only what genuinely passed
+```
+
+The doctor runs a real job per capability and inspects the OUTPUT: it measures
+an image for noise, transcribes the speech it just synthesized, and checks that
+embeddings rank related text above unrelated text. It writes `verifiedAt` only
+on a pass and clears a previous pass on a failure.
+
+Never write `verifiedAt` by hand. It is the console's whole basis for claiming a
+capability works, and a hand-written one is a claim nobody checked. This field
+exists because a machine produced pure static for four days while every health
+check reported success.
 
 Create `scripts/service-commands.<id>.json` from the example. Discover real
 commands using the running process, service launcher, or user input. Never invent
@@ -98,11 +137,15 @@ npm test
 npm run build
 curl -s http://localhost:8003/api/host
 curl -s http://localhost:8003/api/health
+node scripts/doctor.mjs
 ```
 
 Start or restart Hangar when needed. Do not report success until `/api/host`
 shows `matchesProfile: true`, the console identifies this computer, and the local
 model responds. A declared service reporting down must be investigated or removed.
+
+A service that is up while its runtime fails the doctor is the most important
+thing to report: that is a machine which looks healthy and produces garbage.
 
 ## 6. Offer optional integration
 
@@ -117,5 +160,8 @@ Do not silently enable these:
 ## Report
 
 State what was measured, what was configured, what was verified, and what remains
-unavailable or unidentified. Never call a placeholder start command configured,
-and never claim setup is complete while the host mismatch warning remains.
+unavailable or unidentified. Report listening and working as separate numbers:
+`{up}/{n} services up` and `{v}/{r} runtimes verified`. Never call a placeholder
+start command configured, never present a health check as proof that a
+capability works, and never claim setup is complete while the host mismatch
+warning remains.

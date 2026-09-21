@@ -14,6 +14,8 @@ import { getImageModel, isImageModelId, type ImageModelId } from "@/lib/image-mo
 import { getCatalogue, routerUrl } from "@/lib/providers";
 import { mirrorImageHistory } from "@/lib/image-history";
 import { ResourceLeaseError, withResourceLease, workloadForImageModel } from "@/lib/resource-manager";
+import { inspectImage } from "@/lib/image-quality";
+import { getRuntime } from "@/lib/runtimes";
 
 /**
  * Which backend served (or would have served) the call.
@@ -157,10 +159,47 @@ export async function generateAndSave(
       : await generate();
 
     const latency = Date.now() - start;
+
+    /**
+     * Nothing is saved without being looked at.
+     *
+     * The local adapter already gates its own output, so on this path this is
+     * the second check rather than the first — deliberately. It also covers the
+     * two backends the adapter never sees: ComfyUI graphs and cloud models
+     * reached through the router. Between 2026-09-20 and 2026-09-21 three
+     * generations of pure static were written to the gallery, indexed in
+     * DuckDB, and returned as `status: "success"` with a latency badge, because
+     * the only question anyone asked was whether the HTTP call came back.
+     *
+     * Rejecting costs one wasted generation. Accepting costs a gallery of
+     * plausible-looking rows nobody can tell apart from real ones.
+     */
+    const verdict = inspectImage(buf);
+    if (!verdict.ok) {
+      return {
+        ok: false,
+        target,
+        status: 502,
+        body: {
+          error: verdict.reason,
+          badOutput: true,
+          model: modelId,
+          latency,
+          metrics: { smoothFraction: verdict.smoothFraction, neighbourDelta: verdict.neighbourDelta },
+        },
+      };
+    }
+
     // Record the alias that was actually asked for, not the local fallback —
     // otherwise every cloud comparison would archive as "qwen-image".
     const saved = await saveImage(buf, { kind: "generate", model: modelId, ...payload, latency, folder });
-    if (target === "comfyui") await mirrorImageHistory(buf, { kind: "generate", model: modelId, ...payload, ms: latency, folder });
+    // Mirror into the Activity firehose unless this backend already does it for
+    // itself. Declared, not inferred: the old `target === "comfyui"` test was
+    // true on exactly one machine and left every other host's Activity tab
+    // empty. See mirrorImageHistory().
+    const archived = getRuntime("image")?.mirrorsToArchive
+      ? null
+      : await mirrorImageHistory(buf, { kind: "generate", model: modelId, ...payload, ms: latency, folder });
 
     return {
       ok: true,
@@ -173,6 +212,8 @@ export async function generateAndSave(
         model: modelId,
         saved: saved?.file ?? null,
         savedPath: saved?.path ?? null,
+        // Archive-relative, which is what the Requests detail panel serves from.
+        archived,
         ...payload,
       },
     };

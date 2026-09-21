@@ -12,6 +12,10 @@ import {
   sumUsage,
   type AssistantSnapshot,
 } from "@/lib/assistant-usage-data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+/** Sentinel for "no filter"; an empty string is not a valid Select value. */
+const ALL = "__all__";
 
 type Source = "router" | "all" | "codex" | "claude";
 const SOURCES = [
@@ -219,18 +223,16 @@ function AssistantUsage({
         </button>
       </div>
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-800 bg-gray-950 p-3">
-        <select
-          aria-label="Date range"
-          value={range}
-          onChange={(e) => selectRange(e.target.value)}
-          className={control}
-        >
-          <option value="1">Today</option>
-          <option value="7">Last 7 days</option>
-          <option value="30">Last 30 days</option>
-          <option value="all">All time</option>
-          <option value="custom">Custom dates</option>
-        </select>
+        <Select value={range} onValueChange={(v) => v && selectRange(String(v))}>
+          <SelectTrigger aria-label="Date range" className={control}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="border-gray-700 bg-gray-900 text-gray-200">
+            {([["1", "Today"], ["7", "Last 7 days"], ["30", "Last 30 days"], ["all", "All time"], ["custom", "Custom dates"]] as const).map(([v, text]) => (
+              <SelectItem key={v} value={v}>{text}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <input
           aria-label="From date"
           type="date"
@@ -254,30 +256,31 @@ function AssistantUsage({
           }}
           className={control}
         />
-        <select
-          aria-label="Model filter"
-          value={activeModel}
-          onChange={(e) => setModel(e.target.value)}
-          className={`${control} max-w-64`}
-        >
-          <option value="">All models</option>
-          {models.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </select>
-        <select
-          aria-label="Project filter"
-          value={activeProject}
-          onChange={(e) => setProject(e.target.value)}
-          className={`${control} max-w-56`}
-        >
-          <option value="">All projects</option>
-          {byLabel.map((p) => (
-            <option key={p} value={p} title={p}>
-              {label(p)}
-            </option>
-          ))}
-        </select>
+        {/* "" is not a legal Select value, so "All models" carries a sentinel
+            that is translated at the boundary. The filter state itself stays ""
+            so every reader of it is unchanged. */}
+        <Select value={activeModel || ALL} onValueChange={(v) => v && setModel(String(v) === ALL ? "" : String(v))}>
+          <SelectTrigger aria-label="Model filter" className={`${control} max-w-64`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="border-gray-700 bg-gray-900 text-gray-200">
+            <SelectItem value={ALL}>All models</SelectItem>
+            {models.map((m) => (
+              <SelectItem key={m} value={m}>{m}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={activeProject || ALL} onValueChange={(v) => v && setProject(String(v) === ALL ? "" : String(v))}>
+          <SelectTrigger aria-label="Project filter" className={`${control} max-w-56`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="border-gray-700 bg-gray-900 text-gray-200">
+            <SelectItem value={ALL}>All projects</SelectItem>
+            {byLabel.map((p) => (
+              <SelectItem key={p} value={p} title={p}>{label(p)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {(activeModel || activeProject) && (
           <button
             type="button"

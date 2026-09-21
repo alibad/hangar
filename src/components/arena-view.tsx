@@ -6,6 +6,7 @@ import type { Footprint } from "./model-footprint";
 import { ToolPageHeader, ToolSectionHeading } from "./tool-page";
 import { useVoiceInput, appendTranscript } from "./voice-input";
 import { Swords, ImagePlus, X, Gavel, Loader2, Copy, Check, Cpu, Cloud, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /**
  * Arena — one prompt, several chat models, side by side, with real scores.
@@ -840,19 +841,22 @@ export default function ArenaView() {
             description="For tasks with no reference answer. The judge sees the outputs labelled A, B, C with no model names, and cannot be one of the contestants."
           />
           <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={judgeModel}
-              onChange={(e) => setJudgeModel(e.target.value)}
-              className="rounded-xl border border-gray-700 bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-            >
-              <option value="">Pick a judge…</option>
-              {judgeCandidates.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.id}
-                  {m.local ? " (local)" : ""}
-                </option>
-              ))}
-            </select>
+            <Select value={judgeModel} onValueChange={(v) => v && setJudgeModel(String(v))}>
+              <SelectTrigger
+                aria-label="Judge model"
+                className="w-64 rounded-xl border-gray-700 bg-gray-800 px-3 py-2 text-sm"
+              >
+                <SelectValue placeholder="Pick a judge…" />
+              </SelectTrigger>
+              <SelectContent className="border-gray-700 bg-gray-900 text-gray-200">
+                {judgeCandidates.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.id}
+                    {m.local ? " (local)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <button
               type="button"
               onClick={runJudge}

@@ -32,7 +32,7 @@
       "healthPath": "/api/tags",
       "serves": {
         "text": "qwen3.8:27b-mlx",
-        "vision": "qwen3.8:27b-mlx",
+        "vision": "qwen3-vl:32b-instruct",
         "embedding": "qwen3-embedding:0.6b"
       },
       "category": "ai",
@@ -40,7 +40,7 @@
       "llm": {
         "model": "qwen3.8:27b-mlx"
       },
-      "note": "Every text and vision model on this box is served here, on Ollama's OpenAI-compatible /v1 surface. `llm.model` is the default the LLM tab talks to; the other pulled checkpoints (gemma4:31b-mlx, qwen3-vl:32b-instruct) are one `model` field away. Usually owned by Ollama.app (menu bar), in which case the manager adopts the process rather than spawning its own. Cloud is disabled in ~/.ollama/server.json and it listens on loopback only."
+      "note": "Every text and vision model on this box is served here, on Ollama's OpenAI-compatible /v1 surface. `llm.model` is the default the LLM tab talks to; the other pulled checkpoints (gemma4:31b-mlx, qwen3.8:27b-mlx for vision) are one `model` field away. Usually owned by Ollama.app (menu bar), in which case the manager adopts the process rather than spawning its own. Cloud is disabled in ~/.ollama/server.json and it listens on loopback only. Vision is served by qwen3-vl:32b-instruct rather than the 27B: both can see, but the VL instruct build is the one scripts/doctor.mjs has actually verified on this machine, and `serves` must name what is driven."
     },
     {
       "id": "qwen",
@@ -50,8 +50,8 @@
       "publicUrl": "http://127.0.0.1:8111",
       "healthPath": "/health",
       "serves": {
-        "image": "flux2-klein-4b-draw-things",
-        "video": "wan2.2-ti2v-5b-draw-things",
+        "image": "flux2-klein-4b",
+        "video": "wan2.2-ti2v-5b",
         "stt": "qwen3-asr-1.7b-8bit",
         "tts": "qwen3-tts-1.7b-customvoice"
       },
@@ -95,6 +95,66 @@
       "ramGb": 9,
       "color": "blue",
       "action": "Open speech"
+    }
+  },
+  "runtimes": {
+    "_doc": "WHAT ACTUALLY DRIVES EACH CAPABILITY, AND WHETHER IT HAS BEEN PROVEN. `driver` names an engine the code knows how to call (see RuntimeDriver in src/lib/runtimes.ts); `serviceId` is the service that must be up; `verifiedAt` is written ONLY by scripts/doctor.mjs, and only after it ran a real job and inspected the OUTPUT. Nothing else may set it, and no UI may infer 'ready' from a health check. This block exists because for four days in September 2026 every image this machine produced was pure static while every health check said it was fine.",
+    "text": {
+      "driver": "ollama",
+      "model": "qwen3.8:27b-mlx",
+      "label": "Qwen3.8 27B (MLX)",
+      "serviceId": "ollama",
+      "verifiedAt": "2026-09-21T12:16:20.327Z",
+      "verifiedNote": "111035 ms, answered correctly"
+    },
+    "vision": {
+      "driver": "ollama",
+      "model": "qwen3-vl:32b-instruct",
+      "label": "Qwen3-VL 32B Instruct",
+      "serviceId": "ollama",
+      "note": "The INSTRUCT variant deliberately. `qwen3-vl:32b` is the thinking build: Ollama's think:false does not disable its reasoning, so it spends the whole budget in `thinking` and returns an empty `content`. The doctor's vision check fails on an empty string for exactly that reason.",
+      "verifiedAt": "2026-09-21T12:16:20.327Z",
+      "verifiedNote": "31534 ms, identified the colour"
+    },
+    "embedding": {
+      "driver": "ollama",
+      "model": "qwen3-embedding:0.6b",
+      "label": "Qwen3 Embedding 0.6B",
+      "serviceId": "ollama",
+      "verifiedAt": "2026-09-21T12:16:20.327Z",
+      "verifiedNote": "1024 dimensions in 151 ms, related 0.81 vs unrelated 0.24"
+    },
+    "image": {
+      "driver": "mflux",
+      "model": "flux2-klein-4b",
+      "label": "FLUX.2 Klein 4B (MLX)",
+      "serviceId": "qwen",
+      "note": "mflux, NOT the Draw Things CLI. On 2026-09-21 that CLI returned pure static on this machine: macOS 27's Metal compiler rejects the Metal 4 cooperative-tensor shaders it ships (matmul2d_descriptor, execution_simdgroups). The pinned July build fails SILENTLY with a valid PNG of noise; the current 26.0910.1 crashes with the shader error. The same weights render fine in the Draw Things GUI app, so this is the standalone binary. mflux runs on MLX, which is a different compute stack and already proven on this box by the speech models. Verified 512x512 in 5.3 s of sampling, 10.5 GB peak.",
+      "verifiedAt": "2026-09-21T12:16:20.327Z",
+      "verifiedNote": "512×512 in 32.9s, 78% smooth"
+    },
+    "video": {
+      "driver": "draw-things-cli",
+      "model": "wan2.2-ti2v-5b",
+      "label": "Wan 2.2 TI2V 5B",
+      "serviceId": "qwen",
+      "note": "Same broken CLI as the image note above, so this is expected to fail until either the CLI works again on this macOS or an MLX video driver is added. Left DECLARED and unverified rather than deleted: the machine has the weights and the wiring, and hiding that would misreport what is here. The Video tab refuses to submit while this is unverified."
+    },
+    "stt": {
+      "driver": "mlx-audio",
+      "model": "qwen3-asr-1.7b-8bit",
+      "label": "Qwen3-ASR 1.7B",
+      "serviceId": "qwen",
+      "verifiedAt": "2026-09-21T12:16:20.327Z",
+      "verifiedNote": "85% of words recovered in 4.5s"
+    },
+    "tts": {
+      "driver": "mlx-audio",
+      "model": "qwen3-tts-1.7b-customvoice",
+      "label": "Qwen3-TTS CustomVoice",
+      "serviceId": "qwen",
+      "verifiedAt": "2026-09-21T12:16:20.327Z",
+      "verifiedNote": "3.8s of audio in 3.5s, peak 66%"
     }
   }
 }
