@@ -87,10 +87,20 @@ things in it decide how the whole console behaves:
 Getting this wrong does not error. It silently budgets against the wrong
 ceiling, and the first sign is a model that will not load for no visible reason.
 
-**Ports that are open but answered nothing are reported separately and left
-out.** That is deliberate, and you must not override it by assuming. If the user
-says a service really is there, confirm what it is — ask, or read its start
-command — before adding it.
+**Ports the detector will not vouch for are reported separately and left out.**
+That is deliberate, and you must not override it by assuming. There are two
+such cases and they need different responses:
+
+- **"SOMETHING ELSE is on these ports"** — the port answered, but not in the
+  shape that service returns. Another program is holding it. Never add the
+  service: declaring it makes the console report it DOWN forever while somebody
+  debugs software they never installed. This is a real failure, not a
+  hypothetical — on 2026-09-21 the detector reported `:4000 ai-router HTTP 200`
+  on a Mac with no router installed, because another project's dev server had
+  the port.
+- **"listening but NOT identified"** — something is bound and answered nothing.
+  If the user says a service really is there, confirm what it is — ask, or read
+  its start command — before adding it.
 
 ### Ensure there is a local text model
 

@@ -44,6 +44,16 @@ Read the detector output. Preserve its distinction between Apple unified memory
 and discrete GPU memory. Only configure services that respond and are identified.
 An open port alone is not proof of a capability.
 
+The detector now reports three outcomes, and the middle one matters most:
+
+- **identified** — it answered, and its reply has the shape that service returns.
+- **SOMETHING ELSE is on this port** — it answered, but with the wrong shape.
+  Never add these. Another program is holding the port, and declaring the
+  service anyway makes the console report it DOWN forever while its owner
+  debugs software they never installed.
+- **listening but not identified** — something is bound and said nothing.
+  Ask the user what it is before adding it.
+
 ## 3. Ensure a local text model works
 
 Inspect Ollama before installing or downloading anything:

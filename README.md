@@ -215,9 +215,17 @@ node scripts/detect-host.mjs
 ```
 
 That prints the hostname, platform, accelerator, memory model and every known
-port that answers — and pointedly leaves out ports that are open but answered
-nothing, because an open port is not evidence that the expected service is
-behind it.
+port that answers *in the shape that service answers in*. It leaves out two
+kinds of port, for two different reasons:
+
+- **open but silent** — something is bound and said nothing. An open port is
+  not evidence that the expected service is behind it.
+- **answering, but wrong** — something is bound and replied with the wrong
+  shape. This one was learned the hard way: the detector once reported
+  `:4000 ai-router HTTP 200` on a Mac with no router installed, because another
+  project's dev server held the port. A wrong identification is worse than a
+  missing one, because the console then reports that service as DOWN forever
+  while you debug software you never installed.
 
 **The service manager is the other half.** Start/Stop buttons all go through a
 supervisor on `127.0.0.1:8099`:

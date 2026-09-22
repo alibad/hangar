@@ -13,39 +13,33 @@
  * It deliberately does not write any file. A profile is the thing the console
  * trusts about a machine; something that guessed one into place silently would
  * be worse than the fallback it replaced.
+ *
+ * ── A PORT IS NOT AN IDENTITY ───────────────────────────────────────────────
+ * This used to identify a service by two facts: the port matched its table, and
+ * something answered. That is not enough, and it was caught in the act on
+ * 2026-09-21 — this script reported `:4000 ai-router HTTP 200` on a Mac with no
+ * router installed at all. Some other project's dev server held the port for a
+ * few minutes and was duly written into a draft profile as the AI Router.
+ *
+ * The script was already careful about the opposite case, reporting a port that
+ * answers NOTHING as unidentified, with the line "an open port is not
+ * evidence". It then went on to treat any answer at all as conclusive. A wrong
+ * identification is worse than a missing one: a missing service is a gap
+ * someone fills, and a wrong one is a service the console reports as DOWN
+ * forever while somebody debugs software they never installed.
+ *
+ * So every entry now declares what its answer should LOOK like, and a port that
+ * answers with the wrong shape is reported as a mismatch rather than adopted.
  */
 
 import { execFile } from "node:child_process";
 import { createConnection } from "node:net";
 import os from "node:os";
 import { promisify } from "node:util";
+import { KNOWN, classifyAnswer, MAX_PROBE_BYTES } from "./detect-host.probe.mjs";
 
 const run = promisify(execFile);
 const GB = (bytes) => Math.round((bytes / 1024 ** 3) * 10) / 10;
-
-/** Ports this project knows how to serve, and what answers there. */
-const KNOWN = [
-  { port: 8099, id: "manager",     name: "Service Manager",  healthPath: "/services",      category: "monitoring" },
-  { port: 11434, id: "ollama",     name: "Ollama",           healthPath: "/api/tags",      category: "ai", serves: { text: "" } },
-  { port: 8005, id: "vllm",        name: "vLLM",             healthPath: "/health",        category: "ai", serves: { text: "" } },
-  { port: 8006, id: "vllm-small",  name: "vLLM (small)",     healthPath: "/health",        category: "ai", serves: { text: "" } },
-  { port: 8001, id: "whisper",     name: "Whisper STT",      healthPath: "/health",        category: "ai", serves: { stt: "whisper-1" } },
-  { port: 8002, id: "tts",         name: "Kokoro TTS",       healthPath: "/health",        category: "ai", serves: { tts: "kokoro" } },
-  { port: 8021, id: "qwen",        name: "Qwen-Image",       healthPath: "/health",        category: "ai", serves: { image: "qwen-image" } },
-  // The Mac toolkit adapter (scripts/local-ai-adapter.mjs). Shares the `qwen`
-  // id with the line above because Image Studio routes that id through its
-  // established generate/gallery/queue/edit paths; only one of the two ports
-  // is ever bound on a given machine. Omitting it is what made the detector
-  // report "2 of 14 known ports" on a box that was serving five capabilities.
-  { port: 8111, id: "qwen",        name: "Local AI Toolkit", healthPath: "/health",        category: "ai", localOnly: true, serves: { image: "", stt: "", tts: "" } },
-  { port: 8188, id: "comfyui",     name: "ComfyUI",          healthPath: "/system_stats",  category: "app" },
-  { port: 8009, id: "sam3d",       name: "SAM 3D Body",      healthPath: "/health",        category: "ai" },
-  { port: 8010, id: "sam3",        name: "SAM 3",            healthPath: "/health",        category: "ai" },
-  { port: 3001, id: "webui",       name: "Open WebUI",       healthPath: "/",              category: "app" },
-  { port: 3002, id: "grafana",     name: "Grafana",          healthPath: "/api/health",    category: "monitoring" },
-  { port: 9090, id: "prometheus",  name: "Prometheus",       healthPath: "/-/healthy",     category: "monitoring" },
-  { port: 4000, id: "ai-router",   name: "AI Router",        healthPath: "/health/liveliness", category: "ai", localOnly: true },
-];
 
 /** Is anything listening? A TCP connect, because a health path may 404 and still be a live service. */
 function listening(port, timeoutMs = 400) {
@@ -59,10 +53,31 @@ function listening(port, timeoutMs = 400) {
   });
 }
 
+/**
+ * Ask a port what it is, and keep the answer — not just its status code.
+ *
+ * The body is what makes the difference between "something answered" and "the
+ * expected service answered", so it is read and, where it parses, kept as JSON.
+ *
+ * PARSE THE WHOLE BODY, up to MAX_PROBE_BYTES. Clipping before parsing is what
+ * made the first version of the shape check report the real service manager as
+ * an impostor; see the constant's own note.
+ */
 async function probeHealth(port, path) {
   try {
     const res = await fetch(`http://127.0.0.1:${port}${path}`, { signal: AbortSignal.timeout(2500) });
-    return { status: res.status, ok: res.ok };
+    const full = await res.text();
+    if (full.length > MAX_PROBE_BYTES) {
+      return { status: res.status, ok: res.ok, text: full.slice(0, 2048), json: undefined, oversized: true };
+    }
+    let json;
+    try {
+      json = JSON.parse(full);
+    } catch {
+      json = undefined;
+    }
+    // `text` is kept short for reporting; `json` is parsed from the whole body.
+    return { status: res.status, ok: res.ok, text: full.slice(0, 2048), json };
   } catch {
     return null;
   }
@@ -139,14 +154,17 @@ const { gpu, memoryKind, gpuName, vramTotalGb } = await detectGpu();
 // something listening on :8021 that answered no HTTP at all; drafting a
 // Qwen-Image service from that would have put a service in the profile that
 // does not exist, which is the exact failure the host profile is meant to end.
-// Only ports that answer HTTP become services; the rest are reported for a
-// human to identify.
+// Three outcomes, not two. A port that answers with the WRONG shape is the
+// case this script used to get silently wrong, and it is now its own bucket.
 const found = [];
 const unidentified = [];
+const mismatched = [];
 for (const svc of KNOWN) {
   if (!(await listening(svc.port))) continue;
-  const health = await probeHealth(svc.port, svc.healthPath);
-  if (health) found.push({ ...svc, health });
+  const health = await probeHealth(svc.port, svc.verifyPath ?? svc.healthPath);
+  const verdict = classifyAnswer(svc, health);
+  if (verdict.state === "identified") found.push({ ...svc, health, weak: verdict.weak });
+  else if (verdict.state === "mismatch") mismatched.push({ ...svc, health, why: verdict.why });
   else unidentified.push(svc);
 }
 
@@ -204,7 +222,11 @@ const profile = {
 };
 
 if (process.argv.includes("--json")) {
-  console.log(JSON.stringify({ ...profile, _unidentifiedPorts: unidentified.map((u) => u.port) }, null, 2));
+  console.log(JSON.stringify({
+    ...profile,
+    _unidentifiedPorts: unidentified.map((u) => u.port),
+    _mismatchedPorts: mismatched.map((m) => ({ port: m.port, expected: m.id, why: m.why })),
+  }, null, 2));
 } else {
   console.log(`machine      ${machine}   ->  profile id "${id}"`);
   console.log(`platform     ${process.platform}`);
@@ -212,12 +234,21 @@ if (process.argv.includes("--json")) {
   console.log(`memory       ${memoryKind}${memoryKind === "unified" ? ` · ${memory.totalGb} GB one pool` : ` · ${memory.vramTotalGb} GB VRAM + ${memory.ramTotalGb} GB RAM`}`);
   console.log(`\nidentified (${found.length} of ${KNOWN.length} known ports):`);
   for (const s of found) {
-    console.log(`  :${String(s.port).padEnd(5)} ${s.id.padEnd(12)} HTTP ${s.health.status}`);
+    console.log(`  :${String(s.port).padEnd(5)} ${s.id.padEnd(12)} HTTP ${s.health.status}${s.weak ? "   (shape not verified — only that it speaks JSON)" : ""}`);
+  }
+  if (mismatched.length) {
+    console.log(`\nSOMETHING ELSE is on these ports — left out of the draft:`);
+    for (const s of mismatched) {
+      console.log(`  :${String(s.port).padEnd(5)} expected ${s.name}, but ${s.why}.`);
+      console.log(`         Whatever is holding this port, it is not ${s.name}. Adding it anyway would`);
+      console.log(`         make the console report ${s.id} as DOWN forever while you debug software`);
+      console.log(`         you never installed.`);
+    }
   }
   if (unidentified.length) {
     console.log(`\nlistening but NOT identified — left out of the draft on purpose:`);
     for (const s of unidentified) {
-      console.log(`  :${String(s.port).padEnd(5)} something is bound here, but ${s.healthPath} answered nothing.`);
+      console.log(`  :${String(s.port).padEnd(5)} something is bound here, but ${s.verifyPath ?? s.healthPath} answered nothing.`);
       console.log(`         If it really is ${s.name}, add it by hand. An open port is not evidence.`);
     }
   }
