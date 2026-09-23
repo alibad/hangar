@@ -152,10 +152,29 @@ export function resolveHostId(input: {
   const host = (input.hostname ?? "").trim().toLowerCase().replace(/\.local$/, "");
   if (host && HOST_PROFILES[host]) return host;
 
-  // No name match: the only platform we can be *sure* about is a Mac, which is
-  // never BeTenshi. Anything else (win32, or Linux on a build box) is BeTenshi.
-  if (input.platform === "darwin") return "b5";
-  return DEFAULT_HOST_ID;
+  /**
+   * No name match. Fall back to a profile for the same PLATFORM, whichever one
+   * that is, rather than to a machine named in this function.
+   *
+   * This used to read `if (input.platform === "darwin") return "b5"`, which put
+   * one person's hostname in the resolver: a stranger cloning this repository
+   * onto their own Mac was told it was B5, with B5's services, B5's models and
+   * B5's memory. The console does say so — /api/host compares the real hostname
+   * and the Home page raises a "this is not your machine" banner — but the
+   * resolver should not be the thing that needs correcting downstream.
+   *
+   * Sorted so the choice is deterministic across processes: an unstable
+   * fallback would make the console describe a different machine depending on
+   * filesystem ordering, which is the least debuggable failure available.
+   *
+   * The final fallback stays DEFAULT_HOST_ID rather than throwing, because a
+   * Vercel build box is Linux with a random hostname and the deployed console
+   * must keep resolving exactly as it did before host profiles existed.
+   */
+  const samePlatform = Object.keys(HOST_PROFILES)
+    .sort()
+    .find((id) => HOST_PROFILES[id].platform === input.platform);
+  return samePlatform ?? DEFAULT_HOST_ID;
 }
 
 export function getHostId(): string {

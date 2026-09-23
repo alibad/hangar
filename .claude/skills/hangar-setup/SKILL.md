@@ -87,10 +87,20 @@ things in it decide how the whole console behaves:
 Getting this wrong does not error. It silently budgets against the wrong
 ceiling, and the first sign is a model that will not load for no visible reason.
 
-**Ports that are open but answered nothing are reported separately and left
-out.** That is deliberate, and you must not override it by assuming. If the user
-says a service really is there, confirm what it is — ask, or read its start
-command — before adding it.
+**Ports the detector will not vouch for are reported separately and left out.**
+That is deliberate, and you must not override it by assuming. There are two
+such cases and they need different responses:
+
+- **"SOMETHING ELSE is on these ports"** — the port answered, but not in the
+  shape that service returns. Another program is holding it. Never add the
+  service: declaring it makes the console report it DOWN forever while somebody
+  debugs software they never installed. This is a real failure, not a
+  hypothetical — on 2026-09-21 the detector reported `:4000 ai-router HTTP 200`
+  on a Mac with no router installed, because another project's dev server had
+  the port.
+- **"listening but NOT identified"** — something is bound and answered nothing.
+  If the user says a service really is there, confirm what it is — ask, or read
+  its start command — before adding it.
 
 ### Ensure there is a local text model
 
@@ -151,6 +161,80 @@ Then fill in what a port scan cannot answer:
 
 ---
 
+## Step 2b — Declare the runtimes, then prove them
+
+`services` says what is listening. **`runtimes` says what actually DRIVES each
+capability, and whether anyone has checked that its output is real.** Add the
+block to the profile you just wrote — `config/hosts/example.json` documents
+every field inline.
+
+This block is not bookkeeping. In September 2026 one machine produced pure
+colour static for four days, and every layer reported success: the service was
+up, the port answered, the PNG was structurally valid, the gallery showed it
+with a latency badge, the request log said 200. Nothing looked at the pixels.
+
+```json
+"runtimes": {
+  "text":  { "driver": "ollama",  "model": "<the tag you proved>", "label": "...", "serviceId": "ollama" },
+  "image": { "driver": "mflux",   "model": "flux2-klein-4b",       "label": "...", "serviceId": "qwen" },
+  "stt":   { "driver": "mlx-audio", "model": "...", "serviceId": "qwen" }
+}
+```
+
+**Choosing a driver.** Match the hardware, not the brand:
+
+| Capability | Apple silicon | NVIDIA | CPU-only / other |
+|---|---|---|---|
+| text, vision, embedding | `ollama` | `ollama` or `vllm` | `ollama` |
+| image | `mflux` | `comfyui` or `qwen-native` | leave `null` |
+| stt / tts | `mlx-audio` | `whisper` / `kokoro` | leave `null` |
+| video | `draw-things-cli` | `comfyui` | leave `null` |
+
+`driver: null` is a legitimate, useful answer. It makes the console say "no
+image engine is set up here" instead of offering a button into a dead tab.
+
+**On Apple silicon, prefer `mflux` over `draw-things-cli`.** Both can drive
+FLUX.2 Klein. The standalone Draw Things CLI ships Metal 4 cooperative-tensor
+shaders (`matmul2d_descriptor`, `execution_simdgroups`) that macOS 27's Metal
+compiler rejects: the older build fails **silently**, returning a valid PNG of
+noise, and the current one crashes with a shader error. The same weights render
+correctly in the Draw Things GUI app, so it is the binary, not the machine.
+mflux runs on MLX — a different compute stack, and the one the speech models
+already use.
+
+### Installing an engine the machine does not have
+
+Ask first; an install is a system change. Then install, then prove:
+
+```bash
+# Apple silicon image generation (downloads ~5 GB of weights on first run)
+uv tool install mflux            # or: pipx install mflux
+
+# Speech, either platform — follow the engine's own install docs
+```
+
+### Then prove every one of them
+
+```bash
+node scripts/doctor.mjs            # run everything, record nothing
+node scripts/doctor.mjs --write    # record only what genuinely passed
+```
+
+The doctor runs a **real job per capability and inspects the output**: it
+measures an image for noise, transcribes the speech it just synthesized, and
+checks that embeddings score related text above unrelated text. It writes
+`verifiedAt` only on a pass, and **clears a previous pass on a failure** — a
+stale claim that a capability works is precisely the lie this exists to prevent.
+
+**Never write `verifiedAt` by hand.** It is the console's entire basis for
+saying a capability works. If the doctor did not write it, it is not true.
+
+A failing capability is a fine outcome to report. Say which driver failed and
+what the doctor saw; leave it declared and unverified rather than deleting it,
+so the machine still says what it has.
+
+---
+
 ## Step 3 — Start commands
 
 Create `scripts/service-commands.<id>.json`, modelled on
@@ -205,6 +289,16 @@ curl -s localhost:8003/api/health
 A service you added that reports `down` is either not running or not really
 there. Find out which before telling the user setup is complete.
 
+And confirm the capabilities, which a health check cannot tell you:
+
+```bash
+node scripts/doctor.mjs
+```
+
+Every capability you declared should pass. A service that is `up` while its
+runtime fails the doctor is the single most important thing to report — it is a
+machine that looks healthy and produces garbage.
+
 ---
 
 ## Step 6 — Offer the rest, don't assume it
@@ -229,9 +323,10 @@ State plainly what was measured, what was written, and what is still unproven:
 ```
 Hangar now knows about {name} ({platform}/{gpu}, {memory kind}).
 
-  profile    config/hosts/{id}.json — {n} services
+  profile    config/hosts/{id}.json — {n} services, {r} runtimes
   commands   scripts/service-commands.{id}.json — {m} configured, {k} left as TODO
-  verified   matchesProfile true · {up}/{n} services up
+  listening  matchesProfile true · {up}/{n} services up
+  working    {v}/{r} runtimes verified by scripts/doctor.mjs
 
   Not set up: {anything skipped, and why}
   Unidentified: {ports listening with nothing recognisable behind them}

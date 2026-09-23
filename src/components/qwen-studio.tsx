@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SERVICE_REGISTRY } from "@/lib/services";
+
+/** Sentinel for the gallery root: "" is a real folder name but not a legal Select value. */
+const UNFILED = "__unfiled__";
 import { Star, Trash2, ChevronDown, ChevronUp, Mic, Square, X, ChevronRight, SlidersHorizontal, ServerCog } from "lucide-react";
 import { DIM_POOLS, type DimKey } from "@/lib/prompt-variations";
 import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, isImageModelId, modelsSupporting, type ImageModel, type ImageModelId } from "@/lib/image-models";
@@ -878,7 +882,7 @@ export default function QwenStudio() {
       setError(
         target.serviceId === null
           ? "The AI Router is offline, so this cloud model can't be called."
-          : `${target.serviceId === "comfyui" ? "ComfyUI" : "The Qwen-Image service"} did not come up — open Details in Run setup for its logs.`,
+          : `${SERVICE_REGISTRY.find((svc) => svc.id === target.serviceId)?.name ?? "The image service"} did not come up — open Details in Run setup for its logs.`,
       );
       return;
     }
@@ -1521,12 +1525,18 @@ export default function QwenStudio() {
       ? "bg-green-500"
       : "bg-red-500";
   const closeSetupDialog = useCallback(() => setSetupDialog(null), []);
+  /**
+   * Named from the host profile, not from a string in this file.
+   *
+   * These read "Qwen-Image service · Local process · :8021" on every host,
+   * because both were literals. On a Mac the service behind this id is the
+   * Local AI Toolkit adapter on :8111, so the one row whose job is to say
+   * WHERE the work runs named a service that is not installed and a port that
+   * is not open.
+   */
+  const runtimeService = SERVICE_REGISTRY.find((svc) => svc.id === activeModel.serviceId);
   const runtimeName =
-    activeModel.serviceId === "qwen"
-      ? "Qwen-Image service"
-      : activeModel.serviceId === "comfyui"
-        ? "ComfyUI"
-        : "AI Router";
+    runtimeService?.name ?? (activeModel.serviceId ? activeModel.serviceId : "AI Router");
   /**
    * What KIND of thing the runtime is, in plain words.
    *
@@ -1537,12 +1547,9 @@ export default function QwenStudio() {
    * router. Everything else about the row — the dot, the status, the buttons —
    * follows from which of those two it is.
    */
-  const runtimeKind =
-    activeModel.serviceId === "qwen"
-      ? "Local process · :8021 · serves Generate and Edit"
-      : activeModel.serviceId === "comfyui"
-        ? "Local process · :8188 · runs the workflow"
-        : "Cloud · reached through the AI Router";
+  const runtimeKind = runtimeService
+    ? `Local process · :${runtimeService.localPort} · ${activeModel.serviceId === "comfyui" ? "runs the workflow" : "serves Generate and Edit"}`
+    : "Cloud · reached through the AI Router";
   /** The lifecycle behind the row's own Start/Stop; null for a cloud model. */
   const runtimeLifecycle =
     activeModel.serviceId === "comfyui" ? comfyLifecycle : activeModel.serviceId === "qwen" ? lifecycle : null;
@@ -1825,8 +1832,8 @@ export default function QwenStudio() {
         <section className="image-service-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
           <div className="flex items-center gap-3 flex-wrap">
             <div className={`w-2.5 h-2.5 rounded-full ${dotColor} ${busyVerb || (health?.up && !activeResident) ? "animate-pulse" : ""}`} />
-            <span className="font-semibold text-sm">Qwen-Image service</span>
-            <span className="text-xs text-gray-500">localhost:8021</span>
+            <span className="font-semibold text-sm">{runtimeName}</span>
+            <span className="text-xs text-gray-500">localhost:{runtimeService?.localPort ?? "—"}</span>
             {/* Process status only. Which CHECKPOINT is in VRAM is the row below —
                 conflating the two is what made the two models look like one. */}
             {busyVerb ? (
@@ -1924,7 +1931,7 @@ export default function QwenStudio() {
             ))}
           </div>
           <p className="px-3 pb-3 text-[11px] text-gray-600">
-            One process on :8021 serves both, keeping one checkpoint loaded with CPU offload — switching between Generate and Edit
+            One process on :{runtimeService?.localPort ?? "—"} serves both, keeping one checkpoint loaded with CPU offload — switching between Generate and Edit
             swaps the checkpoint on the next run, which is why the first request after a switch is slow.
           </p>
           </details>
@@ -2184,10 +2191,21 @@ export default function QwenStudio() {
         )}
 
         <label className="flex items-center gap-3 text-xs text-gray-400">Save to gallery
-          <select aria-label="Save to gallery" disabled={busy} value={outputFolder} onChange={(e) => { setSelectedFolder(e.target.value); setGalleryBatchFilter(null); }} className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-200">
-            <option value="">Unfiled</option>
-            {folders.map((folder) => <option key={folder} value={folder}>{folder}</option>)}
-          </select>
+          {/* UNFILED is a sentinel: "" is not a legal Select value, but it IS
+              the real folder name for the gallery root, so it is translated at
+              this boundary and every reader of the state is unchanged. */}
+          <Select value={outputFolder || UNFILED} disabled={busy} onValueChange={(v) => { if (!v) return; setSelectedFolder(String(v) === UNFILED ? "" : String(v)); setGalleryBatchFilter(null); }}>
+            <SelectTrigger aria-label="Save to gallery" className="border-gray-700 bg-gray-800 px-3 text-gray-200">
+              {/* Explicit, because the sentinel is not a label: an empty folder
+                  name is the gallery ROOT, and a bare SelectValue renders the
+                  raw value, so the control read "__unfiled__". */}
+              <SelectValue>{outputFolder || "Unfiled"}</SelectValue>
+            </SelectTrigger>
+            <SelectContent className="border-gray-700 bg-gray-900 text-gray-200">
+              <SelectItem value={UNFILED}>Unfiled</SelectItem>
+              {folders.map((folder) => <SelectItem key={folder} value={folder}>{folder}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </label>
         {busy && <button onClick={() => requestRef.current?.controller.abort()} className="text-xs text-gray-400 underline">Stop waiting</button>}
         {busy && renderStepProgress()}
@@ -2833,10 +2851,16 @@ export default function QwenStudio() {
           <div className="flex justify-between"><h2>Choose an image to edit</h2><button onClick={() => setGalleryPicker(false)}>Close picker</button></div>
           <div className="flex gap-3">
             <input aria-label="Search gallery images" placeholder="Search prompts…" value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} className="bg-gray-800 rounded px-3 py-2 flex-1" />
-            <select aria-label="Input gallery" value={pickerFolder} onChange={(e) => setPickerFolder(e.target.value)} className="bg-gray-800 rounded px-3 py-2">
-              <option value="__all__">All images</option><option value="">Unfiled</option>
-              {folders.map((folder) => <option key={folder} value={folder}>{folder}</option>)}
-            </select>
+            <Select value={pickerFolder || UNFILED} onValueChange={(v) => v && setPickerFolder(String(v) === UNFILED ? "" : String(v))}>
+              <SelectTrigger aria-label="Input gallery" className="border-gray-700 bg-gray-800 px-3 text-gray-200">
+                <SelectValue>{pickerFolder === "__all__" ? "All images" : pickerFolder || "Unfiled"}</SelectValue>
+              </SelectTrigger>
+              <SelectContent className="border-gray-700 bg-gray-900 text-gray-200">
+                <SelectItem value="__all__">All images</SelectItem>
+                <SelectItem value={UNFILED}>Unfiled</SelectItem>
+                {folders.map((folder) => <SelectItem key={folder} value={folder}>{folder}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           {loadingReference && <p>Loading image…</p>}
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">

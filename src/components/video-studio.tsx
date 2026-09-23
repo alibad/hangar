@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Film, LoaderCircle, Upload } from "lucide-react";
 import ModelPicker from "@/components/model-picker";
 import { ToolPageHeader } from "@/components/tool-page";
-import { getHostId } from "@/lib/host";
+import { runtimeStatus, runtimeSummary } from "@/lib/runtimes";
 
 export default function VideoStudio() {
   const [prompt, setPrompt] = useState("");
@@ -46,6 +46,8 @@ export default function VideoStudio() {
     }
   };
 
+  const videoStatus = runtimeStatus("video");
+
   return (
     <div className="space-y-4">
       <ToolPageHeader
@@ -54,9 +56,18 @@ export default function VideoStudio() {
         description="Generate video locally with Draw Things and Wan 2.2. Nothing is uploaded. Image-to-video accepts one optional starting frame."
         icon={<Film className="h-5 w-5" />}
       />
-      {getHostId() === "b5" && (
+      {/* Driven by the profile's runtimes.video, not by a hostname. The old
+          version of this block was `getHostId() === "b5"` and it WARNED while
+          leaving Generate live — so the honest thing it said ("the smoke test
+          produced undecoded frames") could still be ignored with one click,
+          spending minutes of GPU on garbage. A warning that does not stop the
+          action is decoration. */}
+      {videoStatus !== "verified" && (
         <div role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-3 text-xs leading-relaxed text-amber-200">
-          Wan is installed and the MP4 pipeline is wired, but the current standalone Draw Things CLI smoke test produced undecoded frames. Use the native Draw Things app until the localhost-only app API path is verified.
+          {runtimeSummary("video")}{" "}
+          {videoStatus === "unverified" && (
+            <>Generating is disabled until it passes, because a bad video run costs minutes rather than seconds. Run <code className="rounded bg-gray-950/60 px-1 py-0.5">node scripts/doctor.mjs video --write</code> to check it.</>
+          )}
         </div>
       )}
       <section className="grid gap-4 lg:grid-cols-[minmax(0,420px)_1fr]">
@@ -79,12 +90,13 @@ export default function VideoStudio() {
           </label>
           <button
             type="button"
-            disabled={busy || !prompt.trim()}
+            disabled={busy || !prompt.trim() || videoStatus !== "verified"}
             onClick={generate}
+            title={videoStatus !== "verified" ? "This machine's video runtime has not been verified — see the notice above." : undefined}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
-            {busy ? "Generating locally…" : "Generate video"}
+            {busy ? "Generating locally…" : videoStatus === "verified" ? "Generate video" : "Video runtime unverified"}
           </button>
           <p className="text-[11px] leading-relaxed text-gray-500">Wan video is compute-heavy and shares unified memory with the other local models. Hangar queues it so image, speech, and video jobs do not fight each other.</p>
           {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{error}</p>}

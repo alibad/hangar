@@ -1,23 +1,29 @@
 {
   "_doc": "B5 service commands. Selected because config/hosts/b5.json names this file. Same shape as service-commands.json: cmd+args+cwd spawns a process, skip = externally managed.",
-
   "_ollama-doc": "Normally Ollama.app owns :11434 (menu-bar app). When it does, the manager ADOPTS that process — status shows it as external, Stop kills it, Restart hands it over to a manager-spawned `ollama serve` with the env below. When nothing holds the port, Start spawns it directly. OLLAMA_HOST pins it to loopback; nothing on this box is tunnelled.",
   "ollama": {
     "cmd": "/usr/local/bin/ollama",
-    "args": ["serve"],
+    "args": [
+      "serve"
+    ],
     "env": {
       "OLLAMA_HOST": "127.0.0.1:11434",
       "OLLAMA_KEEP_ALIVE": "10m"
     }
   },
-
-  "_local-ai-doc": "One loopback adapter exposes the already-installed LocalAI toolkit to Hangar. It does not load weights at startup; Draw Things and MLX models load per request and the toolkit lock prevents concurrent heavy jobs.",
+  "_local-ai-doc": "One loopback adapter exposes this Mac's local AI toolkit to Hangar. It does not load weights at startup; models load per request and the adapter serialises heavy jobs because everything here shares one unified-memory pool. Which ENGINE drives each capability is declared in config/hosts/b5.json under `runtimes` and read by the adapter at startup, so swapping image engines is a profile edit rather than a code change. cwd is written relative-free because the manager spawns with an explicit working directory; set HANGAR_CWD if this checkout ever moves.",
   "qwen": {
     "cmd": "node",
-    "args": ["scripts/local-ai-adapter.mjs", "--port", "8111"],
+    "args": [
+      "scripts/local-ai-adapter.mjs",
+      "--port",
+      "8111"
+    ],
     "cwd": "/Users/alibadereddin/Code/GitHub/ai/hangar",
     "env": {
-      "LOCAL_AI_BIN": "/Users/alibadereddin/LocalAI/bin/local-ai"
+      "LOCAL_AI_BIN": "/Users/alibadereddin/LocalAI/bin/local-ai",
+      "MFLUX_BIN_DIR": "/Users/alibadereddin/.local/bin",
+      "HANGAR_HOST_ID": "b5"
     }
   }
 }

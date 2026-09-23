@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import os from "os";
+import { readFileSync } from "fs";
 
 /**
  * Decide which host profile this console runs as — ONCE, here, at config load.
@@ -25,6 +26,34 @@ function detectHostId(): string {
 }
 
 /**
+ * Publish this host's image runtime alongside its id.
+ *
+ * `src/lib/image-models.ts` has to know which engine drives images, because
+ * that decides whether the studio offers ComfyUI's three checkpoints or a
+ * single local model. It used to answer that with
+ * `process.env.NEXT_PUBLIC_HOST_ID === "b5"` — one machine's name, deciding
+ * what every machine can generate with.
+ *
+ * Reading the profile there instead would be the obvious fix, and it is wrong
+ * for the same reason `os` cannot be imported below this file: image-models is
+ * loaded by a bundler-free `node --test` suite, and a relative TypeScript
+ * import chain does not resolve without a bundler. So the value is resolved
+ * once here, exactly as the host id already is, and read as a plain string.
+ */
+function detectImageRuntime(hostId: string): string {
+  try {
+    const profile = JSON.parse(readFileSync(`./config/hosts/${hostId}.json`, "utf8"));
+    const image = profile?.runtimes?.image;
+    if (!image) return "";
+    return JSON.stringify({ driver: image.driver ?? null, label: image.label ?? null });
+  } catch {
+    // A missing or malformed profile must not fail the build: the console
+    // already has a foreign-profile banner for exactly this case.
+    return "";
+  }
+}
+
+/**
  * The domain a tunnelled host publishes its services under.
  *
  * Host profiles carry `https://llm.${PUBLIC_DOMAIN}` rather than a literal
@@ -37,6 +66,7 @@ function detectHostId(): string {
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_HOST_ID: detectHostId(),
+    NEXT_PUBLIC_IMAGE_RUNTIME: detectImageRuntime(detectHostId()),
     NEXT_PUBLIC_PUBLIC_DOMAIN: (process.env.PUBLIC_DOMAIN ?? "").trim(),
     NEXT_PUBLIC_HANGAR_RUNTIME:
       (process.env.HANGAR_RUNTIME ?? "").trim().toLowerCase() === "hosted" || process.env.VERCEL

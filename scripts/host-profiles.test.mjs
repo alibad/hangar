@@ -163,3 +163,88 @@ test("a tunnelled service manager requires machine authentication", () => {
     "a deployed console can start and stop processes; its manager tunnel must require Cloudflare Access",
   );
 });
+
+// ── runtimes ────────────────────────────────────────────────────────────────
+//
+// `runtimes` is the block that decides which ENGINE drives each capability and
+// whether its output has been proven. It is load-bearing in a way `services` is
+// not: a wrong service id shows an unavailable tab, but a wrong runtime shows a
+// capability confidently reporting that it works.
+
+/** Mirrors RuntimeDriver in src/lib/runtimes.ts. */
+const DRIVER_IDS = new Set([
+  "ollama", "vllm", "comfyui", "qwen-native",
+  "draw-things-cli", "draw-things-app", "mflux",
+  "mlx-audio", "whisper", "kokoro",
+]);
+
+test("every runtime names a real capability, driver and service", () => {
+  for (const [id, h] of HOSTS) {
+    for (const [cap, rt] of Object.entries(h.runtimes ?? {})) {
+      if (cap.startsWith("_")) continue;
+      assert.ok(
+        CAPABILITY_IDS.has(cap),
+        `${id} declares a runtime for "${cap}", which is not a capability id (${[...CAPABILITY_IDS].join(", ")})`,
+      );
+      // A model name is only meaningful once something drives the capability.
+      // `driver: null` with an empty model is the legitimate way to say "this
+      // machine knows it cannot do this yet", which the console renders as a
+      // setup prompt rather than as a broken capability.
+      if (rt.driver !== null) {
+        assert.ok(rt.model, `${id}/${cap} names a driver but no model`);
+        assert.ok(
+          DRIVER_IDS.has(rt.driver),
+          `${id}/${cap} names driver "${rt.driver}", which nothing implements. ` +
+            `Add it to RuntimeDriver in src/lib/runtimes.ts and to a driver map, or use null.`,
+        );
+      }
+      if (rt.serviceId) {
+        assert.ok(
+          h.services.some((s) => s.id === rt.serviceId),
+          `${id}/${cap} points at service "${rt.serviceId}", which ${id} does not declare`,
+        );
+      }
+    }
+  }
+});
+
+test("a verified runtime carries a real timestamp and a note", () => {
+  // `verifiedAt` is the console's whole basis for saying a capability works, so
+  // an unparseable or future one must fail the build rather than render as a
+  // confident green badge. Only scripts/doctor.mjs writes these.
+  for (const [id, h] of HOSTS) {
+    for (const [cap, rt] of Object.entries(h.runtimes ?? {})) {
+      if (cap.startsWith("_") || !rt.verifiedAt) continue;
+      const when = Date.parse(rt.verifiedAt);
+      assert.ok(Number.isFinite(when), `${id}/${cap} has an unparseable verifiedAt: ${rt.verifiedAt}`);
+      assert.ok(
+        when <= Date.now() + 60_000,
+        `${id}/${cap} claims it was verified in the future (${rt.verifiedAt})`,
+      );
+      assert.ok(
+        rt.verifiedNote,
+        `${id}/${cap} is marked verified with no note saying what was measured`,
+      );
+      assert.ok(rt.driver, `${id}/${cap} is marked verified but names no driver`);
+    }
+  }
+});
+
+test("a runtime that declares a served model agrees with the service", () => {
+  // The two blocks answer different questions — `serves` is what a service can
+  // be asked for, `runtimes` is what the console actually drives — but where
+  // both name a model for the same capability they must not disagree, or the
+  // console calls one model while the UI names another.
+  for (const [id, h] of HOSTS) {
+    for (const [cap, rt] of Object.entries(h.runtimes ?? {})) {
+      if (cap.startsWith("_") || !rt.serviceId) continue;
+      const served = h.services.find((s) => s.id === rt.serviceId)?.serves?.[cap];
+      if (!served) continue;
+      assert.equal(
+        rt.model,
+        served,
+        `${id}/${cap}: runtime says "${rt.model}" but service ${rt.serviceId} serves "${served}"`,
+      );
+    }
+  }
+});

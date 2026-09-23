@@ -1644,10 +1644,8 @@ export default function Home() {
                   </>
                 ) : (
                   <span className="chat-pulse-empty">
-                    No vLLM telemetry — start{" "}
-                    <code className="text-gray-400">local-coder</code> or{" "}
-                    <code className="text-gray-400">local-small</code>. Ollama models don&apos;t
-                    publish counters.
+                    No vLLM telemetry. Start a configured vLLM service to see these counters.
+                    Ollama models do not publish them.
                   </span>
                 )}
               </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { record, readTraffic, type TrafficEvent } from "@/lib/traffic";
 import { recordRouterCall } from "@/lib/router-usage";
+import { readStoredTraffic, recordTrafficEvent, pruneTraffic } from "@/lib/traffic-store";
 
 // GET — the merged feed (live ring + parsed access logs), newest first.
 // Background noise (polling + gallery asset loads) is returned SEPARATELY and
@@ -8,7 +9,32 @@ import { recordRouterCall } from "@/lib/router-usage";
 // thumbnail, it would bury the requests that actually matter.
 export async function GET() {
   const { events, noise, noiseCount, hops, hopCount, services } = await readTraffic();
-  return NextResponse.json({ events, noise, noiseCount, hops, hopCount, services, count: events.length });
+
+  /**
+   * Merge in what survived the last restart.
+   *
+   * The ring lives in this process, so before 2026-09-21 restarting the console
+   * emptied the feed — and an empty feed reads as an idle machine, not as a
+   * fresh process. Stored rows fill in everything older than this process;
+   * anything the ring also holds wins, because the ring's copy is the one that
+   * may still be in flight.
+   */
+  const stored = await readStoredTraffic().catch(() => [] as TrafficEvent[]);
+  const seen = new Set(events.map((e) => `${e.ts}:${e.method}:${e.path}`));
+  const merged = [...events];
+  for (const row of stored) {
+    const key = `${row.ts}:${row.method}:${row.path}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(row);
+    }
+  }
+  merged.sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
+  // Opportunistic, unawaited: retention is housekeeping and must never make a
+  // page load wait on a DELETE.
+  void pruneTraffic().catch(() => {});
+
+  return NextResponse.json({ events: merged, noise, noiseCount, hops, hopCount, services, count: merged.length });
 }
 
 /**
@@ -61,11 +87,19 @@ export async function POST(req: NextRequest) {
           : null,
     };
     record(ev);
-    // Durable copy of billable router calls. Deliberately not awaited: the ring
-    // is the live feed and must stay fast, and a duckdb hiccup must not drop the
-    // event or fail the producer's POST.
+    // Durable copies. Deliberately not awaited: the ring is the live feed and
+    // must stay fast, and a duckdb hiccup must not drop the event or fail the
+    // producer's POST.
+    //
+    // Two tables on purpose. `router_calls` is about SPEND — it requires a
+    // model and skips anything the router did not price, which on a host with
+    // no router is everything. `traffic_events` is about what HAPPENED, and is
+    // what makes the feed survive a restart on any machine.
     void recordRouterCall(ev).catch((err) =>
       console.error("[traffic] router_calls insert failed:", err),
+    );
+    void recordTrafficEvent(ev).catch((err) =>
+      console.error("[traffic] traffic_events insert failed:", err),
     );
     return NextResponse.json({ ok: true });
   } catch {

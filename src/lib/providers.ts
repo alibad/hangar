@@ -504,7 +504,7 @@ export async function getCatalogue(): Promise<{
       }
     } else if (keyEnv && !process.env[keyEnv]) {
       status = "no-key";
-      detail = `${keyEnv} is not set. Add it to .env.local and restart the router.`;
+      detail = `${keyEnv} is missing. To use this cloud model, add a line containing ${keyEnv}=... to the .env file in this Hangar installation, then restart the Hangar console and AI Router. Local models do not need this key.`;
     }
 
     const perTokIn = info.input_cost_per_token ?? 0;

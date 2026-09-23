@@ -5,6 +5,7 @@ import { spawn, execFile } from "child_process";
 import { promisify } from "util";
 import { getHost } from "./host";
 import { runtimesFor, type Runtime } from "./model-fit";
+import { chooseGgufFile, runtimeModelName, type HubFile } from "./hf-runtime-plan";
 
 const execFileP = promisify(execFile);
 
@@ -38,6 +39,10 @@ const HF_BIN = configuredHf
   : getHost().platform === "win32"
     ? "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\Scripts\\hf.exe"
     : findExecutable("hf") ?? "/opt/anaconda3/bin/hf";
+const OLLAMA_BIN = findExecutable(process.env.OLLAMA_BIN?.trim() || "ollama") ??
+  (getHost().platform === "win32"
+    ? "C:\\Users\\Admin\\AppData\\Local\\Programs\\Ollama\\ollama.exe"
+    : "/usr/local/bin/ollama");
 
 /**
  * Where weights live, which is not the same answer on both machines.
@@ -65,6 +70,19 @@ export function weightsHome(): string {
 const HF_HOME = weightsHome();
 const STATE_DIR = path.join(process.cwd(), "var", "downloads");
 const STATE_FILE = path.join(STATE_DIR, "state.json");
+const RUNTIME_WORKER = path.join(process.cwd(), "scripts", "install-hf-runtime.mjs");
+
+export type RuntimeSetup = {
+  kind: "ollama-gguf" | "ollama-safetensors";
+  runtime: "Ollama";
+  model: string;
+  /** A single GGUF artifact. Safetensors imports use the complete snapshot. */
+  file?: string;
+  /** Bytes Hangar will actually transfer for this setup. */
+  gb: number;
+  experimental: boolean;
+  note: string;
+};
 
 export type RepoVariant = {
   repo: string;
@@ -85,6 +103,10 @@ export type RepoVariant = {
   runtimes?: Runtime[];
   /** Already present under HF_HOME. */
   installed: boolean;
+  /** A verified adapter Hangar can execute after the download finishes. */
+  setup?: RuntimeSetup;
+  /** Why this remains a weights-only download. */
+  setupReason?: string;
 };
 
 export type RepoResolution = {
@@ -114,6 +136,74 @@ function quantOf(repo: string): string | undefined {
   if (/[-_]int8|[-_]8bit/.test(s)) return "8-bit";
   if (/mlx/.test(s)) return "MLX";  // Apple silicon — listed so it can be avoided
   return undefined;
+}
+
+async function hubFiles(repo: string): Promise<HubFile[]> {
+  try {
+    const response = await fetch(
+      `https://huggingface.co/api/models/${repo}/tree/main?recursive=true&expand=false`,
+      { signal: AbortSignal.timeout(12_000) },
+    );
+    if (!response.ok) return [];
+    const rows = (await response.json()) as { path?: unknown; size?: unknown; type?: unknown }[];
+    return rows.flatMap((row) =>
+      row.type === "file" && typeof row.path === "string"
+        ? [{ path: row.path, size: Number(row.size ?? 0) || 0 }]
+        : [],
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function runtimeSetupFor(
+  repo: string,
+  detail: { library_name?: string; pipeline_tag?: string; tags?: string[]; usedStorage?: unknown },
+  repoGb: number,
+): Promise<{ setup?: RuntimeSetup; setupReason?: string }> {
+  const hostHasOllama = getHost().services.some((service) => service.id === "ollama");
+  if (!hostHasOllama) return { setupReason: "This machine has no managed runtime for this repository format." };
+
+  const files = await hubFiles(repo);
+  const tags = (detail.tags ?? []).map((tag) => tag.toLowerCase());
+  const isTextGeneration =
+    detail.pipeline_tag === "text-generation" ||
+    tags.includes("text-generation") ||
+    tags.includes("conversational");
+  const gguf = chooseGgufFile(files);
+  if (gguf && isTextGeneration) {
+    return {
+      setup: {
+        kind: "ollama-gguf",
+        runtime: "Ollama",
+        model: runtimeModelName(repo),
+        file: gguf.path,
+        gb: Math.round((gguf.size / 1024 ** 3) * 10) / 10,
+        experimental: false,
+        note: `Downloads ${gguf.path} and registers it with Ollama.`,
+      },
+    };
+  }
+
+  const hasSafetensors = tags.includes("safetensors") || files.some((file) => file.path.endsWith(".safetensors"));
+  const standardLibrary = !detail.library_name || ["transformers", "safetensors"].includes(detail.library_name.toLowerCase());
+  if (isTextGeneration && hasSafetensors && standardLibrary) {
+    return {
+      setup: {
+        kind: "ollama-safetensors",
+        runtime: "Ollama",
+        model: runtimeModelName(repo),
+        gb: repoGb,
+        experimental: true,
+        note: "Downloads the complete snapshot and asks Ollama to import its Safetensors architecture.",
+      },
+    };
+  }
+
+  const purpose = detail.pipeline_tag ? ` (${detail.pipeline_tag})` : "";
+  return {
+    setupReason: `No verified automatic runtime is available for this repository${purpose}. The weights can still be downloaded for a manually configured runtime.`,
+  };
 }
 
 /** Where a repo's snapshot lands under HF_HOME, per the Hub's cache layout. */
@@ -236,14 +326,21 @@ export async function resolveRepo(query: string): Promise<RepoResolution> {
         // Taken from the SAME detail call that prices the download, so knowing
         // whether the weights can run here costs no extra request.
         let runtimes: Runtime[] | undefined;
+        let detail: {
+          usedStorage?: unknown;
+          library_name?: string;
+          pipeline_tag?: string;
+          tags?: string[];
+        } = {};
         try {
           const d = await fetch(`https://huggingface.co/api/models/${r.id}`, {
             signal: AbortSignal.timeout(12_000),
           });
           if (d.ok) {
-            const detail = (await d.json()) as {
+            detail = (await d.json()) as {
               usedStorage?: unknown;
               library_name?: string;
+              pipeline_tag?: string;
               tags?: string[];
             };
             bytes = Number(detail?.usedStorage ?? 0) || 0;
@@ -256,21 +353,26 @@ export async function resolveRepo(query: string): Promise<RepoResolution> {
         } catch {
           /* size unknown — reported as 0 and shown as "—" rather than guessed */
         }
+        const gb = Math.round((bytes / 1024 ** 3) * 10) / 10;
+        const runtime = await runtimeSetupFor(r.id, detail, gb);
         return {
           repo: r.id,
           bytes,
-          gb: Math.round((bytes / 1024 ** 3) * 10) / 10,
+          gb,
           downloads: Number(r.downloads ?? 0),
           likes: Number(r.likes ?? 0),
           gated: r.gated !== false && r.gated != null,
           quant: quantOf(r.id),
           runtimes,
           installed: isInstalled(r.id),
+          ...runtime,
         } satisfies RepoVariant;
       }),
     );
 
-    const exact = detailed.find((v) => v.repo.split("/").pop()?.toLowerCase() === key);
+    const exact = detailed.find(
+      (v) => v.repo.toLowerCase() === key || v.repo.split("/").pop()?.toLowerCase() === key,
+    );
     const primary = exact ?? [...detailed].sort((a, b) => b.downloads - a.downloads)[0];
     const variants = detailed
       .filter((v) => v.repo !== primary?.repo)
@@ -297,6 +399,10 @@ export type DownloadJob = {
   /** Last meaningful line of output, for the UI to show verbatim. */
   detail?: string;
   finishedAt?: string;
+  kind?: "download" | "runtime-install";
+  runtime?: "ollama";
+  runtimeModel?: string;
+  file?: string;
 };
 
 function readState(): DownloadJob[] {
@@ -358,7 +464,17 @@ export function listDownloads(): DownloadJob[] {
         // The CLI is gone. Whether that was success is decided by the cache, not
         // by the exit code — a detached process's status is not ours to read,
         // and "are the weights on disk" is the question that actually matters.
-        j.status = isInstalled(j.repo) ? "done" : "failed";
+        if (j.kind === "runtime-install") {
+          let log = "";
+          try {
+            log = fs.readFileSync(j.logPath, "utf8");
+          } catch {
+            /* the missing success marker is the failure */
+          }
+          j.status = log.includes("HANGAR_RUNTIME_READY") ? "done" : "failed";
+        } else {
+          j.status = isInstalled(j.repo) ? "done" : "failed";
+        }
         j.finishedAt = new Date().toISOString();
         if (j.status === "done") j.percent = 100;
         changed = true;
@@ -423,6 +539,69 @@ export function startDownload(repo: string): DownloadJob {
   return job;
 }
 
+const FILE_RE = /^(?!-)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9][A-Za-z0-9._+@/ -]*\.gguf$/i;
+
+/**
+ * Download a supported Hugging Face model and register it with Ollama in one
+ * detached job. The worker owns the long-running transfer and import so a
+ * console restart cannot strand the operation halfway through.
+ */
+export function startRuntimeInstall(repo: string, setup: RuntimeSetup): DownloadJob {
+  if (!REPO_RE.test(repo)) {
+    throw new DownloadError(`"${repo}" is not a Hugging Face repo id (expected "owner/name").`);
+  }
+  if (setup.kind === "ollama-gguf" && (!setup.file || !FILE_RE.test(setup.file))) {
+    throw new DownloadError("The selected GGUF artifact has an unsafe or unsupported filename.");
+  }
+  if (!fs.existsSync(HF_BIN)) throw new DownloadError(`The Hugging Face CLI was not found at ${HF_BIN}.`);
+  if (!fs.existsSync(OLLAMA_BIN)) throw new DownloadError(`Ollama was not found at ${OLLAMA_BIN}.`);
+  if (!fs.existsSync(RUNTIME_WORKER)) throw new DownloadError("Hangar's runtime installer is missing.");
+
+  const jobs = listDownloads();
+  const running = jobs.find((job) => job.repo === repo && job.status === "running");
+  if (running) return running;
+
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+  const logPath = path.join(STATE_DIR, `${repo.replace(/[^\w.-]/g, "_")}.log`);
+  const out = fs.openSync(logPath, "w");
+  const child = spawn(
+    process.execPath,
+    [
+      RUNTIME_WORKER,
+      repo,
+      setup.kind,
+      setup.model,
+      setup.file ?? "",
+      HF_BIN,
+      HF_HOME,
+      OLLAMA_BIN,
+      STATE_DIR,
+    ],
+    {
+      env: { ...process.env, HF_HOME, HF_HUB_DISABLE_TELEMETRY: "1" },
+      detached: true,
+      windowsHide: true,
+      stdio: ["ignore", out, out],
+    },
+  );
+  child.unref();
+
+  const job: DownloadJob = {
+    repo,
+    pid: child.pid ?? -1,
+    startedAt: new Date().toISOString(),
+    logPath,
+    status: "running",
+    kind: "runtime-install",
+    runtime: "ollama",
+    runtimeModel: setup.model,
+    file: setup.file,
+    detail: `Downloading for ${setup.runtime}…`,
+  };
+  writeState([...jobs.filter((existing) => existing.repo !== repo), job]);
+  return job;
+}
+
 /** Stop a running download. The partial cache is left for `hf` to resume. */
 export async function cancelDownload(repo: string): Promise<void> {
   const jobs = listDownloads();
@@ -434,7 +613,8 @@ export async function cancelDownload(repo: string): Promise<void> {
     await execFileP("taskkill", ["/PID", String(job.pid), "/T", "/F"], { windowsHide: true });
   } catch {
     try {
-      process.kill(job.pid);
+      if (process.platform !== "win32") process.kill(-job.pid, "SIGTERM");
+      else process.kill(job.pid);
     } catch {
       /* already gone */
     }

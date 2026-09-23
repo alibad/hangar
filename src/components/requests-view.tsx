@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useId, useMemo, useRef } from "react"
 import { SERVICE_REGISTRY } from "@/lib/services";
 import { getHost } from "@/lib/host";
 import { Search, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pulse } from "@phosphor-icons/react";
 import { ToolPageHeader } from "./tool-page";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
@@ -147,14 +148,32 @@ function Breakdown({ label, rows }: { label: string; rows: Array<[string, number
   );
 }
 
+/**
+ * Shared trigger styling for every dropdown in this view.
+ *
+ * These were native `<select>` elements. A native select renders with
+ * OS-default styling that ignores the console's theme entirely — white popup,
+ * black text, system font — so on a dark operator surface three of them lit up
+ * like holes in the page, and did it differently on every browser.
+ */
+const SELECT_TRIGGER = "h-[30px] gap-1.5 rounded-lg border-gray-700 bg-gray-800 px-2 text-xs text-gray-300";
+const SELECT_CONTENT = "border-gray-700 bg-gray-800 text-gray-300";
+
 function FilterSelect({ value, onChange, options, label }: { value: string; onChange: (value: string) => void; options: string[]; label: string }) {
   return (
     <label className="flex items-center gap-1.5 text-xs text-gray-500">
       {label}
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
-        <option value="all">all</option>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
-      </select>
+      <Select value={value} onValueChange={(v) => v && onChange(String(v))}>
+        <SelectTrigger className={SELECT_TRIGGER} aria-label={label}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className={SELECT_CONTENT}>
+          <SelectItem value="all" className="text-xs">all</SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option} value={option} className="text-xs">{option}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </label>
   );
 }
@@ -435,12 +454,16 @@ export default function RequestsView() {
         </label>
         <label className="flex items-center gap-1.5 text-xs text-gray-500">
           range
-          <select value={timeRange} onChange={(event) => setTimeRange(event.target.value as TimeRange)} className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
-            <option value="15m">15m</option>
-            <option value="1h">1h</option>
-            <option value="24h">24h</option>
-            <option value="all">all retained</option>
-          </select>
+          <Select value={timeRange} onValueChange={(v) => v && setTimeRange(v as TimeRange)}>
+            <SelectTrigger className={SELECT_TRIGGER} aria-label="Time range">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className={SELECT_CONTENT}>
+              {([["15m", "15m"], ["1h", "1h"], ["24h", "24h"], ["all", "all retained"]] as const).map(([v, label]) => (
+                <SelectItem key={v} value={v} className="text-xs">{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
         <button
           type="button"
@@ -475,9 +498,16 @@ export default function RequestsView() {
         </label>
         <label className="ml-auto flex items-center gap-1.5 text-xs text-gray-500">
           rows
-          <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1.5 text-xs text-gray-300">
-            {[25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
-          </select>
+          <Select value={String(pageSize)} onValueChange={(v) => v && setPageSize(Number(v))}>
+            <SelectTrigger className={SELECT_TRIGGER} aria-label="Rows per page">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className={SELECT_CONTENT}>
+              {[25, 50, 100].map((size) => (
+                <SelectItem key={size} value={String(size)} className="text-xs">{size}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
       </div>
 

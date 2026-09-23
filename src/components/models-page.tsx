@@ -1,9 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ToolPageHeader } from "./tool-page";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
-import { Circuitry } from "@phosphor-icons/react";
+import {
+  ArrowRight,
+  ChatCircleDots,
+  Circuitry,
+  Cloud,
+  CloudArrowDown,
+  ImageSquare,
+  Microphone,
+  Waveform,
+} from "@phosphor-icons/react";
 import type { Entry, Payload, Sort } from "./models-page.types";
 import { buildEntries, sortEntries } from "./models-page.types";
 import {
@@ -15,7 +24,16 @@ import {
   ViewToggle,
   ModelTable,
   DetailPanel,
+  HubModelSearch,
 } from "./models-page.parts";
+
+const SETUP_CAPABILITIES = [
+  { id: "text", label: "Chat & code", icon: ChatCircleDots },
+  { id: "image", label: "Create images", icon: ImageSquare },
+  { id: "vision", label: "Understand images", icon: Circuitry },
+  { id: "stt", label: "Transcribe audio", icon: Microphone },
+  { id: "tts", label: "Generate speech", icon: Waveform },
+] as const;
 
 /**
  * Models — one page.
@@ -51,6 +69,32 @@ export default function ModelsPage() {
   const [view, setView] = useState<"list" | "cards">("list");
   const [sort, setSort] = useState<Sort>({ key: "default", dir: "desc" });
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [hubSearchIntent, setHubSearchIntent] = useState("");
+
+  const startLocalSetup = useCallback((cap?: string) => {
+    setLane("local");
+    setRunsHere(true);
+    setCapability(cap ?? null);
+    setQuery("");
+    setView("cards");
+    setSelectedKey(null);
+    window.setTimeout(
+      () => document.getElementById("model-results")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      0,
+    );
+  }, []);
+
+  useEffect(() => {
+    const requested = window.sessionStorage.getItem("hangar-model-setup-capability");
+    if (!requested) return;
+    window.sessionStorage.removeItem("hangar-model-setup-capability");
+    setLane("local");
+    setRunsHere(true);
+    setCapability(requested);
+    setView("cards");
+    setHubSearchIntent(window.sessionStorage.getItem("hangar-model-search") ?? "");
+    window.sessionStorage.removeItem("hangar-model-search");
+  }, []);
 
   const refresh = useCallback(async (force = false) => {
     try {
@@ -151,6 +195,10 @@ export default function ModelsPage() {
   const local = useMemo(() => sortEntries(filtered.filter((e) => e.kind === "local"), sort), [filtered, sort]);
   const cloud = useMemo(() => sortEntries(filtered.filter((e) => e.kind === "cloud"), sort), [filtered, sort]);
   const rows = lane === "local" ? local : cloud;
+  const compatibleDownloads = entries.filter(
+    (entry) => entry.kind === "local" && entry.status === "available" && (entry.runsHere || entry.runsElsewhere),
+  ).length;
+  const activeDownloads = (data?.downloads ?? []).filter((download) => download.status === "running").length;
 
   // Resolved from the live payload rather than held as an object, so an open
   // panel keeps updating — a download's progress and a service coming up both
@@ -163,9 +211,9 @@ export default function ModelsPage() {
   return (
     <div className="tool-page models-page space-y-5">
       <ToolPageHeader
-        eyebrow="Models"
-        title="Everything this box can run"
-        description="Local weights and cloud APIs in one list, sized against this card and this drive. Filtered to what actually runs here."
+        eyebrow="Model setup"
+        title="Discover and set up models"
+        description="Choose a capability, compare models that fit your hardware, download the weights, and connect the service."
         icon={<Circuitry size={24} weight="duotone" />}
         meta={
           <span className={`tool-page-chip ${data.routerUp ? "is-ready" : "is-offline"}`}>
@@ -173,6 +221,66 @@ export default function ModelsPage() {
           </span>
         }
       />
+
+      <section className="overflow-hidden rounded-2xl border border-orange-500/25 bg-gradient-to-br from-orange-500/[0.08] via-gray-900 to-gray-900">
+        <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:p-6">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-300">Set up a capability</p>
+            <h2 className="mt-1 text-xl font-semibold text-gray-100">What should this machine learn to do?</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-400">
+              Start with the job, not a model name. Hangar narrows the library to models that fit a machine you own and shows the real download before it starts.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {SETUP_CAPABILITIES.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => startLocalSetup(id)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-950/45 px-3 py-2 text-xs font-medium text-gray-200 transition hover:border-orange-400/60 hover:bg-orange-500/10 hover:text-white"
+                >
+                  <Icon size={15} weight="duotone" className="text-orange-300" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 self-start text-left text-xs">
+            <button
+              type="button"
+              onClick={() => startLocalSetup()}
+              className="col-span-2 rounded-xl border border-sky-500/25 bg-sky-500/[0.07] p-3 transition hover:border-sky-400/50"
+            >
+              <span className="flex items-center gap-2 font-semibold text-sky-200"><CloudArrowDown size={16} /> Browse compatible downloads</span>
+              <span className="mt-1 block text-[11px] text-gray-500">{compatibleDownloads} suggested now{activeDownloads ? ` · ${activeDownloads} downloading` : ""}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setLane("local"); setRunsHere(false); setCapability(null); setView("cards"); }}
+              className="rounded-xl border border-gray-800 bg-gray-950/40 p-3 text-gray-300 transition hover:border-gray-600"
+            >
+              <span className="font-medium">Explore all</span>
+              <span className="mt-1 block text-[10px] text-gray-600">Include models that need other hardware</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setLane("cloud"); setRunsHere(false); setCapability(null); setView("cards"); }}
+              className="rounded-xl border border-gray-800 bg-gray-950/40 p-3 text-gray-300 transition hover:border-gray-600"
+            >
+              <span className="flex items-center gap-1 font-medium"><Cloud size={13} /> Connect cloud</span>
+              <span className="mt-1 block text-[10px] text-gray-600">Use provider models instead</span>
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-gray-800 bg-gray-950/25 px-5 py-3 text-[11px] text-gray-500 lg:px-6">
+          <span><strong className="text-gray-300">1.</strong> Choose a capability</span>
+          <ArrowRight size={11} className="hidden text-gray-700 sm:block" />
+          <span><strong className="text-gray-300">2.</strong> Review fit and download size</span>
+          <ArrowRight size={11} className="hidden text-gray-700 sm:block" />
+          <span><strong className="text-gray-300">3.</strong> Download and connect its runtime</span>
+          <ArrowRight size={11} className="hidden text-gray-700 sm:block" />
+          <span><strong className="text-gray-300">4.</strong> Make it active</span>
+        </div>
+      </section>
 
       <MachineStrip
         machine={data.machine}
@@ -188,6 +296,27 @@ export default function ModelsPage() {
         catalogue={data.catalogue}
         selected={capability}
         onSelect={(c) => setCapability((prev) => (prev === c ? null : c))}
+      />
+
+      <HubModelSearch
+        busy={busy}
+        diskFreeGb={data.machine.weightsDiskFreeGb}
+        initialQuery={hubSearchIntent}
+        downloads={data.downloads}
+        onDownload={(repo) =>
+          act("/api/scout", { action: "download", repo }, `dl:${repo}`, `Downloading ${repo}.`)
+        }
+        onInstall={(repo, file) =>
+          act(
+            "/api/scout",
+            { action: "install-runtime", repo, file },
+            `install:${repo}`,
+            `Installing ${repo} and adding it to Ollama.`,
+          )
+        }
+        onCancel={(repo) =>
+          act("/api/scout", { action: "cancel-download", repo }, `cancel:${repo}`, `Cancelled ${repo}.`)
+        }
       />
 
       {msg && (
@@ -216,7 +345,7 @@ export default function ModelsPage() {
         }
       />
 
-      <div className="flex items-center gap-2 flex-wrap">
+      <div id="model-results" className="scroll-mt-36 flex items-center gap-2 flex-wrap">
         <LaneTabs lane={lane} onLane={setLane} localCount={local.length} cloudCount={cloud.length} />
         <span className="text-[11px] text-gray-600 leading-relaxed hidden sm:inline">
           {lane === "local"
@@ -335,4 +464,3 @@ export default function ModelsPage() {
     </div>
   );
 }
-

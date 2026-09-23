@@ -246,5 +246,42 @@
       "color": "emerald",
       "action": "Analyze"
     }
+  },
+  "runtimes": {
+    "_doc": "See config/hosts/b5.json for the full explanation of this block. `verifiedAt` is written only by scripts/doctor.mjs after it inspected real output. Nothing here is verified yet because the doctor has not been run on that machine — absent is honest, and the UI says 'never checked' rather than claiming either way.",
+    "text": {
+      "driver": "vllm",
+      "model": "qwen3-coder",
+      "label": "Qwen3 Coder",
+      "serviceId": "vllm"
+    },
+    "vision": {
+      "driver": "ollama",
+      "model": "qwen3-vl:32b-instruct",
+      "label": "Qwen3-VL 32B Instruct",
+      "serviceId": "ollama",
+      "note": "Needs `ollama pull qwen3-vl:32b-instruct` on that box; the thinking variant returns an empty string."
+    },
+    "image": {
+      "driver": "qwen-native",
+      "model": "qwen-image",
+      "label": "Qwen-Image",
+      "serviceId": "qwen",
+      "mirrorsToArchive": true,
+      "note": "The native Qwen-Image service writes its own Activity archive entry, so the console must not write a second one. This is the only driver that does."
+    },
+    "stt": {
+      "driver": "whisper",
+      "model": "whisper-1",
+      "label": "Whisper",
+      "serviceId": "whisper"
+    },
+    "tts": {
+      "driver": "kokoro",
+      "model": "kokoro",
+      "label": "Kokoro",
+      "serviceId": "tts",
+      "note": "local-chatterbox (the `voice` service) returns HTTP 500 for its own built-in voice; Kokoro synthesizes fine at the same endpoint, so Kokoro is the declared driver."
+    }
   }
 }

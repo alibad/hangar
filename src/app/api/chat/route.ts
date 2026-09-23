@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceHeaders } from "@/lib/services";
 import { resolveCallTarget, type CallTarget } from "@/lib/providers";
-import { TARGET_HEADER, withTraffic } from "@/lib/with-traffic";
+import { TARGET_HEADER, withTraffic, describeCall } from "@/lib/with-traffic";
 
 /**
  * Reasoning models emit their thinking in one of two shapes, and this endpoint
@@ -138,7 +138,18 @@ async function handlePost(req: NextRequest) {
       }),
     });
 
-    const data = await res.json();
+    const raw = await res.text();
+    let data: Record<string, any>;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      const returnedHtml = /^\s*</.test(raw);
+      throw new Error(
+        returnedHtml
+          ? "The model endpoint returned a web page instead of a model response. It may be behind a login page or pointed at the wrong URL."
+          : "The model endpoint returned a response Hangar could not read.",
+      );
+    }
     const latency = Date.now() - start;
 
     if (!res.ok) {
@@ -150,6 +161,26 @@ async function handlePost(req: NextRequest) {
 
     const msg = data.choices?.[0]?.message ?? {};
     const { content, thinking } = splitThinking(msg.content ?? "", msg.reasoning_content);
+
+    /**
+     * Tell the traffic feed what this call was and what came back.
+     *
+     * Every one of these values was already in hand and every one was thrown
+     * away: before 2026-09-21 only the AI Router's own callback populated
+     * them, so on a router-less host the Requests row for a local chat carried
+     * a status and a duration and nothing else.
+     *
+     * `thinking` is deliberately not recorded — it is the model's scratch work,
+     * it dwarfs the answer on a reasoning model, and the feed's job is to show
+     * what the call produced.
+     */
+    describeCall(req, {
+      model: data.model ?? target.alias,
+      prompt: String(message ?? ""),
+      response: content,
+      tokensIn: data.usage?.prompt_tokens ?? null,
+      tokensOut: data.usage?.completion_tokens ?? null,
+    });
 
     return NextResponse.json(
       {
