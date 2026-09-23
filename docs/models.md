@@ -183,7 +183,7 @@ considered items on it were the least visible.
    let the TTS pick go unchecked.
 6. Rewrite `config/model-scout.json` **whole**, keeping the `_doc` and `_schema` keys.
 7. Run `npm test` and `npx tsc --noEmit`, then commit **only** `config/model-scout.json`
-   to `master` with a message naming what changed. Push it.
+   to `main` with a message naming what changed. Push it.
 8. **End on one recommendation, not a digest.** The run reaches its reader as a
    notification, and a notification that lists everything gets read as nothing. Lead with
    the single thing most worth doing this week and which machine to do it on; the report
