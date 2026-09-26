@@ -61,8 +61,9 @@ half-built and the risk is rebuilding it:
 - Keep it small. The user's own observation is that the lab is already better
   than the work done in it; this brief should make experiments cheaper to start,
   not add a layer to maintain.
-- Do not rename the console. "Hangar" has been floated as a name; that is a
-  separate decision.
+- The GitHub repo is already `alibad/hangar`, but the app, its directory and its
+  UI still say "BeTenshi Console". Do not rename anything in code in this pass;
+  that is a separate decision.
 
 **Deliverables:** the registry, the runs record, the shell, one Lab on it, a
 short `docs/labs.md` explaining how the next brief adds a Lab (the six other
