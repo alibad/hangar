@@ -58,6 +58,28 @@ between the lines:
 
 The vendor names one more limit, more than ~20 options; the most here is seven.
 
+### A second opinion: the Process Lab
+
+The BPMN session (06) called `/api/decide` from its gateways on its own
+hand-labelled relocation-agency requests
+([process-lab-2026-09-27.md](process-lab-2026-09-27.md)). Its numbers qualify
+two of the conclusions above:
+
+- **Laya did better on that domain than on these six sets.** It got 16 of
+  24 alone. Answering only at confidence ≥ 0.7, it took 15 of the 24 and got
+  one wrong. That one wrong answer came at 0.93: a Portuguese digital-nomad visa
+  question answered as a visa application. So a confidence gate works most of
+  the time, but a high score does not make an answer safe.
+- **`local-small` is not a universal answer.** Behind Laya it got 3 of 8
+  relocation cases right, filing residency clients as visa applications. Haiku
+  got 7 of 8. The 7B model is strong on the four sets above and weak on this
+  one, so check it per decision rather than trusting it by default. It drafted
+  fine (35 of 36 emails correct, median 0.75 s).
+
+Both sessions' sets are small (8-42 items) and hand-labelled. Read the
+two as agreeing on the shape: Laya is fast and sometimes usable behind a gate,
+and a decision that matters still goes to Haiku.
+
 ### Gemma 4 was not measured
 
 The brief's local comparison, `local-gemma4` (Gemma 4 31B via Ollama), has no
