@@ -74,8 +74,14 @@ Three files, none of them `src/app/page.tsx`:
    that model's column. Set `resourceBlocked: true` when the resource
    coordinator refused, and the shell offers to free the card in place.
 
-The reference implementation is the **Text Lab**:
-`src/components/labs/text-lab.tsx` and `src/app/api/labs/text/run/route.ts`.
+The smallest complete example is the **Decision Lab**:
+`src/components/labs/decision-lab.tsx` and `src/app/api/labs/decide/run/route.ts`.
+
+Text has no Lab: the **Arena** is the text and vision experiment surface. It
+records every run under `lab: "arena"` through the same `measureRun` /
+`recordLabRun` pair (`src/app/api/arena/run/route.ts`) and shows the record with
+the shared `RecentRuns` table (`src/components/labs/recent-runs.tsx`), which any
+surface that records runs can drop in.
 
 `npm test` checks the registry (`scripts/labs.test.mjs`): unique slug ids, a
 capability from the vocabulary, a component file that exists with a default

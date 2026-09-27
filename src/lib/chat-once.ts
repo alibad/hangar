@@ -5,7 +5,7 @@ import { isResident, unloadOthers, ollamaModelFromTarget } from "./ollama";
 /**
  * Run ONE chat model against one prompt, through the AI Router.
  *
- * Extracted from /api/arena/run so the Text Lab shares the Arena's exact path —
+ * Extracted from /api/arena/run so every caller shares the Arena's exact path —
  * catalogue validation, the Ollama residency/lease rules, thinking split — rather
  * than a second copy that drifts. The reasoning behind each rule is kept here
  * with the code; see also src/lib/ollama.ts.
@@ -41,6 +41,12 @@ export type ChatOnceInput = {
    * verbatim (e.g. Ollama's `reasoning_effort: "none"` — see decide-server.ts).
    */
   extraBody?: Record<string, unknown>;
+  /**
+   * A catalogue the caller already fetched. getCatalogue() health-probes every
+   * local service, so a caller that needed it first (to know whether a model is
+   * local before measuring) passes it on rather than paying for it twice.
+   */
+  catalogue?: Awaited<ReturnType<typeof getCatalogue>>;
 };
 
 export type ChatOnceOk = {
@@ -70,7 +76,7 @@ export async function chatOnce(input: ChatOnceInput): Promise<ChatOnceResult> {
   // Validate against the live catalogue rather than trusting the body. An
   // unknown alias would otherwise reach the router and come back as an opaque
   // 400, with nothing saying which of the two is wrong.
-  const { routerUp, models } = await getCatalogue();
+  const { routerUp, models } = input.catalogue ?? (await getCatalogue());
   if (!routerUp) {
     return { status: 503, body: { error: "AI Router is not running. Start it from Services." } };
   }

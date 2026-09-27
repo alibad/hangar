@@ -5,6 +5,7 @@ import { cer, wer, chrF, scoreFields, arabicRatio } from "@/lib/text-scoring";
 import type { Footprint } from "./model-footprint";
 import { ToolPageHeader, ToolSectionHeading } from "./tool-page";
 import { useVoiceInput, appendTranscript } from "./voice-input";
+import RecentRuns, { fmtCost } from "./labs/recent-runs";
 import { Swords, ImagePlus, X, Gavel, Loader2, Copy, Check, Cpu, Cloud, Search } from "lucide-react";
 
 /**
@@ -69,6 +70,12 @@ type Run = {
   costUsd?: number | null;
   truncated?: boolean;
   error?: string;
+  /** Card-wide peak during this run (local models on a discrete GPU only). */
+  peakVramGb?: number | null;
+  baselineVramGb?: number | null;
+  vramNote?: string | null;
+  /** Parameters the model refused, e.g. temperature 0 on OpenAI's newest models. */
+  adjusted?: string[];
 };
 
 type ScoreMode = "none" | "reference" | "fields";
@@ -132,6 +139,8 @@ export default function ArenaView() {
   const [judging, setJudging] = useState(false);
   const [judgeError, setJudgeError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  /** Bumped as each run lands, so the runs record below re-reads itself. */
+  const [runsVersion, setRunsVersion] = useState(0);
 
   const controllers = useRef<Record<string, AbortController>>({});
   /** Set when the user cancels everything, so the sequential chain stops too. */
@@ -221,7 +230,7 @@ export default function ArenaView() {
   }, []);
 
   const runOne = useCallback(
-    async (model: string, promptText: string, imageUrl: string | null) => {
+    async (model: string, promptText: string, imageUrl: string | null, compareGroup: string | null) => {
       const controller = new AbortController();
       controllers.current[model] = controller;
       try {
@@ -249,7 +258,7 @@ export default function ArenaView() {
         const res = await fetch("/api/arena/run", {
           method: "POST",
           headers: JSON_HEADERS,
-          body: JSON.stringify({ model, prompt: promptText, image: imageUrl ?? undefined }),
+          body: JSON.stringify({ model, prompt: promptText, image: imageUrl ?? undefined, compareGroup }),
           signal: controller.signal,
         });
         const data = await res.json();
@@ -268,6 +277,10 @@ export default function ArenaView() {
             usage: data.usage,
             costUsd: data.costUsd,
             truncated: data.truncated,
+            peakVramGb: data.peakVramGb,
+            baselineVramGb: data.baselineVramGb,
+            vramNote: data.vramNote,
+            adjusted: data.adjusted,
           },
         }));
       } catch (err) {
@@ -278,6 +291,7 @@ export default function ArenaView() {
         }));
       } finally {
         delete controllers.current[model];
+        setRunsVersion((v) => v + 1);
       }
     },
     [],
@@ -289,6 +303,10 @@ export default function ArenaView() {
     setJudgeResult(null);
     setJudgeError(null);
 
+    // One id for the whole batch, so the runs record can tell which rows were
+    // compared against each other. None for a single model: nothing to tie.
+    const compareGroup = selected.length > 1 ? crypto.randomUUID() : null;
+
     // Seed every tile up front: cloud starts immediately, local waits its turn
     // and says which turn that is.
     const seeded: Record<string, Run> = {};
@@ -299,7 +317,7 @@ export default function ArenaView() {
     setRuns(seeded);
 
     // Cloud: parallel. They cost money, not memory, and nothing serialises them.
-    for (const model of selectedCloud) void runOne(model, prompt, image?.dataUrl ?? null);
+    for (const model of selectedCloud) void runOne(model, prompt, image?.dataUrl ?? null, compareGroup);
 
     // Local: strictly one at a time. The card holds one 20+ GB model, so this
     // loop is the honest shape of what the hardware does — and it keeps two
@@ -310,7 +328,7 @@ export default function ArenaView() {
           setRuns((prev) => ({ ...prev, [model]: { model, state: "cancelled" } }));
           continue;
         }
-        await runOne(model, prompt, image?.dataUrl ?? null);
+        await runOne(model, prompt, image?.dataUrl ?? null, compareGroup);
       }
     })();
   }, [prompt, selected, selectedLocal, selectedCloud, image, runOne]);
@@ -749,7 +767,17 @@ export default function ArenaView() {
                     <div className="flex shrink-0 items-center gap-2 text-[11px] text-gray-400">
                       {run.latency != null && <span>{(run.latency / 1000).toFixed(1)}s</span>}
                       {run.usage?.completion_tokens != null && <span>{run.usage.completion_tokens} tok</span>}
-                      {run.costUsd != null && <span>${run.costUsd.toFixed(4)}</span>}
+                      {run.peakVramGb != null && (
+                        <span title={run.vramNote ?? undefined}>
+                          peak {run.peakVramGb.toFixed(1)} GB
+                          {run.baselineVramGb != null && ` (+${Math.max(0, run.peakVramGb - run.baselineVramGb).toFixed(1)})`}
+                        </span>
+                      )}
+                      {/* Cloud only: a local run is "not metered", not free. Five
+                          places for sub-cent calls, which .toFixed(4) showed as $0.0000. */}
+                      {run.state === "done" && !catalogue.find((m) => m.id === model)?.local && (
+                        <span>{fmtCost(run.costUsd ?? null, false)}</span>
+                      )}
                       {(run.state === "running" || run.state === "queued" || run.state === "preparing") && (
                         <button type="button" onClick={() => cancel(model)} className="text-gray-500 hover:text-gray-300">
                           <X size={13} />
@@ -820,6 +848,14 @@ export default function ArenaView() {
                             {run.truncated ? "Spent the whole token budget thinking — no answer left." : "Empty reply."}
                           </p>
                         )}
+                        {run.adjusted && run.adjusted.length > 0 && (
+                          <p
+                            className="mt-3 text-[11px] text-amber-400"
+                            title="The model refused these settings; this output is not directly comparable to a greedy one."
+                          >
+                            {run.adjusted.join(" · ")}
+                          </p>
+                        )}
                       </>
                     )}
                   </div>
@@ -874,6 +910,9 @@ export default function ArenaView() {
           )}
         </section>
       )}
+
+      {/* ── 6. the runs record: every run above, kept across reloads ── */}
+      <RecentRuns lab="arena" refreshKey={runsVersion} limit={20} />
     </div>
   );
 }

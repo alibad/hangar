@@ -8,6 +8,7 @@ import ModelDiscovery from "@/components/model-discovery";
 import CapacityBlocker from "@/components/capacity-blocker";
 import Markdown from "@/components/markdown";
 import { ServiceControl } from "@/components/service-control";
+import RecentRuns, { fmtCost, fmtLatency } from "@/components/labs/recent-runs";
 import { CAPABILITY_LABELS } from "@/lib/capabilities";
 import { getHost } from "@/lib/host";
 import type { LabDefinition } from "@/lib/labs";
@@ -26,21 +27,6 @@ import type { LabModel, LabModelsPayload, LabRunResult } from "@/lib/lab-types";
 type RunCtx = { compareGroup: string; signal: AbortSignal };
 
 type Slot<T> = { model: string; local: boolean; state: "running" | "done"; result?: LabRunResult<T> };
-
-type RecentRun = {
-  id: string;
-  model: string;
-  local: boolean;
-  compareGroup: string | null;
-  inputSummary: string;
-  seed: number | null;
-  status: "ok" | "error";
-  error: string | null;
-  latencyMs: number | null;
-  peakVramGb: number | null;
-  costUsd: number | null;
-  createdAt: string;
-};
 
 export default function LabShell<T>({
   lab,
@@ -63,7 +49,8 @@ export default function LabShell<T>({
   const [compare, setCompare] = useState(false);
   const [cloudId, setCloudId] = useState<string>("");
   const [slots, setSlots] = useState<Slot<T>[]>([]);
-  const [recent, setRecent] = useState<RecentRun[]>([]);
+  // Bumped when a run finishes, so the runs record re-reads itself.
+  const [runsVersion, setRunsVersion] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async (): Promise<LabModelsPayload | null> => {
@@ -82,24 +69,13 @@ export default function LabShell<T>({
     }
   }, [lab.capability, lab.compareCapability]);
 
-  const loadRecent = useCallback(async () => {
-    try {
-      const r = await fetch(`/api/labs/runs?lab=${encodeURIComponent(lab.id)}&limit=12`, { cache: "no-store" });
-      const j = await r.json();
-      setRecent(Array.isArray(j?.runs) ? j.runs : []);
-    } catch {
-      /* the record is history; the Lab still works without it */
-    }
-  }, [lab.id]);
-
   useEffect(() => {
     void load();
-    void loadRecent();
     const iv = setInterval(() => {
       if (!document.hidden) void load();
     }, 15_000);
     return () => clearInterval(iv);
-  }, [load, loadRecent]);
+  }, [load]);
 
   // A compareCapability model (an LLM beside a decision model) is only ever a
   // comparison target, even when it runs locally.
@@ -155,7 +131,7 @@ export default function LabShell<T>({
         setSlots((prev) => prev.map((s, j) => (j === i ? { ...s, state: "done", result } : s)));
       }),
     );
-    void loadRecent();
+    setRunsVersion((v) => v + 1);
     void load();
   };
 
@@ -284,45 +260,7 @@ export default function LabShell<T>({
       )}
 
       {/* ── runs record ── */}
-      <section className="rounded-xl border border-gray-800 bg-gray-900/40">
-        <h2 className="border-b border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-200">Recent runs</h2>
-        {recent.length === 0 ? (
-          <p className="px-4 py-4 text-xs text-gray-500">No runs recorded yet. Every run here is kept, with its model, host, seed and numbers.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="text-[10px] uppercase tracking-wide text-gray-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">When</th>
-                  <th className="px-2 py-2 font-medium">Model</th>
-                  <th className="px-2 py-2 font-medium">Input</th>
-                  <th className="px-2 py-2 text-right font-medium">Latency</th>
-                  <th className="px-2 py-2 text-right font-medium">Peak VRAM</th>
-                  <th className="px-4 py-2 text-right font-medium">Cost</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800/60 text-gray-300">
-                {recent.map((r) => (
-                  <tr key={r.id} title={r.error ?? undefined} className={r.status === "error" ? "text-red-300/80" : undefined}>
-                    <td className="whitespace-nowrap px-4 py-1.5 text-gray-500">
-                      {new Date(r.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                      {r.compareGroup && <span className="ml-1 text-[9px] text-orange-300/70" title={`Comparison ${r.compareGroup}`}>⇄</span>}
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-1.5">
-                      {r.model} <span className="text-[10px] text-gray-500">{r.local ? "local" : "cloud"}</span>
-                      {r.seed != null && <span className="ml-1 text-[10px] text-gray-500">seed {r.seed}</span>}
-                    </td>
-                    <td className="max-w-[28rem] truncate px-2 py-1.5 text-gray-400">{r.status === "error" ? `✕ ${r.error}` : r.inputSummary}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{fmtLatency(r.latencyMs)}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{r.peakVramGb != null ? `${r.peakVramGb.toFixed(1)} GB` : "—"}</td>
-                    <td className="whitespace-nowrap px-4 py-1.5 text-right tabular-nums">{fmtCost(r.costUsd, r.local)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <RecentRuns lab={lab.id} refreshKey={runsVersion} />
 
       <ExperimentDoc path={lab.doc} />
     </div>
@@ -456,15 +394,4 @@ function ExperimentDoc({ path }: { path?: string }) {
       </div>
     </details>
   );
-}
-
-function fmtLatency(ms: number | null): string {
-  if (ms == null) return "—";
-  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)} s`;
-}
-
-/** Local runs are not metered; saying "$0" would read as "free", which is a different claim. */
-function fmtCost(usd: number | null, local: boolean): string {
-  if (usd == null) return local ? "not metered" : "cost n/a";
-  return usd < 0.01 ? `$${usd.toFixed(5)}` : `$${usd.toFixed(3)}`;
 }

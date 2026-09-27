@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chatOnce } from "@/lib/chat-once";
+import { chatOnce, type ChatOnceOk } from "@/lib/chat-once";
+import { getCatalogue } from "@/lib/providers";
+import { measureRun, recordLabRun } from "@/lib/lab-runs";
 
 export const dynamic = "force-dynamic";
 /** A cold 20 GB local model plus a long vision prompt is minutes, not seconds. */
@@ -17,7 +19,13 @@ export const maxDuration = 900;
  * cancelled or fail without taking the others with it. The fan-out lives in the
  * component; see arena-view.tsx.
  *
- * The call itself lives in src/lib/chat-once.ts, shared with the Text Lab.
+ * The call itself lives in src/lib/chat-once.ts, shared with every other text
+ * surface. Every run that reaches a model is also measured and kept in the
+ * runs record (src/lib/lab-runs.ts) under `lab: "arena"`, so a comparison
+ * survives a reload: which models, what they were asked, latency, card-wide
+ * peak VRAM for local ones, cost for cloud ones, and a `compareGroup` tying
+ * the tiles of one batch together.
+ *
  * Everything goes through the AI Router rather than straight to the serving
  * port, even for local models. That is what makes the comparison legible
  * afterwards: the router's callback records model alias, latency, token counts
@@ -45,17 +53,72 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "image must be a data:image/ URL" }, { status: 400 });
   }
 
-  // The rules (catalogue validation, Ollama lease, thinking split) live in
-  // chat-once so the Text Lab cannot drift from them.
-  const { status, body: out } = await chatOnce({
+  const compareGroup = typeof body?.compareGroup === "string" && body.compareGroup ? body.compareGroup : null;
+  const hasImage = typeof image === "string";
+
+  // Fetched here rather than inside chatOnce, because whether to sample the
+  // card depends on whether the model is local — and handed on, so the router
+  // and every local service are only asked once.
+  const catalogue = await getCatalogue();
+  const local = catalogue.models.find((m) => m.id === model)?.local ?? false;
+
+  // The rules (catalogue validation, Ollama lease, thinking split, refused
+  // parameters) live in chat-once so no text surface can drift from them.
+  const measured = await measureRun(
+    () =>
+      chatOnce({
+        model,
+        prompt,
+        image: image as string | undefined,
+        maxTokens,
+        source: "console-arena",
+        owner: `arena:${model}`,
+        signal: req.signal,
+        timeoutMs: maxDuration * 1000,
+        catalogue,
+      }),
+    { local },
+  );
+  if (!measured.ok) {
+    return NextResponse.json({ error: String(measured.error) }, { status: 502 });
+  }
+  const { status, body: out } = measured.result;
+  const m = measured.measurement;
+
+  // Only a run that reached the model is a run. A refusal before the call — an
+  // unknown alias, a stopped service, the router down, or the coordinator
+  // saying the card is full — measured nothing about the model, and recording
+  // it would fill the history with rows that look like results. A capacity
+  // refusal does carry a `latency` (the time spent waiting for the card), which
+  // is why it is excluded by name rather than by that field.
+  const refused = "resourceBlocked" in out && out.resourceBlocked;
+  if (refused || !("latency" in out) || out.latency == null) return NextResponse.json(out, { status });
+
+  const ok = status === 200 ? (out as ChatOnceOk) : null;
+  const run = await recordLabRun({
+    lab: "arena",
+    capability: hasImage ? "vision" : "text",
     model,
-    prompt,
-    image: image as string | undefined,
-    maxTokens,
-    source: "console-arena",
-    owner: `arena:${model}`,
-    signal: req.signal,
-    timeoutMs: maxDuration * 1000,
+    local,
+    compareGroup,
+    inputSummary: `${hasImage ? "[image] " : ""}${prompt.trim().replace(/\s+/g, " ")}`,
+    // What was ASKED, plus anything the model refused, so a row is never read
+    // as greedy when it was not.
+    params: { temperature: 0, maxTokens, ...(ok?.adjusted.length ? { adjusted: ok.adjusted } : {}) },
+    status: ok ? "ok" : "error",
+    error: ok ? null : (out as { error: string }).error,
+    // The model call's own time, which is what the tile shows; the measured
+    // wall-clock also includes the catalogue lookup.
+    latencyMs: out.latency,
+    peakVramGb: m.peakVramGb,
+    baselineVramGb: m.baselineVramGb,
+    vramNote: m.vramNote,
+    costUsd: ok?.costUsd ?? null,
+    outputSummary: ok ? ok.content.trim().replace(/\s+/g, " ") : null,
   });
-  return NextResponse.json(out, { status });
+
+  return NextResponse.json(
+    { ...out, runId: run?.id ?? null, peakVramGb: m.peakVramGb, baselineVramGb: m.baselineVramGb, vramNote: m.vramNote },
+    { status },
+  );
 }

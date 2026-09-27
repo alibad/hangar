@@ -72,18 +72,6 @@ export type LabDefinition = {
 
 export const LABS: LabDefinition[] = [
   {
-    id: "text",
-    label: "Text Lab",
-    hint: "One prompt, a local model, a cloud one beside it",
-    keywords: "llm chat text lab experiment local cloud compare latency seed",
-    capability: "text",
-    input: "prompt",
-    output: "text",
-    cloudComparison: true,
-    doc: "docs/arabic-model-experiment-2026-09-14.md",
-    load: () => import("@/components/labs/text-lab"),
-  },
-  {
     id: "image",
     label: "Image Lab",
     hint: "One prompt across local and cloud image models, plus the fixed evaluation suite side by side",
