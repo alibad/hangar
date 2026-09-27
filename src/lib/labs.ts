@@ -136,6 +136,18 @@ export const LABS: LabDefinition[] = [
     doc: "docs/music-model-experiment-2026-09-27.md",
     load: () => import("@/components/labs/music-lab"),
   },
+  {
+    id: "3d",
+    label: "3D Lab",
+    hint: "Object image → SAM 3 cutout → textured mesh, in an orbit viewer",
+    keywords: "3d mesh glb model trellis triposr image-to-3d sam3 viewer print game asset",
+    capability: "3d",
+    input: "image",
+    output: "mesh",
+    cloudComparison: false,
+    doc: "docs/3d-model-experiment-2026-09-27.md",
+    load: () => import("@/components/labs/mesh-lab"),
+  },
 ];
 
 // ── tabs ────────────────────────────────────────────────────────────────────

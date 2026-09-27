@@ -193,6 +193,9 @@ function serviceForBase(apiBase?: string): string | undefined {
 export type Footprint = {
   vramGb?: number;
   ramGb?: number;
+  /** What the service keeps resident between runs, when that differs from the peak. */
+  idleVramGb?: number;
+  idleRamGb?: number;
   kind?: "reserved" | "peak";
   basis?: string;
 };

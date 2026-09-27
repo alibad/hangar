@@ -322,5 +322,68 @@
   "gemini-image-fast": {
     "docs": "https://ai.google.dev/gemini-api/docs/image-generation",
     "note": "Cheaper/faster image tier; same 429 quota caveat."
+  },
+  "local-trellis-2": {
+    "checkpoint": "microsoft/TRELLIS.2-4B · GGUF f16 (ilintar/trellis2-gguf) on trellis.cpp v0.8.1",
+    "params": "4B (3 × 1.3B flow DiTs + VAEs) · f16",
+    "license": "MIT",
+    "released": "2025-12",
+    "docs": "https://huggingface.co/microsoft/TRELLIS.2-4B",
+    "service": "trellis",
+    "footprint": {
+      "vramGb": 11,
+      "ramGb": 9,
+      "idleVramGb": 1.3,
+      "idleRamGb": 0.5,
+      "kind": "peak",
+      "basis": "Measured on BeTenshi 2026-09-27 with the Windows 'GPU Process Memory' counter on trellis-server.exe itself (nvidia-smi on WDDM has no per-process figure): 1.33 GB idle between meshes (CUDA context + ggml pool), 10.56 GB at the peak of the densest job tried, a tree stump at 1024 (17.8M decoded voxels, 753 s), with 1.2 GB of card headroom left so the figure is not capped. Moderate objects peak lower: +2.7-5.2 GB card-wide at 1024, +2.6-3.9 GB at 512. RAM: 8.4 GB private at the peak of the stump's CPU post-processing (39M-face remesh); idle not separately measured."
+    }
+  },
+  "local-pixal3d": {
+    "checkpoint": "TencentARC/Pixal3D (TRELLIS.2 backbone) · GGUF (vegax87/Pixal3D) on trellis.cpp v0.8.1",
+    "params": "4B · f16",
+    "license": "MIT (upstream gates out the EU)",
+    "released": "2026-05",
+    "docs": "https://huggingface.co/TencentARC/Pixal3D",
+    "service": "trellis",
+    "upAxis": "-z",
+    "note": "Pixel-aligned: it reconstructs in the input camera’s frame, and its GLB arrives with up along -Z (checked by eye in the 3D Lab on a standing character). upAxis makes the 3D pipeline stand it up by adding one rotated root node; geometry and textures are untouched.",
+    "footprint": {
+      "vramGb": 11,
+      "ramGb": 9,
+      "idleVramGb": 1.3,
+      "idleRamGb": 0.5,
+      "kind": "peak",
+      "basis": "Same server and post-processing as local-trellis-2, whose dense-object peak (10.56 GB, per-process) is used here because Pixal3D's dense case was not run. Measured for Pixal3D itself on 2026-09-27: +7.2-7.4 GB card-wide at 1024 on a chair and a character (both runs near the card's ceiling, so possibly capped), +6.7 GB on a plush-toy photo in the 3D Lab. It has no 512 texture model, so it always runs at 1024 or above."
+    }
+  },
+  "local-triposr": {
+    "checkpoint": "stabilityai/TripoSR",
+    "params": "~0.4B · fp32",
+    "license": "MIT",
+    "released": "2024-03",
+    "docs": "https://huggingface.co/stabilityai/TripoSR",
+    "service": "triposr",
+    "footprint": {
+      "vramGb": 3.5,
+      "ramGb": 2.5,
+      "idleVramGb": 3.5,
+      "idleRamGb": 2.5,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-27: the process held 3.49 GB of dedicated GPU memory idle after 8 runs (Windows 'GPU Process Memory' counter), torch.cuda.max_memory_allocated 2.38 GB per mesh at a 256 grid, and the card did not rise above the idle figure during warm runs; so resident = peak. RAM: ~2.3 GB working set (7.7 GB private commit, mostly torch/CUDA reservations)."
+    }
+  },
+  "local-sam3": {
+    "checkpoint": "facebook/sam3 (move-quest services/sam3/server.py, fp32)",
+    "service": "sam3",
+    "note": "Declared by the 3D exploration because the 3D Lab chains SAM 3 between an image model and a mesh model, and it was the one resident service on that path the coordinator and the capacity remedy could not see.",
+    "footprint": {
+      "vramGb": 4.8,
+      "ramGb": 1.3,
+      "idleVramGb": 4.8,
+      "idleRamGb": 1.3,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-27: 4.76 GB of dedicated GPU memory held by the SAM 3 server process after a run of segmentations (Windows 'GPU Process Memory' counter; nvidia-smi on WDDM has no per-process figure). RAM: ~1.2 GB working set (6.5 GB private commit). Resident = peak: the model stays loaded."
+    }
   }
 }

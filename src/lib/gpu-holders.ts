@@ -8,7 +8,7 @@
 export type GpuHolder = {
   /** For "ollama-model" this is the ROUTER ALIAS, which is what unload wants. */
   id: string;
-  kind: "ollama-model" | "image-service";
+  kind: "ollama-model" | "image-service" | "service";
   label: string;
   detail: string;
   vramGb: number;

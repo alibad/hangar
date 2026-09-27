@@ -192,6 +192,40 @@
       "note": "Meta SAM 3 — open-vocabulary promptable concept segmentation. Give it an image + a text concept ('person', 'car') and it segments every matching instance (masks + boxes + scores). Resident FastAPI service (move-quest: services/sam3/server.py). POST /segment {image, concepts}."
     },
     {
+      "id": "trellis",
+      "name": "TRELLIS.2 (trellis.cpp)",
+      "localPort": 8030,
+      "localUrl": "http://127.0.0.1:8030",
+      "publicUrl": "http://127.0.0.1:8030",
+      "healthPath": "/health",
+      "serves": {
+        "3d": ["trellis-2", "pixal3d"]
+      },
+      "modelParam": {
+        "trellis-2": "trellis",
+        "pixal3d": "pixal3d"
+      },
+      "category": "ai",
+      "authRequired": false,
+      "localOnly": true,
+      "note": "Image -> textured 3D mesh (GLB, PBR, UV atlas). Microsoft TRELLIS.2-4B, and TencentARC's Pixal3D fine-tune of it, on trellis.cpp: a C++/GGML port with prebuilt Windows CUDA binaries, chosen because the reference PyTorch pipeline needs CUDA extensions (o-voxel, cumesh, flex_gemm, nvdiffrast) this box has no toolkit or MSVC to build. The server is resident but loads and frees each stage per request, so between meshes it keeps only its CUDA context and ggml pool (1.3 GB measured). POST /generate multipart {image, seed, resolution 512|1024|1536, model trellis|pixal3d}. localOnly: a bare HTTP API with no auth."
+    },
+    {
+      "id": "triposr",
+      "name": "TripoSR",
+      "localPort": 8031,
+      "localUrl": "http://127.0.0.1:8031",
+      "publicUrl": "http://127.0.0.1:8031",
+      "healthPath": "/health",
+      "serves": {
+        "3d": "triposr"
+      },
+      "category": "ai",
+      "authRequired": false,
+      "localOnly": true,
+      "note": "Fast feed-forward image -> mesh (Stability AI + Tripo, MIT). The 'blockout in a second' half of the 3D Lab: vertex-coloured, no UV texture. FastAPI wrapper in C:\\Users\\Admin\\Code\\AI\\triposr (own venv; torchmcubes swapped for PyMCubes because it needs a CUDA build). POST /generate multipart {image, resolution (marching-cubes grid), bg_removal}; replies with timing and torch-peak headers."
+    },
+    {
       "id": "process-engine",
       "name": "Process engine (Operaton)",
       "localPort": 8085,

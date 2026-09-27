@@ -41,6 +41,7 @@
  * package.json would cost more than it saves.
  */
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -341,6 +342,76 @@ async function transcribe({ file }) {
   return ok(`${body.text.trim()}\n\n— ${body.model} in ${body.latency}ms`);
 }
 
+/** JSON POST over node:http, for requests that legitimately take longer than undici allows. */
+function longPost(url, payload, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const req = http.request(
+      {
+        hostname: u.hostname,
+        port: Number(u.port) || 80,
+        path: u.pathname,
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) },
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          let body = {};
+          try {
+            body = JSON.parse(text);
+          } catch {
+            body = { error: text.slice(0, 300) };
+          }
+          resolve({ status: res.statusCode, body });
+        });
+        res.on("error", reject);
+      },
+    );
+    req.setTimeout(timeoutMs, () => req.destroy(new Error(`timed out after ${Math.round(timeoutMs / 60000)} min`)));
+    req.on("error", reject);
+    req.end(payload);
+  });
+}
+
+async function generate3dModel({ subject, image_path, model, concept, resolution, seed }) {
+  if (!subject?.trim() && !image_path) return fail("Pass a subject to draw, or image_path to an existing picture of the object.");
+  let image;
+  if (image_path) {
+    if (!fs.existsSync(image_path)) return fail(`No file at ${image_path}.`);
+    image = fs.readFileSync(image_path).toString("base64");
+  }
+  // One request runs every step, and a dense object at 1024 is 15+ minutes of
+  // TRELLIS.2 post-processing before the first response byte. Not fetch():
+  // undici's headersTimeout is 300 s whatever timeout is asked for.
+  const payload = JSON.stringify({
+    ...(subject?.trim() ? { subject: subject.trim() } : {}),
+    ...(image ? { image } : {}),
+    ...(model ? { model } : {}),
+    ...(concept ? { concept } : {}),
+    ...(Number.isInteger(resolution) ? { resolution } : {}),
+    ...(Number.isInteger(seed) ? { seed } : {}),
+  });
+  let status, body;
+  try {
+    ({ status, body } = await longPost(`${CONSOLE}/api/labs/3d/pipeline`, payload, 1_800_000));
+  } catch (e) {
+    return fail(`The console on ${CONSOLE} did not answer (${e.message}). This tool needs it running.`);
+  }
+  if (status !== 200 || !body.ok) {
+    if (body.resourceBlocked) return fail(`Not enough room on the GPU: ${body.error}. gpu_status shows what is holding memory.`);
+    return fail(body.error ?? `3D generation failed (${status}).`);
+  }
+  const steps = (body.steps ?? []).map((s) => `${s.name} ${(s.ms / 1000).toFixed(1)}s${s.detail ? ` (${s.detail})` : ""}`).join(", ");
+  return ok(
+    `GLB saved to ${body.glbPath} — ${body.model}, ${(body.bytes / 1024 / 1024).toFixed(1)} MB. ${steps}.` +
+      (body.cutoutPath ? ` Cutout: ${body.cutoutPath}.` : "") +
+      ` Source image: ${body.sourcePath}. Open ${CONSOLE}${body.labUrl} to orbit it.`,
+  );
+}
+
 async function generateImage({ prompt, model, folder }) {
   if (!prompt?.trim()) return fail("What should it draw? Pass a prompt.");
   const { error, res } = await consoleFetch("/api/image/generate", {
@@ -562,6 +633,29 @@ const TOOLS = [
       required: ["file"],
     },
     run: transcribe,
+  },
+  {
+    name: "generate_3d_model",
+    description:
+      "Make a textured 3D mesh (GLB file) of ONE object on the local GPU: draws the object with a local image model " +
+      "(or takes image_path), cuts it out with SAM 3, and reconstructs it with TRELLIS.2 (default: textured, ~0.5-2.5 min at its default 512) " +
+      "or TripoSR (model \"triposr\", seconds, vertex colours, blockout quality). Returns the GLB path. " +
+      "Use it when a 3D asset is the deliverable (a game prop, a product mockup, a starting mesh for a print). " +
+      "Do NOT use it for scenes, rooms or several objects at once (it reconstructs a single object), for precise " +
+      "CAD/engineering parts (dimensions are not controllable), or for a human body pose (use the SAM 3D Body tab). " +
+      "Meshes are not print-ready without repair in a slicer. It occupies most of the GPU for its duration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        subject: { type: "string", description: 'The object, e.g. "a brass desk lamp". Ignored when image_path is given, except as its label.' },
+        image_path: { type: "string", description: "Absolute path to a PNG/JPEG of the object, instead of drawing one." },
+        model: { type: "string", description: '"trellis-2" (default, quality) or "triposr" (fast draft).' },
+        concept: { type: "string", description: "The noun SAM 3 should segment. Defaults to the last word of subject." },
+        resolution: { type: "integer", description: "TRELLIS.2: 512 (default), 1024 (3-6x slower, 1.5-14 min, finer detail) or 1536. Pixal3D: 1024 (default; it has no 512 texture model) or 1536. TripoSR: marching-cubes grid, 256 default (max 384)." },
+        seed: { type: "integer", description: "Seed for the image and the mesh. Default 42." },
+      },
+    },
+    run: generate3dModel,
   },
   {
     name: "generate_image",

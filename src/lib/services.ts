@@ -47,6 +47,12 @@ export type ServiceEntry = {
    * to. Read it through servedModels() in host.ts rather than indexing.
    */
   serves?: Record<string, string | string[]>;
+  /**
+   * For a service that hosts several served models behind one endpoint, the
+   * value of its own `model` request field for each served name — e.g.
+   * trellis.cpp calls TRELLIS.2 "trellis" and Pixal3D "pixal3d".
+   */
+  modelParam?: Record<string, string>;
   /** Free-text rationale carried from the host profile. Documentation, not behaviour. */
   note?: string;
 };

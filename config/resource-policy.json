@@ -13,8 +13,10 @@
     "comfyui": { "model": "local-flux-schnell" },
     "laya": { "model": "local-laya" },
     "music": { "model": "local-ace-step-1.5" },
-    "sam3": {},
+    "sam3": { "model": "local-sam3" },
     "sam3d": {},
+    "trellis": { "model": "local-trellis-2" },
+    "triposr": { "model": "local-triposr" },
     "ollama": { "model": "local-ollama" }
   },
   "workloads": {
@@ -62,6 +64,8 @@
       "slot": "gpu-heavy",
       "ttlMs": 900000
     },
+    "trellis-generate": { "service": "trellis", "model": "local-trellis-2", "slot": "gpu-heavy", "aliases": ["trellis-2", "pixal3d"], "ttlMs": 1800000 },
+    "triposr-generate": { "service": "triposr", "model": "local-triposr", "slot": "gpu-heavy", "aliases": ["triposr"], "ttlMs": 300000 },
     "ollama-chat": {
       "service": "ollama",
       "model": "local-qwen3-vl",

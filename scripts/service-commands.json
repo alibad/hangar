@@ -105,6 +105,20 @@
     }
   },
 
+  "_3d-doc": "The 3D Lab's two mesh services, both localOnly like the AI Router. trellis is trellis.cpp's own native server (TRELLIS.2 + Pixal3D share one GGUF directory on D:; each request picks with a `model` field). It loads and frees each stage per request, so between meshes it holds only its CUDA context and ggml pool (1.3 GB measured). TripoSR runs from its own venv (torch inherited via --system-site-packages).",
+  "trellis": {
+    "cmd": "C:\\Users\\Admin\\Code\\AI\\trellis3d\\runtime\\trellis-server.exe",
+    "args": ["--host", "127.0.0.1", "--port", "8030", "--models", "D:\\AI Models\\trellis2", "--res", "1024", "--require-gpu"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\trellis3d\\runtime"
+  },
+
+  "triposr": {
+    "cmd": "C:\\Users\\Admin\\Code\\AI\\triposr\\.venv\\Scripts\\python.exe",
+    "args": ["server.py"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\triposr",
+    "env": { "HF_HOME": "D:\\AI Models\\huggingface", "TRIPOSR_PORT": "8031" }
+  },
+
   "_ollama-doc": "Second LLM runtime beside vLLM, for models vLLM 0.17.1 cannot load (Gemma 4 needs vLLM >= 0.19) and for on-demand vision. Normally already running from the Ollama tray app, which is fine: the manager adopts the external process and reports it as externally owned. OLLAMA_KEEP_ALIVE is short on purpose - one 31B model is ~20 GB of a 32 GB card, so an idle model left resident is what blocks the next image generation. OLLAMA_MAX_LOADED_MODELS=1 for the same reason: two of these do not coexist.",
   "process-engine": {
     "_doc": "Operaton, the process lab's BPMN/DMN engine. The manager only docker-starts an existing container: create it once with `docker compose up -d` in C:\\Users\\Admin\\Code\\AI\\process-lab (compose also chowns the H2 volume for the image's uid 1000).",

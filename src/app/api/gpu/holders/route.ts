@@ -25,6 +25,11 @@ export const dynamic = "force-dynamic";
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
+/** What a service holds on the card while idle, per its declared footprint. */
+function residentVram(fp: { vramGb?: number; idleVramGb?: number; kind?: string }): number {
+  return fp.idleVramGb ?? (fp.kind === "reserved" ? fp.vramGb ?? 0 : 0);
+}
+
 async function serviceUp(id: string): Promise<boolean> {
   const svc = SERVICE_REGISTRY.find((s) => s.id === id);
   if (!svc) return false;
@@ -95,6 +100,31 @@ export async function GET() {
       ramGb: 0,
     });
   }
+
+  // ── Any other running service that keeps memory resident while idle ──
+  // Qwen was the first of these; the 3D pipeline's SAM 3, TripoSR and trellis
+  // are the same shape, and a Lab that chains them (image → cutout → mesh) is
+  // exactly where the card runs out. Declared, measured resident cost from
+  // config/model-meta.json: idleVram/idleRam, or the footprint itself for a
+  // "reserved" model. Services declaring nothing resident are left out rather
+  // than listed as freeing 0.
+  const candidates = Object.entries(footprints).filter(([svc, { footprint: fp }]) => {
+    if (svc === "qwen" || svc === "comfyui" || svc === "ollama") return false;
+    return residentVram(fp) >= 0.5 && SERVICE_REGISTRY.some((s) => s.id === svc);
+  });
+  const up = await Promise.all(candidates.map(([svc]) => serviceUp(svc)));
+  candidates.forEach(([svc, { footprint: fp }], i) => {
+    if (!up[i]) return;
+    const name = SERVICE_REGISTRY.find((s) => s.id === svc)?.name ?? svc;
+    holders.push({
+      id: svc,
+      kind: "service",
+      label: name,
+      detail: "Keeps its model resident while idle",
+      vramGb: round1(residentVram(fp)),
+      ramGb: round1(fp.idleRamGb ?? (fp.kind === "reserved" ? fp.ramGb ?? 0 : 0)),
+    });
+  });
 
   holders.sort((a, b) => b.vramGb + b.ramGb - (a.vramGb + a.ramGb));
   return NextResponse.json({ holders });
