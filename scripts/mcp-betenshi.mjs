@@ -415,6 +415,31 @@ async function processLab({ action = "status", caseKey, run, scenarios, secondsP
   return fail(`Unknown action "${action}".`);
 }
 
+async function decideTool({ question, choices, type, context, model }) {
+  if (!question?.trim()) return fail("Pass the question to decide.");
+  const { error, res } = await consoleFetch("/api/decide", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Source": "mcp-decide" },
+    body: JSON.stringify({ question, choices, type, context, ...(model ? { model } : {}) }),
+  });
+  if (error) return fail(error);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 503) return fail(`${body.error ?? "The decision service is not running."} start_service("laya") starts it.`);
+    return fail(body.error ?? `Decision failed (${res.status}).`);
+  }
+  // The whole distribution, not just the winner: the point of asking a
+  // calibrated model is to act differently at 0.55 than at 0.98.
+  const dist = Object.entries(body.probabilities)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, p]) => `${k} ${(p * 100).toFixed(1)}%`)
+    .join(", ");
+  const how = [body.model, body.checkpoint && `checkpoint ${body.checkpoint}`, `${Math.round(body.latencyMs)} ms`, body.costUsd != null && `$${body.costUsd.toFixed(5)}`]
+    .filter(Boolean)
+    .join(", ");
+  return ok(`${body.choice} (${(body.confidence * 100).toFixed(1)}%). Distribution: ${dist}. [${how}]${body.parsed === false ? " Warning: the LLM did not return the requested JSON; the distribution is a fallback." : ""}`);
+}
+
 // ── tool table ────────────────────────────────────────────────────────────────
 
 const TOOLS = [
@@ -552,6 +577,34 @@ const TOOLS = [
       required: ["action"],
     },
     run: processLab,
+  },
+  {
+    name: "decide",
+    description:
+      "Answer one typed question about a piece of text with calibrated probabilities, using Laya, a local " +
+      "decision model (~30 ms, nothing leaves the box): pick one of a few labels, yes/no, or a low-to-high score. " +
+      "It is good at coarse, vocabulary-level calls (topic, language, 'is this about billing') and weak at judgement: " +
+      "on this box's six labelled decision sets (triage, moderation, routing, relevance, intent, Arabic dialect) it " +
+      "scored 17-65% where Claude Haiku scored 83-100% — see docs/decision-model-experiment-2026-09-27.md. " +
+      "Do NOT use it when you can simply read the text and decide yourself, for anything that needs reading between " +
+      "the lines, world knowledge or arithmetic, for open-ended questions, or for more than ~20 options. " +
+      "The same tool asks an LLM in the same shape: pass model \"local-small\" (a resident 7B, ~0.2 s, free) or " +
+      "\"claude-haiku\" (~1 s, metered) — usually the better choice for a real decision.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        question: { type: "string", description: "The question, e.g. \"Is this post spam?\"" },
+        choices: {
+          description: "The options: a list of labels, or an object of label → what the label means (descriptions help). Omit for yesno.",
+          oneOf: [{ type: "array", items: { type: "string" } }, { type: "object", additionalProperties: { type: "string" } }],
+        },
+        type: { type: "string", enum: ["choice", "yesno", "score"], description: "Default choice. score: choices ordered low → high." },
+        context: { description: "The text (or a JSON object) the decision is about.", oneOf: [{ type: "string" }, { type: "object" }] },
+        model: { type: "string", description: "Default \"laya\". Also laya-multilingual, laya-typed-decisions, or a router chat alias." },
+      },
+      required: ["question", "context"],
+    },
+    run: decideTool,
   },
 ];
 

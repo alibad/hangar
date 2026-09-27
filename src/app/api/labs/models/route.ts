@@ -26,20 +26,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Unknown capability "${capability}".` }, { status: 400 });
   }
 
+  // `compare`: a Lab's compareCapability — the comparison column's models come
+  // from there (an LLM beside a decision model). Only a routable capability
+  // has router models to offer, so anything else is refused rather than
+  // silently returning an empty picker.
+  const compare = req.nextUrl.searchParams.get("compare");
+  const isRoutable = (c: string) => CAPABILITIES.some((x) => x.id === c);
+  if (compare != null && (!isCapabilityId(compare) || !isRoutable(compare))) {
+    return NextResponse.json({ error: `Cannot compare against "${compare}": the router has no models for it.` }, { status: 400 });
+  }
+
   const host = getHost();
   const hostServices = new Map(host.services.map((s) => [s.id, s]));
-  const routable = CAPABILITIES.some((c) => c.id === capability);
+  const routable = isRoutable(capability);
 
-  const { routerUp, models: catalogue } = routable
-    ? await getCatalogue()
-    : { routerUp: false, models: [] };
+  const { routerUp, models: catalogue } =
+    routable || compare ? await getCatalogue() : { routerUp: false, models: [] };
 
   const models: LabModel[] = [];
   const covered = new Set<string>();
-  if (routable) {
-    for (const m of modelsFor(capability as Capability, catalogue)) {
+  const fromRouter = (cap: Capability, asCompare: boolean) => {
+    for (const m of modelsFor(cap, catalogue)) {
       if (m.local && (!m.serviceId || !hostServices.has(m.serviceId))) continue;
-      if (m.serviceId) covered.add(m.serviceId);
+      if (!asCompare && m.serviceId) covered.add(m.serviceId);
       models.push({
         id: m.id,
         local: m.local,
@@ -57,9 +66,12 @@ export async function GET(req: NextRequest) {
         costPerMTokIn: m.costPerMTokIn,
         costPerMTokOut: m.costPerMTokOut,
         costPerImage: m.costPerImage,
+        ...(asCompare ? { compare: true } : {}),
       });
     }
-  }
+  };
+  if (routable) fromRouter(capability as Capability, false);
+  if (compare && compare !== capability) fromRouter(compare as Capability, true);
 
   const direct = host.services.filter((s) => servedModels(s, capability).length && !covered.has(s.id));
   const health = await Promise.all(direct.map((s) => localServiceHealthy(s.id)));

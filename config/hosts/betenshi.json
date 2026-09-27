@@ -204,6 +204,21 @@
       "note": "A simulated relocation agency: external-task workers (Laya via /api/decide, Gemma 4 via the AI Router, local first with a recorded cloud fallback), the simulator, and the JSON API the Process Lab tab reads. Node 24, no dependencies; C:\\Users\\Admin\\Code\\AI\\process-lab. Needs process-engine. Holds no GPU memory itself (measured ~110 MB RAM); its Ollama calls take the coordinator's ollama-chat lease and honour logs/gpu-claim.txt."
     },
     {
+      "id": "laya",
+      "name": "Laya decisions",
+      "localPort": 8040,
+      "localUrl": "http://127.0.0.1:8040",
+      "publicUrl": "http://127.0.0.1:8040",
+      "healthPath": "/health",
+      "serves": {
+        "decision": ["laya", "laya-english", "laya-multilingual", "laya-typed-decisions"]
+      },
+      "category": "ai",
+      "authRequired": false,
+      "localOnly": true,
+      "note": "Convai Innovations' Laya (Apache-2.0): typed decisions (pick a choice, yes/no, score) with a probability per option from one forward pass. Not a text generator. Runs on CPU on purpose (~150-300 ms a decision, ~4-5 GB RAM, no VRAM): on the 5090 it is ~30 ms but holds ~6 GB of a contended card. 'laya' routes each request to the English or multilingual checkpoint by script; typed-decisions loads on first use. Zero-shot it is well short of an LLM on this box's own decisions; see docs/decision-model-experiment-2026-09-27.md before relying on it. POST /decide; the console contract is POST /api/decide (docs/decide-api.md). localOnly: no auth, bound to 127.0.0.1 like the AI Router."
+    },
+    {
       "id": "ollama",
       "name": "Ollama (Gemma 4 / Qwen3-VL)",
       "localPort": 11434,

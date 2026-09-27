@@ -33,6 +33,14 @@ export type ChatOnceInput = {
   owner: string;
   signal?: AbortSignal;
   timeoutMs: number;
+  /**
+   * Extra top-level request fields, sent as given. For provider switches the
+   * common fields do not cover. Note the router runs with drop_params: a field
+   * LiteLLM does not recognise for that provider is dropped silently, so wrap
+   * provider-specific ones as `{ extra_body: { … } }`, which LiteLLM forwards
+   * verbatim (e.g. Ollama's `reasoning_effort: "none"` — see decide-server.ts).
+   */
+  extraBody?: Record<string, unknown>;
 };
 
 export type ChatOnceOk = {
@@ -111,6 +119,7 @@ export async function chatOnce(input: ChatOnceInput): Promise<ChatOnceResult> {
         [sent.tokenParam]: maxTokens,
         ...(sent.temperature !== undefined ? { temperature: sent.temperature } : {}),
         ...(sent.seed !== undefined ? { seed: sent.seed } : {}),
+        ...(input.extraBody ?? {}),
       }),
       signal: AbortSignal.timeout(input.timeoutMs),
     });

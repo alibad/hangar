@@ -156,5 +156,18 @@ is system RAM and moves with everything — and cloud runs have none.
   missing.
 - A cloud comparison comes only from the router. Cloud video and music models
   (not routable) belong inside their own Lab for now.
+
+  When the fair comparison is a *different* capability, a Lab declares
+  `compareCapability`. The Decision Lab (`capability: "decision"`) sets it to
+  `"text"`: the router has no cloud "decision" model, and the thing a decision
+  model would replace is an LLM asked the same typed question. The shell then
+  asks for `/api/labs/models?capability=decision&compare=text`, which appends
+  that capability's router models (host-narrowed as usual) flagged
+  `compare: true`. They appear only in the comparison picker, local ones like
+  `local-gemma4` included and marked "(local)", never among the Lab's own
+  models. It needs `cloudComparison: true`, and `validateLabs()` rejects an
+  unknown id or the Lab's own capability. The run route gets the compare
+  model's id and has to know how to call it; the Decision Lab's does that
+  through `/api/decide`.
 - The runs record has no comparison view beyond the Lab's "Recent runs" list.
   The rows carry `compare_group` so one can be built without a migration.

@@ -52,6 +52,15 @@ export type LabDefinition = {
    */
   cloudComparison: boolean;
   /**
+   * Where the comparison column's models come from, when it is not the Lab's
+   * own capability. A decision model's cloud equivalent is not a cloud
+   * "decision" model — the router has none — but an LLM asked the same typed
+   * question, so the Decision Lab declares "text" here. Those models are listed
+   * in the comparison picker only (local ones such as local-gemma4 included),
+   * never among the Lab's own models. Requires cloudComparison: true.
+   */
+  compareCapability?: CapabilityId;
+  /**
    * The experiment write-up, repo-relative (e.g. "docs/foo-experiment-….md").
    * Rendered inside the Lab so the page says what was learned, not only what
    * is installed. Omit until the experiment has a doc.
@@ -99,6 +108,19 @@ export const LABS: LabDefinition[] = [
     cloudComparison: false,
     doc: "docs/process-lab-2026-09-27.md",
     load: () => import("@/components/labs/process-lab"),
+  },
+  {
+    id: "decide",
+    label: "Decision Lab",
+    hint: "A typed question, calibrated probabilities — Laya beside an LLM",
+    keywords: "decision decide classify classifier laya typed choice yes no score calibration triage routing moderation intent",
+    capability: "decision",
+    input: "structured",
+    output: "json",
+    cloudComparison: true,
+    compareCapability: "text",
+    doc: "docs/decision-model-experiment-2026-09-27.md",
+    load: () => import("@/components/labs/decision-lab"),
   },
 ];
 
@@ -161,6 +183,16 @@ export function validateLabs(labs: LabDefinition[], capabilityIds: readonly stri
     seen.add(lab.id);
     if (!capabilityIds.includes(lab.capability)) {
       errors.push(`Lab "${lab.id}" draws on capability "${lab.capability}", which is not in CAPABILITY_IDS.`);
+    }
+    if (lab.compareCapability !== undefined) {
+      if (!capabilityIds.includes(lab.compareCapability)) {
+        errors.push(`Lab "${lab.id}" compares against capability "${lab.compareCapability}", which is not in CAPABILITY_IDS.`);
+      } else if (lab.compareCapability === lab.capability) {
+        errors.push(`Lab "${lab.id}" sets compareCapability to its own capability; leave it out instead.`);
+      }
+      if (!lab.cloudComparison) {
+        errors.push(`Lab "${lab.id}" sets compareCapability but not cloudComparison, so the comparison column never shows.`);
+      }
     }
     if (!lab.label.trim()) errors.push(`Lab "${lab.id}" has no label.`);
     if (lab.doc !== undefined && !/^docs\/[\w.-]+\.md$/.test(lab.doc)) {

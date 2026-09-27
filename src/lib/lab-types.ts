@@ -26,6 +26,11 @@ export type LabModel = {
   detail?: string;
   /** For on-demand runtimes (Ollama): resident right now. */
   loaded?: boolean;
+  /**
+   * Listed only as a comparison target: drawn from the Lab's compareCapability
+   * (an LLM beside a decision model), not from the Lab's own capability.
+   */
+  compare?: boolean;
   params?: string;
   checkpoint?: string;
   license?: string;

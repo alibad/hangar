@@ -11,6 +11,7 @@
     "tts": { "model": "local-kokoro" },
     "qwen": { "model": "local-qwen-image" },
     "comfyui": { "model": "local-flux-schnell" },
+    "laya": { "model": "local-laya" },
     "sam3": {},
     "sam3d": {},
     "ollama": { "model": "local-ollama" }

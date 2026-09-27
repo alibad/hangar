@@ -75,6 +75,15 @@ test("validateLabs names each structural problem", () => {
   assert.deepEqual(validateLabs([{ ...base, doc: "docs/music-experiment-2026-09-30.md" }], CAPABILITY_IDS), []);
 });
 
+test("compareCapability must be a known, different capability, and needs cloudComparison", () => {
+  const errs = (labs) => validateLabs(labs, CAPABILITY_IDS).join("\n");
+  const decision = { ...base, capability: "decision", cloudComparison: true };
+  assert.deepEqual(validateLabs([{ ...decision, compareCapability: "text" }], CAPABILITY_IDS), []);
+  assert.match(errs([{ ...decision, compareCapability: "txt" }]), /compares against capability "txt"/);
+  assert.match(errs([{ ...decision, compareCapability: "decision" }]), /its own capability/);
+  assert.match(errs([{ ...decision, compareCapability: "text", cloudComparison: false }]), /not cloudComparison/);
+});
+
 test("every capability a Lab may need is in the vocabulary, with a label", () => {
   for (const cap of ["text", "vision", "image", "stt", "tts", "music", "3d", "video", "decision"]) {
     assert.ok(isCapabilityId(cap), `${cap} is missing from CAPABILITY_IDS`);

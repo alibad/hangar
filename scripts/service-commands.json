@@ -33,6 +33,14 @@
     "env": { "HF_HOME": "D:\\AI Models\\huggingface" }
   },
 
+  "laya": {
+    "_doc": "Its OWN venv, built with --system-site-packages so it inherits the Blackwell-capable torch 2.11.0+cu128; laya itself is pure Python and pins nothing older. server.py wraps laya's Router behind POST /decide and binds loopback only: laya's bundled laya-serve binds 0.0.0.0 with no auth by default. USE_TF=0 per laya's README (TensorFlow's abseil can deadlock model construction). HF_HUB_OFFLINE: the three checkpoints are already on D:, so a start never waits on the hub. LAYA_DEVICE=cpu ON PURPOSE: on the GPU it answers in ~30-50 ms but holds ~6 GB of a card five explorations were contending for; on CPU it answers in ~150-300 ms, still several times faster than any LLM call, with no VRAM at all (measured in docs/decision-model-experiment-2026-09-27.md). For a bulk run set LAYA_DEVICE=cuda, and change local-laya's footprint in model-meta.json to match.",
+    "cmd": "C:\\Users\\Admin\\Code\\AI\\laya\\.venv\\Scripts\\python.exe",
+    "args": ["-m", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", "8040"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\laya",
+    "env": { "HF_HOME": "D:\\AI Models\\huggingface", "USE_TF": "0", "HF_HUB_OFFLINE": "1", "LAYA_DEVICE": "cpu", "LAYA_PRELOAD": "english,multilingual" }
+  },
+
   "webui": {
     "docker": "open-webui"
   },

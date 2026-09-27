@@ -121,6 +121,48 @@
       "basis": "Read off the OpenRA tool-enabled container launch flags: --gpu-memory-utilization 0.55 of a 31.8 GB card, with KV cache for 16k context."
     }
   },
+  "local-laya": {
+    "checkpoint": "convaiinnovations/laya @ 55cf4c4 · English + multilingual + typed-decisions, routed per request",
+    "params": "421M (ModernBERT-large) + 322M (mmBERT-base) + 421M",
+    "released": "2026-09",
+    "license": "apache-2.0",
+    "docs": "https://huggingface.co/convaiinnovations/laya",
+    "note": "A decision model, not a text generator: one forward pass scores every option of a typed question (choice, yes/no, score) and returns a distribution. 'laya' lets laya's Router pick the checkpoint: English for Latin-script English, multilingual otherwise. What it is good and bad at on this box's own decisions: docs/decision-model-experiment-2026-09-27.md.",
+    "service": "laya",
+    "footprint": {
+      "vramGb": 0,
+      "ramGb": 6,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-27, CPU mode as service-commands.json starts it (LAYA_DEVICE=cpu): working set 3.73 GB once /health was ready with english + multilingual loaded (24.7 s), 5.45 GB after typed-decisions loaded on first use; the process holds no GPU context at all (absent from nvidia-smi's process list). 6 GB is that rounded up. On the GPU instead (LAYA_DEVICE=cuda, all three preloaded) it measured 5,745 MiB of VRAM and a 2.44 GB working set: set vramGb to 6 before switching."
+    }
+  },
+  "local-laya-english": {
+    "checkpoint": "convaiinnovations/laya (root) · ModernBERT-large + decision head",
+    "params": "421M",
+    "released": "2026-09",
+    "license": "apache-2.0",
+    "docs": "https://huggingface.co/convaiinnovations/laya",
+    "note": "The English checkpoint forced, bypassing routing. The vendor measured it collapsing on non-Latin scripts (Khmer: 0.000 accuracy at 0.952 confidence). Shares the laya service's memory: its footprint is on local-laya.",
+    "service": "laya"
+  },
+  "local-laya-multilingual": {
+    "checkpoint": "convaiinnovations/laya/multilingual · mmBERT-base + decision head",
+    "params": "322M",
+    "released": "2026-09",
+    "license": "apache-2.0",
+    "docs": "https://huggingface.co/convaiinnovations/laya-multilingual",
+    "note": "The multilingual checkpoint forced, for every input. 100+ languages, 1,024-token context (up to 8,192). Shares the laya service's memory: its footprint is on local-laya.",
+    "service": "laya"
+  },
+  "local-laya-typed-decisions": {
+    "checkpoint": "convaiinnovations/laya/typed-decisions · ModernBERT-large fine-tuned on the vendor's four workflows",
+    "params": "421M",
+    "released": "2026-09",
+    "license": "apache-2.0",
+    "docs": "https://huggingface.co/convaiinnovations/laya-typed-decisions",
+    "note": "Fine-tuned on invoice processing, security incidents, customer service and agent traces; the vendor's 0.766 accuracy is on those. Shares the laya service's memory: its footprint is on local-laya.",
+    "service": "laya"
+  },
   "local-whisper": {
     "checkpoint": "openai/whisper large-v3 (local service on :8001)",
     "params": "1.5B · int8_float16",

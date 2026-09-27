@@ -68,7 +68,9 @@ export default function LabShell<T>({
 
   const load = useCallback(async (): Promise<LabModelsPayload | null> => {
     try {
-      const r = await fetch(`/api/labs/models?capability=${encodeURIComponent(lab.capability)}`, { cache: "no-store" });
+      const q = new URLSearchParams({ capability: lab.capability });
+      if (lab.compareCapability) q.set("compare", lab.compareCapability);
+      const r = await fetch(`/api/labs/models?${q}`, { cache: "no-store" });
       const j = await r.json();
       if (!r.ok) throw new Error(j?.error ?? `HTTP ${r.status}`);
       setPayload(j);
@@ -78,7 +80,7 @@ export default function LabShell<T>({
       setLoadError(e instanceof Error ? e.message : String(e));
       return null;
     }
-  }, [lab.capability]);
+  }, [lab.capability, lab.compareCapability]);
 
   const loadRecent = useCallback(async () => {
     try {
@@ -99,8 +101,10 @@ export default function LabShell<T>({
     return () => clearInterval(iv);
   }, [load, loadRecent]);
 
-  const locals = useMemo(() => payload?.models.filter((m) => m.local) ?? [], [payload]);
-  const clouds = useMemo(() => payload?.models.filter((m) => !m.local) ?? [], [payload]);
+  // A compareCapability model (an LLM beside a decision model) is only ever a
+  // comparison target, even when it runs locally.
+  const locals = useMemo(() => payload?.models.filter((m) => m.local && !m.compare) ?? [], [payload]);
+  const clouds = useMemo(() => payload?.models.filter((m) => !m.local || m.compare) ?? [], [payload]);
 
   // Default picks: the first ready local model; for the cloud column, the
   // model this capability is routed to when that is a cloud one (what you would
@@ -244,7 +248,9 @@ export default function LabShell<T>({
           {lab.cloudComparison && (
             <label className="flex items-center gap-2 text-xs text-gray-400">
               <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} className="accent-orange-500" />
-              Same input on a cloud model
+              {lab.compareCapability
+                ? `Same input on a ${CAPABILITY_LABELS[lab.compareCapability]} model`
+                : "Same input on a cloud model"}
               {compare && (
                 <select
                   value={cloudId}
@@ -255,6 +261,7 @@ export default function LabShell<T>({
                   {clouds.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.id}
+                      {m.local ? " (local)" : ""}
                       {m.status !== "ready" ? " (not ready)" : ""}
                       {m.costPerMTokIn != null ? ` · $${m.costPerMTokIn.toFixed(2)}/$${(m.costPerMTokOut ?? 0).toFixed(2)} per Mtok` : ""}
                     </option>

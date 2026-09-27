@@ -1,0 +1,3640 @@
+{
+ "date": "2026-09-27-cpu",
+ "host": "BeTenshi",
+ "generatedAt": "2026-09-27T17:02:40.080Z",
+ "console": "http://localhost:8003",
+ "models": [
+  "laya",
+  "laya-typed-decisions",
+  "reddit-scout-heuristic"
+ ],
+ "sets": [
+  {
+   "id": "arabic-dialect",
+   "title": "Arabic dialect",
+   "n": 35,
+   "labels": [
+    "msa",
+    "egyptian",
+    "levantine",
+    "gulf",
+    "maghrebi"
+   ],
+   "scores": {
+    "laya": {
+     "n": 35,
+     "accuracy": 0.37142857142857144,
+     "macroF1": 0.2945701357466063,
+     "ece": 0.21599142857142856,
+     "eceAfterTemperature": 0.14746183061526166,
+     "temperature": 8.758057586476601,
+     "brier": 0.9054270117142855,
+     "nll": 2.089171105017165,
+     "zeroOnTruth": 0.02857142857142857,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 93.3,
+     "latencyP95Ms": 124.6,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 1,
+       "confidence": 0.2989,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 4,
+       "confidence": 0.36732499999999996,
+       "accuracy": 0.25
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 13,
+       "confidence": 0.4412153846153846,
+       "accuracy": 0.46153846153846156
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 7,
+       "confidence": 0.5433142857142857,
+       "accuracy": 0.2857142857142857
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 1,
+       "confidence": 0.6199,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 6,
+       "confidence": 0.7566833333333333,
+       "accuracy": 0.3333333333333333
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 2,
+       "confidence": 0.8537,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 1,
+       "confidence": 0.9035,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "msa": {
+       "msa": 5,
+       "egyptian": 0,
+       "levantine": 0,
+       "gulf": 2,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "egyptian": {
+       "msa": 2,
+       "egyptian": 3,
+       "levantine": 0,
+       "gulf": 2,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "levantine": {
+       "msa": 1,
+       "egyptian": 0,
+       "levantine": 0,
+       "gulf": 6,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "gulf": {
+       "msa": 0,
+       "egyptian": 1,
+       "levantine": 0,
+       "gulf": 5,
+       "maghrebi": 1,
+       "error": 0
+      },
+      "maghrebi": {
+       "msa": 2,
+       "egyptian": 1,
+       "levantine": 0,
+       "gulf": 4,
+       "maghrebi": 0,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 84.56,
+     "checkpoints": [
+      "multilingual"
+     ],
+     "wrong": [
+      {
+       "id": "ar-04",
+       "label": "msa",
+       "choice": "gulf",
+       "p": 0.4522,
+       "error": null
+      },
+      {
+       "id": "ar-07",
+       "label": "msa",
+       "choice": "gulf",
+       "p": 0.5383,
+       "error": null
+      },
+      {
+       "id": "ar-09",
+       "label": "egyptian",
+       "choice": "msa",
+       "p": 0.2989,
+       "error": null
+      },
+      {
+       "id": "ar-10",
+       "label": "egyptian",
+       "choice": "msa",
+       "p": 0.365,
+       "error": null
+      },
+      {
+       "id": "ar-12",
+       "label": "egyptian",
+       "choice": "gulf",
+       "p": 0.8857,
+       "error": null
+      },
+      {
+       "id": "ar-14",
+       "label": "egyptian",
+       "choice": "gulf",
+       "p": 0.7163,
+       "error": null
+      },
+      {
+       "id": "ar-15",
+       "label": "levantine",
+       "choice": "gulf",
+       "p": 0.5127,
+       "error": null
+      },
+      {
+       "id": "ar-16",
+       "label": "levantine",
+       "choice": "gulf",
+       "p": 0.5649,
+       "error": null
+      },
+      {
+       "id": "ar-17",
+       "label": "levantine",
+       "choice": "gulf",
+       "p": 0.5586,
+       "error": null
+      },
+      {
+       "id": "ar-18",
+       "label": "levantine",
+       "choice": "gulf",
+       "p": 0.4763,
+       "error": null
+      },
+      {
+       "id": "ar-19",
+       "label": "levantine",
+       "choice": "msa",
+       "p": 0.4255,
+       "error": null
+      },
+      {
+       "id": "ar-20",
+       "label": "levantine",
+       "choice": "gulf",
+       "p": 0.4958,
+       "error": null
+      },
+      {
+       "id": "ar-21",
+       "label": "levantine",
+       "choice": "gulf",
+       "p": 0.7472,
+       "error": null
+      },
+      {
+       "id": "ar-25",
+       "label": "gulf",
+       "choice": "egyptian",
+       "p": 0.7152,
+       "error": null
+      },
+      {
+       "id": "ar-28",
+       "label": "gulf",
+       "choice": "maghrebi",
+       "p": 0.8217,
+       "error": null
+      },
+      {
+       "id": "ar-29",
+       "label": "maghrebi",
+       "choice": "egyptian",
+       "p": 0.3677,
+       "error": null
+      },
+      {
+       "id": "ar-30",
+       "label": "maghrebi",
+       "choice": "gulf",
+       "p": 0.4234,
+       "error": null
+      },
+      {
+       "id": "ar-31",
+       "label": "maghrebi",
+       "choice": "msa",
+       "p": 0.4519,
+       "error": null
+      },
+      {
+       "id": "ar-32",
+       "label": "maghrebi",
+       "choice": "gulf",
+       "p": 0.793,
+       "error": null
+      },
+      {
+       "id": "ar-33",
+       "label": "maghrebi",
+       "choice": "gulf",
+       "p": 0.43,
+       "error": null
+      },
+      {
+       "id": "ar-34",
+       "label": "maghrebi",
+       "choice": "msa",
+       "p": 0.3774,
+       "error": null
+      },
+      {
+       "id": "ar-35",
+       "label": "maghrebi",
+       "choice": "gulf",
+       "p": 0.5907,
+       "error": null
+      }
+     ]
+    },
+    "laya-typed-decisions": {
+     "n": 35,
+     "accuracy": 0.2857142857142857,
+     "macroF1": 0.1758241758241758,
+     "ece": 0.1089657142857143,
+     "eceAfterTemperature": 0.028187082061214883,
+     "temperature": 2.036542874578603,
+     "brier": 0.7950513174285714,
+     "nll": 1.6085810286813707,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 207.1,
+     "latencyP95Ms": 417.7,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 13,
+       "confidence": 0.2771153846153846,
+       "accuracy": 0.23076923076923078
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 18,
+       "confidence": 0.3304000000000001,
+       "accuracy": 0.2222222222222222
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 4,
+       "confidence": 0.433975,
+       "accuracy": 0.75
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      }
+     ],
+     "confusion": {
+      "msa": {
+       "msa": 6,
+       "egyptian": 0,
+       "levantine": 1,
+       "gulf": 0,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "egyptian": {
+       "msa": 2,
+       "egyptian": 0,
+       "levantine": 4,
+       "gulf": 1,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "levantine": {
+       "msa": 2,
+       "egyptian": 0,
+       "levantine": 4,
+       "gulf": 1,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "gulf": {
+       "msa": 1,
+       "egyptian": 0,
+       "levantine": 6,
+       "gulf": 0,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "maghrebi": {
+       "msa": 3,
+       "egyptian": 0,
+       "levantine": 4,
+       "gulf": 0,
+       "maghrebi": 0,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 203.31,
+     "checkpoints": [
+      "typed-decisions"
+     ],
+     "wrong": [
+      {
+       "id": "ar-04",
+       "label": "msa",
+       "choice": "levantine",
+       "p": 0.3436,
+       "error": null
+      },
+      {
+       "id": "ar-08",
+       "label": "egyptian",
+       "choice": "msa",
+       "p": 0.2775,
+       "error": null
+      },
+      {
+       "id": "ar-09",
+       "label": "egyptian",
+       "choice": "levantine",
+       "p": 0.3257,
+       "error": null
+      },
+      {
+       "id": "ar-10",
+       "label": "egyptian",
+       "choice": "levantine",
+       "p": 0.2678,
+       "error": null
+      },
+      {
+       "id": "ar-11",
+       "label": "egyptian",
+       "choice": "levantine",
+       "p": 0.3185,
+       "error": null
+      },
+      {
+       "id": "ar-12",
+       "label": "egyptian",
+       "choice": "levantine",
+       "p": 0.3022,
+       "error": null
+      },
+      {
+       "id": "ar-13",
+       "label": "egyptian",
+       "choice": "gulf",
+       "p": 0.267,
+       "error": null
+      },
+      {
+       "id": "ar-14",
+       "label": "egyptian",
+       "choice": "msa",
+       "p": 0.3318,
+       "error": null
+      },
+      {
+       "id": "ar-16",
+       "label": "levantine",
+       "choice": "msa",
+       "p": 0.2817,
+       "error": null
+      },
+      {
+       "id": "ar-17",
+       "label": "levantine",
+       "choice": "msa",
+       "p": 0.3898,
+       "error": null
+      },
+      {
+       "id": "ar-19",
+       "label": "levantine",
+       "choice": "gulf",
+       "p": 0.3084,
+       "error": null
+      },
+      {
+       "id": "ar-22",
+       "label": "gulf",
+       "choice": "levantine",
+       "p": 0.3565,
+       "error": null
+      },
+      {
+       "id": "ar-23",
+       "label": "gulf",
+       "choice": "levantine",
+       "p": 0.3037,
+       "error": null
+      },
+      {
+       "id": "ar-24",
+       "label": "gulf",
+       "choice": "levantine",
+       "p": 0.3277,
+       "error": null
+      },
+      {
+       "id": "ar-25",
+       "label": "gulf",
+       "choice": "msa",
+       "p": 0.2276,
+       "error": null
+      },
+      {
+       "id": "ar-26",
+       "label": "gulf",
+       "choice": "levantine",
+       "p": 0.2891,
+       "error": null
+      },
+      {
+       "id": "ar-27",
+       "label": "gulf",
+       "choice": "levantine",
+       "p": 0.2943,
+       "error": null
+      },
+      {
+       "id": "ar-28",
+       "label": "gulf",
+       "choice": "levantine",
+       "p": 0.3429,
+       "error": null
+      },
+      {
+       "id": "ar-29",
+       "label": "maghrebi",
+       "choice": "levantine",
+       "p": 0.3291,
+       "error": null
+      },
+      {
+       "id": "ar-30",
+       "label": "maghrebi",
+       "choice": "msa",
+       "p": 0.3573,
+       "error": null
+      },
+      {
+       "id": "ar-31",
+       "label": "maghrebi",
+       "choice": "msa",
+       "p": 0.2969,
+       "error": null
+      },
+      {
+       "id": "ar-32",
+       "label": "maghrebi",
+       "choice": "msa",
+       "p": 0.3356,
+       "error": null
+      },
+      {
+       "id": "ar-33",
+       "label": "maghrebi",
+       "choice": "levantine",
+       "p": 0.2706,
+       "error": null
+      },
+      {
+       "id": "ar-34",
+       "label": "maghrebi",
+       "choice": "levantine",
+       "p": 0.2625,
+       "error": null
+      },
+      {
+       "id": "ar-35",
+       "label": "maghrebi",
+       "choice": "levantine",
+       "p": 0.4655,
+       "error": null
+      }
+     ]
+    }
+   },
+   "cascades": null
+  },
+  {
+   "id": "console-intent",
+   "title": "Console intent",
+   "n": 42,
+   "labels": [
+    "chat",
+    "code",
+    "image",
+    "speech",
+    "vision",
+    "service",
+    "models"
+   ],
+   "scores": {
+    "laya": {
+     "n": 42,
+     "accuracy": 0.5952380952380952,
+     "macroF1": 0.5917082917082916,
+     "ece": 0.21420952380952382,
+     "eceAfterTemperature": 0.2399429552876654,
+     "temperature": 1.2803268261605676,
+     "brier": 0.5917120835714285,
+     "nll": 1.1658893226787008,
+     "zeroOnTruth": 0.023809523809523808,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 197.2,
+     "latencyP95Ms": 264.8,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 4,
+       "confidence": 0.257925,
+       "accuracy": 0.5
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 4,
+       "confidence": 0.37340000000000007,
+       "accuracy": 0.75
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 4,
+       "confidence": 0.44995,
+       "accuracy": 0.5
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 5,
+       "confidence": 0.55344,
+       "accuracy": 0.2
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 5,
+       "confidence": 0.6397799999999999,
+       "accuracy": 0.6
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 3,
+       "confidence": 0.7642333333333333,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 3,
+       "confidence": 0.8383666666666668,
+       "accuracy": 0.3333333333333333
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 14,
+       "confidence": 0.9677142857142859,
+       "accuracy": 0.9285714285714286
+      }
+     ],
+     "confusion": {
+      "chat": {
+       "chat": 3,
+       "code": 1,
+       "image": 0,
+       "speech": 1,
+       "vision": 1,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "code": {
+       "chat": 0,
+       "code": 5,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 1,
+       "models": 0,
+       "error": 0
+      },
+      "image": {
+       "chat": 0,
+       "code": 2,
+       "image": 3,
+       "speech": 0,
+       "vision": 0,
+       "service": 0,
+       "models": 1,
+       "error": 0
+      },
+      "speech": {
+       "chat": 0,
+       "code": 1,
+       "image": 0,
+       "speech": 5,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "vision": {
+       "chat": 0,
+       "code": 0,
+       "image": 3,
+       "speech": 1,
+       "vision": 2,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "service": {
+       "chat": 1,
+       "code": 2,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 3,
+       "models": 0,
+       "error": 0
+      },
+      "models": {
+       "chat": 0,
+       "code": 1,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 1,
+       "models": 4,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 192.43,
+     "checkpoints": [
+      "english",
+      "multilingual"
+     ],
+     "wrong": [
+      {
+       "id": "ci-01",
+       "label": "chat",
+       "choice": "code",
+       "p": 0.2467,
+       "error": null
+      },
+      {
+       "id": "ci-04",
+       "label": "chat",
+       "choice": "speech",
+       "p": 0.6598,
+       "error": null
+      },
+      {
+       "id": "ci-06",
+       "label": "chat",
+       "choice": "vision",
+       "p": 0.5539,
+       "error": null
+      },
+      {
+       "id": "ci-12",
+       "label": "code",
+       "choice": "service",
+       "p": 0.8482,
+       "error": null
+      },
+      {
+       "id": "ci-13",
+       "label": "image",
+       "choice": "code",
+       "p": 0.5408,
+       "error": null
+      },
+      {
+       "id": "ci-16",
+       "label": "image",
+       "choice": "code",
+       "p": 0.4244,
+       "error": null
+      },
+      {
+       "id": "ci-18",
+       "label": "image",
+       "choice": "models",
+       "p": 0.7974,
+       "error": null
+      },
+      {
+       "id": "ci-22",
+       "label": "speech",
+       "choice": "code",
+       "p": 0.8488,
+       "error": null
+      },
+      {
+       "id": "ci-26",
+       "label": "vision",
+       "choice": "image",
+       "p": 0.5984,
+       "error": null
+      },
+      {
+       "id": "ci-27",
+       "label": "vision",
+       "choice": "image",
+       "p": 0.7341,
+       "error": null
+      },
+      {
+       "id": "ci-29",
+       "label": "vision",
+       "choice": "speech",
+       "p": 0.6822,
+       "error": null
+      },
+      {
+       "id": "ci-30",
+       "label": "vision",
+       "choice": "image",
+       "p": 0.7612,
+       "error": null
+      },
+      {
+       "id": "ci-32",
+       "label": "service",
+       "choice": "chat",
+       "p": 0.5276,
+       "error": null
+      },
+      {
+       "id": "ci-33",
+       "label": "service",
+       "choice": "code",
+       "p": 0.3982,
+       "error": null
+      },
+      {
+       "id": "ci-34",
+       "label": "service",
+       "choice": "code",
+       "p": 0.4888,
+       "error": null
+      },
+      {
+       "id": "ci-38",
+       "label": "models",
+       "choice": "service",
+       "p": 0.2908,
+       "error": null
+      },
+      {
+       "id": "ci-41",
+       "label": "models",
+       "choice": "code",
+       "p": 0.9603,
+       "error": null
+      }
+     ]
+    },
+    "laya-typed-decisions": {
+     "n": 42,
+     "accuracy": 0.6428571428571429,
+     "macroF1": 0.6200941915227629,
+     "ece": 0.13476666666666665,
+     "eceAfterTemperature": 0.09762400720479436,
+     "temperature": 0.5777868108302783,
+     "brier": 0.48750757,
+     "nll": 1.0277940805069365,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 196.9,
+     "latencyP95Ms": 393.5,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 6,
+       "confidence": 0.27105,
+       "accuracy": 0.3333333333333333
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 10,
+       "confidence": 0.35137999999999997,
+       "accuracy": 0.5
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 4,
+       "confidence": 0.42835,
+       "accuracy": 0.5
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 8,
+       "confidence": 0.5370375000000001,
+       "accuracy": 0.625
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 5,
+       "confidence": 0.64154,
+       "accuracy": 0.8
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 7,
+       "confidence": 0.7529285714285715,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 1,
+       "confidence": 0.8069,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 1,
+       "confidence": 0.9049,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "chat": {
+       "chat": 5,
+       "code": 0,
+       "image": 0,
+       "speech": 1,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "code": {
+       "chat": 0,
+       "code": 5,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 1,
+       "models": 0,
+       "error": 0
+      },
+      "image": {
+       "chat": 1,
+       "code": 0,
+       "image": 4,
+       "speech": 0,
+       "vision": 0,
+       "service": 1,
+       "models": 0,
+       "error": 0
+      },
+      "speech": {
+       "chat": 0,
+       "code": 1,
+       "image": 0,
+       "speech": 5,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "vision": {
+       "chat": 0,
+       "code": 0,
+       "image": 4,
+       "speech": 1,
+       "vision": 1,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "service": {
+       "chat": 1,
+       "code": 1,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 4,
+       "models": 0,
+       "error": 0
+      },
+      "models": {
+       "chat": 1,
+       "code": 2,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 0,
+       "models": 3,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 193.12,
+     "checkpoints": [
+      "typed-decisions"
+     ],
+     "wrong": [
+      {
+       "id": "ci-04",
+       "label": "chat",
+       "choice": "speech",
+       "p": 0.3372,
+       "error": null
+      },
+      {
+       "id": "ci-12",
+       "label": "code",
+       "choice": "service",
+       "p": 0.4608,
+       "error": null
+      },
+      {
+       "id": "ci-16",
+       "label": "image",
+       "choice": "service",
+       "p": 0.2717,
+       "error": null
+      },
+      {
+       "id": "ci-18",
+       "label": "image",
+       "choice": "chat",
+       "p": 0.2475,
+       "error": null
+      },
+      {
+       "id": "ci-22",
+       "label": "speech",
+       "choice": "code",
+       "p": 0.3767,
+       "error": null
+      },
+      {
+       "id": "ci-25",
+       "label": "vision",
+       "choice": "image",
+       "p": 0.375,
+       "error": null
+      },
+      {
+       "id": "ci-26",
+       "label": "vision",
+       "choice": "image",
+       "p": 0.515,
+       "error": null
+      },
+      {
+       "id": "ci-27",
+       "label": "vision",
+       "choice": "image",
+       "p": 0.5552,
+       "error": null
+      },
+      {
+       "id": "ci-29",
+       "label": "vision",
+       "choice": "speech",
+       "p": 0.2686,
+       "error": null
+      },
+      {
+       "id": "ci-30",
+       "label": "vision",
+       "choice": "image",
+       "p": 0.5019,
+       "error": null
+      },
+      {
+       "id": "ci-31",
+       "label": "service",
+       "choice": "code",
+       "p": 0.2816,
+       "error": null
+      },
+      {
+       "id": "ci-32",
+       "label": "service",
+       "choice": "chat",
+       "p": 0.4124,
+       "error": null
+      },
+      {
+       "id": "ci-38",
+       "label": "models",
+       "choice": "chat",
+       "p": 0.3107,
+       "error": null
+      },
+      {
+       "id": "ci-39",
+       "label": "models",
+       "choice": "code",
+       "p": 0.3092,
+       "error": null
+      },
+      {
+       "id": "ci-41",
+       "label": "models",
+       "choice": "code",
+       "p": 0.6673,
+       "error": null
+      }
+     ]
+    }
+   },
+   "cascades": null
+  },
+  {
+   "id": "feedback-triage",
+   "title": "Feedback triage (Globe Quest)",
+   "n": 40,
+   "labels": [
+    "bug",
+    "feature_request",
+    "ui_ux",
+    "content_correction",
+    "noise"
+   ],
+   "scores": {
+    "laya": {
+     "n": 40,
+     "accuracy": 0.4,
+     "macroF1": 0.3302291204730229,
+     "ece": 0.19375499999999996,
+     "eceAfterTemperature": 0.19615638418548284,
+     "temperature": 1.1981873865450177,
+     "brier": 0.6718801862499999,
+     "nll": 1.3147011720486823,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 208,
+     "latencyP95Ms": 292,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 9,
+       "confidence": 0.36061111111111105,
+       "accuracy": 0.1111111111111111
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 16,
+       "confidence": 0.45524999999999993,
+       "accuracy": 0.25
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 4,
+       "confidence": 0.571075,
+       "accuracy": 0.75
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 6,
+       "confidence": 0.6333666666666666,
+       "accuracy": 0.6666666666666666
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 2,
+       "confidence": 0.7676499999999999,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 3,
+       "confidence": 0.9468333333333333,
+       "accuracy": 0.6666666666666666
+      }
+     ],
+     "confusion": {
+      "bug": {
+       "bug": 9,
+       "feature_request": 0,
+       "ui_ux": 0,
+       "content_correction": 1,
+       "noise": 0,
+       "error": 0
+      },
+      "feature_request": {
+       "bug": 5,
+       "feature_request": 3,
+       "ui_ux": 0,
+       "content_correction": 0,
+       "noise": 0,
+       "error": 0
+      },
+      "ui_ux": {
+       "bug": 8,
+       "feature_request": 0,
+       "ui_ux": 0,
+       "content_correction": 0,
+       "noise": 0,
+       "error": 0
+      },
+      "content_correction": {
+       "bug": 3,
+       "feature_request": 0,
+       "ui_ux": 0,
+       "content_correction": 4,
+       "noise": 0,
+       "error": 0
+      },
+      "noise": {
+       "bug": 6,
+       "feature_request": 0,
+       "ui_ux": 1,
+       "content_correction": 0,
+       "noise": 0,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 204.5,
+     "checkpoints": [
+      "english",
+      "multilingual"
+     ],
+     "wrong": [
+      {
+       "id": "ft-09",
+       "label": "feature_request",
+       "choice": "bug",
+       "p": 0.3018,
+       "error": null
+      },
+      {
+       "id": "ft-12",
+       "label": "feature_request",
+       "choice": "bug",
+       "p": 0.3664,
+       "error": null
+      },
+      {
+       "id": "ft-13",
+       "label": "feature_request",
+       "choice": "bug",
+       "p": 0.3169,
+       "error": null
+      },
+      {
+       "id": "ft-14",
+       "label": "feature_request",
+       "choice": "bug",
+       "p": 0.3944,
+       "error": null
+      },
+      {
+       "id": "ft-16",
+       "label": "ui_ux",
+       "choice": "bug",
+       "p": 0.4549,
+       "error": null
+      },
+      {
+       "id": "ft-17",
+       "label": "ui_ux",
+       "choice": "bug",
+       "p": 0.4766,
+       "error": null
+      },
+      {
+       "id": "ft-18",
+       "label": "ui_ux",
+       "choice": "bug",
+       "p": 0.4741,
+       "error": null
+      },
+      {
+       "id": "ft-19",
+       "label": "ui_ux",
+       "choice": "bug",
+       "p": 0.4025,
+       "error": null
+      },
+      {
+       "id": "ft-20",
+       "label": "ui_ux",
+       "choice": "bug",
+       "p": 0.4981,
+       "error": null
+      },
+      {
+       "id": "ft-21",
+       "label": "ui_ux",
+       "choice": "bug",
+       "p": 0.4371,
+       "error": null
+      },
+      {
+       "id": "ft-22",
+       "label": "content_correction",
+       "choice": "bug",
+       "p": 0.4265,
+       "error": null
+      },
+      {
+       "id": "ft-27",
+       "label": "content_correction",
+       "choice": "bug",
+       "p": 0.6005,
+       "error": null
+      },
+      {
+       "id": "ft-28",
+       "label": "content_correction",
+       "choice": "bug",
+       "p": 0.9332,
+       "error": null
+      },
+      {
+       "id": "ft-29",
+       "label": "noise",
+       "choice": "bug",
+       "p": 0.5106,
+       "error": null
+      },
+      {
+       "id": "ft-30",
+       "label": "noise",
+       "choice": "bug",
+       "p": 0.4476,
+       "error": null
+      },
+      {
+       "id": "ft-31",
+       "label": "noise",
+       "choice": "bug",
+       "p": 0.4777,
+       "error": null
+      },
+      {
+       "id": "ft-32",
+       "label": "noise",
+       "choice": "bug",
+       "p": 0.3926,
+       "error": null
+      },
+      {
+       "id": "ft-33",
+       "label": "noise",
+       "choice": "bug",
+       "p": 0.3895,
+       "error": null
+      },
+      {
+       "id": "ft-34",
+       "label": "noise",
+       "choice": "bug",
+       "p": 0.4167,
+       "error": null
+      },
+      {
+       "id": "ft-35",
+       "label": "bug",
+       "choice": "content_correction",
+       "p": 0.6267,
+       "error": null
+      },
+      {
+       "id": "ft-36",
+       "label": "ui_ux",
+       "choice": "bug",
+       "p": 0.4698,
+       "error": null
+      },
+      {
+       "id": "ft-37",
+       "label": "noise",
+       "choice": "ui_ux",
+       "p": 0.3935,
+       "error": null
+      },
+      {
+       "id": "ft-38",
+       "label": "feature_request",
+       "choice": "bug",
+       "p": 0.3501,
+       "error": null
+      },
+      {
+       "id": "ft-40",
+       "label": "ui_ux",
+       "choice": "bug",
+       "p": 0.4947,
+       "error": null
+      }
+     ]
+    },
+    "laya-typed-decisions": {
+     "n": 40,
+     "accuracy": 0.625,
+     "macroF1": 0.6048717948717949,
+     "ece": 0.3063725,
+     "eceAfterTemperature": 0.21376407714170478,
+     "temperature": 0.31812859544398836,
+     "brier": 0.6627980987499998,
+     "nll": 1.3178396656887377,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 207.8,
+     "latencyP95Ms": 281.6,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 18,
+       "confidence": 0.2647555555555556,
+       "accuracy": 0.4444444444444444
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 16,
+       "confidence": 0.3359875,
+       "accuracy": 0.6875
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 5,
+       "confidence": 0.41738,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 1,
+       "confidence": 0.5168,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      }
+     ],
+     "confusion": {
+      "bug": {
+       "bug": 6,
+       "feature_request": 0,
+       "ui_ux": 3,
+       "content_correction": 1,
+       "noise": 0,
+       "error": 0
+      },
+      "feature_request": {
+       "bug": 0,
+       "feature_request": 5,
+       "ui_ux": 2,
+       "content_correction": 1,
+       "noise": 0,
+       "error": 0
+      },
+      "ui_ux": {
+       "bug": 1,
+       "feature_request": 0,
+       "ui_ux": 7,
+       "content_correction": 0,
+       "noise": 0,
+       "error": 0
+      },
+      "content_correction": {
+       "bug": 1,
+       "feature_request": 0,
+       "ui_ux": 0,
+       "content_correction": 6,
+       "noise": 0,
+       "error": 0
+      },
+      "noise": {
+       "bug": 0,
+       "feature_request": 0,
+       "ui_ux": 6,
+       "content_correction": 0,
+       "noise": 1,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 204.31,
+     "checkpoints": [
+      "typed-decisions"
+     ],
+     "wrong": [
+      {
+       "id": "ft-03",
+       "label": "bug",
+       "choice": "ui_ux",
+       "p": 0.2498,
+       "error": null
+      },
+      {
+       "id": "ft-04",
+       "label": "bug",
+       "choice": "ui_ux",
+       "p": 0.3196,
+       "error": null
+      },
+      {
+       "id": "ft-07",
+       "label": "bug",
+       "choice": "ui_ux",
+       "p": 0.2315,
+       "error": null
+      },
+      {
+       "id": "ft-09",
+       "label": "feature_request",
+       "choice": "ui_ux",
+       "p": 0.2489,
+       "error": null
+      },
+      {
+       "id": "ft-13",
+       "label": "feature_request",
+       "choice": "ui_ux",
+       "p": 0.2659,
+       "error": null
+      },
+      {
+       "id": "ft-15",
+       "label": "feature_request",
+       "choice": "content_correction",
+       "p": 0.3186,
+       "error": null
+      },
+      {
+       "id": "ft-17",
+       "label": "ui_ux",
+       "choice": "bug",
+       "p": 0.2784,
+       "error": null
+      },
+      {
+       "id": "ft-27",
+       "label": "content_correction",
+       "choice": "bug",
+       "p": 0.2638,
+       "error": null
+      },
+      {
+       "id": "ft-29",
+       "label": "noise",
+       "choice": "ui_ux",
+       "p": 0.2472,
+       "error": null
+      },
+      {
+       "id": "ft-30",
+       "label": "noise",
+       "choice": "ui_ux",
+       "p": 0.2526,
+       "error": null
+      },
+      {
+       "id": "ft-31",
+       "label": "noise",
+       "choice": "ui_ux",
+       "p": 0.2542,
+       "error": null
+      },
+      {
+       "id": "ft-33",
+       "label": "noise",
+       "choice": "ui_ux",
+       "p": 0.3009,
+       "error": null
+      },
+      {
+       "id": "ft-34",
+       "label": "noise",
+       "choice": "ui_ux",
+       "p": 0.2829,
+       "error": null
+      },
+      {
+       "id": "ft-35",
+       "label": "bug",
+       "choice": "content_correction",
+       "p": 0.3921,
+       "error": null
+      },
+      {
+       "id": "ft-37",
+       "label": "noise",
+       "choice": "ui_ux",
+       "p": 0.3366,
+       "error": null
+      }
+     ]
+    }
+   },
+   "cascades": null
+  },
+  {
+   "id": "moderation",
+   "title": "Moderation (community feed and Ask Locals)",
+   "n": 36,
+   "labels": [
+    "allow",
+    "review",
+    "remove"
+   ],
+   "scores": {
+    "laya": {
+     "n": 36,
+     "accuracy": 0.4166666666666667,
+     "macroF1": 0.32759856630824374,
+     "ece": 0.08964444444444446,
+     "eceAfterTemperature": 0.09162883091758957,
+     "temperature": 1.1981873865450177,
+     "brier": 0.6253333458333334,
+     "nll": 1.0498265857640467,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 180.8,
+     "latencyP95Ms": 481.2,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 18,
+       "confidence": 0.37390555555555555,
+       "accuracy": 0.3333333333333333
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 12,
+       "confidence": 0.44475000000000003,
+       "accuracy": 0.3333333333333333
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 2,
+       "confidence": 0.52875,
+       "accuracy": 0.5
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 1,
+       "confidence": 0.6188,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 2,
+       "confidence": 0.72475,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 1,
+       "confidence": 0.8293,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      }
+     ],
+     "confusion": {
+      "allow": {
+       "allow": 8,
+       "review": 1,
+       "remove": 7,
+       "error": 0
+      },
+      "review": {
+       "allow": 4,
+       "review": 0,
+       "remove": 3,
+       "error": 0
+      },
+      "remove": {
+       "allow": 3,
+       "review": 3,
+       "remove": 7,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 177.55,
+     "checkpoints": [
+      "english",
+      "multilingual"
+     ],
+     "wrong": [
+      {
+       "id": "mo-03",
+       "label": "allow",
+       "choice": "remove",
+       "p": 0.395,
+       "error": null
+      },
+      {
+       "id": "mo-05",
+       "label": "allow",
+       "choice": "remove",
+       "p": 0.381,
+       "error": null
+      },
+      {
+       "id": "mo-10",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.3881,
+       "error": null
+      },
+      {
+       "id": "mo-14",
+       "label": "remove",
+       "choice": "allow",
+       "p": 0.3974,
+       "error": null
+      },
+      {
+       "id": "mo-15",
+       "label": "remove",
+       "choice": "allow",
+       "p": 0.4887,
+       "error": null
+      },
+      {
+       "id": "mo-16",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.3667,
+       "error": null
+      },
+      {
+       "id": "mo-19",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.4078,
+       "error": null
+      },
+      {
+       "id": "mo-20",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.4495,
+       "error": null
+      },
+      {
+       "id": "mo-21",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.374,
+       "error": null
+      },
+      {
+       "id": "mo-22",
+       "label": "allow",
+       "choice": "review",
+       "p": 0.4008,
+       "error": null
+      },
+      {
+       "id": "mo-23",
+       "label": "review",
+       "choice": "remove",
+       "p": 0.4176,
+       "error": null
+      },
+      {
+       "id": "mo-24",
+       "label": "remove",
+       "choice": "allow",
+       "p": 0.3653,
+       "error": null
+      },
+      {
+       "id": "mo-25",
+       "label": "review",
+       "choice": "remove",
+       "p": 0.3395,
+       "error": null
+      },
+      {
+       "id": "mo-26",
+       "label": "allow",
+       "choice": "remove",
+       "p": 0.3961,
+       "error": null
+      },
+      {
+       "id": "mo-27",
+       "label": "allow",
+       "choice": "remove",
+       "p": 0.4279,
+       "error": null
+      },
+      {
+       "id": "mo-28",
+       "label": "review",
+       "choice": "remove",
+       "p": 0.5528,
+       "error": null
+      },
+      {
+       "id": "mo-30",
+       "label": "allow",
+       "choice": "remove",
+       "p": 0.3959,
+       "error": null
+      },
+      {
+       "id": "mo-33",
+       "label": "allow",
+       "choice": "remove",
+       "p": 0.4581,
+       "error": null
+      },
+      {
+       "id": "mo-34",
+       "label": "allow",
+       "choice": "remove",
+       "p": 0.4149,
+       "error": null
+      },
+      {
+       "id": "mo-35",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.3686,
+       "error": null
+      },
+      {
+       "id": "mo-36",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.3522,
+       "error": null
+      }
+     ]
+    },
+    "laya-typed-decisions": {
+     "n": 36,
+     "accuracy": 0.3888888888888889,
+     "macroF1": 0.3555023923444976,
+     "ece": 0.07679166666666673,
+     "eceAfterTemperature": 0.14741075104451984,
+     "temperature": 1.7836159772888003,
+     "brier": 0.6580951513888889,
+     "nll": 1.0897540645385086,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 183.1,
+     "latencyP95Ms": 401.4,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 4,
+       "confidence": 0.377975,
+       "accuracy": 0.25
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 27,
+       "confidence": 0.43940000000000007,
+       "accuracy": 0.37037037037037035
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 4,
+       "confidence": 0.5305000000000001,
+       "accuracy": 0.5
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 1,
+       "confidence": 0.7332,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      }
+     ],
+     "confusion": {
+      "allow": {
+       "allow": 9,
+       "review": 6,
+       "remove": 1,
+       "error": 0
+      },
+      "review": {
+       "allow": 5,
+       "review": 1,
+       "remove": 1,
+       "error": 0
+      },
+      "remove": {
+       "allow": 3,
+       "review": 6,
+       "remove": 4,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 179.73,
+     "checkpoints": [
+      "typed-decisions"
+     ],
+     "wrong": [
+      {
+       "id": "mo-05",
+       "label": "allow",
+       "choice": "review",
+       "p": 0.4055,
+       "error": null
+      },
+      {
+       "id": "mo-09",
+       "label": "allow",
+       "choice": "review",
+       "p": 0.4113,
+       "error": null
+      },
+      {
+       "id": "mo-10",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.3761,
+       "error": null
+      },
+      {
+       "id": "mo-11",
+       "label": "remove",
+       "choice": "allow",
+       "p": 0.3789,
+       "error": null
+      },
+      {
+       "id": "mo-14",
+       "label": "remove",
+       "choice": "allow",
+       "p": 0.4727,
+       "error": null
+      },
+      {
+       "id": "mo-15",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.3625,
+       "error": null
+      },
+      {
+       "id": "mo-16",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.4893,
+       "error": null
+      },
+      {
+       "id": "mo-19",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.4895,
+       "error": null
+      },
+      {
+       "id": "mo-20",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.4743,
+       "error": null
+      },
+      {
+       "id": "mo-21",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.4568,
+       "error": null
+      },
+      {
+       "id": "mo-22",
+       "label": "allow",
+       "choice": "review",
+       "p": 0.505,
+       "error": null
+      },
+      {
+       "id": "mo-24",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.4444,
+       "error": null
+      },
+      {
+       "id": "mo-25",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.4249,
+       "error": null
+      },
+      {
+       "id": "mo-26",
+       "label": "allow",
+       "choice": "review",
+       "p": 0.4226,
+       "error": null
+      },
+      {
+       "id": "mo-28",
+       "label": "review",
+       "choice": "remove",
+       "p": 0.531,
+       "error": null
+      },
+      {
+       "id": "mo-29",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.4147,
+       "error": null
+      },
+      {
+       "id": "mo-30",
+       "label": "allow",
+       "choice": "review",
+       "p": 0.4174,
+       "error": null
+      },
+      {
+       "id": "mo-31",
+       "label": "allow",
+       "choice": "review",
+       "p": 0.42,
+       "error": null
+      },
+      {
+       "id": "mo-32",
+       "label": "remove",
+       "choice": "allow",
+       "p": 0.4325,
+       "error": null
+      },
+      {
+       "id": "mo-33",
+       "label": "allow",
+       "choice": "remove",
+       "p": 0.4282,
+       "error": null
+      },
+      {
+       "id": "mo-35",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.4414,
+       "error": null
+      },
+      {
+       "id": "mo-36",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.4632,
+       "error": null
+      }
+     ]
+    }
+   },
+   "cascades": null
+  },
+  {
+   "id": "reddit-relevance",
+   "title": "Reddit relevance (reddit-scout)",
+   "n": 36,
+   "labels": [
+    "high",
+    "medium",
+    "low"
+   ],
+   "scores": {
+    "laya": {
+     "n": 36,
+     "accuracy": 0.2222222222222222,
+     "macroF1": 0.18527086948139582,
+     "ece": 0.278475,
+     "eceAfterTemperature": 0.1266092018797721,
+     "temperature": 10.000000000000002,
+     "brier": 0.7701814372222219,
+     "nll": 1.2432542564824216,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 234.7,
+     "latencyP95Ms": 407.9,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 2,
+       "confidence": 0.39055,
+       "accuracy": 0.5
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 20,
+       "confidence": 0.46431999999999995,
+       "accuracy": 0.25
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 14,
+       "confidence": 0.5371285714285714,
+       "accuracy": 0.14285714285714285
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      }
+     ],
+     "confusion": {
+      "high": {
+       "high": 1,
+       "medium": 16,
+       "low": 0,
+       "error": 0
+      },
+      "medium": {
+       "high": 0,
+       "medium": 6,
+       "low": 0,
+       "error": 0
+      },
+      "low": {
+       "high": 1,
+       "medium": 11,
+       "low": 1,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 231.37,
+     "checkpoints": [
+      "english"
+     ],
+     "wrong": [
+      {
+       "id": "rr-01",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4707,
+       "error": null
+      },
+      {
+       "id": "rr-02",
+       "label": "low",
+       "choice": "high",
+       "p": 0.4484,
+       "error": null
+      },
+      {
+       "id": "rr-03",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.5067,
+       "error": null
+      },
+      {
+       "id": "rr-04",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.5329,
+       "error": null
+      },
+      {
+       "id": "rr-05",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.5372,
+       "error": null
+      },
+      {
+       "id": "rr-07",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4965,
+       "error": null
+      },
+      {
+       "id": "rr-08",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.3957,
+       "error": null
+      },
+      {
+       "id": "rr-09",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4844,
+       "error": null
+      },
+      {
+       "id": "rr-10",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.594,
+       "error": null
+      },
+      {
+       "id": "rr-11",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4725,
+       "error": null
+      },
+      {
+       "id": "rr-12",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.5841,
+       "error": null
+      },
+      {
+       "id": "rr-13",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4459,
+       "error": null
+      },
+      {
+       "id": "rr-15",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.501,
+       "error": null
+      },
+      {
+       "id": "rr-16",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4448,
+       "error": null
+      },
+      {
+       "id": "rr-17",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.5033,
+       "error": null
+      },
+      {
+       "id": "rr-19",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.5404,
+       "error": null
+      },
+      {
+       "id": "rr-20",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4651,
+       "error": null
+      },
+      {
+       "id": "rr-22",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.428,
+       "error": null
+      },
+      {
+       "id": "rr-23",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4731,
+       "error": null
+      },
+      {
+       "id": "rr-24",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4848,
+       "error": null
+      },
+      {
+       "id": "rr-25",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4542,
+       "error": null
+      },
+      {
+       "id": "rr-27",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.5584,
+       "error": null
+      },
+      {
+       "id": "rr-28",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.5147,
+       "error": null
+      },
+      {
+       "id": "rr-29",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4984,
+       "error": null
+      },
+      {
+       "id": "rr-31",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4252,
+       "error": null
+      },
+      {
+       "id": "rr-32",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.456,
+       "error": null
+      },
+      {
+       "id": "rr-35",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.5096,
+       "error": null
+      },
+      {
+       "id": "rr-36",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.5521,
+       "error": null
+      }
+     ]
+    },
+    "laya-typed-decisions": {
+     "n": 36,
+     "accuracy": 0.16666666666666666,
+     "macroF1": 0.09756097560975609,
+     "ece": 0.27842777777777783,
+     "eceAfterTemperature": 0.1780118093828463,
+     "temperature": 10.000000000000002,
+     "brier": 0.7193972469444445,
+     "nll": 1.1747205794296938,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 246.7,
+     "latencyP95Ms": 819.1,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 34,
+       "confidence": 0.4408029411764706,
+       "accuracy": 0.14705882352941177
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 2,
+       "confidence": 0.51805,
+       "accuracy": 0.5
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      }
+     ],
+     "confusion": {
+      "high": {
+       "high": 0,
+       "medium": 17,
+       "low": 0,
+       "error": 0
+      },
+      "medium": {
+       "high": 0,
+       "medium": 6,
+       "low": 0,
+       "error": 0
+      },
+      "low": {
+       "high": 1,
+       "medium": 12,
+       "low": 0,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 243.19,
+     "checkpoints": [
+      "typed-decisions"
+     ],
+     "wrong": [
+      {
+       "id": "rr-01",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.439,
+       "error": null
+      },
+      {
+       "id": "rr-02",
+       "label": "low",
+       "choice": "high",
+       "p": 0.4268,
+       "error": null
+      },
+      {
+       "id": "rr-03",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4598,
+       "error": null
+      },
+      {
+       "id": "rr-04",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4384,
+       "error": null
+      },
+      {
+       "id": "rr-05",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.464,
+       "error": null
+      },
+      {
+       "id": "rr-07",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4536,
+       "error": null
+      },
+      {
+       "id": "rr-08",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4096,
+       "error": null
+      },
+      {
+       "id": "rr-09",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4295,
+       "error": null
+      },
+      {
+       "id": "rr-10",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4903,
+       "error": null
+      },
+      {
+       "id": "rr-11",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4198,
+       "error": null
+      },
+      {
+       "id": "rr-12",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.479,
+       "error": null
+      },
+      {
+       "id": "rr-13",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4356,
+       "error": null
+      },
+      {
+       "id": "rr-14",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4041,
+       "error": null
+      },
+      {
+       "id": "rr-15",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4444,
+       "error": null
+      },
+      {
+       "id": "rr-16",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4353,
+       "error": null
+      },
+      {
+       "id": "rr-17",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4212,
+       "error": null
+      },
+      {
+       "id": "rr-19",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4943,
+       "error": null
+      },
+      {
+       "id": "rr-20",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4419,
+       "error": null
+      },
+      {
+       "id": "rr-22",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4092,
+       "error": null
+      },
+      {
+       "id": "rr-23",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4153,
+       "error": null
+      },
+      {
+       "id": "rr-24",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4484,
+       "error": null
+      },
+      {
+       "id": "rr-25",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4364,
+       "error": null
+      },
+      {
+       "id": "rr-27",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.503,
+       "error": null
+      },
+      {
+       "id": "rr-28",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4497,
+       "error": null
+      },
+      {
+       "id": "rr-29",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4554,
+       "error": null
+      },
+      {
+       "id": "rr-31",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4176,
+       "error": null
+      },
+      {
+       "id": "rr-32",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4192,
+       "error": null
+      },
+      {
+       "id": "rr-33",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4304,
+       "error": null
+      },
+      {
+       "id": "rr-35",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.4515,
+       "error": null
+      },
+      {
+       "id": "rr-36",
+       "label": "high",
+       "choice": "medium",
+       "p": 0.4679,
+       "error": null
+      }
+     ]
+    },
+    "reddit-scout-heuristic": {
+     "n": 36,
+     "accuracy": 0.4444444444444444,
+     "macroF1": 0.45169082125603865,
+     "ece": 0.5555555555555556,
+     "eceAfterTemperature": 0.22116732239841586,
+     "temperature": 10.000000000000002,
+     "brier": 1.1111111111111112,
+     "nll": 7.6752836433134854,
+     "zeroOnTruth": 0.5555555555555556,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 0,
+     "latencyP95Ms": 0,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 36,
+       "confidence": 1,
+       "accuracy": 0.4444444444444444
+      }
+     ],
+     "confusion": {
+      "high": {
+       "high": 6,
+       "medium": 9,
+       "low": 2,
+       "error": 0
+      },
+      "medium": {
+       "high": 0,
+       "medium": 5,
+       "low": 1,
+       "error": 0
+      },
+      "low": {
+       "high": 0,
+       "medium": 8,
+       "low": 5,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": [
+      {
+       "id": "rr-02",
+       "label": "low",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-03",
+       "label": "high",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-05",
+       "label": "high",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-08",
+       "label": "high",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-10",
+       "label": "low",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-11",
+       "label": "high",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-12",
+       "label": "low",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-13",
+       "label": "high",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-14",
+       "label": "high",
+       "choice": "low",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-15",
+       "label": "low",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-16",
+       "label": "high",
+       "choice": "low",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-20",
+       "label": "low",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-22",
+       "label": "low",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-23",
+       "label": "high",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-25",
+       "label": "low",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-28",
+       "label": "high",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-30",
+       "label": "medium",
+       "choice": "low",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-32",
+       "label": "high",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-33",
+       "label": "low",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      },
+      {
+       "id": "rr-36",
+       "label": "high",
+       "choice": "medium",
+       "p": 1,
+       "error": null
+      }
+     ]
+    }
+   },
+   "cascades": null
+  },
+  {
+   "id": "router-escalation",
+   "title": "Router escalation",
+   "n": 40,
+   "labels": [
+    "local",
+    "cloud"
+   ],
+   "scores": {
+    "laya": {
+     "n": 40,
+     "accuracy": 0.625,
+     "macroF1": 0.4823123382226057,
+     "ece": 0.10016250000000008,
+     "eceAfterTemperature": 0.14359434795021678,
+     "temperature": 0.6597202691638431,
+     "brier": 0.4113394605,
+     "nll": 0.5988054640718972,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 199.6,
+     "latencyP95Ms": 270.6,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 14,
+       "confidence": 0.5507928571428572,
+       "accuracy": 0.42857142857142855
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 16,
+       "confidence": 0.66175625,
+       "accuracy": 0.625
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 10,
+       "confidence": 0.7292699999999999,
+       "accuracy": 0.9
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      }
+     ],
+     "confusion": {
+      "local": {
+       "local": 23,
+       "cloud": 0,
+       "error": 0
+      },
+      "cloud": {
+       "local": 15,
+       "cloud": 2,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 195.71,
+     "checkpoints": [
+      "english",
+      "multilingual"
+     ],
+     "wrong": [
+      {
+       "id": "re-18",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.6627,
+       "error": null
+      },
+      {
+       "id": "re-19",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.525,
+       "error": null
+      },
+      {
+       "id": "re-20",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5377,
+       "error": null
+      },
+      {
+       "id": "re-21",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.6776,
+       "error": null
+      },
+      {
+       "id": "re-22",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.6508,
+       "error": null
+      },
+      {
+       "id": "re-23",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5213,
+       "error": null
+      },
+      {
+       "id": "re-24",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5786,
+       "error": null
+      },
+      {
+       "id": "re-25",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5115,
+       "error": null
+      },
+      {
+       "id": "re-26",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.7038,
+       "error": null
+      },
+      {
+       "id": "re-28",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.6314,
+       "error": null
+      },
+      {
+       "id": "re-29",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5028,
+       "error": null
+      },
+      {
+       "id": "re-30",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5422,
+       "error": null
+      },
+      {
+       "id": "re-31",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.6809,
+       "error": null
+      },
+      {
+       "id": "re-37",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5762,
+       "error": null
+      },
+      {
+       "id": "re-40",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.6,
+       "error": null
+      }
+     ]
+    },
+    "laya-typed-decisions": {
+     "n": 40,
+     "accuracy": 0.675,
+     "macroF1": 0.6033562166285279,
+     "ece": 0.10664749999999984,
+     "eceAfterTemperature": 0.1277970311956703,
+     "temperature": 0.2607440474949142,
+     "brier": 0.43425065949999997,
+     "nll": 0.626284037578809,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 217.8,
+     "latencyP95Ms": 334.5,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 30,
+       "confidence": 0.5512766666666669,
+       "accuracy": 0.5666666666666667
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 10,
+       "confidence": 0.61958,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      }
+     ],
+     "confusion": {
+      "local": {
+       "local": 22,
+       "cloud": 1,
+       "error": 0
+      },
+      "cloud": {
+       "local": 12,
+       "cloud": 5,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": 214.29,
+     "checkpoints": [
+      "typed-decisions"
+     ],
+     "wrong": [
+      {
+       "id": "re-15",
+       "label": "local",
+       "choice": "cloud",
+       "p": 0.5717,
+       "error": null
+      },
+      {
+       "id": "re-18",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5575,
+       "error": null
+      },
+      {
+       "id": "re-20",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5454,
+       "error": null
+      },
+      {
+       "id": "re-21",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5904,
+       "error": null
+      },
+      {
+       "id": "re-24",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.544,
+       "error": null
+      },
+      {
+       "id": "re-25",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5082,
+       "error": null
+      },
+      {
+       "id": "re-26",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.553,
+       "error": null
+      },
+      {
+       "id": "re-28",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5062,
+       "error": null
+      },
+      {
+       "id": "re-29",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5145,
+       "error": null
+      },
+      {
+       "id": "re-30",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5388,
+       "error": null
+      },
+      {
+       "id": "re-31",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5802,
+       "error": null
+      },
+      {
+       "id": "re-37",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5416,
+       "error": null
+      },
+      {
+       "id": "re-40",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.5359,
+       "error": null
+      }
+     ]
+    }
+   },
+   "cascades": null
+  }
+ ]
+}
