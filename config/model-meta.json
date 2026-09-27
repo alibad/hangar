@@ -201,6 +201,23 @@
       "basis": "Measured: the service reports 3075 MB allocated / 3094 MB reserved once loaded, and holds it from startup because the model loads at import."
     }
   },
+  "local-ace-step-1.5": {
+    "checkpoint": "ACE-Step/acestep-v15-xl-turbo (int8) + ACE-Step/acestep-5Hz-lm-1.7B planner (local service on :8014)",
+    "docs": "https://huggingface.co/ACE-Step/acestep-v15-xl-turbo",
+    "params": "4B DiT (XL turbo, 8 steps, int8) + 1.7B 5Hz LM planner, offloaded between phases",
+    "released": "2026-04",
+    "license": "MIT (code and weights)",
+    "service": "music",
+    "note": "Text + optional lyrics -> a full song, 10-600 s, 50 vocal languages; ~17 s for 30 s of audio, ~21 s for 60 s. Also repaint/extend and restyle an uploaded clip; stems and add-an-instrument need the XL base DiT, which the service swaps in on request (same size). Configured to fit BESIDE quote-forge's resident vllm-small; with the card to itself the unquantized XL + 4B planner is the quality option (~23 GB).",
+    "footprint": {
+      "vramGb": 9,
+      "ramGb": 16,
+      "idleVramGb": 5,
+      "idleRamGb": 13,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-27 beside vllm-small (card 21.8 GB before): +4.83 GB card-wide once loaded (torch 5.5 GB reserved), +8.83 GB card-wide peak generating 60 s of sung audio (torch peak 9.28 GB reserved). Host RAM: 12.9 GB working set idle (22.9 GB committed), 15.4 GB peak while generating. Loading the fp32 XL checkpoint briefly adds ~27 GB of Windows commit charge; at the commit limit the first load attempt crashed (0xC0000005)."
+    }
+  },
   "local-ollama": {
     "vision": false,
     "checkpoint": "qwen3.8:27b-mlx via Ollama (local service on :11434)",

@@ -12,6 +12,7 @@
     "qwen": { "model": "local-qwen-image" },
     "comfyui": { "model": "local-flux-schnell" },
     "laya": { "model": "local-laya" },
+    "music": { "model": "local-ace-step-1.5" },
     "sam3": {},
     "sam3d": {},
     "ollama": { "model": "local-ollama" }
@@ -49,6 +50,12 @@
       "service": "sam3",
       "slot": "gpu-heavy",
       "ttlMs": 1800000
+    },
+    "music-generate": {
+      "service": "music",
+      "model": "local-ace-step-1.5",
+      "slot": "gpu-heavy",
+      "ttlMs": 900000
     },
     "sam3d-pose": {
       "service": "sam3d",

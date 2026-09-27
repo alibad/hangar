@@ -41,6 +41,25 @@
     "env": { "HF_HOME": "D:\\AI Models\\huggingface", "USE_TF": "0", "HF_HUB_OFFLINE": "1", "LAYA_DEVICE": "cpu", "LAYA_PRELOAD": "english,multilingual" }
   },
 
+  "music": {
+    "_doc": "ACE-Step 1.5, from its OWN venv like voice, for the same reason: ACE-Step pins torch 2.7.1 and transformers<4.58, and the shared Python312 has transformers 5.4 under Whisper and Kokoro. The venv inherits torch 2.11+cu128 via --system-site-packages; ACE-Step is an editable --no-deps install of the pinned clone at AI\\acestep. Weights on D: via ACESTEP_CHECKPOINTS_DIR. PYTHONIOENCODING because ACE-Step logs emoji, which crash a cp1252 stdout the manager captures. Loopback-only: nothing outside this box should reach it. The MUSIC_* env is the configuration that fits beside quote-forge's resident vllm-small (19 GB): XL DiT in int8, VAE/text encoder and the 1.7B planner offloaded between phases — +4.8 GB resident, +8.8 GB peak, measured (docs/music-model-experiment-2026-09-27.md). With the card to itself, drop MUSIC_QUANT/MUSIC_OFFLOAD* and use acestep-5Hz-lm-4B.",
+    "cmd": "C:\\Users\\Admin\\Code\\AI\\music\\.venv\\Scripts\\python.exe",
+    "args": ["-m", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", "8014"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\music",
+    "env": {
+      "HF_HOME": "D:\\AI Models\\huggingface",
+      "ACESTEP_CHECKPOINTS_DIR": "D:\\AI Models\\acestep",
+      "HF_HUB_DISABLE_XET": "1",
+      "PYTHONIOENCODING": "utf-8",
+      "PYTHONUTF8": "1",
+      "MUSIC_DIT": "acestep-v15-xl-turbo",
+      "MUSIC_QUANT": "int8_weight_only",
+      "MUSIC_LM": "acestep-5Hz-lm-1.7B",
+      "MUSIC_OFFLOAD": "1",
+      "MUSIC_OFFLOAD_LM": "1"
+    }
+  },
+
   "webui": {
     "docker": "open-webui"
   },

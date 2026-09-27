@@ -97,6 +97,21 @@
       "authRequired": false
     },
     {
+      "id": "music",
+      "name": "ACE-Step Music",
+      "localPort": 8014,
+      "localUrl": "http://127.0.0.1:8014",
+      "publicUrl": "http://127.0.0.1:8014",
+      "healthPath": "/health",
+      "serves": {
+        "music": "ace-step-1.5"
+      },
+      "category": "ai",
+      "authRequired": false,
+      "localOnly": true,
+      "note": "ACE-Step 1.5: an XL (4B, int8) diffusion renderer planned by a 1.7B 5Hz LM, both offloaded between phases so it fits beside quote-forge's resident vllm-small (+5 GB idle, +9 GB peak, measured). Text + optional lyrics -> a full song; also repaint/extend and restyle an uploaded clip, and (on the base DiT) extract stems. /health is 503 until the ~30 s model load finishes; /status says which phase it is in. What it can do is asked of the engine at /v1/music/capabilities, not declared here."
+    },
+    {
       "id": "webui",
       "name": "Open WebUI",
       "localPort": 3001,

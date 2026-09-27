@@ -1,0 +1,48 @@
+{
+  "voiceover": {
+    "narration_seconds": 9.0,
+    "bed_seconds": 15,
+    "bed_latency_ms": 13653,
+    "wer_narration_alone": 0.0,
+    "wer_mixed": 0.0,
+    "bed_track": "20260927-210551-text2music-7-cinematic-ambient-bed-for-a-city-documen",
+    "mix_file": "C:\\Users\\Admin\\Code\\AI\\betenshi-console\\experiments\\music\\voice\\voiceover-mix.wav"
+  },
+  "speaker_similarity_to_enrolled": {
+    "clone_speech (ceiling)": 0.941,
+    "sing-ref-11 vocals": 0.834,
+    "sing-noref-11 vocals": 0.741,
+    "sing-ref-22 vocals": 0.847,
+    "sing-noref-22 vocals": 0.715,
+    "talk2song-0.3 vocals": 0.407,
+    "talk2song-0.6 vocals": 0.466,
+    "kokoro_echo (floor)": 0.654,
+    "kokoro_nova (floor)": 0.639
+  },
+  "sung_wer": {
+    "sing-ref-11": 0.185,
+    "sing-noref-11": 0.148,
+    "sing-ref-22": 0.037,
+    "sing-noref-22": 0.148,
+    "talk2song-0.3": 1.0,
+    "talk2song-0.6": 1.0
+  },
+  "tracks": {
+    "sing-ref-11": "20260927-210615-text2music-11-gentle-acoustic-folk-song-fingerpicked-a",
+    "sing-noref-11": "20260927-210632-text2music-11-gentle-acoustic-folk-song-fingerpicked-a",
+    "sing-ref-22": "20260927-210649-text2music-22-gentle-acoustic-folk-song-fingerpicked-a",
+    "sing-noref-22": "20260927-210705-text2music-22-gentle-acoustic-folk-song-fingerpicked-a",
+    "talk2song-0.3": "20260927-210711-cover-11-gentle-acoustic-folk-song-fingerpicked-a",
+    "talk2song-0.6": "20260927-210716-cover-11-gentle-acoustic-folk-song-fingerpicked-a",
+    "sing-ref-11-vocals": "20260927-210806-extract-1-gentle-acoustic-folk-song-fingerpicked-a",
+    "sing-noref-11-vocals": "20260927-210817-extract-1-gentle-acoustic-folk-song-fingerpicked-a",
+    "sing-ref-22-vocals": "20260927-210828-extract-1-gentle-acoustic-folk-song-fingerpicked-a",
+    "sing-noref-22-vocals": "20260927-210840-extract-1-gentle-acoustic-folk-song-fingerpicked-a",
+    "talk2song-0.3-vocals": "20260927-210848-extract-1-gentle-acoustic-folk-song-fingerpicked-a",
+    "talk2song-0.6-vocals": "20260927-210856-extract-1-gentle-acoustic-folk-song-fingerpicked-a"
+  },
+  "chatterbox_default_voice_bug": {
+    "builtin_vs_clone_similarity": 0.972,
+    "note": "voice='default' requested right after an ali-b request spoke in the clone's voice; the floor was re-measured with Kokoro voices"
+  }
+}

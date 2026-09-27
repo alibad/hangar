@@ -122,6 +122,20 @@ export const LABS: LabDefinition[] = [
     doc: "docs/decision-model-experiment-2026-09-27.md",
     load: () => import("@/components/labs/decision-lab"),
   },
+  {
+    id: "music",
+    label: "Music Lab",
+    hint: "Prompt and optional lyrics → a song; extend, repaint or remix a clip; keep them in a gallery",
+    keywords: "music song audio ace-step lyrics vocals instrumental soundtrack background score stems remix extend",
+    capability: "music",
+    input: "prompt",
+    output: "audio",
+    // Nothing in the router makes music, so there is no cloud column; the
+    // experiment doc names the model that would be the local second opinion.
+    cloudComparison: false,
+    doc: "docs/music-model-experiment-2026-09-27.md",
+    load: () => import("@/components/labs/music-lab"),
+  },
 ];
 
 // ── tabs ────────────────────────────────────────────────────────────────────

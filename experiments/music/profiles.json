@@ -1,0 +1,128 @@
+{
+  "2b+1.7b offload+lm-offload": {
+    "profile": "2b+1.7b offload+lm-offload",
+    "env": {
+      "MUSIC_DIT": "acestep-v15-turbo",
+      "MUSIC_LM": "acestep-5Hz-lm-1.7B",
+      "MUSIC_OFFLOAD": "1",
+      "MUSIC_OFFLOAD_LM": "1"
+    },
+    "card_before_gb": 22.11,
+    "load_s": 59.2,
+    "load_peak_card_gb": 27.12,
+    "resident_card_gb": 27.11,
+    "resident_delta_gb": 5.0,
+    "resident_torch": {
+      "allocated_gb": 4.46,
+      "reserved_gb": 4.47,
+      "card_used_gb": 12.96,
+      "card_total_gb": 31.84
+    },
+    "jobs": [
+      {
+        "name": "30s instrumental",
+        "wall_s": 17.53,
+        "audio_s": 30.0,
+        "peak_card_gb": 30.61,
+        "peak_delta_gb": 8.5,
+        "torch_peak_reserved_gb": 8.08,
+        "lm_s": 11.24,
+        "dit_s": 2.25
+      },
+      {
+        "name": "60s sung",
+        "wall_s": 20.93,
+        "audio_s": 60.0,
+        "peak_card_gb": 30.63,
+        "peak_delta_gb": 8.52,
+        "torch_peak_reserved_gb": 8.29,
+        "lm_s": 15.75,
+        "dit_s": 1.72
+      }
+    ]
+  },
+  "xl-int8+1.7b offload+lm-offload": {
+    "profile": "xl-int8+1.7b offload+lm-offload",
+    "env": {
+      "MUSIC_LM": "acestep-5Hz-lm-1.7B",
+      "MUSIC_OFFLOAD": "1",
+      "MUSIC_OFFLOAD_LM": "1",
+      "MUSIC_QUANT": "int8_weight_only"
+    },
+    "card_before_gb": 21.83,
+    "load_s": 45.9,
+    "load_peak_card_gb": 30.76,
+    "resident_card_gb": 26.66,
+    "resident_delta_gb": 4.83,
+    "resident_torch": {
+      "allocated_gb": 5.45,
+      "reserved_gb": 5.5,
+      "card_used_gb": 14.93,
+      "card_total_gb": 31.84
+    },
+    "jobs": [
+      {
+        "name": "30s instrumental",
+        "wall_s": 17.03,
+        "audio_s": 30.0,
+        "peak_card_gb": 30.4,
+        "peak_delta_gb": 8.57,
+        "torch_peak_reserved_gb": 9.09,
+        "lm_s": 11.09,
+        "dit_s": 2.46
+      },
+      {
+        "name": "60s sung",
+        "wall_s": 21.05,
+        "audio_s": 60.0,
+        "peak_card_gb": 30.66,
+        "peak_delta_gb": 8.83,
+        "torch_peak_reserved_gb": 9.28,
+        "lm_s": 15.28,
+        "dit_s": 2.1
+      }
+    ]
+  },
+  "xl-int8+4b offload+lm-offload": {
+    "profile": "xl-int8+4b offload+lm-offload",
+    "env": {
+      "MUSIC_LM": "acestep-5Hz-lm-4B",
+      "MUSIC_OFFLOAD": "1",
+      "MUSIC_OFFLOAD_LM": "1",
+      "MUSIC_QUANT": "int8_weight_only"
+    },
+    "card_before_gb": 20.86,
+    "load_s": 49.1,
+    "load_peak_card_gb": 30.64,
+    "resident_card_gb": 25.99,
+    "resident_delta_gb": 5.13,
+    "resident_torch": {
+      "allocated_gb": 5.45,
+      "reserved_gb": 5.5,
+      "card_used_gb": 14.47,
+      "card_total_gb": 31.84
+    },
+    "jobs": [
+      {
+        "name": "30s instrumental",
+        "wall_s": 28.62,
+        "audio_s": 30.0,
+        "peak_card_gb": 30.42,
+        "peak_delta_gb": 9.56,
+        "torch_peak_reserved_gb": 13.5,
+        "lm_s": 21.79,
+        "dit_s": 2.79
+      },
+      {
+        "name": "60s sung",
+        "wall_s": 30.72,
+        "audio_s": 60.0,
+        "peak_card_gb": 29.84,
+        "peak_delta_gb": 8.98,
+        "torch_peak_reserved_gb": 13.71,
+        "lm_s": 24.64,
+        "dit_s": 2.25
+      }
+    ]
+  }
+}

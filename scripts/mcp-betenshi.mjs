@@ -3,8 +3,9 @@
  * An MCP server that hands a coding agent this box's local AI stack.
  *
  * Claude Code and Codex both spawn it over stdio and get the same tools: run the
- * services, see what the GPU is holding, and use the three things they cannot do
- * themselves — speak in a cloned voice, generate an image, transcribe audio.
+ * services, see what the GPU is holding, and use the things they cannot do
+ * themselves — speak in a cloned voice, generate an image or a piece of music,
+ * transcribe audio.
  *
  * Why tools and not a page in the console. A page explaining how to start
  * services is documentation a human reads and relays, which is the job MCP
@@ -31,7 +32,7 @@
  *   - speak → the speech SERVICE directly. The console's /api/tts follows `tts`
  *     routing, which can legitimately point at Kokoro, whose voices are baked
  *     into its weights and will never include yours.
- *   - generate_image, transcribe → the CONSOLE's API. Those sit on real logic
+ *   - generate_image, generate_music, transcribe → the CONSOLE's API. Those sit on real logic
  *     (image-gen.ts alone acquires its own resource lease), and reimplementing
  *     it here would both duplicate it and route around the guardrail.
  *
@@ -415,6 +416,39 @@ async function processLab({ action = "status", caseKey, run, scenarios, secondsP
   return fail(`Unknown action "${action}".`);
 }
 
+async function generateMusic({ prompt, lyrics, seconds, seed, bpm, fade_out }) {
+  if (!prompt?.trim()) return fail("Describe the music: genre, instruments, mood, tempo.");
+  const dur = Math.round(Number(seconds) || 30);
+  if (dur < 10 || dur > 600) return fail("seconds must be between 10 and 600.");
+  // Through the Music Lab's run route, like generate_image through the
+  // console: it holds the GPU lease, saves to the gallery and records the run.
+  const f = new FormData();
+  f.set("task", "text2music");
+  f.set("caption", prompt.trim());
+  f.set("instrumental", String(!lyrics?.trim()));
+  if (lyrics?.trim()) f.set("lyrics", lyrics);
+  f.set("duration", String(dur));
+  if (Number.isInteger(seed) && seed >= 0) f.set("seed", String(seed));
+  if (bpm) f.set("bpm", String(bpm));
+  if (Number(fade_out) > 0) f.set("fade_out", String(fade_out));
+  f.set("format", "flac");
+  const { error, res } = await consoleFetch("/api/labs/music/run", { method: "POST", body: f }, 900_000);
+  if (error) return fail(error);
+  const body = await res.json().catch(() => ({}));
+  if (!body.ok) {
+    if (body.resourceBlocked) return fail(`Not enough room to generate: ${body.error}. gpu_status shows what is holding memory.`);
+    if (/isn't reachable|not ready|loading/i.test(body.error ?? "")) return fail(`${body.error} start_service("music") starts it (~30 s to load).`);
+    return fail(body.error ?? `Music generation failed (${res.status}).`);
+  }
+  const t = body.output.track;
+  const dir = process.env.MUSIC_OUTPUT_DIR || path.join(HERE, "..", "generated-music");
+  const r = t.meta.resolved ?? {};
+  return ok(
+    `Saved to ${path.join(dir, t.file)} — ${t.meta.audio_seconds}s FLAC (48 kHz stereo), seed ${t.meta.seed}` +
+      `${r.bpm ? `, ${r.bpm} bpm` : ""}${r.keyscale ? `, ${r.keyscale}` : ""}, in ${(body.latencyMs / 1000).toFixed(1)}s.`,
+  );
+}
+
 async function decideTool({ question, choices, type, context, model }) {
   if (!question?.trim()) return fail("Pass the question to decide.");
   const { error, res } = await consoleFetch("/api/decide", {
@@ -553,6 +587,30 @@ const TOOLS = [
       required: ["prompt"],
     },
     run: generateImage,
+  },
+  {
+    name: "generate_music",
+    description:
+      "Generate a piece of music locally with ACE-Step 1.5 and save it to the console's music gallery, returning the " +
+      "file path (FLAC). Use it when a track is the deliverable, e.g. a background bed for a video you are assembling: " +
+      "describe genre, instruments, mood and tempo, and ask for the length the edit needs. Instrumental unless you pass " +
+      "lyrics. Measured on this box: ~15 s for 30 s of audio, ~20 s for a minute, ~42 s for three. Do NOT use it to illustrate an answer, for " +
+      "sound effects or speech (use speak for a voice), or when the user needs a specific existing song. The weights " +
+      "are MIT-licensed, but a generated track can still resemble existing music; say it was AI-generated where that " +
+      "matters. Needs the music service running (start_service(\"music\")).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: { type: "string", description: "Genre, instruments, mood, tempo — e.g. \"calm cinematic strings and piano, slow build, 70 bpm\"." },
+        seconds: { type: "number", description: "Length in seconds, 10-600. Default 30." },
+        lyrics: { type: "string", description: "Optional sung lyrics, with [verse]/[chorus] section tags. Omit for instrumental." },
+        seed: { type: "integer", description: "Fix it to reproduce a track." },
+        bpm: { type: "integer", description: "Tempo, if the edit needs it exact. Otherwise the planner picks one." },
+        fade_out: { type: "number", description: "Seconds to fade to silence at the end — usually wanted for a video bed (e.g. 2)." },
+      },
+      required: ["prompt"],
+    },
+    run: generateMusic,
   },
   {
     name: "process_lab",

@@ -1,0 +1,4 @@
+# Audio stays local: several files are the user's cloned voice.
+*.wav
+*.flac
+*.log
