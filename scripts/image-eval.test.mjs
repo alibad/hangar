@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { cellKey, PICK, summarize } from "../src/lib/image-eval.ts";
-import { isImageModelId } from "../src/lib/image-models.ts";
+import { isImageModelId, localImageModelFor } from "../src/lib/image-models.ts";
 
 const suite = JSON.parse(await readFile(new URL("../experiments/image-eval/suite.json", import.meta.url), "utf8"));
 
@@ -44,6 +44,15 @@ test("summarize counts only judged checks and keeps picks separate", () => {
   assert.equal(b.judged, 0, "unjudged is unknown, not failed");
   assert.equal(b.maxPeakMiB, null);
   assert.equal(summarize(cells, verdicts, "edit").length, 1);
+});
+
+test("the Image Lab's model ids map to local models, and cloud aliases do not", () => {
+  // ComfyUI's served names (host profile `serves`) are already local ids.
+  for (const id of ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev", "flux-schnell"]) assert.equal(localImageModelFor(id), id);
+  // The Qwen service is listed by its router alias.
+  assert.equal(localImageModelFor("local-qwen-image"), "qwen-image");
+  // A cloud alias must go to the router unchanged, never fall back to a local model.
+  for (const id of ["gpt-image-2", "gemini-image-fast", "local-something-else"]) assert.equal(localImageModelFor(id), null);
 });
 
 test("cellKey distinguishes resolution variants of the same prompt and seed", () => {

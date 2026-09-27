@@ -1582,15 +1582,16 @@
       "variant": "direct-2048",
       "steps": 4,
       "requested": "2048x2048",
-      "ok": false,
-      "httpStatus": 500,
-      "latencyMs": 6925,
-      "wallMs": 6925,
-      "baselineMiB": 5655,
-      "peakMiB": 17390,
-      "savedPath": null,
-      "error": "HostBuffer.read_file_slice failed\n",
-      "at": "2026-09-27T16:08:37.268Z"
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 11258,
+      "wallMs": 11372,
+      "baselineMiB": 8663,
+      "peakMiB": 30364,
+      "savedPath": "Image Eval/2026-09-26/20260927-212714-535-generate-20260926-a-loose-botanical-watercolour-of-a-singl.png",
+      "width": 2048,
+      "height": 2048,
+      "at": "2026-09-27T18:27:14.601Z"
     },
     {
       "study": "resolution",
@@ -1657,10 +1658,10 @@
       "variant": "upscaled-1024-lanczos",
       "ok": true,
       "savedPath": "Image Eval/2026-09-26/20260926-091924-074-generate-20260926-documentary-photograph-of-an-elderly-fis-lanczos2048.png",
-      "latencyMs": 10152,
-      "upscaleMs": 211,
+      "latencyMs": 10182,
+      "upscaleMs": 241,
       "requested": "1024x1024 → 2048x2048",
-      "at": "2026-09-27T16:10:21.817Z"
+      "at": "2026-09-27T18:27:15.350Z"
     },
     {
       "study": "resolution",
@@ -1670,10 +1671,10 @@
       "variant": "upscaled-1024-lanczos",
       "ok": true,
       "savedPath": "Image Eval/2026-09-26/20260926-091744-165-generate-20260926-a-minimalist-swiss-style-event-poster-on-lanczos2048.png",
-      "latencyMs": 10331,
-      "upscaleMs": 75,
+      "latencyMs": 10335,
+      "upscaleMs": 80,
       "requested": "1024x1024 → 2048x2048",
-      "at": "2026-09-27T16:10:21.892Z"
+      "at": "2026-09-27T18:27:15.430Z"
     },
     {
       "study": "resolution",
@@ -1683,10 +1684,10 @@
       "variant": "upscaled-1024-lanczos",
       "ok": true,
       "savedPath": "Image Eval/2026-09-26/20260926-092005-086-generate-20260926-a-loose-botanical-watercolour-of-a-singl-lanczos2048.png",
-      "latencyMs": 11094,
-      "upscaleMs": 186,
+      "latencyMs": 11152,
+      "upscaleMs": 244,
       "requested": "1024x1024 → 2048x2048",
-      "at": "2026-09-27T16:10:22.078Z"
+      "at": "2026-09-27T18:27:15.674Z"
     },
     {
       "study": "resolution",
@@ -1696,10 +1697,10 @@
       "variant": "upscaled-1024-lanczos",
       "ok": true,
       "savedPath": "Image Eval/2026-09-26/20260927-185459-294-generate-20260926-documentary-photograph-of-an-elderly-fis-lanczos2048.png",
-      "latencyMs": 19756,
-      "upscaleMs": 181,
+      "latencyMs": 19788,
+      "upscaleMs": 213,
       "requested": "1024x1024 → 2048x2048",
-      "at": "2026-09-27T16:10:22.259Z"
+      "at": "2026-09-27T18:27:15.887Z"
     },
     {
       "study": "resolution",
@@ -1709,10 +1710,10 @@
       "variant": "upscaled-1024-lanczos",
       "ok": true,
       "savedPath": "Image Eval/2026-09-26/20260927-185238-604-generate-20260926-a-minimalist-swiss-style-event-poster-on-lanczos2048.png",
-      "latencyMs": 12453,
-      "upscaleMs": 118,
+      "latencyMs": 12477,
+      "upscaleMs": 142,
       "requested": "1024x1024 → 2048x2048",
-      "at": "2026-09-27T16:10:22.377Z"
+      "at": "2026-09-27T18:27:16.029Z"
     },
     {
       "study": "resolution",
@@ -1722,10 +1723,10 @@
       "variant": "upscaled-1024-lanczos",
       "ok": true,
       "savedPath": "Image Eval/2026-09-26/20260927-185612-578-generate-20260926-a-loose-botanical-watercolour-of-a-singl-lanczos2048.png",
-      "latencyMs": 19718,
-      "upscaleMs": 212,
+      "latencyMs": 19731,
+      "upscaleMs": 225,
       "requested": "1024x1024 → 2048x2048",
-      "at": "2026-09-27T16:10:22.589Z"
+      "at": "2026-09-27T18:27:16.254Z"
     },
     {
       "study": "resolution",
@@ -1735,10 +1736,10 @@
       "variant": "upscaled-1024-lanczos",
       "ok": true,
       "savedPath": "Image Eval/2026-09-26/20260927-190017-489-generate-20260926-documentary-photograph-of-an-elderly-fis-lanczos2048.png",
-      "latencyMs": 11230,
-      "upscaleMs": 179,
+      "latencyMs": 11269,
+      "upscaleMs": 218,
       "requested": "1024x1024 → 2048x2048",
-      "at": "2026-09-27T16:10:22.768Z"
+      "at": "2026-09-27T18:27:16.472Z"
     },
     {
       "study": "resolution",
@@ -1748,10 +1749,10 @@
       "variant": "upscaled-1024-lanczos",
       "ok": true,
       "savedPath": "Image Eval/2026-09-26/20260927-185826-176-generate-20260926-a-minimalist-swiss-style-event-poster-on-lanczos2048.png",
-      "latencyMs": 11168,
-      "upscaleMs": 172,
+      "latencyMs": 11213,
+      "upscaleMs": 217,
       "requested": "1024x1024 → 2048x2048",
-      "at": "2026-09-27T16:10:22.940Z"
+      "at": "2026-09-27T18:27:16.689Z"
     },
     {
       "study": "resolution",
@@ -1761,10 +1762,10 @@
       "variant": "upscaled-1024-lanczos",
       "ok": true,
       "savedPath": "Image Eval/2026-09-26/20260927-190117-388-generate-20260926-a-loose-botanical-watercolour-of-a-singl-lanczos2048.png",
-      "latencyMs": 15109,
-      "upscaleMs": 197,
+      "latencyMs": 15112,
+      "upscaleMs": 200,
       "requested": "1024x1024 → 2048x2048",
-      "at": "2026-09-27T16:10:23.137Z"
+      "at": "2026-09-27T18:27:16.889Z"
     },
     {
       "study": "edit-source",
@@ -2011,7 +2012,7 @@
       "at": "2026-09-27T16:12:43.202Z"
     }
   ],
-  "updated": "2026-09-27T17:16:18.306Z",
+  "updated": "2026-09-27T18:27:16.890Z",
   "denials": [
     {
       "at": "2026-09-27T15:49:49.983Z",
@@ -3046,5 +3047,61 @@
         }
       ]
     }
-  ]
+  ],
+  "footprint": {
+    "at": "2026-09-27T18:27:03.079Z",
+    "note": "One cold console generation per model after /free and a settled card. VRAM delta = whole-card peak minus the settled baseline (nvidia-smi, 250 ms). Host RAM drop = largest fall in system free memory during the run; other processes on the box add noise.",
+    "results": [
+      {
+        "model": "flux2-klein-4b",
+        "size": 1024,
+        "ok": true,
+        "latencyMs": 7384,
+        "settledBaselineMiB": 8486,
+        "peakMiB": 24229,
+        "vramDeltaGiB": 15.37,
+        "hostRamDropGiB": 12.93
+      },
+      {
+        "model": "flux2-klein-4b",
+        "size": 2048,
+        "ok": true,
+        "latencyMs": 11273,
+        "settledBaselineMiB": 8530,
+        "peakMiB": 30334,
+        "vramDeltaGiB": 21.29,
+        "hostRamDropGiB": 12.81
+      },
+      {
+        "model": "z-image-turbo",
+        "size": 1024,
+        "ok": true,
+        "latencyMs": 11546,
+        "settledBaselineMiB": 8512,
+        "peakMiB": 19777,
+        "vramDeltaGiB": 11,
+        "hostRamDropGiB": 10.6
+      },
+      {
+        "model": "hidream-o1-dev",
+        "size": 1024,
+        "ok": true,
+        "latencyMs": 7129,
+        "settledBaselineMiB": 8514,
+        "peakMiB": 16712,
+        "vramDeltaGiB": 8.01,
+        "hostRamDropGiB": 7.87
+      },
+      {
+        "model": "hidream-o1-dev",
+        "size": 2048,
+        "ok": true,
+        "latencyMs": 13222,
+        "settledBaselineMiB": 8522,
+        "peakMiB": 17302,
+        "vramDeltaGiB": 8.57,
+        "hostRamDropGiB": 8.16
+      }
+    ]
+  }
 }

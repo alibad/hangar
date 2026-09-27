@@ -314,7 +314,8 @@ async function studyFootprint() {
   await claim("image footprint measurement (one cold run per model)");
   try {
     for (const model of models) {
-      for (const size of model === "hidream-o1-dev" ? [1024, 2048] : [1024]) {
+      // 2K too where it is offered: Klein at 2048² used 21 GiB against a 15 GB declaration.
+      for (const size of model === "z-image-turbo" ? [1024] : [1024, 2048]) {
         await fetch(`${COMFY}/free`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unload_models: true, free_memory: true }) }).catch(() => {});
         // /free takes effect when ComfyUI next idles; wait for the card to settle.
         let prev = Infinity, settled = await gpuUsedMiB();

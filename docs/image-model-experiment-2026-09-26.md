@@ -107,12 +107,13 @@ a real 2K render has what the model drew. Higher means more fine detail.
 | Prompt | Klein 2K direct | Z-Image 2K direct | HiDream 2K native | 1K + Lanczos (Klein / Z / HiDream) |
 | --- | ---: | ---: | ---: | ---: |
 | Fisherman (photo) | **11.8** | 10.7 | 5.0 | 3.3 / 3.8 / 2.4 |
-| Watercolour | failed¹ | **9.3** | 4.5 | 2.8 / 2.9 / 2.1 |
+| Watercolour | 6.0¹ | **9.3** | 4.5 | 2.8 / 2.9 / 2.1 |
 | Poster (flat design, little texture by design) | 1.6 | **4.5** | 3.1 | 1.2 / 1.5 / 2.1 |
 
-¹ ComfyUI raised `HostBuffer.read_file_slice failed` while loading weights. Host
-RAM was down to ~5.5 GB free because of other sessions; the coordinator had
-refused the same run for RAM 30 s earlier.
+¹ The first attempt failed inside ComfyUI with `HostBuffer.read_file_slice failed`
+while loading weights. Host RAM was down to ~5.5 GB free because of other
+sessions, and the coordinator had refused the same run for RAM 30 s earlier.
+The retry at 18:26Z succeeded in 11.3 s.
 
 **Time for a 2048² image** (console request to saved PNG, cold-ish):
 
@@ -169,7 +170,34 @@ would need to be declared to the coordinator as a resident reservation.
 
 ### Clean cold footprints
 
-<!-- FOOTPRINT -->
+**How it was measured** (`node scripts/experiment-image-suite.mjs footprint`, 27 Sept 18:25Z):
+- ComfyUI is freed and the runner waits until the card stops dropping.
+- Then one cold generation per model runs through the console.
+- The baseline was a settled 8.3 GiB: `vllm-small`, Laya and the desktop.
+
+| Model, size | VRAM over baseline | Host RAM taken | Time | Was declared | Now declared |
+| --- | ---: | ---: | ---: | --- | --- |
+| Klein 4B, 1024² | **15.4 GiB** | 12.9 GiB | 7.4 s | 15 / 12 GB (estimate) | **16 / 13 GB** (peak) |
+| Klein 4B, 2048² | **21.3 GiB** | 12.8 GiB | 11.3 s | — | noted in `basis` |
+| Z-Image Turbo, 1024² | 11.0 GiB | 10.6 GiB | 11.5 s | 12 / 8 GB | 12 / **11** GB |
+| HiDream-O1 Dev, 1024² | 8.0 GiB | 7.9 GiB | 7.1 s | 22 / 12 GB | — |
+| HiDream-O1 Dev, 2048² | **8.6 GiB** | 8.2 GiB | 13.2 s | 22 / 12 GB | **9 / 8.5 GB** |
+
+Earlier opportunistic readings from a ~3 GB baseline agree: Klein 1024² 13.8,
+Klein 2048² 21.1, HiDream 2048² 8.55 GiB.
+
+- **HiDream was over-declared by 2.5×.** ComfyUI streams its FP8 checkpoint, so
+  even native 2K peaks under 9 GiB. It was being refused when it fits.
+- **Z-Image's RAM was under-declared** (8 → 11 GB).
+- **Klein's footprint is per workload, not per size.** Declared at its 1024²
+  peak, which is the Studio default. A 2048² Klein job needs 21.3 GiB, 5 more
+  than declared, so the coordinator can admit it beside something it then
+  squeezes. Declaring the 2K worst case instead would refuse everyday 1K Klein
+  runs that measurably fit beside `vllm-small`. Size-aware workloads are a
+  follow-up.
+
+The new numbers are in `config/model-meta.json` with the measurements in
+`basis`. The manager reads them at its next restart.
 
 ### Can two stay resident together? What the coordinator said
 
@@ -366,7 +394,8 @@ Nothing was installed. Both are a single ComfyUI checkpoint download to
   - cloud costs are from the AI Router's traffic log.
 - The Image Lab end to end, on both paths:
   - Cloud run: 14.0 s, saved to the "Image Lab" gallery, recorded in `lab_runs`.
-  - Local run: <!-- LAB-LOCAL -->
+  - Local run, Klein with gpt-image-2 in the comparison column: 12.0 s, peak 21.5 GB (+13.3 over baseline), 4 steps. Both images rendered in the Lab, and both runs were recorded.
+  - The refusal path: with the card full, the Lab showed the coordinator's reason verbatim and recorded the attempt.
 - The Eval view in the browser: summary table, per-prompt rows, and the Resolution and Edit tabs.
 - Verdict save and clear, round-tripped through the API.
 - Licences, checked against each model card on the hub: Klein 4B, Z-Image Turbo, Qwen-Image, Qwen-Image-Edit-2509 and FLUX.1 schnell are Apache-2.0; HiDream-O1 is MIT.
@@ -400,5 +429,9 @@ regenerated.
   health checks were answered by another project's SAM servers
   (`C:\Users\Admin\Code\db`), so both showed as "running" when they weren't.
   Found by the Music and Video sessions.
+- **Size-aware admission for ComfyUI image workloads.** Klein at 2048² needs
+  21.3 GiB against a 16 GB declaration. Either split the workload by size
+  (`flux2-klein-generate-2k`) or let the coordinator scale a declared peak by
+  pixel count.
 - **Migrate the Image Studio's Compare mode onto the Lab** once the Lab has
   proved itself; they overlap.

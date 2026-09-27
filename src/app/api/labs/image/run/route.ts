@@ -1,7 +1,7 @@
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { generateAndSave } from "@/lib/image-gen";
-import { isImageModelId } from "@/lib/image-models";
+import { localImageModelFor } from "@/lib/image-models";
 import { outputDir } from "@/lib/save-image";
 import { getCatalogue } from "@/lib/providers";
 import { measureRun, recordLabRun } from "@/lib/lab-runs";
@@ -32,13 +32,8 @@ export type ImageLabOutput = {
  * generateAndSave() understands: the router alias of the Qwen service
  * ("local-qwen-image" → "qwen-image"), ComfyUI's served names from the host
  * profile (already the local ids), and cloud aliases, which go through the
- * router unchanged.
+ * router unchanged (localImageModelFor).
  */
-function localIdFor(model: string): string | null {
-  if (isImageModelId(model)) return model;
-  const stripped = model.replace(/^local-/, "");
-  return isImageModelId(stripped) ? stripped : null;
-}
 
 export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({}));
@@ -50,7 +45,7 @@ export async function POST(req: NextRequest) {
   const size = [512, 768, 1024, 1536, 2048].includes(Number(b?.size)) ? Number(b.size) : 1024;
   const compareGroup = typeof b?.compareGroup === "string" ? b.compareGroup : null;
 
-  const localId = localIdFor(model);
+  const localId = localImageModelFor(model);
   const local = !!localId;
   const target = localId ?? model;
 

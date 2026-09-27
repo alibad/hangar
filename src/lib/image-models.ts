@@ -130,6 +130,18 @@ export function getImageModel(id: string | null | undefined): LocalImageModel {
   return IMAGE_MODELS.find(m => m.id === id) ?? IMAGE_MODELS.find(m => m.id === DEFAULT_IMAGE_MODEL)!;
 }
 
+/**
+ * The local model behind an id as the Labs name it, or null for a cloud alias.
+ * The Lab lists ComfyUI's models by their served names (already local ids) and
+ * the Qwen service by its router alias ("local-qwen-image"), so both map back
+ * here; anything else is a router alias to send to the cloud unchanged.
+ */
+export function localImageModelFor(id: string): ImageModelId | null {
+  if (isImageModelId(id)) return id;
+  const stripped = id.replace(/^local-/, "");
+  return isImageModelId(stripped) ? stripped : null;
+}
+
 export function isImageModelId(v: unknown): v is ImageModelId {
   return typeof v === "string" && IMAGE_MODELS.some(m => m.id === v);
 }

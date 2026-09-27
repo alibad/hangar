@@ -6,12 +6,12 @@
     "params": "4B denoiser",
     "docs": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B",
     "footprint": {
-      "ramGb": 12,
-      "vramGb": 15,
+      "ramGb": 13,
+      "vramGb": 16,
       "idleRamGb": 0.13,
       "idleVramGb": 0.1,
-      "kind": "estimate",
-      "basis": "Initial admission estimate: 7.22 GiB BF16 denoiser plus existing mixed-FP8 4B encoder and overhead; official model card quotes approximately 13 GB VRAM. Not a measured peak."
+      "kind": "peak",
+      "basis": "Measured 2026-09-27 (docs/image-model-experiment-2026-09-26.md, `footprint` study): one cold console generation after ComfyUI /free and a settled card, nvidia-smi every 250 ms. 1024x1024: +15.4 GiB VRAM over baseline, host free RAM fell 12.9 GiB, 7.4 s. At 2048x2048 it needs +21.3 GiB (two clean readings: 21.1 and 21.3) - this footprint is per workload, not per size, so a 2K Klein job can exceed what is declared here."
     }
   },
   "local-hidream-o1-dev": {
@@ -21,12 +21,12 @@
     "params": "8B unified · FP8 Dev",
     "docs": "https://huggingface.co/HiDream-ai/HiDream-O1-Image",
     "footprint": {
-      "ramGb": 12,
-      "vramGb": 22,
+      "ramGb": 8.5,
+      "vramGb": 9,
       "idleRamGb": 0.13,
       "idleVramGb": 0.1,
-      "kind": "estimate",
-      "basis": "Initial admission estimate: 7.51 GiB unified FP8 checkpoint plus loading/activation headroom for native 2048x2048. No separate prompt-refining LLM. Not a measured peak."
+      "kind": "peak",
+      "basis": "Measured 2026-09-27 (docs/image-model-experiment-2026-09-26.md, `footprint` study): one cold console generation after ComfyUI /free and a settled card, nvidia-smi every 250 ms. Native 2048x2048: +8.6 GiB VRAM over baseline (two clean readings: 8.55 and 8.57), host free RAM fell 8.2 GiB, 13.2 s; 1024x1024: +8.0 GiB, 7.9 GiB RAM. ComfyUI streams the unified FP8 checkpoint, so the earlier 22 GB estimate was more than double the real peak."
     }
   },
   "local-z-image-turbo": {
@@ -36,12 +36,12 @@
     "params": "6B denoiser · NVFP4",
     "docs": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
     "footprint": {
-      "ramGb": 8,
+      "ramGb": 11,
       "vramGb": 12,
       "idleRamGb": 0.13,
       "idleVramGb": 0.1,
-      "kind": "estimate",
-      "basis": "Initial admission estimate: existing NVFP4 6B denoiser plus mixed-FP8 4B encoder and inference overhead. Not a measured peak."
+      "kind": "peak",
+      "basis": "Measured 2026-09-27 (docs/image-model-experiment-2026-09-26.md, `footprint` study): one cold console generation at 1024x1024 after ComfyUI /free and a settled card, nvidia-smi every 250 ms: +11.0 GiB VRAM over baseline, host free RAM fell 10.6 GiB, 11.5 s. The 12 GB VRAM estimate held; RAM had been under-declared at 8."
     }
   },
   "_doc": "Human-facing facts about each router alias: real checkpoint, parameter count, and where to read more. Kept OUT of ai-router.yaml because LiteLLM does not pass custom model_info keys through /model/info (verified) — it returns only its own standard fields. Keyed by the alias in ai-router.yaml. Every field is optional; the UI degrades gracefully. Params for local models are exact counts from the Hugging Face repo; cloud vendors do not publish parameter counts, so those are intentionally absent rather than guessed.",
