@@ -81,6 +81,9 @@ export async function POST(req: NextRequest) {
   const body = measured.ok ? measured.result : null;
   const abs = typeof body?.savedPath === "string" ? body.savedPath : null;
   const rel = abs ? path.relative(outputDir(), abs).replace(/\\/g, "/") : null;
+  // generateAndSave() fills diffusion knobs from a local default even for a
+  // hosted model, which has no denoising loop; only report steps where they ran.
+  const steps = local && body ? Number(body.steps) || null : null;
 
   const run = await recordLabRun({
     lab: "image",
@@ -89,7 +92,7 @@ export async function POST(req: NextRequest) {
     local,
     compareGroup,
     inputSummary: prompt.replace(/\s+/g, " "),
-    params: { size, steps: body?.steps ?? null },
+    params: { size, ...(steps ? { steps } : {}) },
     seed,
     status: body ? "ok" : "error",
     error: failed ? failed.message : null,
@@ -111,7 +114,7 @@ export async function POST(req: NextRequest) {
     error: failed?.message,
     resourceBlocked: failed?.gen?.body.resourceBlocked,
     output: body && rel
-      ? { url: `/api/qwen/images/file?rel=${encodeURIComponent(rel)}`, savedPath: rel, width: Number(body.width) || size, height: Number(body.height) || size, seed, steps: Number(body.steps) || undefined }
+      ? { url: `/api/qwen/images/file?rel=${encodeURIComponent(rel)}`, savedPath: rel, width: Number(body.width) || size, height: Number(body.height) || size, seed, steps: steps ?? undefined }
       : undefined,
     runId: run?.id ?? null,
     latencyMs: m.latencyMs,

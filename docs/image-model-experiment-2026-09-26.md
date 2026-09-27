@@ -4,7 +4,32 @@ _Continues [the 12 September smoke test](image-model-experiment-2026-09-12.md)._
 
 ## Recommendation
 
-<!-- RECOMMENDATION -->
+There is no single winner. Pick by job:
+
+| Use case | Use | Why (measured here unless stated) |
+| --- | --- | --- |
+| Everyday drafts, layout, anything you iterate on | **FLUX.2 Klein 4B** | Fastest local model: 9.9 s median through the console, **1.3–1.6 s** when its weights stay resident. Most literal on the long compositional prompt. Fits beside quote-forge's resident `vllm-small`, which Qwen-Image does not. |
+| Editing: replace an object, relight, extend the canvas | **FLUX.2 Klein 4B** | All three edits landed and preserved the rest of the image. The canvas extension was seamless, 15–21 s each. Qwen-Image-Edit could not be run this round (below). |
+| Signs, posters, any rendered text; **Arabic** text; exact small counts | **Z-Image Turbo** | The only local model that spelled every sign and poster on both seeds, rendered مرحبا correctly, kept exactly three stars and exactly four people. 13.7 s median. |
+| Prompts written **in Arabic** | **Z-Image Turbo** locally; **gpt-image-2** when details matter | Z-Image followed the scene; only gpt-image-2 got the red keffiyeh. **HiDream-O1 Dev ignored the Arabic prompt entirely.** |
+| Native 2K with HiDream's own look (English prompts) | **HiDream-O1 Dev** | 16–23 s at 2048². About twice a Lanczos upscale's fine detail, but half of Klein rendered directly at 2K, and airbrushed at 1:1. For detail per second, ask **Klein for 2048² directly** (13–25 s). |
+| Counting past four; strict multi-constraint prompts; best-effort Arabic | **gpt-image-2** via the router | Passed every objective check it was given, including the two no local model passed (five apples; keffiyeh). ~$0.024 per image and ~26 s. |
+| Teaching a consistent style or subject (LoRA) | **FLUX.2 Klein 4B**, trained on `FLUX.2-klein-base-4B` | Apache-2.0 base built for training. Published need is 12–24 GB. About an hour; the LoRA runs on the installed 4-step model. Researched, not trained. |
+| — | Retire **FLUX.1 schnell** | The coordinator refused every attempt (31.6 GB VRAM + 27.9 GB RAM declared). Klein supersedes it. |
+
+**Qwen-Image was not measured.** Its generation was refused because the
+user's quote-forge app keeps `vllm-small` resident (13 GB), and
+13 + 20.3 GB does not fit the card. That same arithmetic means quote-forge's
+own two local models can never run together. See
+[Qwen-Image](#qwen-image-not-measured-and-why-that-is-itself-the-finding).
+
+**Newer models.**
+- **Qwen-Image-2.1** (20 Sep) is #1 among open weights on both Artificial Analysis boards and fits 32 GB. But it is **non-commercial** (Qwen Research Licence), so install it only for personal or research use.
+- The cheapest real upgrade is **HiDream-O1-Image full** (MIT): the same 7.7 GB fp8 size as the Dev model here, and 101 Elo higher. Nothing was installed.
+
+**The biggest speed win is not a model.** The console unloads ComfyUI's
+weights after every job, so every local image pays a cold load. Keeping
+Klein resident would make it a ~2-second model (see Follow-ups).
 
 ## How to look at the results
 
@@ -188,7 +213,58 @@ right).
 quota` on all six. The Gemini key's image quota is exhausted, so no Gemini
 comparison was possible and nothing was billed.
 
-<!-- QWEN-SECTION -->
+## Qwen-Image: not measured, and why that is itself the finding
+
+The Qwen-Image columns are empty. The suite is resumable, so the columns fill in the moment it can run:
+
+```bash
+node scripts/experiment-image-suite.mjs generate --models qwen-image
+```
+
+For the 2K and edit studies, run `resolution` and `edits --models qwen-image-edit` as well.
+
+What happened, in order (27 Sept, 17:05–17:16Z):
+
+1. **The service start was admitted.** 34.7 GB of RAM was free, against Qwen's declared 28 GB standing plus 4 GB margin.
+2. **Generation was refused on VRAM** for as long as the run lasted:
+   `VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.24 GB is currently free`.
+   The card was held by `vllm-small` (13 GB) and Laya (~5 GB).
+3. **The Qwen service then died mid-load**, with exit code `0xC0000005` (access violation) at 8% of weight loading.
+   - Free host RAM had just touched 0.33 GB.
+   - Either another session's allocation raced the load, or Qwen's load briefly needs more than its declared 28 GB (bf16 weights are quantised to fp8 as they load). One observation does not separate the two.
+
+**The finding that matters.** `vllm-small` belongs to the user's **quote-forge** app.
+- `hq/quote-forge/src/deps.ts` asks the manager to keep it running, and its horoscope and world-events jobs were calling it during this window.
+- quote-forge's other dependency is **Qwen-Image** (`local-qwen-image`).
+- The two can never be co-admitted on this card: 13 GB + 20.3 GB exceeds 31.8 GB. So whenever quote-forge's text model is up, its own image model — and any Qwen-Image use from the Studio — is refused.
+- **FLUX.2 Klein fits beside it:** ~15 GB peak + 13 GB, and 12 GB RAM instead of 28.
+
+I did not stop `vllm-small`: it is a live app of yours, not mine to pause.
+
+## Presets
+
+The per-model defaults held up. Klein's 4 steps, Z-Image's 8 and HiDream's
+28 are the vendors' distilled or recommended counts, and none produced broken
+output, so no steps or CFG change was justified. HiDream's 2048² default is
+kept too:
+- It is ~1.5× its 1024² time.
+- Its 1K results were worse on style, not better.
+
+What was wrong was the **labels** the picker shows, which hid the measured
+caveats. `src/lib/image-models.ts` now says:
+- Klein: "fastest · generate + edit".
+- Z-Image: "best local text & Arabic".
+- HiDream: "English prompts only".
+- FLUX schnell: "needs the whole card · superseded by Klein".
+
+The MCP `generate_image` tool's model parameter now tells an agent which to
+pick and when not to (`scripts/mcp-betenshi.mjs`).
+
+**Not changed, but recommended:** the Studio's default model is Qwen-Image.
+On a box where quote-forge keeps `vllm-small` resident, that default is
+refused more often than it runs. Making Klein the default is a one-line change
+(`DEFAULT_IMAGE_MODEL` in `src/lib/image-models.ts`), left for you to decide
+because it changes what the Studio does for you every day.
 
 ## Fine-tuning (LoRA) on a 32 GB card
 
@@ -271,4 +347,58 @@ Also checked:
 - **HiDream-O1-Image-1.5**: not on Hugging Face.
 - **BFL:** only non-image releases in this window.
 
-<!-- NEWER-VERDICT -->
+**Verdict:**
+- **Qwen-Image-2.1 is clearly worth it on quality alone**, but only if you
+  accept the non-commercial licence for what you make with it. It would also
+  collapse Qwen-Image 20B and Edit-2509 into one 7B model (plus an 8B text
+  encoder). Its host-RAM need is not measured here but should be well under the
+  20B's 28 GB.
+- **HiDream-O1-Image full** is the no-strings upgrade to try first.
+
+Nothing was installed. Both are a single ComfyUI checkpoint download to
+`D:\AI Models\comfyui`.
+
+## Verified versus assumed
+
+**Verified on this box, 26–27 September:**
+- Every latency, refusal and cost figure above, in `experiments/image-eval/runs/2026-09-26.json`:
+  - the coordinator's refusals are verbatim under `denials` and `coresidency`;
+  - cloud costs are from the AI Router's traffic log.
+- The Image Lab end to end, on both paths:
+  - Cloud run: 14.0 s, saved to the "Image Lab" gallery, recorded in `lab_runs`.
+  - Local run: <!-- LAB-LOCAL -->
+- The Eval view in the browser: summary table, per-prompt rows, and the Resolution and Edit tabs.
+- Verdict save and clear, round-tripped through the API.
+- Licences, checked against each model card on the hub: Klein 4B, Z-Image Turbo, Qwen-Image, Qwen-Image-Edit-2509 and FLUX.1 schnell are Apache-2.0; HiDream-O1 is MIT.
+
+**Assumed or not established:**
+- **The objective readings in "Where each model wins"** are mine, from contact sheets. They are the starting point for your verdicts, not a substitute.
+- **VRAM is whole-card.** nvidia-smi on Windows has no per-process figure. Three to five other exploration sessions had services on the same card, so only the clean-footprint rows isolate one model.
+- **Two seeds is a sample, not a distribution.** A 1/2 means "sometimes", not 50%.
+- **Arabic depends on the prompts.** The Arabic results rest on one prompt in Arabic and one rendering task.
+- **The detail metric measures high-frequency energy, which includes noise and paper texture.** It separates a real 2K render from an upscale well; it does not say which image is better.
+
+**Housekeeping.** The first run's manifest was left zero-filled when the
+session that ran it was killed mid-write. It was rebuilt from the gallery
+sidecars plus the runner's log (cells marked `recovered`). The one image being
+written at the moment of the kill was zero-filled too; it was deleted and
+regenerated.
+
+## Follow-ups
+
+- **Keep ComfyUI warm between jobs.** Declare a short resident window to the
+  coordinator instead of `/free`-ing after every job. Klein would go from ~10 s
+  to ~2 s per image. This needs a "resident reservation" concept in the
+  coordinator, so it wasn't done here.
+- **Pass through the cloud call's real cost.** LiteLLM computes it (it is in
+  the traffic log), but `generateViaRouter()` drops the response headers. The
+  Lab shows "—" for gpt-image-2, whose price varies by quality.
+- **The Lab shell preselects the first model alphabetically.** For images that
+  is FLUX schnell, the one model that never fits. Either the shell should prefer
+  the capability's routed model, or schnell should be retired from the picker.
+- **Stale health ports.** The manager's "music" (:8012) and "bonsai" (:8011)
+  health checks were answered by another project's SAM servers
+  (`C:\Users\Admin\Code\db`), so both showed as "running" when they weren't.
+  Found by the Music and Video sessions.
+- **Migrate the Image Studio's Compare mode onto the Lab** once the Lab has
+  proved itself; they overlap.

@@ -43,9 +43,11 @@ export type ImageModel = {
 export type LocalImageModel = ImageModel & { serviceId: "qwen" | "comfyui" };
 
 export const IMAGE_MODELS: LocalImageModel[] = [
-  { id: "flux2-klein-4b", name: "FLUX.2 Klein 4B", tier: "4-step · generate + edit", serviceId: "comfyui", steps: [4], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: true, supportsBatch: false },
-  { id: "hidream-o1-dev", name: "HiDream-O1 Dev", tier: "8B FP8 · native 2K · experimental", serviceId: "comfyui", steps: [28], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: false, supportsBatch: false },
-  { id: "z-image-turbo", name: "Z-Image Turbo", tier: "6B NVFP4 · 8-step fast draft", serviceId: "comfyui", steps: [8, 9], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: false, supportsBatch: false },
+  // Tiers state what the 26 Sept evaluation measured, so the tradeoff is visible
+  // where the model is picked (docs/image-model-experiment-2026-09-26.md).
+  { id: "flux2-klein-4b", name: "FLUX.2 Klein 4B", tier: "4-step · fastest · generate + edit", serviceId: "comfyui", steps: [4], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: true, supportsBatch: false },
+  { id: "hidream-o1-dev", name: "HiDream-O1 Dev", tier: "8B FP8 · native 2K · English prompts only", serviceId: "comfyui", steps: [28], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: false, supportsBatch: false },
+  { id: "z-image-turbo", name: "Z-Image Turbo", tier: "6B NVFP4 · 8-step · best local text & Arabic", serviceId: "comfyui", steps: [8, 9], defaultCfg: 1, supportsNegative: false, supportsCfg: false, supportsEdit: false, supportsBatch: false },
   {
     id: "qwen-image",
     name: "Qwen-Image",
@@ -61,7 +63,9 @@ export const IMAGE_MODELS: LocalImageModel[] = [
   {
     id: "flux-schnell",
     name: "FLUX.1 schnell",
-    tier: "4-step · fast draft",
+    // Declared at 31.7 GB VRAM + 28 GB RAM: the coordinator refused every
+    // attempt in the 26 Sept evaluation. Klein does the same job faster.
+    tier: "4-step · needs the whole card · superseded by Klein",
     serviceId: "comfyui",
     steps: [4, 8, 12],
     defaultCfg: 1.0,

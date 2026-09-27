@@ -1,0 +1,3050 @@
+{
+  "run": "2026-09-26",
+  "suiteVersion": 1,
+  "host": "BETENSHI",
+  "folder": "Image Eval/2026-09-26",
+  "started": "2026-09-26T06:17:16.444Z",
+  "recoveredNote": "Manifest rebuilt from gallery sidecars and the runner log after the original was left zero-filled by a killed process. Latencies are the console's own; peak VRAM from the log.",
+  "cells": [
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "text-sign",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 7631,
+      "peakMiB": 18051,
+      "savedPath": "Image Eval/2026-09-26/20260926-091716-442-generate-20260926-a-photograph-of-a-small-bakery-storefron.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:17:16.444Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "text-sign",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 7158,
+      "peakMiB": 18460,
+      "savedPath": "Image Eval/2026-09-26/20260926-091733-686-generate-7-a-photograph-of-a-small-bakery-storefron.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:17:33.689Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "text-poster",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 10256,
+      "peakMiB": 17334,
+      "savedPath": "Image Eval/2026-09-26/20260926-091744-165-generate-20260926-a-minimalist-swiss-style-event-poster-on.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:17:44.168Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "text-poster",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 8207,
+      "peakMiB": 17408,
+      "savedPath": "Image Eval/2026-09-26/20260926-091753-393-generate-7-a-minimalist-swiss-style-event-poster-on.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:17:53.394Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "count-fruit",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 11455,
+      "peakMiB": 17362,
+      "savedPath": "Image Eval/2026-09-26/20260926-091804-932-generate-20260926-overhead-photograph-of-a-plain-wooden-ta.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:18:04.935Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "count-fruit",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9918,
+      "peakMiB": 16850,
+      "savedPath": "Image Eval/2026-09-26/20260926-091814-958-generate-7-overhead-photograph-of-a-plain-wooden-ta.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:18:14.961Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "spatial-blocks",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9953,
+      "peakMiB": 18827,
+      "savedPath": "Image Eval/2026-09-26/20260926-091825-033-generate-20260926-a-3d-render-of-simple-matte-shapes-on-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:18:25.036Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "spatial-blocks",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 8781,
+      "peakMiB": 17365,
+      "savedPath": "Image Eval/2026-09-26/20260926-091833-978-generate-7-a-3d-render-of-simple-matte-shapes-on-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:18:33.980Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "hands-piano",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9900,
+      "peakMiB": 17300,
+      "savedPath": "Image Eval/2026-09-26/20260926-091843-969-generate-20260926-close-up-photograph-of-two-hands-playing.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:18:43.971Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "hands-piano",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9933,
+      "peakMiB": 18403,
+      "savedPath": "Image Eval/2026-09-26/20260926-091853-997-generate-7-close-up-photograph-of-two-hands-playing.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:18:53.999Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "faces-group",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9914,
+      "peakMiB": 18421,
+      "savedPath": "Image Eval/2026-09-26/20260926-091904-020-generate-20260926-candid-documentary-photograph-of-exactly.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:19:04.022Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "faces-group",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9894,
+      "peakMiB": 17282,
+      "savedPath": "Image Eval/2026-09-26/20260926-091914-026-generate-7-candid-documentary-photograph-of-exactly.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:19:14.029Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "photo-fisherman",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9941,
+      "peakMiB": 18407,
+      "savedPath": "Image Eval/2026-09-26/20260926-091924-074-generate-20260926-documentary-photograph-of-an-elderly-fis.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:19:24.076Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "photo-fisherman",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 10912,
+      "peakMiB": 16969,
+      "savedPath": "Image Eval/2026-09-26/20260926-091935-088-generate-7-documentary-photograph-of-an-elderly-fis.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:19:35.092Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "illus-paper-fox",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9436,
+      "peakMiB": 17374,
+      "savedPath": "Image Eval/2026-09-26/20260926-091944-635-generate-20260926-a-whimsical-cut-paper-illustration-of-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:19:44.637Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "illus-paper-fox",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9351,
+      "peakMiB": 17324,
+      "savedPath": "Image Eval/2026-09-26/20260926-091954-086-generate-7-a-whimsical-cut-paper-illustration-of-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:19:54.088Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "illus-watercolor",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 10908,
+      "peakMiB": 16718,
+      "savedPath": "Image Eval/2026-09-26/20260926-092005-086-generate-20260926-a-loose-botanical-watercolour-of-a-singl.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:20:05.089Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "illus-watercolor",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 8891,
+      "peakMiB": 17868,
+      "savedPath": "Image Eval/2026-09-26/20260926-092014-119-generate-7-a-loose-botanical-watercolour-of-a-singl.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:20:14.121Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "long-compositional",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 12107,
+      "peakMiB": 17558,
+      "savedPath": "Image Eval/2026-09-26/20260926-092026-329-generate-20260926-a-cozy-reading-nook-in-the-corner-of-an-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:20:26.331Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "long-compositional",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 15082,
+      "peakMiB": 17849,
+      "savedPath": "Image Eval/2026-09-26/20260926-092041-503-generate-7-a-cozy-reading-nook-in-the-corner-of-an-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:20:41.507Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "arabic-prompt",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13491,
+      "peakMiB": 18874,
+      "savedPath": "Image Eval/2026-09-26/20260926-092055-168-generate-20260926.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-26T06:20:55.171Z",
+      "recovered": true
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "arabic-prompt",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13768,
+      "wallMs": 13883,
+      "baselineMiB": 5090,
+      "peakMiB": 19416,
+      "savedPath": "Image Eval/2026-09-26/20260927-185127-227-generate-7.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:51:27.285Z"
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "arabic-text",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 11907,
+      "wallMs": 11975,
+      "baselineMiB": 18041,
+      "peakMiB": 20430,
+      "savedPath": "Image Eval/2026-09-26/20260927-185139-275-generate-20260926-a-hand-painted-sign-above-a-small-caf-do.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:51:39.326Z"
+    },
+    {
+      "study": "suite",
+      "model": "flux2-klein-4b",
+      "promptId": "arabic-text",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13599,
+      "wallMs": 13661,
+      "baselineMiB": 17966,
+      "peakMiB": 19845,
+      "savedPath": "Image Eval/2026-09-26/20260927-185153-025-generate-7-a-hand-painted-sign-above-a-small-caf-do.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:51:53.068Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "text-sign",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 20541,
+      "wallMs": 20617,
+      "baselineMiB": 17987,
+      "peakMiB": 17989,
+      "savedPath": "Image Eval/2026-09-26/20260927-185213-733-generate-20260926-a-photograph-of-a-small-bakery-storefron.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:52:13.786Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "text-sign",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 12293,
+      "wallMs": 12330,
+      "baselineMiB": 14940,
+      "peakMiB": 17772,
+      "savedPath": "Image Eval/2026-09-26/20260927-185226-160-generate-7-a-photograph-of-a-small-bakery-storefron.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:52:26.183Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "text-poster",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 12335,
+      "wallMs": 12367,
+      "baselineMiB": 14924,
+      "peakMiB": 17819,
+      "savedPath": "Image Eval/2026-09-26/20260927-185238-604-generate-20260926-a-minimalist-swiss-style-event-poster-on.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:52:38.621Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "text-poster",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13448,
+      "wallMs": 13477,
+      "baselineMiB": 14941,
+      "peakMiB": 16450,
+      "savedPath": "Image Eval/2026-09-26/20260927-185252-145-generate-7-a-minimalist-swiss-style-event-poster-on.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:52:52.162Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "count-fruit",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13665,
+      "wallMs": 13704,
+      "baselineMiB": 14876,
+      "peakMiB": 16468,
+      "savedPath": "Image Eval/2026-09-26/20260927-185305-905-generate-20260926-overhead-photograph-of-a-plain-wooden-ta.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:53:05.931Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "count-fruit",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13277,
+      "wallMs": 13314,
+      "baselineMiB": 14901,
+      "peakMiB": 17773,
+      "savedPath": "Image Eval/2026-09-26/20260927-185319-284-generate-7-overhead-photograph-of-a-plain-wooden-ta.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:53:19.307Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "spatial-blocks",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13366,
+      "wallMs": 13395,
+      "baselineMiB": 14893,
+      "peakMiB": 17776,
+      "savedPath": "Image Eval/2026-09-26/20260927-185332-743-generate-20260926-a-3d-render-of-simple-matte-shapes-on-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:53:32.759Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "spatial-blocks",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13261,
+      "wallMs": 13299,
+      "baselineMiB": 14896,
+      "peakMiB": 16486,
+      "savedPath": "Image Eval/2026-09-26/20260927-185346-099-generate-7-a-3d-render-of-simple-matte-shapes-on-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:53:46.125Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "hands-piano",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 12583,
+      "wallMs": 12618,
+      "baselineMiB": 14911,
+      "peakMiB": 16490,
+      "savedPath": "Image Eval/2026-09-26/20260927-185358-790-generate-20260926-close-up-photograph-of-two-hands-playing.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:53:58.811Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "hands-piano",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 12232,
+      "wallMs": 12268,
+      "baselineMiB": 14932,
+      "peakMiB": 16564,
+      "savedPath": "Image Eval/2026-09-26/20260927-185411-116-generate-7-close-up-photograph-of-two-hands-playing.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:54:11.136Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "faces-group",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13611,
+      "wallMs": 13794,
+      "baselineMiB": 14983,
+      "peakMiB": 17802,
+      "savedPath": "Image Eval/2026-09-26/20260927-185424-825-generate-20260926-candid-documentary-photograph-of-exactly.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:54:24.992Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "faces-group",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 14542,
+      "wallMs": 14588,
+      "baselineMiB": 14913,
+      "peakMiB": 16399,
+      "savedPath": "Image Eval/2026-09-26/20260927-185439-619-generate-7-candid-documentary-photograph-of-exactly.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:54:39.644Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "photo-fisherman",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 19575,
+      "wallMs": 19636,
+      "baselineMiB": 14898,
+      "peakMiB": 16643,
+      "savedPath": "Image Eval/2026-09-26/20260927-185459-294-generate-20260926-documentary-photograph-of-an-elderly-fis.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:54:59.344Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "photo-fisherman",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13377,
+      "wallMs": 13430,
+      "baselineMiB": 14950,
+      "peakMiB": 16415,
+      "savedPath": "Image Eval/2026-09-26/20260927-185512-816-generate-7-documentary-photograph-of-an-elderly-fis.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:55:12.854Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "illus-paper-fox",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 16301,
+      "wallMs": 16353,
+      "baselineMiB": 14858,
+      "peakMiB": 16428,
+      "savedPath": "Image Eval/2026-09-26/20260927-185529-232-generate-20260926-a-whimsical-cut-paper-illustration-of-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:55:29.273Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "illus-paper-fox",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 23609,
+      "wallMs": 23646,
+      "baselineMiB": 14861,
+      "peakMiB": 16432,
+      "savedPath": "Image Eval/2026-09-26/20260927-185552-944-generate-7-a-whimsical-cut-paper-illustration-of-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:55:52.971Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "illus-watercolor",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 19506,
+      "wallMs": 19561,
+      "baselineMiB": 14903,
+      "peakMiB": 17110,
+      "savedPath": "Image Eval/2026-09-26/20260927-185612-578-generate-20260926-a-loose-botanical-watercolour-of-a-singl.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:56:12.613Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "illus-watercolor",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13440,
+      "wallMs": 13529,
+      "baselineMiB": 14910,
+      "peakMiB": 14910,
+      "savedPath": "Image Eval/2026-09-26/20260927-185626-127-generate-7-a-loose-botanical-watercolour-of-a-singl.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:56:26.201Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "long-compositional",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 15489,
+      "wallMs": 15576,
+      "baselineMiB": 12765,
+      "peakMiB": 15235,
+      "savedPath": "Image Eval/2026-09-26/20260927-185641-820-generate-20260926-a-cozy-reading-nook-in-the-corner-of-an-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:56:41.862Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "long-compositional",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13635,
+      "wallMs": 13702,
+      "baselineMiB": 12779,
+      "peakMiB": 14393,
+      "savedPath": "Image Eval/2026-09-26/20260927-185655-572-generate-7-a-cozy-reading-nook-in-the-corner-of-an-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:56:55.630Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "arabic-prompt",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 15367,
+      "wallMs": 15419,
+      "baselineMiB": 12761,
+      "peakMiB": 14398,
+      "savedPath": "Image Eval/2026-09-26/20260927-185711-064-generate-20260926.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:57:11.109Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "arabic-prompt",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 16618,
+      "wallMs": 16661,
+      "baselineMiB": 12781,
+      "peakMiB": 14379,
+      "savedPath": "Image Eval/2026-09-26/20260927-185727-801-generate-7.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:57:27.836Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "arabic-text",
+      "seed": 20260926,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 14208,
+      "wallMs": 14245,
+      "baselineMiB": 12777,
+      "peakMiB": 14286,
+      "savedPath": "Image Eval/2026-09-26/20260927-185742-122-generate-20260926-a-hand-painted-sign-above-a-small-caf-do.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:57:42.149Z"
+    },
+    {
+      "study": "suite",
+      "model": "z-image-turbo",
+      "promptId": "arabic-text",
+      "seed": 7,
+      "steps": 8,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 14497,
+      "wallMs": 14558,
+      "baselineMiB": 12774,
+      "peakMiB": 14288,
+      "savedPath": "Image Eval/2026-09-26/20260927-185756-726-generate-7-a-hand-painted-sign-above-a-small-caf-do.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:57:56.777Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "text-sign",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9259,
+      "wallMs": 9320,
+      "baselineMiB": 12786,
+      "peakMiB": 12786,
+      "savedPath": "Image Eval/2026-09-26/20260927-185806-113-generate-20260926-a-photograph-of-a-small-bakery-storefron.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:58:06.162Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "text-sign",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 8852,
+      "wallMs": 8887,
+      "baselineMiB": 10707,
+      "peakMiB": 11184,
+      "savedPath": "Image Eval/2026-09-26/20260927-185815-095-generate-7-a-photograph-of-a-small-bakery-storefron.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:58:15.116Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "text-poster",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 10996,
+      "wallMs": 11027,
+      "baselineMiB": 10645,
+      "peakMiB": 11226,
+      "savedPath": "Image Eval/2026-09-26/20260927-185826-176-generate-20260926-a-minimalist-swiss-style-event-poster-on.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:58:26.198Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "text-poster",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9894,
+      "wallMs": 9931,
+      "baselineMiB": 10682,
+      "peakMiB": 11265,
+      "savedPath": "Image Eval/2026-09-26/20260927-185836-167-generate-7-a-minimalist-swiss-style-event-poster-on.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:58:36.194Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "count-fruit",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9925,
+      "wallMs": 9969,
+      "baselineMiB": 10663,
+      "peakMiB": 11231,
+      "savedPath": "Image Eval/2026-09-26/20260927-185846-196-generate-20260926-overhead-photograph-of-a-plain-wooden-ta.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:58:46.229Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "count-fruit",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9882,
+      "wallMs": 9911,
+      "baselineMiB": 10655,
+      "peakMiB": 11333,
+      "savedPath": "Image Eval/2026-09-26/20260927-185856-188-generate-7-overhead-photograph-of-a-plain-wooden-ta.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:58:56.207Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "spatial-blocks",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9930,
+      "wallMs": 9964,
+      "baselineMiB": 10662,
+      "peakMiB": 11286,
+      "savedPath": "Image Eval/2026-09-26/20260927-185906-205-generate-20260926-a-3d-render-of-simple-matte-shapes-on-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:59:06.230Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "spatial-blocks",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 8932,
+      "wallMs": 8958,
+      "baselineMiB": 10678,
+      "peakMiB": 11258,
+      "savedPath": "Image Eval/2026-09-26/20260927-185915-230-generate-7-a-3d-render-of-simple-matte-shapes-on-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:59:15.247Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "hands-piano",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 11945,
+      "wallMs": 11976,
+      "baselineMiB": 10682,
+      "peakMiB": 11263,
+      "savedPath": "Image Eval/2026-09-26/20260927-185927-261-generate-20260926-close-up-photograph-of-two-hands-playing.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:59:27.282Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "hands-piano",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13073,
+      "wallMs": 13125,
+      "baselineMiB": 10686,
+      "peakMiB": 11277,
+      "savedPath": "Image Eval/2026-09-26/20260927-185940-423-generate-7-close-up-photograph-of-two-hands-playing.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:59:40.463Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "faces-group",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13879,
+      "wallMs": 13914,
+      "baselineMiB": 10700,
+      "peakMiB": 11213,
+      "savedPath": "Image Eval/2026-09-26/20260927-185954-405-generate-20260926-candid-documentary-photograph-of-exactly.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T15:59:54.430Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "faces-group",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 11797,
+      "wallMs": 11857,
+      "baselineMiB": 10702,
+      "peakMiB": 11284,
+      "savedPath": "Image Eval/2026-09-26/20260927-190006-304-generate-7-candid-documentary-photograph-of-exactly.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:00:06.353Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "photo-fisherman",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 11051,
+      "wallMs": 11114,
+      "baselineMiB": 10708,
+      "peakMiB": 11258,
+      "savedPath": "Image Eval/2026-09-26/20260927-190017-489-generate-20260926-documentary-photograph-of-an-elderly-fis.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:00:17.533Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "photo-fisherman",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 14754,
+      "wallMs": 14786,
+      "baselineMiB": 10640,
+      "peakMiB": 11261,
+      "savedPath": "Image Eval/2026-09-26/20260927-190032-355-generate-7-documentary-photograph-of-an-elderly-fis.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:00:32.377Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "illus-paper-fox",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 15911,
+      "wallMs": 15943,
+      "baselineMiB": 10653,
+      "peakMiB": 11309,
+      "savedPath": "Image Eval/2026-09-26/20260927-190048-370-generate-20260926-a-whimsical-cut-paper-illustration-of-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:00:48.391Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "illus-paper-fox",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13919,
+      "wallMs": 13956,
+      "baselineMiB": 10670,
+      "peakMiB": 11248,
+      "savedPath": "Image Eval/2026-09-26/20260927-190102-382-generate-7-a-whimsical-cut-paper-illustration-of-a-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:01:02.403Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "illus-watercolor",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 14912,
+      "wallMs": 15007,
+      "baselineMiB": 10686,
+      "peakMiB": 11253,
+      "savedPath": "Image Eval/2026-09-26/20260927-190117-388-generate-20260926-a-loose-botanical-watercolour-of-a-singl.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:01:17.471Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "illus-watercolor",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13921,
+      "wallMs": 13961,
+      "baselineMiB": 10600,
+      "peakMiB": 11100,
+      "savedPath": "Image Eval/2026-09-26/20260927-190131-497-generate-7-a-loose-botanical-watercolour-of-a-singl.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:01:31.522Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "long-compositional",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9820,
+      "wallMs": 9852,
+      "baselineMiB": 10615,
+      "peakMiB": 11244,
+      "savedPath": "Image Eval/2026-09-26/20260927-190141-423-generate-20260926-a-cozy-reading-nook-in-the-corner-of-an-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:01:41.444Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "long-compositional",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 11143,
+      "wallMs": 11198,
+      "baselineMiB": 10632,
+      "peakMiB": 11250,
+      "savedPath": "Image Eval/2026-09-26/20260927-190152-657-generate-7-a-cozy-reading-nook-in-the-corner-of-an-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:01:52.700Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "arabic-prompt",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 16165,
+      "wallMs": 16343,
+      "baselineMiB": 10683,
+      "peakMiB": 11247,
+      "savedPath": "Image Eval/2026-09-26/20260927-190208-966-generate-20260926.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:02:09.110Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "arabic-prompt",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 12594,
+      "wallMs": 12849,
+      "baselineMiB": 10671,
+      "peakMiB": 11310,
+      "savedPath": "Image Eval/2026-09-26/20260927-190221-977-generate-7.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:02:22.028Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "arabic-text",
+      "seed": 20260926,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 10869,
+      "wallMs": 11015,
+      "baselineMiB": 10670,
+      "peakMiB": 13347,
+      "savedPath": "Image Eval/2026-09-26/20260927-190233-060-generate-20260926-a-hand-painted-sign-above-a-small-caf-do.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:02:33.113Z"
+    },
+    {
+      "study": "suite",
+      "model": "hidream-o1-dev",
+      "promptId": "arabic-text",
+      "seed": 7,
+      "steps": 28,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 14877,
+      "wallMs": 14972,
+      "baselineMiB": 12800,
+      "peakMiB": 13941,
+      "savedPath": "Image Eval/2026-09-26/20260927-190248-126-generate-7-a-hand-painted-sign-above-a-small-caf-do.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:02:48.153Z"
+    },
+    {
+      "study": "suite",
+      "model": "gpt-image-2",
+      "promptId": "text-sign",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 28935,
+      "wallMs": 29098,
+      "savedPath": "Image Eval/2026-09-26/20260927-190335-857-generate-20260926-a-photograph-of-a-small-bakery-storefron.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:03:35.962Z",
+      "costUsd": 0.023765,
+      "costSource": "AI Router traffic log (litellm cost), 2026-09-27"
+    },
+    {
+      "study": "suite",
+      "model": "gpt-image-2",
+      "promptId": "count-fruit",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13338,
+      "wallMs": 13467,
+      "savedPath": "Image Eval/2026-09-26/20260927-190349-465-generate-20260926-overhead-photograph-of-a-plain-wooden-ta.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:03:49.499Z",
+      "costUsd": 0.0061,
+      "costSource": "AI Router traffic log (litellm cost), 2026-09-27"
+    },
+    {
+      "study": "suite",
+      "model": "gpt-image-2",
+      "promptId": "hands-piano",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 24840,
+      "wallMs": 24992,
+      "savedPath": "Image Eval/2026-09-26/20260927-190414-426-generate-20260926-close-up-photograph-of-two-hands-playing.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:04:14.559Z",
+      "costUsd": 0.023635,
+      "costSource": "AI Router traffic log (litellm cost), 2026-09-27"
+    },
+    {
+      "study": "suite",
+      "model": "gpt-image-2",
+      "promptId": "long-compositional",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 27335,
+      "wallMs": 30055,
+      "savedPath": "Image Eval/2026-09-26/20260927-190444-654-generate-20260926-a-cozy-reading-nook-in-the-corner-of-an-.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:04:44.683Z",
+      "costUsd": 0.02415,
+      "costSource": "AI Router traffic log (litellm cost), 2026-09-27"
+    },
+    {
+      "study": "suite",
+      "model": "gpt-image-2",
+      "promptId": "arabic-prompt",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 49962,
+      "wallMs": 50589,
+      "savedPath": "Image Eval/2026-09-26/20260927-190535-308-generate-20260926.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:05:35.349Z",
+      "costUsd": 0.053075,
+      "costSource": "AI Router traffic log (litellm cost), 2026-09-27"
+    },
+    {
+      "study": "suite",
+      "model": "gpt-image-2",
+      "promptId": "arabic-text",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 21988,
+      "wallMs": 22087,
+      "savedPath": "Image Eval/2026-09-26/20260927-190557-424-generate-20260926-a-hand-painted-sign-above-a-small-caf-do.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:05:57.509Z",
+      "costUsd": 0.01346,
+      "costSource": "AI Router traffic log (litellm cost), 2026-09-27"
+    },
+    {
+      "study": "suite",
+      "model": "gemini-image-fast",
+      "promptId": "text-sign",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 500,
+      "latencyMs": 6850,
+      "wallMs": 6850,
+      "savedPath": null,
+      "error": "AI Router 429: {\"error\":{\"message\":\"litellm.RateLimitError: litellm.RateLimitError: geminiException - {\\n  \\\"error\\\": {\\n    \\\"code\\\": 429,\\n    \\\"message\\\": \\\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/",
+      "at": "2026-09-27T16:06:04.485Z",
+      "costUsd": 0,
+      "note": "Gemini API quota exhausted (429) on 2026-09-27; litellm retried each call; nothing billed."
+    },
+    {
+      "study": "suite",
+      "model": "gemini-image-fast",
+      "promptId": "count-fruit",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 500,
+      "latencyMs": 4937,
+      "wallMs": 4937,
+      "savedPath": null,
+      "error": "AI Router 429: {\"error\":{\"message\":\"litellm.RateLimitError: litellm.RateLimitError: geminiException - {\\n  \\\"error\\\": {\\n    \\\"code\\\": 429,\\n    \\\"message\\\": \\\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/",
+      "at": "2026-09-27T16:06:09.506Z",
+      "costUsd": 0,
+      "note": "Gemini API quota exhausted (429) on 2026-09-27; litellm retried each call; nothing billed."
+    },
+    {
+      "study": "suite",
+      "model": "gemini-image-fast",
+      "promptId": "hands-piano",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 500,
+      "latencyMs": 5959,
+      "wallMs": 5959,
+      "savedPath": null,
+      "error": "AI Router 429: {\"error\":{\"message\":\"litellm.RateLimitError: litellm.RateLimitError: geminiException - {\\n  \\\"error\\\": {\\n    \\\"code\\\": 429,\\n    \\\"message\\\": \\\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/",
+      "at": "2026-09-27T16:06:15.563Z",
+      "costUsd": 0,
+      "note": "Gemini API quota exhausted (429) on 2026-09-27; litellm retried each call; nothing billed."
+    },
+    {
+      "study": "suite",
+      "model": "gemini-image-fast",
+      "promptId": "long-compositional",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 500,
+      "latencyMs": 6046,
+      "wallMs": 6046,
+      "savedPath": null,
+      "error": "AI Router 429: {\"error\":{\"message\":\"litellm.RateLimitError: litellm.RateLimitError: geminiException - {\\n  \\\"error\\\": {\\n    \\\"code\\\": 429,\\n    \\\"message\\\": \\\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/",
+      "at": "2026-09-27T16:06:21.682Z",
+      "costUsd": 0,
+      "note": "Gemini API quota exhausted (429) on 2026-09-27; litellm retried each call; nothing billed."
+    },
+    {
+      "study": "resolution",
+      "model": "hidream-o1-dev",
+      "promptId": "photo-fisherman",
+      "seed": 20260926,
+      "variant": "native-2048",
+      "steps": 28,
+      "requested": "2048x2048",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 21067,
+      "wallMs": 21755,
+      "baselineMiB": 13535,
+      "peakMiB": 13535,
+      "savedPath": "Image Eval/2026-09-26/20260927-190622-746-generate-20260926-documentary-photograph-of-an-elderly-fis.png",
+      "width": 2048,
+      "height": 2048,
+      "at": "2026-09-27T16:06:23.340Z"
+    },
+    {
+      "study": "suite",
+      "model": "gemini-image-fast",
+      "promptId": "arabic-prompt",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 500,
+      "latencyMs": 5476,
+      "wallMs": 5476,
+      "savedPath": null,
+      "error": "AI Router 429: {\"error\":{\"message\":\"litellm.RateLimitError: litellm.RateLimitError: geminiException - {\\n  \\\"error\\\": {\\n    \\\"code\\\": 429,\\n    \\\"message\\\": \\\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/",
+      "at": "2026-09-27T16:06:27.230Z",
+      "costUsd": 0,
+      "note": "Gemini API quota exhausted (429) on 2026-09-27; litellm retried each call; nothing billed."
+    },
+    {
+      "study": "suite",
+      "model": "gemini-image-fast",
+      "promptId": "arabic-text",
+      "seed": 20260926,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 500,
+      "latencyMs": 5953,
+      "wallMs": 5953,
+      "savedPath": null,
+      "error": "AI Router 429: {\"error\":{\"message\":\"litellm.RateLimitError: litellm.RateLimitError: geminiException - {\\n  \\\"error\\\": {\\n    \\\"code\\\": 429,\\n    \\\"message\\\": \\\"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/",
+      "at": "2026-09-27T16:06:33.241Z",
+      "costUsd": 0,
+      "note": "Gemini API quota exhausted (429) on 2026-09-27; litellm retried each call; nothing billed."
+    },
+    {
+      "study": "resolution",
+      "model": "hidream-o1-dev",
+      "promptId": "text-poster",
+      "seed": 20260926,
+      "variant": "native-2048",
+      "steps": 28,
+      "requested": "2048x2048",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 22744,
+      "wallMs": 23323,
+      "baselineMiB": 8185,
+      "peakMiB": 11867,
+      "savedPath": "Image Eval/2026-09-26/20260927-190646-180-generate-20260926-a-minimalist-swiss-style-event-poster-on.png",
+      "width": 2048,
+      "height": 2048,
+      "at": "2026-09-27T16:06:46.723Z"
+    },
+    {
+      "study": "resolution",
+      "model": "hidream-o1-dev",
+      "promptId": "illus-watercolor",
+      "seed": 20260926,
+      "variant": "native-2048",
+      "steps": 28,
+      "requested": "2048x2048",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 16264,
+      "wallMs": 17059,
+      "baselineMiB": 3180,
+      "peakMiB": 11937,
+      "savedPath": "Image Eval/2026-09-26/20260927-190703-148-generate-20260926-a-loose-botanical-watercolour-of-a-singl.png",
+      "width": 2048,
+      "height": 2048,
+      "at": "2026-09-27T16:07:03.872Z"
+    },
+    {
+      "study": "resolution",
+      "model": "flux2-klein-4b",
+      "promptId": "photo-fisherman",
+      "seed": 20260926,
+      "variant": "direct-2048",
+      "steps": 4,
+      "requested": "2048x2048",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 13538,
+      "wallMs": 13717,
+      "baselineMiB": 3219,
+      "peakMiB": 24836,
+      "savedPath": "Image Eval/2026-09-26/20260927-190717-603-generate-20260926-documentary-photograph-of-an-elderly-fis.png",
+      "width": 2048,
+      "height": 2048,
+      "at": "2026-09-27T16:07:17.675Z"
+    },
+    {
+      "study": "resolution",
+      "model": "flux2-klein-4b",
+      "promptId": "text-poster",
+      "seed": 20260926,
+      "variant": "direct-2048",
+      "steps": 4,
+      "requested": "2048x2048",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 25190,
+      "wallMs": 25660,
+      "baselineMiB": 15776,
+      "peakMiB": 26503,
+      "savedPath": "Image Eval/2026-09-26/20260927-190742-982-generate-20260926-a-minimalist-swiss-style-event-poster-on.png",
+      "width": 2048,
+      "height": 2048,
+      "at": "2026-09-27T16:07:43.401Z"
+    },
+    {
+      "study": "resolution",
+      "model": "flux2-klein-4b",
+      "promptId": "illus-watercolor",
+      "seed": 20260926,
+      "variant": "direct-2048",
+      "steps": 4,
+      "requested": "2048x2048",
+      "ok": false,
+      "httpStatus": 500,
+      "latencyMs": 6925,
+      "wallMs": 6925,
+      "baselineMiB": 5655,
+      "peakMiB": 17390,
+      "savedPath": null,
+      "error": "HostBuffer.read_file_slice failed\n",
+      "at": "2026-09-27T16:08:37.268Z"
+    },
+    {
+      "study": "resolution",
+      "model": "z-image-turbo",
+      "promptId": "photo-fisherman",
+      "seed": 20260926,
+      "variant": "direct-2048",
+      "steps": 8,
+      "requested": "2048x2048",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 37555,
+      "wallMs": 37651,
+      "baselineMiB": 15471,
+      "peakMiB": 26496,
+      "savedPath": "Image Eval/2026-09-26/20260927-190914-893-generate-20260926-documentary-photograph-of-an-elderly-fis.png",
+      "width": 2048,
+      "height": 2048,
+      "at": "2026-09-27T16:09:14.978Z"
+    },
+    {
+      "study": "resolution",
+      "model": "z-image-turbo",
+      "promptId": "text-poster",
+      "seed": 20260926,
+      "variant": "direct-2048",
+      "steps": 8,
+      "requested": "2048x2048",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 31761,
+      "wallMs": 32365,
+      "baselineMiB": 15360,
+      "peakMiB": 26578,
+      "savedPath": "Image Eval/2026-09-26/20260927-190947-376-generate-20260926-a-minimalist-swiss-style-event-poster-on.png",
+      "width": 2048,
+      "height": 2048,
+      "at": "2026-09-27T16:09:47.430Z"
+    },
+    {
+      "study": "resolution",
+      "model": "z-image-turbo",
+      "promptId": "illus-watercolor",
+      "seed": 20260926,
+      "variant": "direct-2048",
+      "steps": 8,
+      "requested": "2048x2048",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 33955,
+      "wallMs": 34060,
+      "baselineMiB": 15425,
+      "peakMiB": 26602,
+      "savedPath": "Image Eval/2026-09-26/20260927-191021-496-generate-20260926-a-loose-botanical-watercolour-of-a-singl.png",
+      "width": 2048,
+      "height": 2048,
+      "at": "2026-09-27T16:10:21.562Z"
+    },
+    {
+      "study": "resolution",
+      "model": "flux2-klein-4b",
+      "promptId": "photo-fisherman",
+      "seed": 20260926,
+      "variant": "upscaled-1024-lanczos",
+      "ok": true,
+      "savedPath": "Image Eval/2026-09-26/20260926-091924-074-generate-20260926-documentary-photograph-of-an-elderly-fis-lanczos2048.png",
+      "latencyMs": 10152,
+      "upscaleMs": 211,
+      "requested": "1024x1024 → 2048x2048",
+      "at": "2026-09-27T16:10:21.817Z"
+    },
+    {
+      "study": "resolution",
+      "model": "flux2-klein-4b",
+      "promptId": "text-poster",
+      "seed": 20260926,
+      "variant": "upscaled-1024-lanczos",
+      "ok": true,
+      "savedPath": "Image Eval/2026-09-26/20260926-091744-165-generate-20260926-a-minimalist-swiss-style-event-poster-on-lanczos2048.png",
+      "latencyMs": 10331,
+      "upscaleMs": 75,
+      "requested": "1024x1024 → 2048x2048",
+      "at": "2026-09-27T16:10:21.892Z"
+    },
+    {
+      "study": "resolution",
+      "model": "flux2-klein-4b",
+      "promptId": "illus-watercolor",
+      "seed": 20260926,
+      "variant": "upscaled-1024-lanczos",
+      "ok": true,
+      "savedPath": "Image Eval/2026-09-26/20260926-092005-086-generate-20260926-a-loose-botanical-watercolour-of-a-singl-lanczos2048.png",
+      "latencyMs": 11094,
+      "upscaleMs": 186,
+      "requested": "1024x1024 → 2048x2048",
+      "at": "2026-09-27T16:10:22.078Z"
+    },
+    {
+      "study": "resolution",
+      "model": "z-image-turbo",
+      "promptId": "photo-fisherman",
+      "seed": 20260926,
+      "variant": "upscaled-1024-lanczos",
+      "ok": true,
+      "savedPath": "Image Eval/2026-09-26/20260927-185459-294-generate-20260926-documentary-photograph-of-an-elderly-fis-lanczos2048.png",
+      "latencyMs": 19756,
+      "upscaleMs": 181,
+      "requested": "1024x1024 → 2048x2048",
+      "at": "2026-09-27T16:10:22.259Z"
+    },
+    {
+      "study": "resolution",
+      "model": "z-image-turbo",
+      "promptId": "text-poster",
+      "seed": 20260926,
+      "variant": "upscaled-1024-lanczos",
+      "ok": true,
+      "savedPath": "Image Eval/2026-09-26/20260927-185238-604-generate-20260926-a-minimalist-swiss-style-event-poster-on-lanczos2048.png",
+      "latencyMs": 12453,
+      "upscaleMs": 118,
+      "requested": "1024x1024 → 2048x2048",
+      "at": "2026-09-27T16:10:22.377Z"
+    },
+    {
+      "study": "resolution",
+      "model": "z-image-turbo",
+      "promptId": "illus-watercolor",
+      "seed": 20260926,
+      "variant": "upscaled-1024-lanczos",
+      "ok": true,
+      "savedPath": "Image Eval/2026-09-26/20260927-185612-578-generate-20260926-a-loose-botanical-watercolour-of-a-singl-lanczos2048.png",
+      "latencyMs": 19718,
+      "upscaleMs": 212,
+      "requested": "1024x1024 → 2048x2048",
+      "at": "2026-09-27T16:10:22.589Z"
+    },
+    {
+      "study": "resolution",
+      "model": "hidream-o1-dev",
+      "promptId": "photo-fisherman",
+      "seed": 20260926,
+      "variant": "upscaled-1024-lanczos",
+      "ok": true,
+      "savedPath": "Image Eval/2026-09-26/20260927-190017-489-generate-20260926-documentary-photograph-of-an-elderly-fis-lanczos2048.png",
+      "latencyMs": 11230,
+      "upscaleMs": 179,
+      "requested": "1024x1024 → 2048x2048",
+      "at": "2026-09-27T16:10:22.768Z"
+    },
+    {
+      "study": "resolution",
+      "model": "hidream-o1-dev",
+      "promptId": "text-poster",
+      "seed": 20260926,
+      "variant": "upscaled-1024-lanczos",
+      "ok": true,
+      "savedPath": "Image Eval/2026-09-26/20260927-185826-176-generate-20260926-a-minimalist-swiss-style-event-poster-on-lanczos2048.png",
+      "latencyMs": 11168,
+      "upscaleMs": 172,
+      "requested": "1024x1024 → 2048x2048",
+      "at": "2026-09-27T16:10:22.940Z"
+    },
+    {
+      "study": "resolution",
+      "model": "hidream-o1-dev",
+      "promptId": "illus-watercolor",
+      "seed": 20260926,
+      "variant": "upscaled-1024-lanczos",
+      "ok": true,
+      "savedPath": "Image Eval/2026-09-26/20260927-190117-388-generate-20260926-a-loose-botanical-watercolour-of-a-singl-lanczos2048.png",
+      "latencyMs": 15109,
+      "upscaleMs": 197,
+      "requested": "1024x1024 → 2048x2048",
+      "at": "2026-09-27T16:10:23.137Z"
+    },
+    {
+      "study": "edit-source",
+      "model": "flux2-klein-4b",
+      "promptId": "edit-source",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 9526,
+      "wallMs": 9595,
+      "baselineMiB": 5732,
+      "peakMiB": 19946,
+      "savedPath": "Image Eval/2026-09-26/20260927-191032-893-generate-20260926-a-photograph-of-a-wooden-kitchen-table-b.png",
+      "width": 1024,
+      "height": 1024,
+      "at": "2026-09-27T16:10:32.921Z"
+    },
+    {
+      "study": "edit",
+      "model": "flux2-klein-4b",
+      "promptId": "edit-replace",
+      "seed": 20260926,
+      "kind": "replace an object",
+      "source": "Image Eval/2026-09-26/20260927-191032-893-generate-20260926-a-photograph-of-a-wooden-kitchen-table-b.png",
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 20941,
+      "wallMs": 21522,
+      "baselineMiB": 18506,
+      "peakMiB": 21452,
+      "savedPath": "Image Eval/2026-09-26/20260927-191054-478-edit-20260926-replace-the-blue-ceramic-mug-with-a-smal.png",
+      "at": "2026-09-27T16:10:54.520Z"
+    },
+    {
+      "study": "edit",
+      "model": "flux2-klein-4b",
+      "promptId": "edit-lighting",
+      "seed": 20260926,
+      "kind": "change the lighting",
+      "source": "Image Eval/2026-09-26/20260927-191032-893-generate-20260926-a-photograph-of-a-wooden-kitchen-table-b.png",
+      "requested": "1024x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 17357,
+      "wallMs": 17422,
+      "baselineMiB": 18513,
+      "peakMiB": 19917,
+      "savedPath": "Image Eval/2026-09-26/20260927-191111-993-edit-20260926-change-the-lighting-to-warm-late-evening.png",
+      "at": "2026-09-27T16:11:12.022Z"
+    },
+    {
+      "study": "edit",
+      "model": "flux2-klein-4b",
+      "promptId": "edit-extend",
+      "seed": 20260926,
+      "kind": "extend the canvas",
+      "source": "Image Eval/2026-09-26/20260927-191032-893-generate-20260926-a-photograph-of-a-wooden-kitchen-table-b.png",
+      "requested": "1536x1024",
+      "ok": true,
+      "httpStatus": 200,
+      "latencyMs": 14860,
+      "wallMs": 14957,
+      "baselineMiB": 15824,
+      "peakMiB": 20051,
+      "savedPath": "Image Eval/2026-09-26/20260927-191127-302-edit-20260926-extend-the-scene-to-the-right-continue-t.png",
+      "at": "2026-09-27T16:11:27.327Z"
+    },
+    {
+      "study": "suite",
+      "model": "flux-schnell",
+      "promptId": "text-sign",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 409,
+      "latencyMs": 15059,
+      "wallMs": 15059,
+      "baselineMiB": 15837,
+      "peakMiB": 15837,
+      "savedPath": null,
+      "error": "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 24.83 GB is currently free; VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.44 GB is currently free",
+      "coordinator": {
+        "workload": "flux-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 24.83 GB is currently free; VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.44 GB is currently free",
+          "reasons": [
+            "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 24.83 GB is currently free",
+            "VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.44 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "comfyui",
+              "ramGb": 28,
+              "vramGb": 31.7
+            }
+          ]
+        }
+      },
+      "at": "2026-09-27T16:11:42.536Z"
+    },
+    {
+      "study": "suite",
+      "model": "flux-schnell",
+      "promptId": "text-sign",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 409,
+      "latencyMs": 15301,
+      "wallMs": 15301,
+      "baselineMiB": 3074,
+      "peakMiB": 3143,
+      "savedPath": null,
+      "error": "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 24.52 GB is currently free; VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.38 GB is currently free",
+      "coordinator": {
+        "workload": "flux-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 24.52 GB is currently free; VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.38 GB is currently free",
+          "reasons": [
+            "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 24.52 GB is currently free",
+            "VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.38 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "comfyui",
+              "ramGb": 28,
+              "vramGb": 31.7
+            }
+          ]
+        }
+      },
+      "at": "2026-09-27T16:11:57.899Z"
+    },
+    {
+      "study": "suite",
+      "model": "flux-schnell",
+      "promptId": "text-poster",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 409,
+      "latencyMs": 15024,
+      "wallMs": 15024,
+      "baselineMiB": 3131,
+      "peakMiB": 3297,
+      "savedPath": null,
+      "error": "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 21.61 GB is currently free; VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.22 GB is currently free",
+      "coordinator": {
+        "workload": "flux-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 21.61 GB is currently free; VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.22 GB is currently free",
+          "reasons": [
+            "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 21.61 GB is currently free",
+            "VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.22 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "comfyui",
+              "ramGb": 28,
+              "vramGb": 31.7
+            }
+          ]
+        }
+      },
+      "at": "2026-09-27T16:12:12.988Z"
+    },
+    {
+      "study": "suite",
+      "model": "flux-schnell",
+      "promptId": "text-poster",
+      "seed": 7,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 409,
+      "latencyMs": 15037,
+      "wallMs": 15037,
+      "baselineMiB": 3302,
+      "peakMiB": 3307,
+      "savedPath": null,
+      "error": "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 21.61 GB is currently free; VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.31 GB is currently free",
+      "coordinator": {
+        "workload": "flux-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 21.61 GB is currently free; VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.31 GB is currently free",
+          "reasons": [
+            "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 21.61 GB is currently free",
+            "VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.31 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "comfyui",
+              "ramGb": 28,
+              "vramGb": 31.7
+            }
+          ]
+        }
+      },
+      "at": "2026-09-27T16:12:28.109Z"
+    },
+    {
+      "study": "suite",
+      "model": "flux-schnell",
+      "promptId": "count-fruit",
+      "seed": 20260926,
+      "steps": 4,
+      "requested": "1024x1024",
+      "ok": false,
+      "httpStatus": 409,
+      "latencyMs": 15027,
+      "wallMs": 15027,
+      "baselineMiB": 3198,
+      "peakMiB": 3198,
+      "savedPath": null,
+      "error": "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 24.28 GB is currently free; VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.38 GB is currently free",
+      "coordinator": {
+        "workload": "flux-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 24.28 GB is currently free; VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.38 GB is currently free",
+          "reasons": [
+            "RAM needs 27.87 GB more plus 0 GB reserved and 4 GB safety, but only 24.28 GB is currently free",
+            "VRAM needs 31.64 GB more plus 0 GB reserved and 0.02 GB safety, but only 28.38 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "comfyui",
+              "ramGb": 28,
+              "vramGb": 31.7
+            }
+          ]
+        }
+      },
+      "at": "2026-09-27T16:12:43.202Z"
+    }
+  ],
+  "updated": "2026-09-27T17:16:18.306Z",
+  "denials": [
+    {
+      "at": "2026-09-27T15:49:49.983Z",
+      "cell": "suite|flux2-klein-4b|arabic-prompt|7|",
+      "status": 409,
+      "error": "gpu-heavy is busy with ollama-chat (lab:text:local-gemma4)",
+      "details": {
+        "workload": "flux2-klein-generate",
+        "denial": {
+          "kind": "slot",
+          "message": "gpu-heavy is busy with ollama-chat (lab:text:local-gemma4)",
+          "holder": {
+            "id": "87e1e569-67c7-48ee-83dc-f2af37452b81",
+            "workload": "ollama-chat",
+            "serviceId": "ollama",
+            "slot": "gpu-heavy",
+            "owner": "lab:text:local-gemma4",
+            "lane": "interactive",
+            "resources": {
+              "ramGb": 1,
+              "vramGb": 20
+            },
+            "acquiredAt": 1790524162135,
+            "expiresAt": 1790525062135
+          }
+        }
+      },
+      "wholeCardMiB": 22317
+    },
+    {
+      "at": "2026-09-27T15:50:05.098Z",
+      "cell": "suite|flux2-klein-4b|arabic-text|20260926|",
+      "status": 409,
+      "error": "gpu-heavy is busy with ollama-chat (lab:text:local-gemma4)",
+      "details": {
+        "workload": "flux2-klein-generate",
+        "denial": {
+          "kind": "slot",
+          "message": "gpu-heavy is busy with ollama-chat (lab:text:local-gemma4)",
+          "holder": {
+            "id": "87e1e569-67c7-48ee-83dc-f2af37452b81",
+            "workload": "ollama-chat",
+            "serviceId": "ollama",
+            "slot": "gpu-heavy",
+            "owner": "lab:text:local-gemma4",
+            "lane": "interactive",
+            "resources": {
+              "ramGb": 1,
+              "vramGb": 20
+            },
+            "acquiredAt": 1790524162135,
+            "expiresAt": 1790525062135
+          }
+        }
+      },
+      "wholeCardMiB": 28257
+    },
+    {
+      "at": "2026-09-27T15:50:20.182Z",
+      "cell": "suite|z-image-turbo|text-sign|20260926|",
+      "status": 409,
+      "error": "VRAM needs 11.94 GB more plus 0 GB reserved and 0.02 GB safety, but only 3.77 GB is currently free",
+      "details": {
+        "workload": "z-image-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "VRAM needs 11.94 GB more plus 0 GB reserved and 0.02 GB safety, but only 3.77 GB is currently free",
+          "reasons": [
+            "VRAM needs 11.94 GB more plus 0 GB reserved and 0.02 GB safety, but only 3.77 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "comfyui",
+              "ramGb": 8,
+              "vramGb": 12
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 28331
+    },
+    {
+      "at": "2026-09-27T16:08:00.254Z",
+      "cell": "resolution|flux2-klein-4b|illus-watercolor|20260926|direct-2048",
+      "status": 409,
+      "error": "RAM needs 11.87 GB more plus 0 GB reserved and 4 GB safety, but only 5.54 GB is currently free",
+      "details": {
+        "workload": "flux2-klein-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 11.87 GB more plus 0 GB reserved and 4 GB safety, but only 5.54 GB is currently free",
+          "reasons": [
+            "RAM needs 11.87 GB more plus 0 GB reserved and 4 GB safety, but only 5.54 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "comfyui",
+              "ramGb": 12,
+              "vramGb": 15
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 8310
+    },
+    {
+      "at": "2026-09-27T17:06:31.869Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "VRAM needs 20.2 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.13 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "VRAM needs 20.2 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.13 GB is currently free",
+          "reasons": [
+            "VRAM needs 20.2 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.13 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21812
+    },
+    {
+      "at": "2026-09-27T17:07:17.197Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 0 GB more plus 0 GB reserved and 4 GB safety, but only 0.33 GB is currently free; VRAM needs 20.2 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.19 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 0 GB more plus 0 GB reserved and 4 GB safety, but only 0.33 GB is currently free; VRAM needs 20.2 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.19 GB is currently free",
+          "reasons": [
+            "RAM needs 0 GB more plus 0 GB reserved and 4 GB safety, but only 0.33 GB is currently free",
+            "VRAM needs 20.2 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.19 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21821
+    },
+    {
+      "at": "2026-09-27T17:08:02.338Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 12.22 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.67 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 12.22 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.67 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 12.22 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.67 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21690
+    },
+    {
+      "at": "2026-09-27T17:08:47.425Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.97 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.63 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.97 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.63 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.97 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.63 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21361
+    },
+    {
+      "at": "2026-09-27T17:09:32.520Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.91 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.6 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.91 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.6 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.91 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.6 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21326
+    },
+    {
+      "at": "2026-09-27T17:10:17.609Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.87 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.58 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.87 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.58 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.87 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.58 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21363
+    },
+    {
+      "at": "2026-09-27T17:11:02.690Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.32 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.59 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.32 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.59 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.32 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.59 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21301
+    },
+    {
+      "at": "2026-09-27T17:11:47.771Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.66 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.51 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.66 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.51 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.66 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.51 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21373
+    },
+    {
+      "at": "2026-09-27T17:12:32.854Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.93 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.36 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.93 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.36 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.93 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.36 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21569
+    },
+    {
+      "at": "2026-09-27T17:13:17.942Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.13 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.24 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.13 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.24 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.13 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.24 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21707
+    },
+    {
+      "at": "2026-09-27T17:14:03.032Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.16 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.24 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.16 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.24 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.16 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.24 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21695
+    },
+    {
+      "at": "2026-09-27T17:14:48.115Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.05 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.59 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.05 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.59 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.05 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 10.59 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21844
+    },
+    {
+      "at": "2026-09-27T17:15:33.201Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.44 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 9.81 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.44 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 9.81 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 31.44 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 9.81 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 21786
+    },
+    {
+      "at": "2026-09-27T17:16:18.304Z",
+      "cell": "suite|qwen-image|text-sign|20260926|",
+      "status": 409,
+      "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.09 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 9.86 GB is currently free",
+      "details": {
+        "workload": "qwen-generate",
+        "denial": {
+          "kind": "capacity",
+          "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.09 GB is currently free; VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 9.86 GB is currently free",
+          "reasons": [
+            "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 30.09 GB is currently free",
+            "VRAM needs 20.3 GB more plus 0 GB reserved and 0.02 GB safety, but only 9.86 GB is currently free"
+          ],
+          "consumers": [
+            {
+              "serviceId": "qwen",
+              "ramGb": 28,
+              "vramGb": 20.3
+            },
+            {
+              "serviceId": "vllm-small",
+              "ramGb": 1,
+              "vramGb": 17.5
+            },
+            {
+              "serviceId": "laya",
+              "ramGb": 3,
+              "vramGb": 5.5
+            },
+            {
+              "serviceId": "comfyui",
+              "ramGb": 0.13,
+              "vramGb": 0.06
+            }
+          ]
+        }
+      },
+      "wholeCardMiB": 22081
+    }
+  ],
+  "warm": {
+    "note": "Direct ComfyUI /prompt, 1024x1024, cold = after /free (weights still in OS file cache), warm = immediately repeated with weights resident. Whole-card VRAM.",
+    "results": [
+      {
+        "model": "flux2-klein-4b",
+        "run": "cold",
+        "ms": 8774,
+        "status": "success",
+        "baselineMiB": 3085,
+        "peakMiB": 17209
+      },
+      {
+        "model": "flux2-klein-4b",
+        "run": "warm",
+        "ms": 1597,
+        "status": "success",
+        "baselineMiB": 15994,
+        "peakMiB": 18779
+      },
+      {
+        "model": "flux2-klein-4b",
+        "run": "warm",
+        "ms": 1253,
+        "status": "success",
+        "baselineMiB": 15996,
+        "peakMiB": 18687
+      },
+      {
+        "model": "z-image-turbo",
+        "run": "cold",
+        "ms": 12651,
+        "status": "success",
+        "baselineMiB": 15839,
+        "peakMiB": 15839
+      },
+      {
+        "model": "z-image-turbo",
+        "run": "warm",
+        "ms": 4954,
+        "status": "success",
+        "baselineMiB": 12907,
+        "peakMiB": 14314
+      },
+      {
+        "model": "z-image-turbo",
+        "run": "warm",
+        "ms": 5307,
+        "status": "success",
+        "baselineMiB": 12906,
+        "peakMiB": 15321
+      },
+      {
+        "model": "hidream-o1-dev",
+        "run": "cold",
+        "ms": 12629,
+        "status": "success",
+        "baselineMiB": 12767,
+        "peakMiB": 12767
+      },
+      {
+        "model": "hidream-o1-dev",
+        "run": "warm",
+        "ms": 5840,
+        "status": "success",
+        "baselineMiB": 10902,
+        "peakMiB": 14084
+      },
+      {
+        "model": "hidream-o1-dev",
+        "run": "warm",
+        "ms": 6310,
+        "status": "success",
+        "baselineMiB": 13539,
+        "peakMiB": 14299
+      }
+    ]
+  },
+  "coresidency": [
+    {
+      "at": "2026-09-27T16:13:28.419Z",
+      "runningServices": [
+        "ai-router",
+        "comfyui",
+        "grafana",
+        "ollama",
+        "prometheus",
+        "webui"
+      ],
+      "capacity": {
+        "ram": {
+          "totalGb": 63.27,
+          "freeGb": 24.04
+        },
+        "vram": {
+          "totalGb": 31.84,
+          "freeGb": 28.39
+        },
+        "sampledAt": 1790525571781
+      },
+      "modeledUsage": {
+        "ramGb": 0.13,
+        "vramGb": 0.06
+      },
+      "pairs": [
+        {
+          "hold": "flux2-klein-generate",
+          "holdResult": "granted",
+          "request": "z-image-generate",
+          "requestResult": {
+            "error": "gpu-heavy is busy with flux2-klein-generate (eval:coresidency:flux2-klein-generate)",
+            "code": "resource-timeout",
+            "details": {
+              "workload": "z-image-generate",
+              "denial": {
+                "kind": "slot",
+                "message": "gpu-heavy is busy with flux2-klein-generate (eval:coresidency:flux2-klein-generate)",
+                "holder": {
+                  "id": "eaa55ae0-9677-4a4a-9e3d-a1270f7b12b3",
+                  "workload": "flux2-klein-generate",
+                  "serviceId": "comfyui",
+                  "slot": "gpu-heavy",
+                  "owner": "eval:coresidency:flux2-klein-generate",
+                  "lane": "interactive",
+                  "resources": {
+                    "ramGb": 12,
+                    "vramGb": 15
+                  },
+                  "acquiredAt": 1790525571789,
+                  "expiresAt": 1790525871789
+                }
+              }
+            }
+          }
+        },
+        {
+          "hold": "flux2-klein-generate",
+          "holdResult": "granted",
+          "request": "hidream-o1-generate",
+          "requestResult": {
+            "error": "gpu-heavy is busy with flux2-klein-generate (eval:coresidency:flux2-klein-generate)",
+            "code": "resource-timeout",
+            "details": {
+              "workload": "hidream-o1-generate",
+              "denial": {
+                "kind": "slot",
+                "message": "gpu-heavy is busy with flux2-klein-generate (eval:coresidency:flux2-klein-generate)",
+                "holder": {
+                  "id": "87de38b2-484e-4f8f-935f-98dfe379208b",
+                  "workload": "flux2-klein-generate",
+                  "serviceId": "comfyui",
+                  "slot": "gpu-heavy",
+                  "owner": "eval:coresidency:flux2-klein-generate",
+                  "lane": "interactive",
+                  "resources": {
+                    "ramGb": 12,
+                    "vramGb": 15
+                  },
+                  "acquiredAt": 1790525575872,
+                  "expiresAt": 1790525875872
+                }
+              }
+            }
+          }
+        },
+        {
+          "hold": "qwen-generate",
+          "holdResult": {
+            "error": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 23.85 GB is currently free",
+            "code": "resource-timeout",
+            "details": {
+              "workload": "qwen-generate",
+              "denial": {
+                "kind": "capacity",
+                "message": "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 23.85 GB is currently free",
+                "reasons": [
+                  "RAM needs 28 GB more plus 0 GB reserved and 4 GB safety, but only 23.85 GB is currently free"
+                ],
+                "consumers": [
+                  {
+                    "serviceId": "qwen",
+                    "ramGb": 28,
+                    "vramGb": 20.3
+                  },
+                  {
+                    "serviceId": "comfyui",
+                    "ramGb": 0.13,
+                    "vramGb": 0.06
+                  }
+                ]
+              }
+            }
+          },
+          "request": "flux2-klein-generate",
+          "requestResult": "not attempted"
+        },
+        {
+          "hold": "flux2-klein-generate",
+          "holdResult": "granted",
+          "request": "flux-generate",
+          "requestResult": {
+            "error": "gpu-heavy is busy with flux2-klein-generate (eval:coresidency:flux2-klein-generate)",
+            "code": "resource-timeout",
+            "details": {
+              "workload": "flux-generate",
+              "denial": {
+                "kind": "slot",
+                "message": "gpu-heavy is busy with flux2-klein-generate (eval:coresidency:flux2-klein-generate)",
+                "holder": {
+                  "id": "d16ee1ba-a134-4bbd-8ff1-bb3d7b1f5023",
+                  "workload": "flux2-klein-generate",
+                  "serviceId": "comfyui",
+                  "slot": "gpu-heavy",
+                  "owner": "eval:coresidency:flux2-klein-generate",
+                  "lane": "interactive",
+                  "resources": {
+                    "ramGb": 12,
+                    "vramGb": 15
+                  },
+                  "acquiredAt": 1790525583943,
+                  "expiresAt": 1790525883943
+                }
+              }
+            }
+          }
+        }
+      ],
+      "alone": [
+        {
+          "workload": "flux2-klein-generate",
+          "result": {
+            "error": "gpu-heavy is busy with z-image-generate (console:image:z-image-turbo)",
+            "code": "resource-timeout",
+            "details": {
+              "workload": "flux2-klein-generate",
+              "denial": {
+                "kind": "slot",
+                "message": "gpu-heavy is busy with z-image-generate (console:image:z-image-turbo)",
+                "holder": {
+                  "id": "495261ff-2e16-4b6f-a71c-458561ca4f99",
+                  "workload": "z-image-generate",
+                  "serviceId": "comfyui",
+                  "slot": "gpu-heavy",
+                  "owner": "console:image:z-image-turbo",
+                  "lane": "interactive",
+                  "resources": {
+                    "ramGb": 8,
+                    "vramGb": 12
+                  },
+                  "acquiredAt": 1790525588011,
+                  "expiresAt": 1790526488011
+                }
+              }
+            }
+          }
+        },
+        {
+          "workload": "z-image-generate",
+          "result": {
+            "error": "gpu-heavy is busy with z-image-generate (console:image:z-image-turbo)",
+            "code": "resource-timeout",
+            "details": {
+              "workload": "z-image-generate",
+              "denial": {
+                "kind": "slot",
+                "message": "gpu-heavy is busy with z-image-generate (console:image:z-image-turbo)",
+                "holder": {
+                  "id": "495261ff-2e16-4b6f-a71c-458561ca4f99",
+                  "workload": "z-image-generate",
+                  "serviceId": "comfyui",
+                  "slot": "gpu-heavy",
+                  "owner": "console:image:z-image-turbo",
+                  "lane": "interactive",
+                  "resources": {
+                    "ramGb": 8,
+                    "vramGb": 12
+                  },
+                  "acquiredAt": 1790525588011,
+                  "expiresAt": 1790526488011
+                }
+              }
+            }
+          }
+        },
+        {
+          "workload": "hidream-o1-generate",
+          "result": {
+            "error": "gpu-heavy is busy with z-image-generate (console:image:z-image-turbo)",
+            "code": "resource-timeout",
+            "details": {
+              "workload": "hidream-o1-generate",
+              "denial": {
+                "kind": "slot",
+                "message": "gpu-heavy is busy with z-image-generate (console:image:z-image-turbo)",
+                "holder": {
+                  "id": "495261ff-2e16-4b6f-a71c-458561ca4f99",
+                  "workload": "z-image-generate",
+                  "serviceId": "comfyui",
+                  "slot": "gpu-heavy",
+                  "owner": "console:image:z-image-turbo",
+                  "lane": "interactive",
+                  "resources": {
+                    "ramGb": 8,
+                    "vramGb": 12
+                  },
+                  "acquiredAt": 1790525588011,
+                  "expiresAt": 1790526488011
+                }
+              }
+            }
+          }
+        },
+        {
+          "workload": "qwen-generate",
+          "result": {
+            "error": "gpu-heavy is busy with z-image-generate (console:image:z-image-turbo)",
+            "code": "resource-timeout",
+            "details": {
+              "workload": "qwen-generate",
+              "denial": {
+                "kind": "slot",
+                "message": "gpu-heavy is busy with z-image-generate (console:image:z-image-turbo)",
+                "holder": {
+                  "id": "495261ff-2e16-4b6f-a71c-458561ca4f99",
+                  "workload": "z-image-generate",
+                  "serviceId": "comfyui",
+                  "slot": "gpu-heavy",
+                  "owner": "console:image:z-image-turbo",
+                  "lane": "interactive",
+                  "resources": {
+                    "ramGb": 8,
+                    "vramGb": 12
+                  },
+                  "acquiredAt": 1790525588011,
+                  "expiresAt": 1790526488011
+                }
+              }
+            }
+          }
+        },
+        {
+          "workload": "flux-generate",
+          "result": {
+            "error": "gpu-heavy is busy with z-image-generate (console:image:z-image-turbo)",
+            "code": "resource-timeout",
+            "details": {
+              "workload": "flux-generate",
+              "denial": {
+                "kind": "slot",
+                "message": "gpu-heavy is busy with z-image-generate (console:image:z-image-turbo)",
+                "holder": {
+                  "id": "495261ff-2e16-4b6f-a71c-458561ca4f99",
+                  "workload": "z-image-generate",
+                  "serviceId": "comfyui",
+                  "slot": "gpu-heavy",
+                  "owner": "console:image:z-image-turbo",
+                  "lane": "interactive",
+                  "resources": {
+                    "ramGb": 8,
+                    "vramGb": 12
+                  },
+                  "acquiredAt": 1790525588011,
+                  "expiresAt": 1790526488011
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

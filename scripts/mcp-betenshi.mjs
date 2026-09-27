@@ -464,7 +464,15 @@ const TOOLS = [
       type: "object",
       properties: {
         prompt: { type: "string", description: "What to draw." },
-        model: { type: "string", description: 'Backend, e.g. "qwen-image" or "flux-schnell". Defaults to Qwen-Image.' },
+        model: {
+          type: "string",
+          description:
+            'Local model. Measured on this box (docs/image-model-experiment-2026-09-26.md): "flux2-klein-4b" is fastest ' +
+            '(~10 s) and good at layout; "z-image-turbo" (~14 s) is the one to use for rendered text, Arabic text or exact ' +
+            'small counts; "hidream-o1-dev" is native 2K but English prompts only (it ignored an Arabic prompt). ' +
+            'Omitting it means Qwen-Image, which needs ~28 GB of free host RAM and several minutes to load, and is often ' +
+            'refused while other models are resident. Do not use "flux-schnell": it needs the whole card.',
+        },
         folder: { type: "string", description: "Gallery folder to save into." },
       },
       required: ["prompt"],
