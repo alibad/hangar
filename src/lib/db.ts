@@ -98,6 +98,33 @@ async function createSchema(db: Db) {
     model TEXT NOT NULL DEFAULT 'qwen-image'
   )`);
 
+  // One row per Lab run, whatever the capability. See src/lib/lab-runs.ts.
+  // Generic on purpose: capability-specific settings go in `params` (JSON) so a
+  // new Lab never needs a migration. `peak_vram_gb` is card-wide and nullable —
+  // null means "not measurable here", never zero.
+  await db.run(`CREATE TABLE IF NOT EXISTS lab_runs (
+    id TEXT PRIMARY KEY,
+    lab TEXT NOT NULL,
+    capability TEXT NOT NULL,
+    model TEXT NOT NULL,
+    host TEXT NOT NULL,
+    local BOOLEAN NOT NULL,
+    compare_group TEXT,
+    input_summary TEXT NOT NULL DEFAULT '',
+    params TEXT NOT NULL DEFAULT '{}',
+    seed BIGINT,
+    status TEXT NOT NULL,
+    error TEXT,
+    latency_ms INTEGER,
+    peak_vram_gb DOUBLE,
+    baseline_vram_gb DOUBLE,
+    vram_note TEXT,
+    cost_usd DOUBLE,
+    output_path TEXT,
+    output_summary TEXT,
+    created_at TEXT NOT NULL
+  )`);
+
   // The gallery holds output from more than one image model now, so rows have to
   // record which one made them. Existing rows all predate FLUX, so the column
   // default backfills them correctly.

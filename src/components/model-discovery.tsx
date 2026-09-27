@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -53,14 +53,24 @@ export default function ModelDiscovery({
   capability,
   label,
   className = "",
+  defaultOpen = false,
+  empty,
 }: {
   capability: string;
   /** Capability name as the surrounding page says it, e.g. "speech → text". */
   label: string;
   className?: string;
+  /** Open on mount — for a page where these candidates ARE the content. */
+  defaultOpen?: boolean;
+  /**
+   * Shown once the scout has answered with nothing for this capability. Omit
+   * where silence is right (a tab that already works without it); pass it
+   * where the list is the page's answer and an empty space would read as a bug.
+   */
+  empty?: ReactNode;
 }) {
   const [data, setData] = useState<ScoutPayload | null>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -127,7 +137,7 @@ export default function ModelDiscovery({
     }
   };
 
-  if (!mine.length) return null;
+  if (!mine.length) return data && empty ? <>{empty}</> : null;
 
   return (
     <div className={`rounded-xl border border-gray-800 bg-gray-900 ${className}`}>

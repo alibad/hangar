@@ -18,6 +18,8 @@ import { isAdopted, isOnDemand, isReady, needsAttention } from "@/lib/service-st
 import { useTheme } from "@/components/theme-provider";
 import { ThemePicker } from "@/components/theme-picker";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
+import LabHost from "@/components/labs/lab-host";
+import { LABS, isConsoleTab, labForTab, labTab, type LabTab } from "@/lib/labs";
 import TabErrorBoundary from "@/components/tab-error-boundary";
 import HomeCockpit from "@/components/home-cockpit";
 import ConsoleHeader from "@/components/console-header";
@@ -419,11 +421,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const valid = new Set<ConsoleTab>(["stack", "services", "storage", "llm", "arena", "speech", "qwen", "requests", "usage", "sam3d", "sam3", "models"]);
+    // Built-in tabs and every registered Lab — see src/lib/labs.ts.
     const resolve = () => {
-      const hash = window.location.hash.slice(1) as ConsoleTab;
-      const saved = window.localStorage.getItem("bt-active-tab") as ConsoleTab | null;
-      const next = valid.has(hash) ? hash : saved && valid.has(saved) ? saved : "stack";
+      const hash = window.location.hash.slice(1);
+      const saved = window.localStorage.getItem("bt-active-tab");
+      const next: ConsoleTab = isConsoleTab(hash) ? hash : isConsoleTab(saved) ? saved : "stack";
       setTab(next);
     };
     resolve();
@@ -817,6 +819,7 @@ export default function Home() {
     { id: "sam3d" as const, label: "3D Body" },
     { id: "sam3" as const, label: "Segment" },
     { id: "models" as const, label: "Models" },
+    ...LABS.map((l) => ({ id: labTab(l.id), label: l.label, count: undefined })),
   ];
 
   return (
@@ -2041,6 +2044,9 @@ export default function Home() {
 
         {/* ── MODELS / AI ROUTER TAB ── */}
         {tab === "models" && <ModelsPage />}
+
+        {/* ── LABS — one line for all of them; see src/lib/labs.ts ── */}
+        {labForTab(tab) && <LabHost tab={tab as LabTab} />}
         </TabErrorBoundary>
 
 

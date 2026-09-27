@@ -5,6 +5,7 @@ import path from "path";
 import { load as parseYaml } from "js-yaml";
 import { SERVICE_REGISTRY, getServiceUrl } from "./services";
 import { defaultServiceFor } from "./host";
+import type { CapabilityId } from "./capabilities";
 
 /**
  * Model catalogue, read from the AI Router (LiteLLM) rather than duplicated here.
@@ -76,6 +77,8 @@ export type CatalogModel = {
   docs?: string;
   paper?: string;
   note?: string;
+  /** SPDX-ish licence id, declared in model-meta.json. Undefined = not declared. */
+  license?: string;
   /** Memory cost of running this model locally. Absent for cloud models. */
   footprint?: Footprint;
   /**
@@ -201,6 +204,12 @@ export type ModelMeta = {
   docs?: string;
   paper?: string;
   note?: string;
+  /**
+   * The weights' licence as the model card states it (e.g. "apache-2.0"),
+   * checked on the Hugging Face hub. Local models only — a cloud API has terms
+   * of service, not a weights licence. Leave it out rather than guess.
+   */
+  license?: string;
   /** BeTenshi service id — lets footprints resolve without the router. */
   service?: string;
   footprint?: Footprint;
@@ -239,6 +248,16 @@ function loadMeta(): Record<string, ModelMeta> & {
   } catch {
     return {};
   }
+}
+
+/**
+ * Editorial metadata for one model, by router alias or served-model-name.
+ * Tries `local-<id>` first — the alias convention for local models — so a
+ * service that is not in the router can still be described by the same file.
+ */
+export function modelMetaFor(id: string): ModelMeta | undefined {
+  const meta = loadMeta() as Record<string, ModelMeta>;
+  return meta[`local-${id}`] ?? (id.startsWith("_") ? undefined : meta[id]);
 }
 
 /** Benchmark leaderboards, by capability-ish key ("image", "text"). */
@@ -311,7 +330,7 @@ export async function routerAlive(): Promise<boolean> {
  * a REAL inference call per model, which for an image model means generating an
  * image — far too expensive to poll a dashboard with.
  */
-async function localServiceHealthy(serviceId: string): Promise<boolean> {
+export async function localServiceHealthy(serviceId: string): Promise<boolean> {
   const svc = SERVICE_REGISTRY.find((s) => s.id === serviceId);
   if (!svc) return false;
   try {
@@ -413,6 +432,7 @@ export async function getCatalogue(): Promise<{
       docs: md.docs,
       paper: md.paper,
       note: md.note,
+      license: local ? md.license : undefined,
       // Cloud models cost money, not memory — leaving this undefined is what
       // makes the UI say "off-box" rather than "0 GB".
       footprint: local ? md.footprint : undefined,
@@ -488,7 +508,10 @@ export const CAPABILITIES = [
     modes: ["audio_speech"],
     hint: "Voice output.",
   },
-] as const;
+  // Every id here must also be in CAPABILITY_IDS (src/lib/capabilities.ts),
+  // the full vocabulary host profiles declare. This list is only the subset the
+  // router can route — music, 3d, video and decision have no LiteLLM mode.
+] as const satisfies readonly { id: CapabilityId; label: string; modes: readonly string[]; hint: string }[];
 
 export type Capability = (typeof CAPABILITIES)[number]["id"];
 export type Routing = Record<Capability, string>;

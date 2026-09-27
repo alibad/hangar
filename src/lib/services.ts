@@ -29,8 +29,9 @@ export type ServiceEntry = {
    * model behind it, and the Speech tab reports itself unavailable on a box
    * that transcribes perfectly well.
    *
-   * Capability ids are the ones in CAPABILITIES (text, vision, image, stt,
-   * tts). The value is what to send as `model` when calling the service
+   * Capability ids are CAPABILITY_IDS in src/lib/capabilities.ts — the
+   * routable ones (text, vision, image, stt, tts) plus those only a Lab uses
+   * (music, 3d, video, decision). The value is what to send as `model` when calling the service
    * directly, which is what makes a fallback possible without naming a
    * service in code.
    *
@@ -39,7 +40,13 @@ export type ServiceEntry = {
    * this does not replace. Where a service declares both they must agree —
    * scripts/host-profiles.test.mjs fails the build if they do not.
    */
-  serves?: Record<string, string>;
+  /**
+   * A list when one service runs several models for a capability — ComfyUI
+   * serves every video model on the box, and a Lab should list each one. The
+   * first entry is the default, which is what defaultServiceFor() falls back
+   * to. Read it through servedModels() in host.ts rather than indexing.
+   */
+  serves?: Record<string, string | string[]>;
   /** Free-text rationale carried from the host profile. Documentation, not behaviour. */
   note?: string;
 };

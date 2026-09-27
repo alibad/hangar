@@ -8,6 +8,7 @@ import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import { ThemePicker } from "@/components/theme-picker";
 import { useTheme } from "@/components/theme-provider";
 import { getHost, hostHasTab } from "@/lib/host";
+import { labDestinations } from "@/lib/labs";
 
 type Props = {
   active: ConsoleTab;
@@ -45,7 +46,11 @@ const workstreams = ([
   // Present on every machine; a host that cannot back it is marked here and
   // explains itself on the page, rather than the entry disappearing.
   available: hostHasTab(item.id),
-}));
+})).concat(
+  // Every registered Lab. Always "available": a Lab with nothing behind it on
+  // this host says so in place and shows what would fit.
+  labDestinations().map(({ id, label, hint }) => ({ id, label, hint, available: true })),
+);
 
 // What is flowing through the stack, and what it costs.
 const insights: Array<{ id: ConsoleTab; label: string; hint: string }> = [

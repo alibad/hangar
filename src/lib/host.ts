@@ -28,6 +28,7 @@ import betenshi from "../../config/hosts/betenshi.json";
 import b5 from "../../config/hosts/b5.json";
 import type { ServiceEntry } from "./services";
 import { machineProfileFromHost, type MachineProfile } from "./model-fit";
+import { CAPABILITY_LABELS } from "./capabilities";
 
 export type MemoryKind = "discrete" | "unified";
 
@@ -199,21 +200,19 @@ export function defaultServiceFor(
   capability: string,
 ): { serviceId: string; model: string } | null {
   const svc = servicesForCapability(capability)[0];
-  return svc ? { serviceId: svc.id, model: svc.serves![capability] } : null;
+  const model = svc ? servedModels(svc, capability)[0] : undefined;
+  return svc && model ? { serviceId: svc.id, model } : null;
 }
 
 /**
- * Human wording for a capability id, kept here rather than imported from
- * CAPABILITIES because this module is bundled for the browser and providers.ts
- * pulls in `fs`. Short phrases, because they land mid-sentence.
+ * The served-model-names a service declares for a capability, always as a
+ * list. `serves` accepts a bare string for the common one-model service and a
+ * list for a runtime that hosts several (ComfyUI and its video models).
  */
-const CAPABILITY_LABELS: Record<string, string> = {
-  text: "text generation",
-  vision: "vision",
-  image: "image generation",
-  stt: "speech-to-text",
-  tts: "text-to-speech",
-};
+export function servedModels(svc: Pick<ServiceEntry, "serves">, capability: string): string[] {
+  const v = svc.serves?.[capability];
+  return (Array.isArray(v) ? v : v ? [v] : []).filter((m) => typeof m === "string" && m.length > 0);
+}
 
 export type TabSupport = {
   /** Is at least one backing service registered on this host? */
@@ -249,7 +248,7 @@ export function tabSupport(tab: string): TabSupport {
       kind: "capability",
       needs: caps,
       missing,
-      missingLabels: (missing.length ? missing : caps).map((c) => CAPABILITY_LABELS[c] ?? c),
+      missingLabels: (missing.length ? missing : caps).map((c) => CAPABILITY_LABELS[c as keyof typeof CAPABILITY_LABELS] ?? c),
     };
   }
 

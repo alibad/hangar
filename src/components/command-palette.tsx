@@ -5,6 +5,7 @@ import {
   Activity,
   Brain,
   Box,
+  FlaskConical,
   Gauge,
   HardDrive,
   Image,
@@ -18,7 +19,12 @@ import {
   Swords,
 } from "lucide-react";
 
-export type ConsoleTab = "stack" | "services" | "storage" | "llm" | "arena" | "speech" | "qwen" | "requests" | "usage" | "sam3d" | "sam3" | "models";
+import { labDestinations, type ConsoleTab } from "@/lib/labs";
+
+// The tab union lives with the Labs registry now, so a Lab is a destination
+// the moment it is registered. Re-exported for the components that import it
+// from here.
+export type { ConsoleTab };
 
 type Destination = {
   id: ConsoleTab;
@@ -41,6 +47,7 @@ const DESTINATIONS: Destination[] = [
   { id: "sam3d", label: "3D Body", hint: "Recover human mesh and pose", keywords: "sam 3d pose body mesh", icon: Box },
   { id: "sam3", label: "Segment", hint: "Segment images and track video", keywords: "sam mask boxes tracking", icon: Scan },
   { id: "models", label: "Models", hint: "Choose routing by capability", keywords: "router providers configuration aliases", icon: Settings2 },
+  ...labDestinations().map((d) => ({ ...d, icon: FlaskConical })),
 ];
 
 export function CommandPalette({

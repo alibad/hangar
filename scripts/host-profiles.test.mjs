@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
+import { CAPABILITY_IDS as CAPABILITY_IDS_LIST } from "../src/lib/capabilities.ts";
 
 /**
  * The host profiles are data, and data that nothing validates drifts.
@@ -17,8 +18,15 @@ const HOSTS = readdirSync(new URL("../config/hosts", import.meta.url))
   .filter((f) => f.endsWith(".json"))
   .map((f) => [f.replace(/\.json$/, ""), JSON.parse(readFileSync(new URL(`../config/hosts/${f}`, import.meta.url), "utf8"))]);
 
-/** Mirrors CAPABILITIES in src/lib/providers.ts. */
-const CAPABILITY_IDS = new Set(["text", "vision", "image", "stt", "tts"]);
+/**
+ * The shared vocabulary, imported rather than mirrored. This used to be a
+ * hand-copied set of the five routable capabilities, which meant a host could
+ * not declare a music or video service without editing a test.
+ */
+const CAPABILITY_IDS = new Set(CAPABILITY_IDS_LIST);
+
+/** `serves[cap]` is a served-model-name, or a list of them for a multi-model runtime. */
+const servedList = (v) => (Array.isArray(v) ? v : [v]);
 
 test("there is at least one host profile and every one has the basics", () => {
   assert.ok(HOSTS.length > 0, "config/hosts must contain at least one profile");
@@ -41,10 +49,12 @@ test("every declared capability is a real one", () => {
           CAPABILITY_IDS.has(cap),
           `${id}/${s.id} serves "${cap}", which is not a capability id (${[...CAPABILITY_IDS].join(", ")})`,
         );
+        const names = servedList(s.serves[cap]);
         assert.ok(
-          typeof s.serves[cap] === "string" && s.serves[cap].length,
-          `${id}/${s.id} serves "${cap}" with no served-model-name`,
+          names.length && names.every((n) => typeof n === "string" && n.length),
+          `${id}/${s.id} serves "${cap}" with no served-model-name (a string, or a non-empty list of strings)`,
         );
+        assert.equal(new Set(names).size, names.length, `${id}/${s.id} lists a "${cap}" model twice`);
       }
     }
   }
@@ -56,8 +66,10 @@ test("`serves` and the older `llm.model` never contradict each other", () => {
   for (const [id, h] of HOSTS) {
     for (const s of h.services) {
       if (s.llm?.model && s.serves?.text) {
+        // The first entry is the service's default model, which is what the
+        // LLM picker's `llm.model` names.
         assert.equal(
-          s.serves.text,
+          servedList(s.serves.text)[0],
           s.llm.model,
           `${id}/${s.id}: serves.text "${s.serves.text}" disagrees with llm.model "${s.llm.model}"`,
         );

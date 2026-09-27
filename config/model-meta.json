@@ -89,6 +89,7 @@
   "local-coder": {
     "vision": false,
     "checkpoint": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
+    "license": "apache-2.0",
     "params": "30B (A3B MoE, ~3B active) · AWQ 4-bit",
     "docs": "https://hf.co/QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
     "note": "32k context with native Qwen3-Coder tool parsing for MCP agents; gpu-memory-utilization 0.72.",
@@ -103,6 +104,7 @@
   "local-small": {
     "vision": false,
     "checkpoint": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "license": "apache-2.0",
     "params": "7B · AWQ 4-bit",
     "docs": "https://hf.co/Qwen/Qwen2.5-7B-Instruct-AWQ",
     "note": "16k context with Hermes tool parsing for MCP agents; gpu-memory-utilization 0.55.",
@@ -172,6 +174,7 @@
   "local-gemma4": {
     "vision": true,
     "checkpoint": "gemma4:31b-it-qat via Ollama (local service on :11434)",
+    "license": "apache-2.0",
     "params": "31B · int4 QAT",
     "released": "2026-08",
     "docs": "https://ollama.com/library/gemma4",
@@ -189,6 +192,7 @@
   "local-qwen3-vl": {
     "vision": true,
     "checkpoint": "qwen3-vl:32b-instruct via Ollama (local service on :11434)",
+    "license": "apache-2.0",
     "params": "32B · q4",
     "released": "2026-08",
     "docs": "https://ollama.com/library/qwen3-vl",
