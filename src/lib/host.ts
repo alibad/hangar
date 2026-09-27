@@ -179,7 +179,6 @@ const TAB_CAPABILITIES: Record<string, string[]> = {
  */
 const TAB_SERVICES: Record<string, string[]> = {
   qwen: ["qwen", "comfyui"],
-  sam3d: ["sam3d"],
   sam3: ["sam3"],
 };
 

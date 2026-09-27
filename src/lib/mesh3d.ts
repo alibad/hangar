@@ -6,10 +6,12 @@ import { getServiceHeaders, getServiceUrl } from "@/lib/services";
 import { withResourceLease } from "@/lib/resource-manager";
 import { outputDir } from "@/lib/save-image";
 import { applyMask } from "@/lib/mesh3d-image";
-import { MESH_ROOT, isJobId, meshWorkload, orientGlb, servableRel, type UpAxis } from "@/lib/mesh3d-shared";
+import { MESH_ROOT, isJobId, latestByFile, meshWorkload, orientGlb, servableRel, type UpAxis } from "@/lib/mesh3d-shared";
 import modelMetaJson from "../../config/model-meta.json";
+import policyJson from "../../config/resource-policy.json";
 
 const MODEL_META = modelMetaJson as Record<string, { upAxis?: UpAxis } | undefined>;
+const POLICY = policyJson as { workloads: Record<string, { service?: string }> };
 
 export { MESH_ROOT, meshWorkload } from "@/lib/mesh3d-shared";
 
@@ -71,6 +73,8 @@ export async function saveArtifact(job: MeshJob, name: string, data: Buffer | st
 /** What a job folder knows about itself: the subject, and how each step was made. */
 export type JobMeta = {
   subject?: string;
+  /** What is being turned into 3D: an object (mesh models) or a person (body + pose). */
+  kind?: "object" | "person";
   source?: Record<string, unknown>;
   cutout?: Record<string, unknown> | null;
   meshes?: Record<string, unknown>[];
@@ -87,7 +91,7 @@ export async function readJobMeta(job: MeshJob): Promise<JobMeta> {
 /** Shallow-merge into meta.json; `meshes` appends. */
 export async function writeJobMeta(job: MeshJob, patch: JobMeta): Promise<JobMeta> {
   const cur = await readJobMeta(job);
-  const next: JobMeta = { ...cur, ...patch, meshes: [...(cur.meshes ?? []), ...(patch.meshes ?? [])] };
+  const next: JobMeta = { ...cur, ...patch, meshes: latestByFile([...(cur.meshes ?? []), ...(patch.meshes ?? [])]) };
   await writeFile(path.join(job.dir, "meta.json"), JSON.stringify(next, null, 2));
   return next;
 }
@@ -111,19 +115,33 @@ export type MeshModel = {
   param?: string;
 };
 
-/** One row per served-model-name, from every host service that serves "3d". */
-export function meshModels(): MeshModel[] {
+/**
+ * One row per served-model-name, from every host service that serves the
+ * capability: "3d" for object meshes (the default), "3d-body" for people.
+ */
+export function meshModels(capability: "3d" | "3d-body" = "3d"): MeshModel[] {
   const out: MeshModel[] = [];
-  for (const svc of servicesForCapability("3d")) {
-    for (const model of servedModels(svc, "3d")) {
+  for (const svc of servicesForCapability(capability)) {
+    for (const model of servedModels(svc, capability)) {
       out.push({ model, serviceId: svc.id, serviceName: svc.name, param: svc.modelParam?.[model] });
     }
   }
   return out;
 }
 
-export function meshModel(id: string): MeshModel | null {
-  return meshModels().find((m) => m.model === id) ?? null;
+export function meshModel(id: string, capability: "3d" | "3d-body" = "3d"): MeshModel | null {
+  return meshModels(capability).find((m) => m.model === id) ?? null;
+}
+
+/**
+ * The resource-policy workload that guards a service's inference, looked up
+ * rather than named: the first workload whose `service` is this one. (Mesh
+ * services follow the `<id>-generate` convention; SAM 3D Body's predates it and
+ * is `sam3d-pose`.)
+ */
+export function workloadFor(serviceId: string): string | null {
+  const w = Object.entries(POLICY.workloads).find(([, e]) => e.service === serviceId);
+  return w ? w[0] : null;
 }
 
 // ── SAM 3 cutout ────────────────────────────────────────────────────────────

@@ -176,6 +176,9 @@
       "localUrl": "http://localhost:8009",
       "publicUrl": "https://sam3d.betenshi.com",
       "healthPath": "/health",
+      "serves": {
+        "3d-body": "sam-3d-body"
+      },
       "category": "ai",
       "authRequired": false,
       "note": "Meta SAM 3D Body — single-image full-body 3D human mesh + pose recovery. Resident FastAPI service (move-quest: services/sam3d/server.py). POST /pose {image, bbox?} -> 70-joint 3D skeleton + global rotation (+ optional body mesh); correct on floor/inverted/acro poses."

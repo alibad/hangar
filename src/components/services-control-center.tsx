@@ -16,6 +16,7 @@ import {
   WarningCircle,
 } from "@phosphor-icons/react";
 import type { ConsoleTab } from "@/components/command-palette";
+import { preferSubject } from "@/lib/mesh3d-shared";
 import type { Footprint } from "@/components/model-footprint";
 import { ServiceLogsButton } from "@/components/service-control";
 import { SERVICE_REGISTRY } from "@/lib/services";
@@ -82,7 +83,8 @@ const serviceDestinations: Partial<Record<string, { tab: ConsoleTab; label: stri
   whisper: { tab: "speech", label: "Open speech" },
   tts: { tab: "speech", label: "Open speech" },
   qwen: { tab: "qwen", label: "Open studio" },
-  sam3d: { tab: "sam3d", label: "Open 3D Body" },
+  // 3D Body is the 3D Lab's Person mode; the click below asks for that mode.
+  sam3d: { tab: "lab-3d", label: "Open in 3D Lab" },
   sam3: { tab: "sam3", label: "Open Segment" },
   "ai-router": { tab: "models", label: "View routing" },
 };
@@ -452,7 +454,14 @@ function ServiceCard({ service, models, footprint, vramMb, ramMb, busyAction, fe
           )}
           <ServiceLogsButton id={service.id} name={service.name} className="rounded-md border border-gray-700 px-2 py-1 text-[10px] text-gray-400 hover:border-gray-500 hover:text-gray-100" />
           {destination ? (
-            <button type="button" onClick={() => onSelectTab(destination.tab)} className="ml-auto flex items-center gap-1 text-[10px] font-medium text-orange-300 hover:text-orange-200">
+            <button
+              type="button"
+              onClick={() => {
+                if (service.id === "sam3d") preferSubject("person");
+                onSelectTab(destination.tab);
+              }}
+              className="ml-auto flex items-center gap-1 text-[10px] font-medium text-orange-300 hover:text-orange-200"
+            >
               {destination.label}<ArrowRight size={11} />
             </button>
           ) : registry && service.id !== "manager" ? (

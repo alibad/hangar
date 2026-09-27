@@ -127,8 +127,8 @@ export const LABS: LabDefinition[] = [
   {
     id: "3d",
     label: "3D Lab",
-    hint: "Object image → SAM 3 cutout → textured mesh, in an orbit viewer",
-    keywords: "3d mesh glb model trellis triposr image-to-3d sam3 viewer print game asset",
+    hint: "An object or a person, from one picture → a textured mesh or a body and its pose, in an orbit viewer",
+    keywords: "3d mesh glb model trellis triposr pixal3d image-to-3d sam3 viewer print game asset body pose human person skeleton sam 3d body",
     capability: "3d",
     input: "image",
     output: "mesh",
@@ -151,7 +151,6 @@ export const BUILTIN_TABS = [
   "qwen",
   "requests",
   "usage",
-  "sam3d",
   "sam3",
   "models",
 ] as const;

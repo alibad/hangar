@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import sharp from "sharp";
 import { applyMask } from "../src/lib/mesh3d-image.ts";
-import { DETAIL, glbName, isJobId, lastNoun, meshWorkload, objectPrompt, orientGlb, resolutionFor, servableRel } from "../src/lib/mesh3d-shared.ts";
+import { DETAIL, bodyGlb, capabilityFor, glbName, isJobId, lastNoun, latestByFile, meshWorkload, objectPrompt, orientGlb, personBox, personPrompt, resolutionFor, servableRel } from "../src/lib/mesh3d-shared.ts";
 
 /**
  * The 3D Lab serves files straight off disk by a client-supplied path, and
@@ -123,6 +123,64 @@ test("applyMask: the cutout really carries SAM 3's mask as alpha, cropped square
   const { data } = await sharp(out).extractChannel(3).raw().toBuffer({ resolveWithObject: true });
   assert.equal(data[512 * 1024 + 512], 255, "the object (centre) is opaque");
   assert.equal(data[5 * 1024 + 5], 0, "the margin (corner) is transparent");
+});
+
+test("bodyGlb: a valid GLB, turned Y-up facing the viewer, with normals", () => {
+  // A tetrahedron in SAM 3D Body's camera frame (y down, z away from camera).
+  const verts = [[0, 0, 1], [1, 0, 1], [0, -1, 1], [0, 0, 2]];
+  const faces = [[0, 1, 2], [0, 3, 1], [0, 2, 3], [1, 3, 2]];
+  const glb = bodyGlb(verts, faces);
+  const { total, json, bin } = readGlb(glb);
+  assert.equal(total, glb.length);
+  const binLen = new DataView(bin.buffer, bin.byteOffset).getUint32(0, true);
+  assert.equal(binLen, json.buffers[0].byteLength, "BIN chunk length matches buffers[0]");
+  assert.equal(json.accessors[0].count, 4);
+  assert.equal(json.accessors[2].count, 12);
+  const pos = new Float32Array(bin.buffer.slice(bin.byteOffset + 8, bin.byteOffset + 8 + 48));
+  assert.deepEqual([...pos.slice(6, 9)], [0, 1, -1], "(0,-1,1) -> (0,1,-1): 180° about X");
+  assert.deepEqual(json.accessors[0].min, [0, 0, -2]);
+  assert.ok(json.meshes[0].primitives[0].attributes.NORMAL === 1, "has normals");
+});
+
+test("personBox: normalised, grown by a margin, clamped to the image", () => {
+  assert.deepEqual(personBox([100, 100, 300, 500], 1000, 1000, 0.1), [0.08, 0.06, 0.32, 0.54]);
+  assert.deepEqual(personBox([0, 0, 1000, 1000], 1000, 1000), [0, 0, 1, 1]);
+});
+
+test("capabilityFor / personPrompt: Person mode draws on 3d-body and asks for a whole person", () => {
+  assert.equal(capabilityFor("person"), "3d-body");
+  assert.equal(capabilityFor("object"), "3d");
+  assert.match(personPrompt("a dancer mid-leap"), /^a dancer mid-leap, one person only, full body/);
+});
+
+test("every host service that serves 3d-body has a guarding workload and a licensed model-meta entry", () => {
+  const policy = read("config/resource-policy.json");
+  const meta = read("config/model-meta.json");
+  const profile = read("config/hosts/betenshi.json");
+  const body = profile.services.filter((s) => s.serves?.["3d-body"]);
+  assert.ok(body.length, "the 3D Lab's Person mode needs a 3d-body service on BeTenshi");
+  for (const svc of body) {
+    assert.ok(Object.values(policy.workloads).some((w) => w.service === svc.id), `${svc.id}: no workload guards it (workloadFor would find none)`);
+    for (const model of [svc.serves["3d-body"]].flat()) {
+      const m = meta[`local-${model}`] ?? meta[model];
+      assert.ok(m?.license, `${model}: licence not declared`);
+      assert.ok(m.footprint?.vramGb > 0, `${model}: no VRAM footprint, so the coordinator cannot plan around it`);
+    }
+  }
+});
+
+test("latestByFile: a re-run under the same name replaces the older record", () => {
+  // Regression: two body runs without a pick both wrote sam-3d-body.glb and
+  // the job listed the same body twice.
+  const out = latestByFile([
+    { file: "sam-3d-body.glb", latencyMs: 4450 },
+    { file: "sam-3d-body-picked.glb", latencyMs: 1170 },
+    { file: "sam-3d-body.glb", latencyMs: 2800 },
+  ]);
+  assert.deepEqual(out.map((m) => [m.file, m.latencyMs]), [
+    ["sam-3d-body-picked.glb", 1170],
+    ["sam-3d-body.glb", 2800],
+  ]);
 });
 
 test("glbName is a safe, descriptive file name", () => {

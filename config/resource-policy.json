@@ -14,7 +14,7 @@
     "laya": { "model": "local-laya" },
     "music": { "model": "local-ace-step-1.5" },
     "sam3": { "model": "local-sam3" },
-    "sam3d": {},
+    "sam3d": { "model": "local-sam-3d-body" },
     "trellis": { "model": "local-trellis-2" },
     "triposr": { "model": "local-triposr" },
     "ollama": { "model": "local-ollama" }
@@ -61,6 +61,7 @@
     },
     "sam3d-pose": {
       "service": "sam3d",
+      "model": "local-sam-3d-body",
       "slot": "gpu-heavy",
       "ttlMs": 900000
     },

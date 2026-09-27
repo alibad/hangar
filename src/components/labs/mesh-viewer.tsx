@@ -12,9 +12,9 @@ import { Download, RotateCcw } from "lucide-react";
  * (textures off) and a turntable — plus the numbers that decide what a mesh is
  * good for: triangles, texture size, and whether the surface is closed.
  *
- * Built on the `three` the console already ships (sam3d-view uses it), not on
+ * Built on the `three` the console already ships, not on
  * <model-viewer> or react-three-fiber, so it adds no dependency. Rendering is
- * event-driven, as in sam3d-view: nothing draws while nothing moves, except
+ * event-driven: nothing draws while nothing moves, except
  * while the turntable is on.
  */
 

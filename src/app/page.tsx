@@ -7,7 +7,6 @@ import ModelDiscovery from "@/components/model-discovery";
 import QwenTab from "@/components/qwen-tab";
 import RequestsView from "@/components/requests-view";
 import UsageView from "@/components/usage-view";
-import Sam3dView from "@/components/sam3d-view";
 import Sam3View from "@/components/sam3-view";
 import ModelsPage from "@/components/models-page";
 import ArenaView from "@/components/arena-view";
@@ -40,6 +39,7 @@ import {
 } from "lucide-react";
 import { hostHasTab, servicesForCapability } from "@/lib/host";
 import HostUnavailable from "@/components/host-unavailable";
+import { preferSubject } from "@/lib/mesh3d-shared";
 
 // Small inline spinner shown while a service action (start/stop/restart) is in flight.
 function Spinner() {
@@ -423,8 +423,16 @@ export default function Home() {
   useEffect(() => {
     // Built-in tabs and every registered Lab — see src/lib/labs.ts.
     const resolve = () => {
-      const hash = window.location.hash.slice(1);
-      const saved = window.localStorage.getItem("bt-active-tab");
+      let hash = window.location.hash.slice(1);
+      let saved = window.localStorage.getItem("bt-active-tab");
+      // 3D Body is the 3D Lab's Person mode now; old links and a remembered tab
+      // still land there, in that mode.
+      if (hash === "sam3d" || (!hash && saved === "sam3d")) {
+        preferSubject("person");
+        hash = "lab-3d";
+        saved = "lab-3d";
+        window.history.replaceState({ tab: hash }, "", "#lab-3d");
+      }
       const next: ConsoleTab = isConsoleTab(hash) ? hash : isConsoleTab(saved) ? saved : "stack";
       setTab(next);
     };
@@ -816,7 +824,6 @@ export default function Home() {
     { id: "arena" as const, label: "Arena" },
     { id: "requests" as const, label: "Requests" },
     { id: "usage" as const, label: "Usage" },
-    { id: "sam3d" as const, label: "3D Body" },
     { id: "sam3" as const, label: "Segment" },
     { id: "models" as const, label: "Models" },
     ...LABS.map((l) => ({ id: labTab(l.id), label: l.label, count: undefined })),
@@ -1578,7 +1585,7 @@ export default function Home() {
                     />
                     {/* Open / Test CTA — only when running */}
                     {isRunning && (() => {
-                      type TabId = "llm" | "speech" | "stack" | "qwen" | "requests" | "sam3d" | "sam3" | "models";
+                      type TabId = ConsoleTab;
                       type Cta = { label: string; goTab?: TabId; href?: string };
                       const ctaMap: Record<string, Cta> = {
                         vllm:       { label: "Playground", goTab: "llm" },
@@ -1589,7 +1596,7 @@ export default function Home() {
                         prometheus: { label: "Open",       href: r?.activeUrl ?? `http://localhost:${s.port}` },
                         qwen:       { label: "Studio",     goTab: "qwen" },
                         comfyui:    { label: "Open",       href: r?.activeUrl ?? `http://localhost:${s.port}` },
-                        sam3d:      { label: "Test",       goTab: "sam3d" },
+                        sam3d:      { label: "Test",       goTab: "lab-3d" },
                         sam3:       { label: "Try",        goTab: "sam3" },
                       };
                       const cta = ctaMap[s.id];
@@ -1598,7 +1605,14 @@ export default function Home() {
                       if (cta.goTab) return (
                         <>
                           <div className="w-px h-4 bg-gray-800 flex-shrink-0" />
-                          <button onClick={() => selectTab(cta.goTab!)} className={cls}>
+                          <button
+                            onClick={() => {
+                              // SAM 3D Body opens the 3D Lab in Person mode.
+                              if (s.id === "sam3d") preferSubject("person");
+                              selectTab(cta.goTab!);
+                            }}
+                            className={cls}
+                          >
                             {cta.label}
                           </button>
                         </>
@@ -2038,8 +2052,6 @@ export default function Home() {
         {/* ── USAGE TAB ── */}
         {tab === "usage" && <UsageView />}
 
-        {/* ── SAM3D TAB ── */}
-        {tab === "sam3d" && (hostHasTab("sam3d") ? <Sam3dView /> : <HostUnavailable tab="sam3d" title="3D Body" />)}
         {tab === "sam3" && (hostHasTab("sam3") ? <Sam3View /> : <HostUnavailable tab="sam3" title="Segment" />)}
 
         {/* ── MODELS / AI ROUTER TAB ── */}

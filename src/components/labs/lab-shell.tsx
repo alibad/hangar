@@ -34,6 +34,7 @@ export default function LabShell<T>({
   canRun,
   run,
   renderOutput,
+  toolbar,
 }: {
   lab: LabDefinition;
   /** The capability's own input controls. The Lab owns their state. */
@@ -42,6 +43,12 @@ export default function LabShell<T>({
   /** Run one model on the current input. Should resolve, not throw, on a model failure. */
   run: (model: LabModel, ctx: RunCtx) => Promise<LabRunResult<T>>;
   renderOutput: (result: LabRunResult<T>) => ReactNode;
+  /**
+   * Lab-level controls shown above the model list — for a Lab whose choice (the
+   * 3D Lab's Object / Person) changes which capability, and so which models,
+   * the shell lists.
+   */
+  toolbar?: ReactNode;
 }) {
   const [payload, setPayload] = useState<LabModelsPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -157,6 +164,8 @@ export default function LabShell<T>({
           Could not list models: {loadError}
         </p>
       )}
+
+      {toolbar}
 
       {/* ── models on this host ── */}
       <section className="rounded-xl border border-gray-800 bg-gray-900/40">

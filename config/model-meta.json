@@ -385,5 +385,22 @@
       "kind": "reserved",
       "basis": "Measured on BeTenshi 2026-09-27: 4.76 GB of dedicated GPU memory held by the SAM 3 server process after a run of segmentations (Windows 'GPU Process Memory' counter; nvidia-smi on WDDM has no per-process figure). RAM: ~1.2 GB working set (6.5 GB private commit). Resident = peak: the model stays loaded."
     }
+  },
+  "local-sam-3d-body": {
+    "checkpoint": "facebook/sam-3d-body-vith (move-quest services/sam3d, ViT-H backbone + MHR body model)",
+    "params": "ViT-H · single-person body mesh + 70 joints",
+    "license": "SAM License (Meta): royalty-free incl. commercial; trade-control terms",
+    "released": "2025-11",
+    "docs": "https://github.com/facebookresearch/sam-3d-body",
+    "service": "sam3d",
+    "note": "The 3D Lab's Person mode (capability 3d-body). Reconstructs ONE person per image, the most prominent unless given a box; recovers body shape and pose, not clothing or hair. Licence read from the local checkout's LICENSE (the hub repo is gated).",
+    "footprint": {
+      "vramGb": 3.9,
+      "ramGb": 2.3,
+      "idleVramGb": 3.7,
+      "idleRamGb": 2.3,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-28: 3.69 GB of dedicated GPU memory held by the SAM 3D Body server process after body runs, about +0.2 GB during one (Windows 'GPU Process Memory' counter). RAM: 2.25 GB working set (8.3 GB private commit). Resident: the model stays loaded between runs."
+    }
   }
 }

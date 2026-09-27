@@ -20,6 +20,12 @@ it kept the source's colours and proportions where TRELLIS.2 drifted, at similar
 cost (~2 min at 1024). It reconstructs in the camera's frame, which the pipeline
 now corrects.
 
+**People go to SAM 3D Body**, which is now the 3D Lab's *Person* mode rather than a
+separate tab. From one photo it gives a body mesh (18K vertices, watertight) and
+70 3D joints in **1–5 s**, with 3.7 GB resident. It recovers body shape and pose,
+not clothes or hair, so it suits posing, animation reference and fitting. It is
+not a likeness. See *People*.
+
 **Hunyuan3D 2.1 was not installed** — see *Licences*: its community licence does not
 apply in the EU, UK or South Korea, and its texture stage needs CUDA extensions
 this box cannot build (no CUDA toolkit, no MSVC).
@@ -50,6 +56,11 @@ for dimensionally accurate mockups, and it is not print-ready without repair
   texture size and a closed/printable check. Every object is a folder under
   `generated/3d/`; the Lab reopens earlier ones and puts any two meshes of the
   same object side by side. Runs are recorded in `lab_runs`.
+- **Person mode in the same Lab**, which replaces the old *3D Body* tab. Choose *A person*,
+  drop in a photo (or describe one), optionally let SAM 3 pick the person, and
+  SAM 3D Body returns a body mesh and its pose. The pose shows as a skeleton over
+  the photo, with the mesh in the same viewer and downloads for the GLB and the
+  pose JSON. See *People*.
 - **An MCP tool**, `generate_3d_model`, running the same pipeline in one call
   (`POST /api/labs/3d/pipeline`), with a description that says when not to use it.
 - **Capacity, made visible.** Measured footprints for all three mesh models and for
@@ -230,8 +241,56 @@ What the end-to-end run found, all fixed before this was written:
   measured 4.8 GB. The one step that could not be completed in the Lab during
   the E2E was **generating** the image: Z-Image needed 11.9 GB against 10.7 GB
   free with only `vllm-small` left, and stopping the user's container was not
-  this experiment's call. Image generation itself was exercised for the bench
-  through the same `generateAndSave()` the Lab uses.
+  this experiment's call at the time.
+
+**The generate path was verified afterwards** in the console on master. With the user's
+go-ahead, the manager was restarted to load the new config and `vllm-small` was
+briefly stopped. *Describe* "a vintage brass desk lamp with a green glass shade"
+went to Z-Image Turbo (**14.3 s**), and TRELLIS.2 at Draft meshed the generated
+picture as-is (**53 s**, 4.8 MB GLB). SAM 3 then cut the lamp out ("lamp", score
+0.97, 2.6 s). So each link has now run in the Lab: generate → image here,
+cutout → mesh in the upload run above, and all three in one call through MCP.
+
+## People: SAM 3D Body in the 3D Lab
+
+The console already ran **SAM 3D Body** (Meta, Nov 2025; move-quest's `sam3d` service,
+:8009) behind a separate *3D Body* tab: a bare form over its `/pose` endpoint. That tab is gone.
+Its job now lives in the 3D Lab as a second mode, so a person gets the same
+steps, viewer, history and run record as an object:
+
+- **Pick the mode**: *An object* or *A person*. The Lab remembers the choice. Old `#sam3d`
+  links and the Services page's *Open in 3D Lab* button land in Person mode, and
+  searching "body" or "pose" in the command palette finds the Lab.
+- **1 · Photo of a person**: drop a photo, or describe one (the prompt asks for one
+  person, head to feet, on a plain background).
+- **2 · Pick the person** (optional): SAM 3 with the concept "person". Its box tells SAM 3D
+  Body which person to reconstruct. Without it, SAM 3D Body takes the most prominent one.
+- **3 · Body and pose**: the mesh in the orbit viewer, the 2D skeleton and box over
+  the photo, and a GLB and a pose JSON (70 joints in 3D and 2D, camera, box) to
+  download. Every body is kept in the job folder, so the whole-photo and picked
+  results can be compared side by side.
+
+The model is listed under a new capability, `3d-body`, served by `sam3d` in the host
+profile. It is guarded by the existing `sam3d-pose` workload, and its footprint is
+now declared (it had none).
+
+Measured on BeTenshi, 28 September, on an uploaded street photo of a dancer:
+
+| | Result |
+|---|---|
+| First body run after start | 4.45 s |
+| Warm runs | 1.2–2.8 s |
+| With a SAM 3 pick | 0.56 s pick + 1.16 s body |
+| Output | 70 joints; 18,439 vertices, 36,874 triangles, closed (watertight) |
+| Memory | 3.7 GB VRAM resident, about +0.2 GB during a run; 2.3 GB RAM working set |
+
+What it is not: **one person per run**, and **no clothing, hair or texture**. The mesh is
+the parametric body (MHR) fitted to the photo, so it is not a likeness. Use it for pose and
+proportion: animation reference, posing a character, fitting. For a textured statue of
+a person, use Object mode (TRELLIS.2 or Pixal3D) on the cutout.
+
+Licence: the **SAM License** (Meta), read from the local checkout because the hub repo
+is gated. Royalty-free use, including commercial, with trade-control terms.
 
 ## Licences
 
@@ -243,6 +302,8 @@ What the end-to-end run found, all fixed before this was written:
   offer the download to users in the EU even though the licence text itself has
   no territory clause. The GGUFs used here are `vegax87/Pixal3D` (MIT).
 - **TripoSR** — MIT.
+- **SAM 3D Body** — SAM License (Meta): royalty-free, commercial use allowed,
+  subject to trade-control terms. See *People*.
 - **Hunyuan3D 2.1** (checked, not installed) — *Tencent Hunyuan 3D 2.1 Community
   License*. Read in full on the hub (`tencent/Hunyuan3D-2.1/LICENSE`):
   - **Territory**: the licence "does not apply in the European Union, United Kingdom
@@ -263,10 +324,13 @@ Verified on this box: every number above; the SHA-256 of all 15 GGUF files again
 the hub's LFS hashes; the trellis.cpp runtime zip against the release's published
 digest; the Lab end to end in the browser, all three models, from a real photo
 (above); the MCP tool with an image path, and its refusal message when the card
-is full; every mesh judged in the Lab's viewer, not from numbers alone.
+is full; every mesh judged in the Lab's viewer, not from numbers alone; the
+*generate* path (with `vllm-small` briefly stopped); Person mode in the browser,
+with and without a SAM 3 pick.
 
-Not verified end to end: the Lab's *generate* path while `vllm-small` holds 19 GB
-(refused for capacity, with the remedy shown — see above).
+Still true: with `vllm-small` resident (19 GB), generating, cutting and meshing do
+not all fit at once. The coordinator refuses the step that doesn't fit, and the Lab
+shows the remedy.
 
 Assumed or not tested: that Draft-vs-Standard quality trade-offs hold beyond these
 four objects; Pixal3D's peak on an empty card; TRELLIS.2 at 1536 (not run — at
