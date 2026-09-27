@@ -50,20 +50,20 @@ Taste (which image is nicer) is deliberately not scored here.
 
 "2/2" means both seeds pass. gpt-image-2 ran one seed (hosted APIs ignore seeds).
 
-| Prompt → check | Klein 4B | Z-Image Turbo | HiDream-O1 Dev (1024²) | <!-- QWEN-COL --> | gpt-image-2 |
-| --- | --- | --- | --- | --- | --- |
-| Sign: both lines spelled exactly | 1/2 ("HARBORt STAKERY") | **2/2** | 1/2 ("FRESH BRAD") | <!-- q --> | 1/1 |
-| Poster: headline, digits, one circle | 1/2 (s2 letters overlap) | **2/2** | text 2/2, but s2 has a second circle and s1 is a mock-up on a wall | <!-- q --> | — |
-| Exactly 5 apples + 2 pears | 0/2 (4 + 1) | 0/2 (4 + 2) | 0/2 (4 + 2) | <!-- q --> | **1/1** |
-| 5 spatial relations (on top / left / behind / in front) | 2/2 | 2/2 | 2/2 | <!-- q --> | — |
-| Exactly four people | 1/2 (five in s2) | **2/2** | 2/2 (plus background patrons) | <!-- q --> | — |
-| Exactly three stars (cut-paper fox) | 0/2 (two) | **2/2** | 0/2 (many) | <!-- q --> | — |
-| Watercolour: style held | 2/2 | 2/2 | **0/2 — rendered as photographs** | <!-- q --> | — |
-| Watercolour: exactly two lemons | 1/2 | 1/2 | 2/2 | <!-- q --> | — |
-| Long prompt: bookshelf with exactly three shelves (the check most often missed; the other six checks passed nearly everywhere) | 2/2 | 0/2 | 0/2 | <!-- q --> | 1/1 |
-| Arabic-language prompt followed (market, lanterns, red keffiyeh, silver pot) | scene 2/2; red turban, not keffiyeh | scene 2/2; red fez | **0/2 — ignored: a woman walking down a street** | <!-- q --> | **1/1, keffiyeh right** |
-| Arabic text renders مرحبا | 0/2 (ثالھ, تمصمان) | **2/2** | 0/2 (pseudo-script; "WEECONE") | <!-- q --> | **1/1** |
-| Hands | left for you to judge; HiDream s1 has a third hand at the frame edge | | | | |
+| Prompt → check | Klein 4B | Z-Image Turbo | HiDream-O1 Dev (1024²) | gpt-image-2 |
+| --- | --- | --- | --- | --- |
+| Sign: both lines spelled exactly | 1/2 ("HARBORt STAKERY") | **2/2** | 1/2 ("FRESH BRAD") | 1/1 |
+| Poster: headline, digits, one circle | 1/2 (s2 letters overlap) | **2/2** | text 2/2, but s2 has a second circle and s1 is a mock-up on a wall | — |
+| Exactly 5 apples + 2 pears | 0/2 (4 + 1) | 0/2 (4 + 2) | 0/2 (4 + 2) | **1/1** |
+| 5 spatial relations (on top / left / behind / in front) | 2/2 | 2/2 | 2/2 | — |
+| Exactly four people | 1/2 (five in s2) | **2/2** | 2/2 (plus background patrons) | — |
+| Exactly three stars (cut-paper fox) | 0/2 (two) | **2/2** | 0/2 (many) | — |
+| Watercolour: style held | 2/2 | 2/2 | **0/2 — rendered as photographs** | — |
+| Watercolour: exactly two lemons | 1/2 | 1/2 | 2/2 | — |
+| Long prompt: bookshelf with exactly three shelves (the check most often missed; the other six checks passed nearly everywhere) | 2/2 | 0/2 | 0/2 | 1/1 |
+| Arabic-language prompt followed (market, lanterns, red keffiyeh, silver pot) | scene 2/2; red turban, not keffiyeh | scene 2/2; red fez | **0/2 — ignored: a woman walking down a street** | **1/1, keffiyeh right** |
+| Arabic text renders مرحبا | 0/2 (ثالھ, تمصمان) | **2/2** | 0/2 (pseudo-script; "WEECONE") | **1/1** |
+| Hands | left for you to judge; HiDream s1 has a third hand at the frame edge | | | |
 
 What that adds up to:
 
@@ -82,11 +82,11 @@ What that adds up to:
 The same source image (Klein, seed 20260926: blue mug, tulips, red notebook)
 goes to every edit model. Look in the Eval tab → Edit.
 
-| Edit | FLUX.2 Klein 4B | <!-- QWEN-EDIT-COL --> |
-| --- | --- | --- |
-| Replace the mug with a potted cactus | **Clean.** Cactus in place; vase, tulips, notebook and light unchanged. 20.9 s | <!-- qe1 --> |
-| Warm low sunset light | Lighting right (low, warm, long shadows). Also recoloured the tulips orange and darkened and reshaped the mug. 17.4 s | <!-- qe2 --> |
-| Extend canvas 512 px right, add a bowl of green apples | **Seamless.** Original region preserved, table and wall continue, bowl added. 1536×1024 in 14.9 s | <!-- qe3 --> |
+| Edit | FLUX.2 Klein 4B |
+| --- | --- |
+| Replace the mug with a potted cactus | **Clean.** Cactus in place; vase, tulips, notebook and light unchanged. 20.9 s |
+| Warm low sunset light | Lighting right (low, warm, long shadows). Also recoloured the tulips orange and darkened and reshaped the mug. 17.4 s |
+| Extend canvas 512 px right, add a bowl of green apples | **Seamless.** Original region preserved, table and wall continue, bowl added. 1536×1024 in 14.9 s |
 
 The canvas extension was instruction-only: the new area was grey padding, with
 no mask. Neither console path takes a mask today.
@@ -144,7 +144,6 @@ Median over the 24 suite images at 1024², console request to saved PNG:
 | FLUX.2 Klein 4B (4 steps) | **9.9 s** | 13.6 s | 7.2 s |
 | HiDream-O1 Dev (28 steps, 1024²) | 11.8 s | 14.9 s | 8.9 s |
 | Z-Image Turbo (8 steps) | 13.7 s | 19.6 s | 12.2 s |
-<!-- QWEN-SPEED -->
 | gpt-image-2 (cloud, router) | 26.1 s | 50 s | 13.3 s |
 
 ### Cold vs warm (direct to ComfyUI, same graph, no unload in between)
@@ -215,7 +214,6 @@ Recorded verbatim in the run manifest (`coresidency`, `denials`):
   - Klein at 2K under other sessions' RAM load: `RAM needs 11.87 GB more … but only 5.54 GB is currently free`.
 - **Qwen-Image cannot share host RAM with much at all.** `RAM needs 28 GB more plus … 4 GB safety, but only 23.85 GB is currently free`, with ComfyUI and other sessions' services up.
 - **FLUX.1 schnell does not fit this box as configured.** Every attempt was refused: `RAM needs 27.87 GB more … but only 24.83 GB is currently free; VRAM needs 31.64 GB more … but only 28.44 GB is currently free`. Its declared footprint is 31.7 GB VRAM (the fp16 T5 alone is 9.1 GB). Klein does its job faster and better, so schnell has no case here.
-<!-- QWEN-CORES -->
 
 ## Cloud comparison
 
@@ -268,6 +266,17 @@ What happened, in order (27 Sept, 17:05–17:16Z):
 - **FLUX.2 Klein fits beside it:** ~15 GB peak + 13 GB, and 12 GB RAM instead of 28.
 
 I did not stop `vllm-small`: it is a live app of yours, not mine to pause.
+It was launched with `--gpu-memory-utilization 0.55`; the coordinator models it
+at 13 GB.
+
+Later readings through the evening never showed both Qwen headrooms (32 GB
+RAM, 20.3 GB VRAM) free at once while `vllm-small` was up:
+- 18:24Z: VRAM 23.3 GB free, RAM 25.6 GB.
+- 19:03Z: RAM 31.1 GB free, VRAM 11.9 GB.
+
+Other sessions' services came and went in between. To measure Qwen, pause
+`vllm-small` for ~40 minutes; quote-forge's `deps.ts` asks the manager to
+restart it on its own afterwards. Then run the resumable command above.
 
 ## Presets
 
