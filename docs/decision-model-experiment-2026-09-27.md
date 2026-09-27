@@ -3,32 +3,59 @@
 ## Recommendation
 
 **No: zero-shot Laya is not right often enough to replace an LLM call for any of
-the six decisions tested.** On this box's own decisions, hand-labelled, Laya scored 17-65% depending on checkpoint and set (the best checkpoint on each set: 37-65%), where Claude Haiku scored 83-100%. It mostly fails
-one way: it collapses onto one label. It said "local" to 38 of 40 routing
-requests, "medium" to 33 of 36 Reddit posts, and "bug" to 31 of 40 feedback
-items. The model itself works: it reproduces the vendor's AG News result on this
-box (95%, ECE 0.040) through the same code. What it cannot do out of the box is
-the judgement these decisions are made of.
+the six decisions tested.** On this box's own decisions, hand-labelled, Laya
+scored 17-65% depending on checkpoint and set (the best checkpoint on each set:
+37-65%), where Claude Haiku scored 83-100%. It mostly fails one way: it collapses
+onto one label. It said "local" to 38 of 40 routing requests, "medium" to 33 of
+36 Reddit posts, and "bug" to 31 of 40 feedback items. The model itself works: it
+reproduces the vendor's AG News result on this box (95%, ECE 0.040) through the
+same code. What it cannot do out of the box is the judgement these decisions are
+made of.
 
-**The better local replacement was already running.** Qwen2.5-7B on vLLM
-(`local-small`, resident for quote-forge) answered in 160-370 ms, about the same
-as Laya on CPU, and matched or beat Haiku on two sets: router escalation 98%
-(Haiku 93%) and moderation 83% (Haiku 83%). It came close on two more: feedback
-triage 90% (95%) and console intent 88% (100%). Its costs are that it holds 13 GB
-of VRAM and is quote-forge's service, not a guaranteed one.
+**The best decision-maker measured was Gemma 4 31B, on this box.** Asked through
+`/api/decide` with its reasoning switched off, it scored:
+
+| Set | Gemma 4 | Haiku |
+|---|---|---|
+| Arabic dialect | 100% | 89% |
+| Console intent | 100% | 100% |
+| Router escalation | 100% | 93% |
+| Feedback triage | 98% | 95% |
+| Moderation | 94% | 83% |
+| Reddit relevance | 72% | **83%** |
+
+That is at least as good as Haiku on five of six sets, at 0.6-1.4 s a decision
+(about Haiku's speed) and no per-call cost. Its catch is memory: ~20 GB of VRAM,
+loaded on demand by Ollama, which fits only when quote-forge's `vllm-small`
+(13 GB) is not resident. When it does not fit, the coordinator refuses it and
+Haiku is the fallback.
+
+Qwen2.5-7B (`local-small`, resident on vLLM for quote-forge) is the cheap local
+option: ~0.2 s, 83-98% on four sets. But it is weak on Reddit (61%) and Arabic
+(31%), and the Process Lab measured it at 3 of 8 on relocation triage (below),
+so check it per decision.
 
 | Use case | Use | Not | Why |
 |---|---|---|---|
-| **Router escalation**: local or cloud? (AI Router) | `local-small`, 98%, 161 ms, free. Claude Haiku (93%) when it is not resident. | Laya (60-65%) | Laya answers "local" 95% of the time, which is the majority class. A 7B model is good at knowing what a 7B model can do. |
-| **Feedback triage** (Globe Quest) | Claude Haiku, 95%, called **by globe_quest with its own key** | anything local; Laya (35-40%, typed-decisions 63%) | Globe Quest is a cloud project and must not call this box. Haiku costs ~$0.64 per 1,000 issues. |
-| **Moderation** (Globe Quest feed, Ask Locals) | Claude Haiku (83%) from globe_quest, with a person on "review" | anything local; Laya (39-42%) | Haiku's six misses are all in the safe direction: clear removals held for review, harmless posts sent to review. |
-| **Reddit relevance** (reddit-scout) | Claude Haiku (83%) in place of the keyword score | the keyword heuristic (44%), `local-small` (61%), Laya (17-50%) | The skill's HIGH/MED/LOW is right 44% of the time, and Laya is worse. This is judgement about intent, and it needs the bigger model. |
-| **Console intent** | `local-small` (88%) or Haiku (100%) | Laya alone (52-64%) | The only set where a Laya-first cascade saves anything without losing accuracy: 21% of Haiku calls, at 100%. At the console's volume that saves nothing worth the complexity. |
-| **Arabic dialect** | Claude Haiku (89%) | Laya (23-37%), `local-small` (31%) | Laya routes Arabic to the right checkpoint, but that checkpoint cannot tell dialects apart: it calls most of them MSA or Gulf. Gemma 4 is the Arabic experiment's pick for dialect, and it could not be measured here (below). |
+| **Router escalation**: local or cloud? (AI Router) | `local-gemma4` (100%) when loaded; `local-small` (98%, 161 ms) as the resident choice; Haiku (93%) if neither is up | Laya (60-65%) | Laya answers "local" 95% of the time, which is the majority class. Local models are good at knowing what a local model can do. |
+| **Feedback triage** (Globe Quest) | Claude Haiku (95%), called **by globe_quest with its own key** | anything on this box, however good (Gemma 98%); Laya (35-40%, typed-decisions 63%) | Globe Quest is a cloud project and must not call this box. Haiku costs ~$0.64 per 1,000 issues. |
+| **Moderation** (Globe Quest feed, Ask Locals) | Claude Haiku (83%) from globe_quest, with a person on "review" | anything on this box (Gemma 94%); Laya (39-42%) | Same boundary. Haiku's six misses are all in the safe direction: every one was sent to "review". |
+| **Reddit relevance** (reddit-scout) | Claude Haiku (83%) in place of the keyword score | Gemma (72%), `local-small` (61%), the keyword heuristic (44%), Laya (17-50%) | The one set where Haiku beats Gemma. Both over-rate borderline posts as "high". This is judgement about intent. |
+| **Console intent** | `local-gemma4` (100%) when loaded, `local-small` (88%) resident, Haiku (100%) | Laya alone (52-64%) | All local and fast enough. The Laya-first cascade saves 21% of Haiku calls, which is not worth it. |
+| **Arabic dialect** | `local-gemma4` (100%), matching the Arabic experiment's pick; Haiku (89%) when it will not fit | Laya (23-37%), `local-small` (31%) | Laya routes Arabic to the right checkpoint, but that checkpoint cannot tell dialects apart: it calls most of them MSA or Gulf. |
+
+**For a local LLM decider, turn its reasoning off.** Gemma 4 via Ollama reasons
+by default, even for a one-word answer. `/api/decide` now sends it
+`extra_body: {reasoning_effort: "none"}`. On the resident model that cut 177
+completion tokens and 662 characters of reasoning to 2 tokens and none, and
+~3 s to 115-194 ms, with the same answer. The field has to be in `extra_body`:
+under the router's `drop_params`, a bare `reasoning_effort` is **dropped
+silently** for an unrecognised model on the openai provider. That was verified
+against the router's own litellm with an echo server, then end to end.
 
 **Keep Laya installed, stopped by default, on CPU.** It is the decision model
-behind `/api/decide`, the Decision Lab and the BPMN gateways (06), and those
-are experiments. On this machine, holding it resident was never free:
+behind the Decision Lab and the BPMN gateways (06), and those are experiments.
+On this machine, holding it resident was never free:
 
 - On the GPU it holds 5.7 GB, and during this run the coordinator refused to
   start it for lack of that room.
@@ -41,9 +68,8 @@ are experiments. On this machine, holding it resident was never free:
    about billing"). There it is as good as the vendor says and 5-30x faster
    than a cloud LLM call. It is no faster than the resident 7B model.
 2. **Someone fine-tunes it.** The vendor's own numbers say its accuracy comes
-   from fine-tuning (0.36 → 0.77 on their benchmark). Their Kaggle notebook
-   does it on free T4s, but it needs hundreds of labelled decisions per task.
-   Tens, as here, are enough to *measure* it, not to *train* it.
+   from fine-tuning (0.36 → 0.77 on their benchmark). Tens of labelled items per
+   task, as here, are enough to *measure* it, not to *train* it.
 3. **Latency truly matters** and 20-40 points of accuracy do not.
 
 ### The boundary
@@ -80,32 +106,21 @@ Both sessions' sets are small (8-42 items) and hand-labelled. Read the
 two as agreeing on the shape: Laya is fast and sometimes usable behind a gate,
 and a decision that matters still goes to Haiku.
 
-### Gemma 4 was not measured
+### How Gemma 4 got measured
 
-The brief's local comparison, `local-gemma4` (Gemma 4 31B via Ollama), has no
-numbers here.
+The first two attempts failed:
 
-1. **First attempt.** It started during 3D's GPU claim, which this session had
-   not seen, and was stopped and unloaded within minutes. At that point it was
-   taking over 15 s per decision, because it was reasoning before answering.
-2. **Second attempt.** The resource coordinator refused it: *"VRAM needs 20 GB
-   more … but only 9.21 GB is currently free"*. The holder was quote-forge's
-   `vllm-small`, which was in use and is not this experiment's to stop.
+1. **During another session's GPU claim.** The run started inside 3D's claim,
+   which this session had not seen. It was stopped and unloaded within minutes.
+   It was reasoning then, at over 15 s a decision.
+2. **Refused by the coordinator.** *"VRAM needs 20 GB more … but only 9.21 GB
+   is currently free"*, while quote-forge's `vllm-small` was resident.
 
-To finish it, run the command below when ~20 GB is free. The bench resumes, and
-the Lab shows the new rows.
-
-```
-node scripts/decide-bench.mjs --models local-gemma4
-```
-
-That run will also be the first end-to-end test of the reasoning switch
-`/api/decide` now sends to Ollama models. The switch is
-`extra_body: { reasoning_effort: "none" }`, and only that form survives the
-router. It was verified against the router's own litellm: a bare
-`reasoning_effort` is **dropped silently** under `drop_params`, and the
-`extra_body` form is forwarded. Whether Ollama 0.34.4 then stops reasoning is
-not yet observed.
+It ran on 28 September, in a window where `vllm-small` was paused and the
+sessions agreed an order for the card. By then the reasoning switch was in
+place. Its misses are nearly all items marked borderline when they were
+labelled (ft-37, mo-23, mo-28). The exception is Reddit, where it over-rates
+"medium" posts as "high": seven of its ten misses there.
 
 ## What was claimed, and what held
 
@@ -128,7 +143,7 @@ the model card.
 
 ## Measured
 
-Every row goes through `POST /api/decide` on BeTenshi. Laya runs on the GPU here (its CPU latency is under *Speed*). **Bold** marks the best accuracy on each set. `local-small` is Qwen2.5-7B-Instruct-AWQ on vLLM. Cost is the router's own figure.
+Every row goes through `POST /api/decide` on BeTenshi. Laya runs on the GPU here (its CPU latency is under *Speed*). **Bold** marks the best accuracy on each set. `local-small` is Qwen2.5-7B-Instruct-AWQ on vLLM. `local-gemma4` is Gemma 4 31B QAT on Ollama with reasoning off. Cost is the router's own figure.
 
 ### Arabic dialect — n=35, 5 labels (chance 20%)
 
@@ -139,7 +154,8 @@ Every row goes through `POST /api/decide` on BeTenshi. Laya runs on the GPU here
 | laya-multilingual | 37% | 29% | 0.201 | 0.132 | 0.905 | 56 ms | 131 ms | local |
 | laya-typed-decisions | 29% | 18% | 0.075 | 0.032 | 0.796 | 53 ms | 140 ms | local |
 | local-small | 31% | 26% | 0.548 | 0.142 | 1.145 | 346 ms | 375 ms | local |
-| claude-haiku | **89%** | 88% | 0.059 | 0.116 | 0.204 | 1.2 s | 3.2 s | $0.60 |
+| local-gemma4 | **100%** | 100% | 0.123 | 0.006 | 0.048 | 1.3 s | 1.5 s | local |
+| claude-haiku | 89% | 88% | 0.059 | 0.116 | 0.204 | 1.2 s | 3.2 s | $0.60 |
 
 ### Console intent — n=42, 7 labels (chance 14%)
 
@@ -150,6 +166,7 @@ Every row goes through `POST /api/decide` on BeTenshi. Laya runs on the GPU here
 | laya-multilingual | 52% | 51% | 0.316 | 0.202 | 0.689 | 36 ms | 60 ms | local |
 | laya-typed-decisions | 64% | 62% | 0.145 | 0.097 | 0.487 | 102 ms | 183 ms | local |
 | local-small | 88% | 89% | 0.245 | 0.524 | 0.300 | 374 ms | 384 ms | local |
+| local-gemma4 | **100%** | 100% | 0.068 | 0.000 | 0.014 | 1.4 s | 1.6 s | local |
 | claude-haiku | **100%** | 100% | 0.090 | 0.000 | 0.014 | 1.2 s | 1.8 s | $0.67 |
 
 ### Feedback triage (Globe Quest) — n=40, 5 labels (chance 20%)
@@ -161,7 +178,8 @@ Every row goes through `POST /api/decide` on BeTenshi. Laya runs on the GPU here
 | laya-multilingual | 35% | 26% | 0.381 | 0.120 | 1.007 | 42 ms | 65 ms | local |
 | laya-typed-decisions | 63% | 60% | 0.306 | 0.215 | 0.663 | 52 ms | 81 ms | local |
 | local-small | 90% | 90% | 0.079 | 0.056 | 0.171 | 308 ms | 323 ms | local |
-| claude-haiku | **95%** | 95% | 0.106 | 0.059 | 0.085 | 1.0 s | 2.4 s | $0.64 |
+| local-gemma4 | **98%** | 97% | 0.070 | 0.043 | 0.060 | 1.3 s | 2.0 s | local |
+| claude-haiku | 95% | 95% | 0.106 | 0.059 | 0.085 | 1.0 s | 2.4 s | $0.64 |
 
 ### Moderation (community feed and Ask Locals) — n=36, 3 labels (chance 33%)
 
@@ -171,8 +189,9 @@ Every row goes through `POST /api/decide` on BeTenshi. Laya runs on the GPU here
 | laya-english | 39% | 30% | 0.068 | 0.019 | 0.652 | 49 ms | 64 ms | local |
 | laya-multilingual | 39% | 37% | 0.264 | 0.133 | 0.706 | 48 ms | 118 ms | local |
 | laya-typed-decisions | 39% | 36% | 0.077 | 0.120 | 0.658 | 43 ms | 66 ms | local |
-| local-small | **83%** | 81% | 0.149 | 0.232 | 0.312 | 190 ms | 225 ms | local |
-| claude-haiku | **83%** | 82% | 0.106 | 0.042 | 0.225 | 908 ms | 1.5 s | $0.46 |
+| local-small | 83% | 81% | 0.149 | 0.232 | 0.312 | 190 ms | 225 ms | local |
+| local-gemma4 | **94%** | 92% | 0.099 | 0.050 | 0.103 | 904 ms | 971 ms | local |
+| claude-haiku | 83% | 82% | 0.106 | 0.042 | 0.225 | 908 ms | 1.5 s | $0.46 |
 
 ### Reddit relevance (reddit-scout) — n=36, 3 labels (chance 33%)
 
@@ -183,6 +202,7 @@ Every row goes through `POST /api/decide` on BeTenshi. Laya runs on the GPU here
 | laya-multilingual | 50% | 43% | 0.177 | 0.177 | 0.655 | 37 ms | 49 ms | local |
 | laya-typed-decisions | 17% | 10% | 0.279 | 0.178 | 0.721 | 45 ms | 81 ms | local |
 | local-small | 61% | 49% | 0.286 | 0.145 | 0.670 | 204 ms | 273 ms | local |
+| local-gemma4 | 72% | 55% | 0.146 | 0.250 | 0.401 | 819 ms | 1.0 s | local |
 | claude-haiku | **83%** | 77% | 0.091 | 0.044 | 0.279 | 880 ms | 1.7 s | $0.51 |
 | reddit-scout-heuristic | 44% | 45% | 0.556 | 0.221 | 1.111 | 0 ms | 0 ms | local |
 
@@ -194,7 +214,8 @@ Every row goes through `POST /api/decide` on BeTenshi. Laya runs on the GPU here
 | laya-english | 63% | 48% | 0.102 | 0.096 | 0.418 | 47 ms | 73 ms | local |
 | laya-multilingual | 60% | 56% | 0.120 | 0.110 | 0.501 | 34 ms | 89 ms | local |
 | laya-typed-decisions | 65% | 56% | 0.089 | 0.155 | 0.434 | 43 ms | 57 ms | local |
-| local-small | **98%** | 97% | 0.056 | 0.012 | 0.064 | 161 ms | 174 ms | local |
+| local-small | 98% | 97% | 0.056 | 0.012 | 0.064 | 161 ms | 174 ms | local |
+| local-gemma4 | **100%** | 100% | 0.083 | 0.001 | 0.028 | 632 ms | 759 ms | local |
 | claude-haiku | 93% | 92% | 0.061 | 0.032 | 0.121 | 829 ms | 1.5 s | $0.43 |
 
 ### Cascades: Laya first, Claude Haiku below a confidence threshold
@@ -237,11 +258,11 @@ Run on CPU in float32 (the GPU run is bf16), which moves a few items: typed-deci
 
 ## Speed, memory and cost
 
-| | Laya, GPU | Laya, CPU | Qwen2.5-7B (`local-small`) | Claude Haiku |
-|---|---|---|---|---|
-| p50, one decision, end to end | 30-56 ms (p95 42-129 ms) | 93-235 ms (p95 125-481 ms) | 161-374 ms (p95 174-384 ms) | 0.8-1.2 s (p95 1.5-3.2 s) |
-| Memory held | 5.7 GB VRAM (all three checkpoints) | 3.7 GB RAM (two checkpoints), 5.5 GB with typed-decisions; 0 VRAM | ~13 GB VRAM (vLLM, held for quote-forge anyway) | — |
-| Cost per 1,000 decisions | local | local | local | $0.43-0.67 (router-metered) |
+| | Laya, GPU | Laya, CPU | Qwen2.5-7B (`local-small`) | Gemma 4 31B, reasoning off | Claude Haiku |
+|---|---|---|---|---|---|
+| p50, one decision, end to end | 30-56 ms (p95 42-129 ms) | 93-235 ms (p95 125-481 ms) | 161-374 ms (p95 174-384 ms) | 0.6-1.4 s (p95 0.8-2.0 s) | 0.8-1.2 s (p95 1.5-3.2 s) |
+| Memory held | 5.7 GB VRAM (all three checkpoints) | 3.7 GB RAM (two checkpoints), 5.5 GB with typed-decisions; 0 VRAM | ~13 GB VRAM (vLLM, held for quote-forge anyway) | ~20 GB VRAM while loaded (Ollama evicts it when idle) | — |
+| Cost per 1,000 decisions | local | local | local | local | $0.43-0.67 (router-metered) |
 
 The whole Haiku baseline, 229 decisions, cost **$0.127** by the router's own figures. Latency ranges are the spread of per-set medians; the forward pass alone is 27-50 ms on the GPU and 85-231 ms on CPU, so the console adds ~5 ms.
 
@@ -260,7 +281,7 @@ a bulk run.
   `model-meta.json`). Serves `laya` (auto-routed), `laya-english`,
   `laya-multilingual`, `laya-typed-decisions` under capability `decision`.
 - **`POST /api/decide`** — question, typed choices, context → choice,
-  probabilities, latency. The same shape from Laya or from any router chat
+  probabilities, latency. Local Ollama models are asked with reasoning off. The same shape from Laya or from any router chat
   model, so a caller can swap one for the other. Contract:
   [decide-api.md](decide-api.md).
 - **The Decision Lab** (`#lab-decide`) — the labelled sets as presets, the

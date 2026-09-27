@@ -1,7 +1,7 @@
 {
  "date": "2026-09-27",
  "host": "BeTenshi",
- "generatedAt": "2026-09-27T17:20:57.861Z",
+ "generatedAt": "2026-09-27T21:16:55.279Z",
  "console": "http://localhost:8003",
  "models": [
   "claude-haiku",
@@ -10,6 +10,7 @@
   "laya-multilingual",
   "laya-typed-decisions",
   "local-small",
+  "local-gemma4",
   "reddit-scout-heuristic"
  ],
  "sets": [
@@ -1710,6 +1711,140 @@
        "error": null
       }
      ]
+    },
+    "local-gemma4": {
+     "n": 35,
+     "accuracy": 1,
+     "macroF1": 1,
+     "ece": 0.1234285714285715,
+     "eceAfterTemperature": 0.005860111003077062,
+     "temperature": 0.2,
+     "brier": 0.04806719999999999,
+     "nll": 0.14865911436770876,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 1346,
+     "latencyP95Ms": 1514,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 1,
+       "confidence": 0.4,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 1,
+       "confidence": 0.5499999999999999,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 1,
+       "confidence": 0.6,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 2,
+       "confidence": 0.725,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 9,
+       "confidence": 0.811111111111111,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 21,
+       "confidence": 0.9704761904761904,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "msa": {
+       "msa": 7,
+       "egyptian": 0,
+       "levantine": 0,
+       "gulf": 0,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "egyptian": {
+       "msa": 0,
+       "egyptian": 7,
+       "levantine": 0,
+       "gulf": 0,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "levantine": {
+       "msa": 0,
+       "egyptian": 0,
+       "levantine": 7,
+       "gulf": 0,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "gulf": {
+       "msa": 0,
+       "egyptian": 0,
+       "levantine": 0,
+       "gulf": 7,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "maghrebi": {
+       "msa": 0,
+       "egyptian": 0,
+       "levantine": 0,
+       "gulf": 0,
+       "maghrebi": 7,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": []
     }
    },
    "cascades": {
@@ -3447,6 +3582,170 @@
        "error": null
       }
      ]
+    },
+    "local-gemma4": {
+     "n": 42,
+     "accuracy": 1,
+     "macroF1": 1,
+     "ece": 0.06804804804804834,
+     "eceAfterTemperature": 0.000008344777076563226,
+     "temperature": 0.2,
+     "brier": 0.01430834306220993,
+     "nll": 0.07341821676757658,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 1404,
+     "latencyP95Ms": 1573,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 8,
+       "confidence": 0.8124999999999999,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 34,
+       "confidence": 0.960058293587705,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "chat": {
+       "chat": 6,
+       "code": 0,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "code": {
+       "chat": 0,
+       "code": 6,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "image": {
+       "chat": 0,
+       "code": 0,
+       "image": 6,
+       "speech": 0,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "speech": {
+       "chat": 0,
+       "code": 0,
+       "image": 0,
+       "speech": 6,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "vision": {
+       "chat": 0,
+       "code": 0,
+       "image": 0,
+       "speech": 0,
+       "vision": 6,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "service": {
+       "chat": 0,
+       "code": 0,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 6,
+       "models": 0,
+       "error": 0
+      },
+      "models": {
+       "chat": 0,
+       "code": 0,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 0,
+       "models": 6,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": []
     }
    },
    "cascades": {
@@ -5157,6 +5456,148 @@
        "error": null
       }
      ]
+    },
+    "local-gemma4": {
+     "n": 40,
+     "accuracy": 0.975,
+     "macroF1": 0.9712820512820514,
+     "ece": 0.07000000000000016,
+     "eceAfterTemperature": 0.04289541725511382,
+     "temperature": 0.5777868108302783,
+     "brier": 0.05954499999999998,
+     "nll": 0.14964300383239718,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 1330,
+     "latencyP95Ms": 1973,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 3,
+       "confidence": 0.6166666666666667,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 3,
+       "confidence": 0.7166666666666668,
+       "accuracy": 0.6666666666666666
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 3,
+       "confidence": 0.8333333333333334,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 31,
+       "confidence": 0.9677419354838708,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "bug": {
+       "bug": 10,
+       "feature_request": 0,
+       "ui_ux": 0,
+       "content_correction": 0,
+       "noise": 0,
+       "error": 0
+      },
+      "feature_request": {
+       "bug": 0,
+       "feature_request": 8,
+       "ui_ux": 0,
+       "content_correction": 0,
+       "noise": 0,
+       "error": 0
+      },
+      "ui_ux": {
+       "bug": 0,
+       "feature_request": 0,
+       "ui_ux": 8,
+       "content_correction": 0,
+       "noise": 0,
+       "error": 0
+      },
+      "content_correction": {
+       "bug": 0,
+       "feature_request": 0,
+       "ui_ux": 0,
+       "content_correction": 7,
+       "noise": 0,
+       "error": 0
+      },
+      "noise": {
+       "bug": 0,
+       "feature_request": 0,
+       "ui_ux": 0,
+       "content_correction": 1,
+       "noise": 6,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": [
+      {
+       "id": "ft-37",
+       "label": "noise",
+       "choice": "content_correction",
+       "p": 0.7000000000000001,
+       "error": null
+      }
+     ]
     }
    },
    "cascades": {
@@ -6751,6 +7192,133 @@
        "label": "remove",
        "choice": "review",
        "p": 0.9,
+       "error": null
+      }
+     ]
+    },
+    "local-gemma4": {
+     "n": 36,
+     "accuracy": 0.9444444444444444,
+     "macroF1": 0.9219977553310886,
+     "ece": 0.0986111111111114,
+     "eceAfterTemperature": 0.05032133737960079,
+     "temperature": 0.7049461276736644,
+     "brier": 0.10256111111111108,
+     "nll": 0.19609329469811976,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 904,
+     "latencyP95Ms": 971,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 2,
+       "confidence": 0.6000000000000001,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 1,
+       "confidence": 0.7000000000000001,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 5,
+       "confidence": 0.8,
+       "accuracy": 0.6
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 28,
+       "confidence": 0.9482142857142853,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "allow": {
+       "allow": 16,
+       "review": 0,
+       "remove": 0,
+       "error": 0
+      },
+      "review": {
+       "allow": 1,
+       "review": 5,
+       "remove": 1,
+       "error": 0
+      },
+      "remove": {
+       "allow": 0,
+       "review": 0,
+       "remove": 13,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": [
+      {
+       "id": "mo-23",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.8,
+       "error": null
+      },
+      {
+       "id": "mo-28",
+       "label": "review",
+       "choice": "remove",
+       "p": 0.8,
        "error": null
       }
      ]
@@ -8526,6 +9094,189 @@
       }
      ]
     },
+    "local-gemma4": {
+     "n": 36,
+     "accuracy": 0.7222222222222222,
+     "macroF1": 0.549150036954915,
+     "ece": 0.14583333333333315,
+     "eceAfterTemperature": 0.25020933452570887,
+     "temperature": 1.4618844572768415,
+     "brier": 0.40141111111111094,
+     "nll": 0.6736632117036422,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 819,
+     "latencyP95Ms": 1015,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 1,
+       "confidence": 0.5,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 2,
+       "confidence": 0.6,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 14,
+       "confidence": 0.8214285714285714,
+       "accuracy": 0.5714285714285714
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 19,
+       "confidence": 0.9499999999999996,
+       "accuracy": 0.9473684210526315
+      }
+     ],
+     "confusion": {
+      "high": {
+       "high": 17,
+       "medium": 0,
+       "low": 0,
+       "error": 0
+      },
+      "medium": {
+       "high": 6,
+       "medium": 0,
+       "low": 0,
+       "error": 0
+      },
+      "low": {
+       "high": 1,
+       "medium": 3,
+       "low": 9,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": [
+      {
+       "id": "rr-02",
+       "label": "low",
+       "choice": "high",
+       "p": 0.85,
+       "error": null
+      },
+      {
+       "id": "rr-06",
+       "label": "medium",
+       "choice": "high",
+       "p": 0.85,
+       "error": null
+      },
+      {
+       "id": "rr-17",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.6,
+       "error": null
+      },
+      {
+       "id": "rr-18",
+       "label": "medium",
+       "choice": "high",
+       "p": 0.9,
+       "error": null
+      },
+      {
+       "id": "rr-21",
+       "label": "medium",
+       "choice": "high",
+       "p": 0.85,
+       "error": null
+      },
+      {
+       "id": "rr-22",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.6,
+       "error": null
+      },
+      {
+       "id": "rr-25",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.5,
+       "error": null
+      },
+      {
+       "id": "rr-26",
+       "label": "medium",
+       "choice": "high",
+       "p": 0.85,
+       "error": null
+      },
+      {
+       "id": "rr-30",
+       "label": "medium",
+       "choice": "high",
+       "p": 0.85,
+       "error": null
+      },
+      {
+       "id": "rr-34",
+       "label": "medium",
+       "choice": "high",
+       "p": 0.85,
+       "error": null
+      }
+     ]
+    },
     "reddit-scout-heuristic": {
      "n": 36,
      "accuracy": 0.4444444444444444,
@@ -10081,6 +10832,110 @@
        "error": null
       }
      ]
+    },
+    "local-gemma4": {
+     "n": 40,
+     "accuracy": 1,
+     "macroF1": 1,
+     "ece": 0.08250000000000032,
+     "eceAfterTemperature": 0.000886789769381835,
+     "temperature": 0.2,
+     "brier": 0.027909999999999997,
+     "nll": 0.09069043923494939,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 632,
+     "latencyP95Ms": 759,
+     "costUsd": null,
+     "costPer1000Usd": null,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 2,
+       "confidence": 0.7,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 7,
+       "confidence": 0.7999999999999999,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 31,
+       "confidence": 0.9580645161290319,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "local": {
+       "local": 23,
+       "cloud": 0,
+       "error": 0
+      },
+      "cloud": {
+       "local": 0,
+       "cloud": 17,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": []
     }
    },
    "cascades": {
