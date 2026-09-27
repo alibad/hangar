@@ -143,7 +143,13 @@ So the local text model in the third run is **`local-small`**, already resident,
 
 **Gemma 4 itself was not measured in this process.** No lab call completed on it. The Arabic experiment's numbers for it stand (`docs/arabic-model-experiment-2026-09-14.md`).
 
-The lab now asks Ollama for no reasoning through `extra_body.reasoning_effort: "none"`. Brief 05 verified that the router forwards the field; whether Gemma 4 then actually skips its reasoning is still unconfirmed on the running box.
+The lab now asks Ollama for no reasoning through `extra_body.reasoning_effort: "none"`. Brief 05 has since confirmed it end to end on resident Gemma 4 through the router: without it, about 3 s and 662 characters of reasoning; with it, 0.12 to 0.19 s, no reasoning, the same answer.
+
+Brief 05 also measured Gemma 4 as a decider with the switch on, on its own sets:
+- It beat Haiku on five of six sets, at 0.6 to 1.4 s.
+- It needs the ~20 GB window, so it is available only when `vllm-small` is down.
+
+That makes it the natural tier 2 for this lab's triage whenever it can load.
 
 ## Run A in detail: the cloud-fallback run
 
