@@ -22,6 +22,7 @@ export const CAPABILITY_IDS = [
   "3d",
   "video",
   "decision",
+  "process",
 ] as const;
 
 export type CapabilityId = (typeof CAPABILITY_IDS)[number];
@@ -37,6 +38,7 @@ export const CAPABILITY_LABELS: Record<CapabilityId, string> = {
   "3d": "3D generation",
   video: "video generation",
   decision: "typed decisions",
+  process: "business processes",
 };
 
 export function isCapabilityId(value: unknown): value is CapabilityId {

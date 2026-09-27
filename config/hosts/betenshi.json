@@ -177,6 +177,33 @@
       "note": "Meta SAM 3 — open-vocabulary promptable concept segmentation. Give it an image + a text concept ('person', 'car') and it segments every matching instance (masks + boxes + scores). Resident FastAPI service (move-quest: services/sam3/server.py). POST /segment {image, concepts}."
     },
     {
+      "id": "process-engine",
+      "name": "Process engine (Operaton)",
+      "localPort": 8085,
+      "localUrl": "http://127.0.0.1:8085",
+      "publicUrl": "http://127.0.0.1:8085",
+      "healthPath": "/engine-rest/version",
+      "category": "app",
+      "authRequired": false,
+      "localOnly": true,
+      "note": "Operaton 2.1.4 (Apache-2.0 fork of Camunda 7): executes the process lab's BPMN 2.0 processes and DMN 1.3 decisions, with Cockpit and Tasklist at /operaton/app/. Docker container 'process-engine' from C:\\Users\\Admin\\Code\\AI\\process-lab\\docker-compose.yml; H2 in a named volume. No GPU; measured 628 MiB RAM with 16 cases in flight (docker stats, 27 Sep 2026). localOnly and bound to 127.0.0.1: the REST API is unauthenticated. Why this engine: process-lab/docs/engine-choice.md."
+    },
+    {
+      "id": "process-lab",
+      "name": "Process lab",
+      "localPort": 8086,
+      "localUrl": "http://127.0.0.1:8086",
+      "publicUrl": "http://127.0.0.1:8086",
+      "healthPath": "/health",
+      "serves": {
+        "process": "relocation-case"
+      },
+      "category": "app",
+      "authRequired": false,
+      "localOnly": true,
+      "note": "A simulated relocation agency: external-task workers (Laya via /api/decide, Gemma 4 via the AI Router, local first with a recorded cloud fallback), the simulator, and the JSON API the Process Lab tab reads. Node 24, no dependencies; C:\\Users\\Admin\\Code\\AI\\process-lab. Needs process-engine. Holds no GPU memory itself (measured ~110 MB RAM); its Ollama calls take the coordinator's ollama-chat lease and honour logs/gpu-claim.txt."
+    },
+    {
       "id": "ollama",
       "name": "Ollama (Gemma 4 / Qwen3-VL)",
       "localPort": 11434,

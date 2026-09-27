@@ -86,6 +86,20 @@ export const LABS: LabDefinition[] = [
     doc: "docs/image-model-experiment-2026-09-26.md",
     load: () => import("@/components/labs/image-lab"),
   },
+  {
+    id: "process",
+    label: "Process Lab",
+    hint: "A simulated relocation agency: BPMN processes and DMN rules on a real engine, with a decision model and an LLM at the judgement steps",
+    keywords: "process bpmn dmn workflow business rules operaton camunda simulation case inbox human task relocation visa agency",
+    capability: "process",
+    input: "structured",
+    output: "json",
+    // Each AI step in the lab already runs local first and records its own
+    // cloud fallback; there is no separate cloud column to compare.
+    cloudComparison: false,
+    doc: "docs/process-lab-2026-09-27.md",
+    load: () => import("@/components/labs/process-lab"),
+  },
 ];
 
 // ── tabs ────────────────────────────────────────────────────────────────────

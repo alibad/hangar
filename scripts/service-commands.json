@@ -79,6 +79,19 @@
   },
 
   "_ollama-doc": "Second LLM runtime beside vLLM, for models vLLM 0.17.1 cannot load (Gemma 4 needs vLLM >= 0.19) and for on-demand vision. Normally already running from the Ollama tray app, which is fine: the manager adopts the external process and reports it as externally owned. OLLAMA_KEEP_ALIVE is short on purpose - one 31B model is ~20 GB of a 32 GB card, so an idle model left resident is what blocks the next image generation. OLLAMA_MAX_LOADED_MODELS=1 for the same reason: two of these do not coexist.",
+  "process-engine": {
+    "_doc": "Operaton, the process lab's BPMN/DMN engine. The manager only docker-starts an existing container: create it once with `docker compose up -d` in C:\\Users\\Admin\\Code\\AI\\process-lab (compose also chowns the H2 volume for the image's uid 1000).",
+    "docker": "process-engine"
+  },
+
+  "process-lab": {
+    "_doc": "The process lab's workers, simulator and API (Node 24, no npm dependencies). WHEN_LOCAL_UNAVAILABLE=cloud: when the coordinator will not give the GPU, or another session holds logs/gpu-claim.txt, an AI step runs on the cloud model instead of waiting, and the case record says so with the cost. Set it to 'fail' to make cases wait for the local model instead.",
+    "cmd": "C:\\Program Files\\nodejs\\node.exe",
+    "args": ["--disable-warning=ExperimentalWarning", "src/server.mjs"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\process-lab",
+    "env": { "WHEN_LOCAL_UNAVAILABLE": "cloud", "LEASE_WAIT_MS": "15000" }
+  },
+
   "ollama": {
     "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Ollama\\ollama.exe",
     "args": [
