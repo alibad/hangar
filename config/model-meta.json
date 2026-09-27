@@ -1,6 +1,7 @@
 {
   "local-flux2-klein-4b": {
     "checkpoint": "black-forest-labs/FLUX.2-klein-4B",
+    "license": "Apache-2.0",
     "service": "comfyui",
     "params": "4B denoiser",
     "docs": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B",
@@ -15,6 +16,7 @@
   },
   "local-hidream-o1-dev": {
     "checkpoint": "Comfy-Org/HiDream-O1-Image",
+    "license": "MIT",
     "service": "comfyui",
     "params": "8B unified · FP8 Dev",
     "docs": "https://huggingface.co/HiDream-ai/HiDream-O1-Image",
@@ -29,6 +31,7 @@
   },
   "local-z-image-turbo": {
     "checkpoint": "Z-Image-Turbo (local NVFP4)",
+    "license": "Apache-2.0",
     "service": "comfyui",
     "params": "6B denoiser · NVFP4",
     "docs": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
@@ -55,6 +58,7 @@
   },
   "local-qwen-image": {
     "checkpoint": "Qwen/Qwen-Image",
+    "license": "Apache-2.0",
     "params": "20.4B denoiser · 28.8B loaded",
     "released": "2025-08",
     "docs": "https://hf.co/Qwen/Qwen-Image",
@@ -72,6 +76,7 @@
   },
   "local-flux-schnell": {
     "checkpoint": "black-forest-labs/FLUX.1-schnell",
+    "license": "Apache-2.0",
     "params": "12B rectified-flow transformer, 4-step distilled",
     "released": "2024-08",
     "docs": "https://hf.co/black-forest-labs/FLUX.1-schnell",

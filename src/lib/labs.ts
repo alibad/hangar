@@ -74,6 +74,18 @@ export const LABS: LabDefinition[] = [
     doc: "docs/arabic-model-experiment-2026-09-14.md",
     load: () => import("@/components/labs/text-lab"),
   },
+  {
+    id: "image",
+    label: "Image Lab",
+    hint: "One prompt across local and cloud image models, plus the fixed evaluation suite side by side",
+    keywords: "image picture generate diffusion flux klein hidream z-image qwen gpt-image compare eval suite",
+    capability: "image",
+    input: "prompt",
+    output: "image",
+    cloudComparison: true,
+    doc: "docs/image-model-experiment-2026-09-26.md",
+    load: () => import("@/components/labs/image-lab"),
+  },
 ];
 
 // ── tabs ────────────────────────────────────────────────────────────────────

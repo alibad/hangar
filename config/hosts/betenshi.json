@@ -147,6 +147,9 @@
       "localUrl": "http://localhost:8188",
       "publicUrl": "https://comfyui.betenshi.com",
       "healthPath": "/system_stats",
+      "serves": {
+        "image": ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev", "flux-schnell"]
+      },
       "category": "app",
       "authRequired": false,
       "note": "Categorised as an APP, not an AI backend: it's a browser workflow UI you open and drive by hand (its card CTA is 'Open ↗', like Open WebUI), rather than a headless model server other code calls. It does use the GPU, but that's shown per-card as VRAM instead of being a category."

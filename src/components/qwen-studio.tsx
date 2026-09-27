@@ -11,6 +11,7 @@ import { imageFootprint } from "@/lib/image-footprints";
 import { ServiceControls, ServiceStartupNote, useServiceLifecycle } from "./service-control";
 import { useVoiceInput, appendTranscript } from "./voice-input";
 import CompareView from "./compare-view";
+import ImageEvalView from "./image-eval-view";
 import CapacityBlocker from "./capacity-blocker";
 import { qwenCheckpointState } from "@/lib/qwen-checkpoint";
 
@@ -162,7 +163,7 @@ function StudioDialog({
 
 export default function QwenStudio() {
   const [health, setHealth] = useState<QwenHealth | null>(null);
-  const [mode, setMode] = useState<"generate" | "batch" | "jobs" | "edit" | "compare">("generate");
+  const [mode, setMode] = useState<"generate" | "batch" | "jobs" | "edit" | "compare" | "eval">("generate");
   const [setupDialog, setSetupDialog] = useState<null | "model" | "runtime">(null);
 
   // Which model Generate targets. Qwen-Image is the resident service on :8021;
@@ -1977,7 +1978,7 @@ export default function QwenStudio() {
       <main className="image-workbench">
       <nav className="image-mode-nav" aria-label="Image workflow">
         <div className="image-mode-tabs" role="tablist">
-          {(["generate", "edit", "batch", "compare", "jobs"] as const).map((mm) => {
+          {(["generate", "edit", "batch", "compare", "eval", "jobs"] as const).map((mm) => {
             const disabled =
               (mm === "batch" && !activeModel.supportsBatch) ||
               (mm === "edit" && !activeModel.supportsEdit);
@@ -2009,6 +2010,8 @@ export default function QwenStudio() {
             ? activeModel.serviceId === "qwen" ? "Edit loads the separate Qwen-Image-Edit checkpoint on first run." : "FLUX.2 Klein uses the same checkpoint for generation and reference-image editing."
             : mode === "compare"
               ? "Run one prompt across several local and cloud models."
+              : mode === "eval"
+                ? "The fixed evaluation suite: every model side by side, judged by you."
               : mode === "batch" || mode === "jobs"
                 ? "Queue and manage multi-image Qwen-Image runs."
                 : `Create with ${activeModel.name}.`}
@@ -2018,9 +2021,10 @@ export default function QwenStudio() {
       <div className="image-mode-content">
 
       {mode === "compare" && <CompareView />}
+      {mode === "eval" && <ImageEvalView />}
 
       {/* ── INPUT PANEL (generate / edit) ── */}
-      {mode !== "batch" && mode !== "jobs" && mode !== "compare" && (
+      {mode !== "batch" && mode !== "jobs" && mode !== "compare" && mode !== "eval" && (
       <section className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-4">
         {mode === "edit" && (
           <div>

@@ -1,0 +1,117 @@
+{
+  "_doc": "Fixed image-model evaluation suite. Do not edit a prompt in place once a run exists against it: add a new id instead, or reruns stop being comparable. Each prompt names the dimension it probes and splits its checks into OBJECTIVE ones (a person can answer yes/no without taste: the word is spelled right, there are five apples) and TASTE ones (which one you like). The Image Studio's Eval tab shows every model side by side per prompt and records your verdicts against the objective checks. Runner: node scripts/experiment-image-suite.mjs.",
+  "version": 1,
+  "created": "2026-09-26",
+  "seeds": [20260926, 7],
+  "size": { "width": 1024, "height": 1024, "_doc": "Every model at 1024x1024 so the comparison is of the model, not the canvas. HiDream's native 2K is examined separately (resolution study)." },
+  "prompts": [
+    {
+      "id": "text-sign",
+      "dimension": "text",
+      "prompt": "A photograph of a small bakery storefront at golden hour. Above the door hangs a painted wooden sign that reads exactly \"HARBOR STREET BAKERY\" in cream serif letters, and beneath it a smaller line \"FRESH BREAD SINCE 1987\". Bread loaves visible in the window.",
+      "objective": ["Main sign spelled exactly HARBOR STREET BAKERY", "Second line spelled exactly FRESH BREAD SINCE 1987", "No extra or garbled text elsewhere"],
+      "taste": ["Photographic believability", "Typography quality"]
+    },
+    {
+      "id": "text-poster",
+      "dimension": "text",
+      "prompt": "A minimalist Swiss-style event poster on an off-white background. Large bold black headline \"THE QUIET HOURS\". Below it in a smaller red sans-serif: \"Tuesday 7 PM · Room 214\". A single thin black circle as the only graphic element. Flat print design, no photograph.",
+      "objective": ["Headline spelled exactly THE QUIET HOURS", "Small line reads Tuesday 7 PM · Room 214 (digits correct)", "Exactly one circle, no other graphics"],
+      "taste": ["Layout and hierarchy", "Swiss-style fidelity"]
+    },
+    {
+      "id": "count-fruit",
+      "dimension": "counting",
+      "prompt": "Overhead photograph of a plain wooden table. Exactly five red apples in a straight horizontal row, and exactly two green pears placed to the left of the apples. Nothing else on the table.",
+      "objective": ["Exactly five red apples", "Exactly two green pears", "Pears are left of the apples", "Nothing else on the table"],
+      "taste": ["Realism of fruit and wood"]
+    },
+    {
+      "id": "spatial-blocks",
+      "dimension": "spatial",
+      "prompt": "A 3D render of simple matte shapes on a grey floor: a blue cube sits on top of a red sphere; a yellow cone stands to the left of the sphere; a green cylinder stands behind the sphere; a small white pyramid is in front of the sphere. Soft studio lighting.",
+      "objective": ["Blue cube on top of red sphere", "Yellow cone left of sphere", "Green cylinder behind sphere", "White pyramid in front of sphere", "No extra shapes"],
+      "taste": ["Render quality"]
+    },
+    {
+      "id": "hands-piano",
+      "dimension": "hands",
+      "prompt": "Close-up photograph of two hands playing a chord on a grand piano, seen from the side. Every finger clearly visible, natural knuckles and nails, shallow depth of field.",
+      "objective": ["Each visible hand has five fingers", "No fused or extra fingers", "Keys form a plausible black/white pattern (groups of 2 and 3 black keys)"],
+      "taste": ["Photographic quality"]
+    },
+    {
+      "id": "faces-group",
+      "dimension": "faces",
+      "prompt": "Candid documentary photograph of exactly four friends of different ages — a teenage girl, a man in his thirties, a woman in her fifties and an old man with a white beard — laughing together around a small café table. Natural window light.",
+      "objective": ["Exactly four people", "Ages match the four described", "Faces free of obvious distortion (eyes, teeth)"],
+      "taste": ["Candid feel", "Skin and lighting realism"]
+    },
+    {
+      "id": "photo-fisherman",
+      "dimension": "photorealism",
+      "prompt": "Documentary photograph of an elderly fisherman mending a green fishing net on a harbour wall at dawn. Weathered hands, wool cap, fog over the water behind him. Shot on 35mm film, natural light, slight grain.",
+      "objective": ["Net is green", "Wool cap present", "Fog over water in background"],
+      "taste": ["Could pass as a real photograph", "Film look"]
+    },
+    {
+      "id": "illus-paper-fox",
+      "dimension": "illustration",
+      "prompt": "A whimsical cut-paper illustration of a tiny orange fox piloting a teal sailboat on an indigo sea beneath a huge crescent moon. Exactly three yellow stars in the sky. Visible layered paper edges, flat graphic shapes, no photorealism, no text.",
+      "objective": ["Exactly three yellow stars", "Fox is on the boat", "No text"],
+      "taste": ["Cut-paper material feel", "Charm"],
+      "_doc": "Same prompt as the 12 September experiment, kept for continuity."
+    },
+    {
+      "id": "illus-watercolor",
+      "dimension": "illustration",
+      "prompt": "A loose botanical watercolour of a single sprig of lavender and two lemons on textured cold-press paper. Visible pigment blooms and paper grain, generous white space, a light pencil underdrawing showing through.",
+      "objective": ["Exactly two lemons", "One lavender sprig", "White space dominates the composition"],
+      "taste": ["Watercolour authenticity (blooms, granulation)", "Restraint"]
+    },
+    {
+      "id": "long-compositional",
+      "dimension": "long prompt",
+      "prompt": "A cozy reading nook in the corner of an attic. A round window on the left wall shows a snowy night with a full moon. Under the window is a dark green velvet armchair with a sleeping grey tabby cat curled on its seat. To the right of the armchair stands a tall wooden bookshelf with exactly three shelves; the top shelf holds a small brass telescope, the middle shelf holds red books, the bottom shelf holds a stack of vinyl records. A warm brass floor lamp is switched on behind the chair. A steaming mug of tea sits on a small stool in front of the chair. A patterned rug with blue and orange diamonds covers the floor. Painterly but realistic lighting.",
+      "objective": ["Round window on the left with snowy night and full moon", "Green velvet armchair with sleeping grey tabby", "Bookshelf right of chair with exactly three shelves", "Telescope top / red books middle / records bottom", "Lit brass floor lamp behind chair", "Steaming mug on a stool in front", "Blue-and-orange diamond rug"],
+      "taste": ["Coziness", "Coherence of the whole"]
+    },
+    {
+      "id": "arabic-prompt",
+      "dimension": "non-English prompt",
+      "prompt": "صورة فوتوغرافية لسوق شعبي قديم في مدينة عربية عند الغروب. أكوام من التوابل الملونة في سلال من القش، وفوانيس نحاسية معلقة، ورجل مسن يرتدي كوفية حمراء يبيع الشاي من إبريق فضي طويل. ضوء دافئ وظلال طويلة.",
+      "gloss": "A photograph of an old traditional market in an Arab city at sunset. Heaps of colourful spices in straw baskets, hanging copper lanterns, and an old man in a red keffiyeh selling tea from a tall silver pot. Warm light and long shadows.",
+      "objective": ["Spice heaps in straw baskets", "Hanging copper lanterns", "Old man in a RED keffiyeh", "Tall silver tea pot", "Sunset / warm light"],
+      "taste": ["Photographic quality", "Avoids caricature"]
+    },
+    {
+      "id": "arabic-text",
+      "dimension": "non-English text",
+      "prompt": "A hand-painted sign above a small café door in an old stone alley. The sign shows the Arabic word \"مرحبا\" in large white Naskh calligraphy on a deep blue background, with the English word \"WELCOME\" in small letters beneath it.",
+      "objective": ["Arabic reads مرحبا exactly (م ر ح ب ا, joined correctly, right-to-left)", "English reads WELCOME", "No invented extra script"],
+      "taste": ["Calligraphic quality"]
+    }
+  ],
+  "edits": {
+    "_doc": "Real edits, applied to a fixed source image so every edit model starts from the same pixels. The source is generated once by the runner (Klein, seed 20260926) and saved beside the run; reruns reuse it.",
+    "source": {
+      "id": "edit-source",
+      "prompt": "A photograph of a wooden kitchen table by a window. On the table: a blue ceramic mug on the left, a glass vase with three yellow tulips in the centre, and a closed red notebook on the right. Soft midday daylight, neutral white wall.",
+      "model": "flux2-klein-4b",
+      "seed": 20260926
+    },
+    "instructions": [
+      { "id": "edit-replace", "kind": "replace an object", "prompt": "Replace the blue ceramic mug with a small green potted cactus. Keep everything else exactly the same.", "objective": ["Mug gone, cactus in its place", "Vase, tulips, notebook unchanged", "Camera, framing and lighting unchanged"] },
+      { "id": "edit-lighting", "kind": "change the lighting", "prompt": "Change the lighting to warm late-evening sunset light coming low through the window, with long orange shadows across the table. Keep every object and the composition the same.", "objective": ["Lighting is warm/low with long shadows", "Objects and layout unchanged"] },
+      { "id": "edit-extend", "kind": "extend the canvas", "outpaint": { "right": 512 }, "prompt": "Extend the scene to the right: continue the wooden table and the white wall, and add a small bowl of green apples at the right end of the table. Keep the existing part of the image unchanged.", "objective": ["Original region preserved", "Table and wall continue seamlessly", "Bowl of green apples added on the right"] }
+    ]
+  },
+  "cloudSubset": {
+    "_doc": "Prompts sent to cloud models through the AI Router for comparison. One seed only: hosted APIs ignore seeds.",
+    "prompts": ["text-sign", "count-fruit", "hands-piano", "long-compositional", "arabic-prompt", "arabic-text"]
+  },
+  "resolutionSubset": {
+    "_doc": "Prompts used for the 2K study: HiDream native 2048 vs 1024 generations upscaled 2x vs other models generated directly at 2048.",
+    "prompts": ["photo-fisherman", "text-poster", "illus-watercolor"]
+  }
+}
