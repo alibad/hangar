@@ -11,6 +11,11 @@
 
 In the final measured runs, every AI hand-off was recorded with its model, confidence, latency and cost, and a person's disagreement with the AI was recorded as such.
 
+**Split the LLM work by kind:**
+- **Generation from a structured brief** (client emails) runs well on a small local model: sub-second, one check failure in 36.
+- **Judgement** (triage behind Laya, the reviewer's brief) needs a stronger model. With Haiku there, 14 to 15 of 16 cases ended right, as the right service. With the local 7B there, 12 of 16.
+- **Gemma 4 31B**, the box's strong local model, never answered a lab call. It was loaded once, early, and unloaded at another session's request before a call completed on it. After that, other sessions' GPU claims or the coordinator kept it off the card: the user's own app keeps a 13 GB vLLM resident, and the coordinator correctly refused Gemma's 20 GB. So the judgement steps ran on the cloud fallback, and every such decision says so.
+
 Use **Operaton 2.1.4** (Apache 2.0, the Camunda 7 fork) as the engine. The reasons are in `process-lab/docs/engine-choice.md`. In short:
 
 - Camunda 8 needs a paid licence for production from 8.6.
@@ -23,10 +28,10 @@ Use **Operaton 2.1.4** (Apache 2.0, the Camunda 7 fork) as the engine. The reaso
 |---|---|---|
 | **DMN** for eligibility, entry, residency route, income floor, school age, EU licence recognition, fees, SLAs, required documents, document language | **Yes, unreservedly.** | 4 ms median; every result traceable to a rule row; a rule gap found in testing was fixed by adding one table row and redeploying, with no code change. |
 | **LLM** reading documents | **Yes.** | 95.7% of fields right across 43 documents, including every Arabic one. The one unreadable scan was flagged for a person, as designed. |
-| **LLM** drafting client emails | **Yes.** | Correct language every time (Arabic for the Arabic-writing client), with no placeholders left. The judge checks both, and rejects before sending. |
-| **LLM** case brief for the reviewer | **Yes, with context.** | It caught every inconsistency I had accidentally planted in the synthetic data. Without context it also rejected every case for carrying a SPECIMEN watermark, and called a lease that began last month "future-dated". Give it the date and the rules of the game. |
-| **LLM** as the triage classifier | **Partly.** | Service right 94%, purpose right 75%. One purpose was confidently wrong (0.75, just above the 0.7 threshold). |
-| **Decision model (Laya)** for triage | **Not measured here.** | See *Decision model* below. |
+| **LLM** drafting client emails | **Yes, and locally.** | A resident 7B (Qwen2.5-7B) drafted 35 of 36 emails correctly in under a second each. The step's own check sent the one bad one (an English subject on an Arabic email) to the cloud. |
+| **LLM** case brief for the reviewer | **Yes, with a strong model and context.** | Haiku caught every inconsistency I had accidentally planted in the synthetic data. Without context it also rejected every case for its SPECIMEN watermark, and called a lease that began last month "future-dated". The local 7B rubber-stamped everything at 0.95. |
+| **Decision model (Laya)** as tier 1 of triage | **Yes, as a first pass.** | On CPU at ~0.3 s it settled 15 of 23 intake questions alone in the live run, and passed the unsure ones on. Alone it gets only 16 of 24 right, against Haiku's 22. Its one confident error (0.93) is the case the tiers cannot catch. |
+| **LLM** as tier 2 of triage | **Yes, a strong one.** | Haiku was right on 7 of the 8 questions Laya passed on; the eighth was the deliberately vague request, correctly left to a person. The local 7B got 3 of 8, and filed three residency clients as visa applications. Asked everything (the triage-only evaluation), Haiku got 22 of 24. |
 | **Spoken status update** | **No.** | Not exercised with a running voice service; see below. |
 
 **What has to change to run a real process on it** is at the end. The short list:
@@ -94,9 +99,53 @@ The triage question runs in tiers:
 - another session holds a claim under 30 minutes old in `logs/gpu-claim.txt` (the sessions sharing the card use this file);
 - the local answer failed the step's check.
 
-LOCAL_RUN_PLACEHOLDER
+## Three measured runs, side by side
 
-## Measured: the cloud-fallback run
+Every AI step runs local first. What "local" could mean today was set by the box, not by the design:
+
+- **Gemma 4 could not stay loaded.** The 31B needs 20 GB. The one early load was given back to a session measuring 3D. After that, the user's quote-forge app kept `vllm-small` (Qwen2.5-7B, 13 GB) resident and in use, and the coordinator refused Gemma.
+- **The GPU was shared.** Four other exploration sessions measured on the card in turn, coordinating through `logs/gpu-claim.txt`.
+
+So the local text model in the third run is **`local-small`**, already resident, so it costs no new memory, with Laya on CPU in front of it. Document reading, which needs a vision model, went to the cloud in every run: while another session's claim was fresh, the lab never even queued for Gemma.
+
+| | A: cloud tiers | B: Laya → Haiku | C: Laya → local-small |
+|---|---|---|---|
+| Run | `SIM2609271639` | `SIM2609271711` | `SIM2609271829` |
+| Triage tier 1 | (Laya down) | Laya (CPU) | Laya (CPU) |
+| Triage tier 2, emails, case brief | Claude Haiku | Claude Haiku | **local-small**, Haiku only on a failed check |
+| Document reading | Haiku (GPU claimed) | reading bug; all to people | Haiku (GPU claimed) |
+| **Right ending, as the right service** | **14 / 16** | **15 / 16** | **12 / 16** |
+| Triage tier 2 right | 94% service, 75% purpose (tier 2 was everything) | 7 / 8 | **3 / 8** |
+| Case briefs a person overrode | 0 | 0 | 1 of 13 |
+| Document fields read right | 95.7% | n/a (bug) | 96.4% |
+| Emails drafted locally | 0 | 0 | **35 / 36** (median 0.75 s; one Arabic email fell back) |
+| Median LLM step | 2.2 s | 2.2 s | **0.84 s** |
+| Cloud cost | $0.181 | $0.063 | $0.089 |
+
+**What the local run shows:**
+
+- **Drafting emails from a brief is a local job.**
+  - Qwen2.5-7B wrote 35 of 36 emails, correctly, in under a second each.
+  - The one failure: an Arabic body under an English subject, missing its first letter. The step's own check caught it, and it went to the cloud with the reason recorded.
+  - "Local first, cloud when local is not good enough" worked as designed: one fallback in 36, for $0.001.
+- **Triage is not a 7B job.**
+  - `local-small` got 3 of the 8 questions Laya passed on right. It called three residency-permit clients "visa-application".
+  - Each of them then went down the visa branch. The rules did exactly what they should for a visa, and the ending looked plausible: "completed", or "refused".
+  - The earlier scoring missed this. Scoring now requires the right service as well as the right ending. Under that scoring the local run is 12 of 16, against 14 and 15 with Haiku as tier 2.
+- **The case brief is not a 7B job either.**
+  - `local-small` recommended "submit" at 0.95 with boilerplate reasons ("documents valid and consistent") on nearly every case.
+  - It waved through a nurse whose case had been filed as a visa application.
+  - Haiku's briefs found real contradictions in the same data.
+- **What this means for the design.**
+  - Local model for generation from a structured brief. A stronger model (Gemma 4 when it can load, the cloud when it cannot) for judgement.
+  - The lab now takes `LOCAL_DRAFT_MODEL` for exactly this. Set it to `local-small` in the `process-lab` entry of `scripts/service-commands.json` to adopt it; it is not set there yet.
+  - The simulated consultant now also declines a case filed under the wrong service, as a real one would. This was added after this run.
+
+**Gemma 4 itself was not measured in this process.** No lab call completed on it. The Arabic experiment's numbers for it stand (`docs/arabic-model-experiment-2026-09-14.md`).
+
+The lab now asks Ollama for no reasoning through `extra_body.reasoning_effort: "none"`. Brief 05 verified that the router forwards the field; whether Gemma 4 then actually skips its reasoning is still unconfirmed on the running box.
+
+## Run A in detail: the cloud-fallback run
 
 Run `SIM2609271639`, 27 Sep 16:39Z:
 - **Conditions.** 16 synthetic clients at 10 s per simulated day, with the simulated consultant working the inbox. During the whole run the GPU was held by the 3D exploration's claim and Laya was stopped for its move to CPU. So **every AI step ran on Claude Haiku through the router**, as the recorded fallback. Every such decision says so.
@@ -210,8 +259,8 @@ Run `SIM2609271711`, 17:11Z: the same 16 cases with Laya up (CPU) as tier 1 and 
 - This is brief 05's point about calibration, seen here in the wild.
 
 **6. Where cases wait is outside the agency.**
-- About 44% of case time was the authority and about 24% the client.
-- Of the time under the agency's control, the consultant's approval (about 12%) dominates.
+- About 48% of case time was the authority and about 23% the client (run A).
+- Of the time under the agency's control, the consultant's approval (about 11%) dominates.
 - AI processing is a few percent, even with each 2 s call counted as 0.2 of a simulated day.
 
 **7. Engine behaviours worth knowing:**
@@ -259,11 +308,12 @@ Keep the step as an option; do not turn it on for real clients.
 - **Engine.** Operaton 2.1.4 executes the BPMN and DMN as written, including DRD required-decision outputs, COLLECT tables, FEEL expressions, boundary timers and message correlation.
 - **Runs.** Every number above comes from runs stored in the engine's history and the lab's ledger.
 - **Console.** The Process Lab tab was checked in the browser pane. The diagram with markers, the decision table, the inbox approve flow (a real click, recorded as an override of the AI's "decline"), the Numbers and Catalog views, and a manual case with document upload through the console proxy all worked.
-- **Tests.** The process lab's tests (14, including engine-backed DMN checks) and the console's `npm test` and `tsc` pass.
+- **Tests.** The process lab's 23 tests pass: units; engine-backed DMN checks; the triage tiers against a stub `/api/decide`; and the workers against a stub router. The console's `npm test` and `tsc` pass on the exact committed tree, checked out alone.
+- **Operations.** Start and Stop from the console work for both services, through the manager: the engine as a Docker container, the lab as a spawned process. The engine restarted with its H2 data intact. The lab picked up interrupted simulation runs and stale task locks after a restart.
 
 **Assumed, or not measured:**
-- Laya as tier 1, unless the local-run section above says otherwise.
-- The spoken update.
+- Laya on the GPU. It ran on CPU here, where brief 05 has moved it.
+- Laya's calibration beyond these 24 questions.
 - Throughput beyond 16 concurrent cases.
 - Anything about real (non-synthetic) documents. Clean renders flatter every reader; only one heavily degraded scan was in the set.
 
@@ -272,4 +322,4 @@ Keep the step as an option; do not turn it on for real clients.
 - bpmn-js: the bpmn.io licence, MIT-like, which requires its watermark to stay visible. It does.
 - Globe Quest's entry matrix derives from passport-index-data, MIT.
 
-**Cost:** cloud calls in all runs together came to under $0.60 of Claude Haiku.
+**Cost:** $0.71 of Claude Haiku across all 468 cloud calls in every run, including the development runs, plus $0.02 for the triage-only evaluation.
