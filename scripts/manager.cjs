@@ -29,7 +29,8 @@ function resolveHostId() {
 }
 
 const HOST_ID = resolveHostId();
-const HOST = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "config", "hosts", `${HOST_ID}.json`), "utf8"));
+const HOST_FILE = path.join(__dirname, "..", "config", "hosts", `${HOST_ID}.json`);
+let HOST = JSON.parse(fs.readFileSync(HOST_FILE, "utf8"));
 
 const PORT = parseInt(process.env.MANAGER_PORT || "8099");
 const COMMANDS_FILE = path.join(__dirname, HOST.commandsFile || "service-commands.json");
@@ -37,9 +38,11 @@ const RESOURCE_POLICY_FILE = path.join(__dirname, "..", "config", "resource-poli
 const MODEL_META_FILE = path.join(__dirname, "..", "config", "model-meta.json");
 
 // The manager never supervises itself.
-const SERVICES = HOST.services
-  .filter((s) => s.id !== "manager")
-  .map((s) => ({ id: s.id, name: s.name, port: s.localPort, healthPath: s.healthPath, category: s.category }));
+const servicesOf = (host) =>
+  host.services
+    .filter((s) => s.id !== "manager")
+    .map((s) => ({ id: s.id, name: s.name, port: s.localPort, healthPath: s.healthPath, category: s.category }));
+let SERVICES = servicesOf(HOST);
 
 // id -> { proc, logs: string[], startedAt }
 const managed = new Map();
@@ -49,6 +52,37 @@ const resourceProfiles = buildResourceProfiles(
   resourcePolicy,
   JSON.parse(fs.readFileSync(MODEL_META_FILE, "utf8"))
 );
+
+// The host profile, resource policy and model footprints used to be read once,
+// here, so a new service, a new workload or a corrected footprint meant
+// restarting the manager — which kills every service it spawned. Three
+// explorations adding services in one week made that a real cost. All three
+// files are re-read whenever one changes on disk (service-commands.json already
+// was). Leases already granted keep the resources they were admitted with, and
+// processes already running are untouched.
+function configStamp() {
+  return [HOST_FILE, RESOURCE_POLICY_FILE, MODEL_META_FILE].map((f) => fs.statSync(f).mtimeMs).join(":");
+}
+let loadedConfigStamp = configStamp();
+function refreshConfig() {
+  try {
+    const stamp = configStamp();
+    if (stamp === loadedConfigStamp) return;
+    const host = JSON.parse(fs.readFileSync(HOST_FILE, "utf8"));
+    const profiles = buildResourceProfiles(
+      JSON.parse(fs.readFileSync(RESOURCE_POLICY_FILE, "utf8")),
+      JSON.parse(fs.readFileSync(MODEL_META_FILE, "utf8"))
+    );
+    HOST = host;
+    SERVICES = servicesOf(host);
+    resourceCoordinator.profiles = profiles;
+    loadedConfigStamp = stamp;
+    console.log("[manager] reloaded host profile, resource policy and model footprints");
+  } catch (error) {
+    // Half-written file or a syntax slip: keep running on the last good config.
+    console.warn(`[manager] kept previous config: ${error.message}`);
+  }
+}
 
 let gpuCapacityCache = { at: 0, value: null };
 function readGpuCapacity() {
@@ -618,6 +652,7 @@ const server = http.createServer(async (req, res) => {
 
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const parts = url.pathname.replace(/^\/+|\/+$/g, "").split("/");
+  refreshConfig(); // three statSyncs; cheap next to anything this server does
 
   try {
     // GET /resources — live capacity, modeled usage, leases, and queue.
