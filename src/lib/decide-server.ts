@@ -57,7 +57,7 @@ export async function decide(
  * people's work and reporting it would be wrong.
  */
 const deviceCache = new Map<string, { at: number; device: string | null }>();
-async function serviceDevice(svc: ServiceEntry): Promise<string | null> {
+export async function serviceDevice(svc: ServiceEntry): Promise<string | null> {
   const hit = deviceCache.get(svc.id);
   if (hit && Date.now() - hit.at < 60_000) return hit.device;
   let device: string | null = null;

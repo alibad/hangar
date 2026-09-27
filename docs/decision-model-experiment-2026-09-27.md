@@ -61,6 +61,11 @@ On this machine, holding it resident was never free:
   start it for lack of that room.
 - On CPU it holds 3.7-5.5 GB of RAM. That is also contended: Qwen-Image's load
   crashed at 0.3 GB of free RAM while this ran.
+- Under that pressure, Windows trims an idle CPU service's working set. The
+  morning after, Laya's had shrunk from 3.7 GB to 1.5 GB, and its first
+  decision took 13.4 s while the weights paged back in. The next ones took
+  0.74, 0.41, 0.33 and 0.20 s. A caller that needs a steady ~0.2 s has to keep
+  it warm, or accept a slow first call after idle.
 
 **Reconsider it if**
 

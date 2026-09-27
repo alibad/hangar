@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeDecideRequest, type DecideResult } from "@/lib/decide";
-import { decide, decideSummary, decisionServiceFor } from "@/lib/decide-server";
+import { decide, decideSummary, decisionServiceFor, serviceDevice } from "@/lib/decide-server";
 import { getCatalogue } from "@/lib/providers";
 import { measureRun, recordLabRun } from "@/lib/lab-runs";
 import type { LabRunResult } from "@/lib/lab-types";
@@ -38,8 +38,13 @@ export async function POST(req: NextRequest) {
 
   // A decision model on CPU holds no GPU context: the card-wide reading taken
   // during its run is other sessions' work, so it is not reported as this run's.
+  // Asked of the service up front rather than read off the result, so a FAILED
+  // CPU run is not recorded with the card's VRAM either (the walkthrough of
+  // 2026-09-28 caught an aborted run filed at "22.2 GB").
+  const svc = decisionServiceFor(r.model);
+  const device = svc ? await serviceDevice(svc) : null;
   const m =
-    measured.ok && measured.result.device === "cpu"
+    device === "cpu" || (measured.ok && measured.result.device === "cpu")
       ? { ...measured.measurement, peakVramGb: null, baselineVramGb: null, vramNote: "Ran on CPU — no VRAM used." }
       : measured.measurement;
   const failed = !measured.ok
