@@ -106,6 +106,8 @@ export default function MeshLab({ lab }: LabComponentProps) {
       /* a convenience only */
     }
     setSrcMode(s === "person" ? "upload" : "describe");
+    // A fox's description is no prompt for a person, and the other way round.
+    setSubject("");
     setJob(null);
     setStepError(null);
     setConceptTouched(false);
