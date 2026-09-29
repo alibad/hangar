@@ -1100,7 +1100,7 @@ async function veoGenerate(job: VideoJob, spec: VideoModelSpec, onStage: (s: Vid
 
 // ── singleton (survives HMR, retires the old worker) ──────────────────────────
 
-const QUEUE_VERSION = 4;
+const QUEUE_VERSION = 5;
 const g = globalThis as typeof globalThis & { __videoQueue?: VideoQueue; __videoQueueV?: number };
 if (!g.__videoQueue || g.__videoQueueV !== QUEUE_VERSION) {
   g.__videoQueue?.shutdown();
