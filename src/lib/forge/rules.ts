@@ -28,9 +28,15 @@ export function unsafeReason(text: string): string | null {
 const PEOPLE =
   /\b(people|person|persons|man|men|woman|women|vendors?|shoppers?|locals|residents|spectators|dancers?|musicians?|runners?|swimmers?|climbers?|hikers?|boy|boys|girl|girls|child|children|kids?|officers?|players?|athletes?|crowds?|tourists?|workers?|actors?|actress|singers?|faces?|portrait|fans|audience|pedestrians?|travell?ers?|passengers?|family|couple|chef|drivers?|pilots?|soldiers?|police|guests?|visitors?|students?|he|she|his|her|him|they're)\b/i;
 
+/** "no people", "empty of travelers", "without spectators": saying the frame is empty is what we asked for. */
+const NEGATED = /\b(no|without|empty(?: of)?|devoid of|free of|absent|zero|never any|not a single)\s+(?:\w+\s+){0,2}$/i;
+
 export function peopleIn(text: string): string | null {
-  const m = PEOPLE.exec(text);
-  return m ? m[0] : null;
+  const re = new RegExp(PEOPLE.source, "gi");
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    if (!NEGATED.test(text.slice(Math.max(0, m.index - 40), m.index))) return m[0];
+  }
+  return null;
 }
 
 /** Writing on screen. Image and video models render it as gibberish, and a scoreboard of numbers was the second live brief. */

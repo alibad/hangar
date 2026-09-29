@@ -71,3 +71,10 @@ test("read() refuses anything that is not on the public internet", async () => {
   const ok = await assertPublicUrl("https://en.wikipedia.org/wiki/Harvest_moon");
   assert.equal(ok.hostname, "en.wikipedia.org");
 });
+
+test("saying the frame is empty of people is allowed", () => {
+  assert.equal(peopleIn("an empty airport checkpoint with no travelers, fluorescent light"), null);
+  assert.equal(peopleIn("a stadium without spectators under floodlights"), null);
+  assert.equal(peopleIn("the terminal, empty of passengers at dawn"), null);
+  assert.equal(peopleIn("no crowds; later, travelers stream in"), "travelers");
+});

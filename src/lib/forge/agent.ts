@@ -333,7 +333,11 @@ export async function writeBrief(input: {
         if (writing) problems.push(`the prompts ask for writing on screen ("${writing}") — video models cannot render text or numbers; show the scene without any`);
         if (problems.length && turn < maxTurns) {
           trace.calls.push({ name, args, ok: false, ms: Date.now() - started, summary: problems.join("; ") });
-          messages.push({ role: "tool", tool_call_id: call.id, content: `Not accepted: ${problems.join("; ")}.` });
+          // A 7B that fails twice on one candidate tends to keep failing on it
+          // (five refusals in a row on an airport checkpoint): move it on.
+          const refusals = trace.calls.filter((c) => c.name === "submit_brief" && !c.ok && Number(c.args.candidate) === n).length;
+          const moveOn = refusals >= 2 ? " This candidate is not working — take the NEXT candidate on the list and submit a brief for it." : "";
+          messages.push({ role: "tool", tool_call_id: call.id, content: `Not accepted: ${problems.join("; ")}.${moveOn}` });
           continue;
         }
         if (problems.length) return done({ kind: "error", error: `Last brief was not usable: ${problems.join("; ")}`, trace });
