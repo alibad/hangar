@@ -1,11 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import BpmnView from "./bpmn-view";
-import { KIND_STYLE, fileUrl, fmtCost, fmtMs, lab, type CaseDetail, type CaseRow, type Decision } from "./api";
+import { ACTOR, KIND_STYLE, fileUrl, fmtCost, fmtMs, lab, type CaseDetail, type CaseRow, type Decision, type Guide, type Stage, type StoryEntry } from "./api";
 
-/** The case list, and one case on its diagram with every decision taken in it. */
-export default function CasesView({ runFilter, onRunFilter, runs }: { runFilter: string; onRunFilter: (r: string) => void; runs: { id: string }[] }) {
+/**
+ * The case list, and one case told as a story.
+ *
+ * A case opens on what a person needs first — what is happening now, which of
+ * the six stages it is in, and what has happened so far in plain words. The
+ * BPMN diagram and the raw decision table are still here, folded away below:
+ * they are how an engineer checks the story, not how anyone should read it.
+ */
+export default function CasesView({
+  runFilter,
+  onRunFilter,
+  runs,
+  guide,
+  onOpenInbox,
+}: {
+  runFilter: string;
+  onRunFilter: (r: string) => void;
+  runs: { id: string }[];
+  guide: Guide | null;
+  onOpenInbox: () => void;
+}) {
   const [rows, setRows] = useState<CaseRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -25,6 +44,9 @@ export default function CasesView({ runFilter, onRunFilter, runs }: { runFilter:
     return () => clearInterval(iv);
   }, [load]);
 
+  const stepName = (id: string) => guide?.steps[id]?.name ?? id;
+  const stageLabel = (id: string) => guide?.stages.find((s) => s.id === guide?.steps[id]?.stage)?.label ?? null;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
@@ -37,7 +59,7 @@ export default function CasesView({ runFilter, onRunFilter, runs }: { runFilter:
             ))}
           </select>
         </label>
-        {rows && <span>{rows.filter((r) => r.state === "ACTIVE").length} active · {rows.length} shown</span>}
+        {rows && <span>{rows.filter((r) => r.state === "ACTIVE").length} active · {rows.length} shown · click a case to read its story</span>}
       </div>
       {err && <p className="text-xs text-red-300">{err}</p>}
       <div className="overflow-x-auto rounded-xl border border-gray-800">
@@ -69,11 +91,14 @@ export default function CasesView({ runFilter, onRunFilter, runs }: { runFilter:
                 <td className="px-3 py-2 text-gray-300">{r.service ?? <span className="text-gray-600">not yet known</span>}</td>
                 <td className="px-3 py-2">
                   {r.state === "ACTIVE" ? (
-                    <span className="text-orange-300">{r.current.join(", ") || "—"}</span>
+                    <span className="text-orange-300">
+                      {r.current.map(stepName).join(", ") || "—"}
+                      {r.current[0] && stageLabel(r.current[0]) && <span className="ml-1.5 text-[10px] text-gray-500">({stageLabel(r.current[0])})</span>}
+                    </span>
                   ) : (
                     <span className={r.outcome === "completed" ? "text-emerald-300" : "text-gray-400"}>{r.outcome}</span>
                   )}
-                  {r.incidents > 0 && <span className="ml-2 rounded bg-red-950 px-1.5 text-[10px] text-red-300">incident</span>}
+                  {r.incidents > 0 && <span className="ml-2 rounded bg-red-950 px-1.5 text-[10px] text-red-300">stuck</span>}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-gray-400">{r.ageDays}</td>
               </tr>
@@ -86,15 +111,16 @@ export default function CasesView({ runFilter, onRunFilter, runs }: { runFilter:
           </tbody>
         </table>
       </div>
-      {selected && <CaseDetailView caseKey={selected} />}
+      {selected && <CaseDetailView caseKey={selected} guide={guide} onOpenInbox={onOpenInbox} />}
     </div>
   );
 }
 
-function CaseDetailView({ caseKey }: { caseKey: string }) {
+function CaseDetailView({ caseKey, guide, onOpenInbox }: { caseKey: string; guide: Guide | null; onOpenInbox: () => void }) {
   const [d, setD] = useState<CaseDetail | null>(null);
   const [xml, setXml] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [step, setStep] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -126,83 +152,92 @@ function CaseDetailView({ caseKey }: { caseKey: string }) {
   if (!d) return <p className="text-xs text-gray-500">Loading {caseKey}…</p>;
 
   const v = d.variables;
+  const service = v.service ? `a ${String(v.service).replace(/-/g, " ")}` : "something not yet clear";
   return (
-    <section className="tool-panel space-y-4 rounded-xl border border-gray-800 bg-gray-900 p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-100">
-            {d.caseKey} · {String(v.clientName ?? "")}
+    <section className="tool-panel space-y-5 rounded-xl border border-gray-800 bg-gray-900 p-5">
+      <header className="flex flex-wrap items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-gray-100">
+            {String(v.clientName ?? "")} <span className="font-normal text-gray-400">wants {service}{v.purpose ? ` (${String(v.purpose)})` : ""} in {String(v.destination)}</span>
           </h3>
-          <p className="text-xs text-gray-400">
-            {String(v.passportCountry)} passport → {String(v.destination)} · {String(v.service ?? "service not yet known")}
-            {v.purpose ? ` (${String(v.purpose)})` : ""} · language {String(v.clientLanguage)}
-            {v.agencyFee != null && ` · fee €${String(v.agencyFee)}, SLA ${String(v.slaDays)} days`}
+          <p className="mt-1 text-xs text-gray-500">
+            <span className="font-mono">{d.caseKey}</span> · {String(v.passportCountry)} passport · writes in {String(v.clientLanguage)}
+            {v.agencyFee != null && ` · fee €${String(v.agencyFee)}, promised within ${String(v.slaDays)} days`} · day {d.ageDays}
           </p>
-          <p className="mt-1 text-xs text-gray-500">&ldquo;{String(v.requestText ?? "")}&rdquo;</p>
         </div>
-        <div className="text-right text-xs">
-          <p className={d.state === "ACTIVE" ? "text-orange-300" : d.outcome === "completed" ? "text-emerald-300" : "text-gray-300"}>
-            {d.state === "ACTIVE" ? `at ${d.current.join(", ")}` : d.outcome}
-          </p>
-          <p className="text-gray-500">{d.ageDays} simulated days</p>
-          {d.truth && (
-            <p className="text-[11px] text-gray-500" title="The simulation's ground truth — what should happen.">
-              expected: {String(d.truth.expected)}
-            </p>
-          )}
+        {d.truth && (
+          <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[11px] text-gray-400" title="This is a simulated client; the simulation knows what should happen.">
+            simulated · should end: {String(d.truth.expected)}
+          </span>
+        )}
+      </header>
+
+      <NowBanner now={d.now} onOpenInbox={onOpenInbox} />
+      <StageBar stages={d.stages} />
+
+      {d.state === "ACTIVE" && d.current.includes("gw_wait") && !v.simulated && <Upload caseKey={d.caseKey} />}
+
+      <div>
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+          <h4 className="text-sm font-semibold text-gray-100">What has happened</h4>
+          <ActorLegend />
         </div>
+        <Story entries={d.story} stages={d.stages} />
       </div>
 
-      {xml ? (
-        <BpmnView xml={xml} current={d.current} visited={visited} failed={d.incidents.map((i) => i.activityId)} />
-      ) : (
-        <p className="text-xs text-gray-500">Loading diagram…</p>
-      )}
+      <Fold title="The process diagram" hint="the same case on the engine's BPMN map — click any step to see what it does">
+        {xml ? (
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
+            <BpmnView xml={xml} current={d.current} visited={visited} failed={d.incidents.map((i) => i.activityId)} selected={step} onSelect={setStep} />
+            <StepHelp id={step} guide={guide} story={d.story} />
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">Loading diagram…</p>
+        )}
+      </Fold>
 
       {d.incidents.length > 0 && (
         <div className="rounded-lg border border-red-800/60 bg-red-950/30 p-3 text-xs text-red-200">
           {d.incidents.map((i) => (
             <p key={i.activityId + i.time}>
-              <b>{i.activityId}</b>: {i.message}
+              <b>{guide?.steps[i.activityId]?.name ?? i.activityId}</b>: {i.message}
             </p>
           ))}
           <p className="mt-1 text-red-300/70">Retry it from Cockpit (Incidents → Increment retries), or fix the cause and wait for the next retry.</p>
         </div>
       )}
 
-      {d.state === "ACTIVE" && d.current.includes("gw_wait") && !v.simulated && <Upload caseKey={d.caseKey} />}
+      <Fold title="Every decision, in detail" hint={`${plural(d.decisions.length, "decision")} with model, confidence, time and cost`}>
+        <DecisionTable decisions={d.decisions} />
+      </Fold>
 
-      <DecisionTable decisions={d.decisions} />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Documents</h4>
-          {d.documents.length === 0 && <p className="text-xs text-gray-600">None received.</p>}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {d.documents.map((doc) => (
-              <a key={doc.id} href={fileUrl(doc.url)} target="_blank" rel="noreferrer" className="block rounded-lg border border-gray-800 p-1.5 hover:border-gray-600">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={fileUrl(doc.url)} alt={`document ${doc.id}`} className="h-20 w-full rounded object-cover object-top" />
-                <p className="mt-1 truncate text-[11px] text-gray-300">
-                  #{doc.id} {String(doc.extraction?.docType ?? "unread")} {doc.extraction?.language ? `(${String(doc.extraction.language)})` : ""}
-                </p>
-                <p className={`truncate text-[10px] ${doc.accepted ? "text-emerald-400" : doc.problem ? "text-amber-300" : "text-gray-500"}`}>
-                  round {doc.round} · {doc.accepted ? "accepted" : doc.problem ?? "not read yet"}
-                </p>
-              </a>
+      <Fold title="Documents and emails" hint={`${plural(d.documents.length, "document")} · ${plural(d.emails.length, "email")}`} open={false}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div>
+            {d.documents.length === 0 && <p className="text-xs text-gray-600">None received.</p>}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {d.documents.map((doc) => (
+                <a key={doc.id} href={fileUrl(doc.url)} target="_blank" rel="noreferrer" className="block rounded-lg border border-gray-800 p-1.5 hover:border-gray-600">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={fileUrl(doc.url)} alt={`document ${doc.id}`} className="h-20 w-full rounded object-cover object-top" />
+                  <p className="mt-1 truncate text-[11px] text-gray-300">
+                    {String(doc.extraction?.docType ?? "unread")} {doc.extraction?.language ? `(${String(doc.extraction.language)})` : ""}
+                  </p>
+                  <p className={`truncate text-[10px] ${doc.accepted ? "text-emerald-400" : doc.problem ? "text-amber-300" : "text-gray-500"}`}>
+                    round {doc.round} · {doc.accepted ? "accepted" : doc.problem ?? "not read yet"}
+                  </p>
+                </a>
+              ))}
+            </div>
+            {d.artifacts.filter((a) => a.kind === "audio").map((a) => (
+              <div key={a.id} className="mt-3">
+                <p className="mb-1 text-[11px] text-gray-500">Spoken status update ({String(a.detail?.service ?? "")}, {fmtMs(Number(a.detail?.latencyMs))})</p>
+                <audio controls src={fileUrl(a.url)} className="w-full" />
+              </div>
             ))}
           </div>
-          {d.artifacts.filter((a) => a.kind === "audio").map((a) => (
-            <div key={a.id} className="mt-3">
-              <p className="mb-1 text-[11px] text-gray-500">Spoken status update ({String(a.detail?.service ?? "")}, {fmtMs(Number(a.detail?.latencyMs))})</p>
-              <audio controls src={fileUrl(a.url)} className="w-full" />
-            </div>
-          ))}
-        </div>
-        <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Emails to the client</h4>
-          {d.emails.length === 0 && <p className="text-xs text-gray-600">None yet.</p>}
           <div className="space-y-2">
+            {d.emails.length === 0 && <p className="text-xs text-gray-600">None yet.</p>}
             {d.emails.map((e) => (
               <details key={e.id} className="rounded-lg border border-gray-800 px-3 py-2">
                 <summary className="cursor-pointer text-xs text-gray-200">
@@ -214,10 +249,187 @@ function CaseDetailView({ caseKey }: { caseKey: string }) {
             ))}
           </div>
         </div>
-      </div>
+      </Fold>
     </section>
   );
 }
+
+// ── the story ─────────────────────────────────────────────────────────────
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+const TONE = {
+  working: "border-sky-700/60 bg-sky-950/30 text-sky-100",
+  person: "border-amber-600/70 bg-amber-950/40 text-amber-100",
+  done: "border-emerald-700/60 bg-emerald-950/30 text-emerald-100",
+  closed: "border-gray-700 bg-gray-950/60 text-gray-200",
+  bad: "border-red-700/70 bg-red-950/40 text-red-100",
+} as const;
+
+function NowBanner({ now, onOpenInbox }: { now: CaseDetail["now"]; onOpenInbox: () => void }) {
+  return (
+    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 ${TONE[now.tone] ?? TONE.working}`}>
+      <p className="text-sm">
+        <span className="mr-2 text-[11px] font-semibold uppercase tracking-wide opacity-70">{now.tone === "done" || now.tone === "closed" ? "Outcome" : "Right now"}</span>
+        {now.text}
+      </p>
+      {now.needsPerson && (
+        <button onClick={onOpenInbox} className="rounded-md border border-amber-500 bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-100 hover:bg-amber-500/30">
+          This is waiting for you — open the Inbox
+        </button>
+      )}
+    </div>
+  );
+}
+
+function StageBar({ stages }: { stages: Stage[] }) {
+  return (
+    <ol className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-6">
+      {stages.map((s, i) => {
+        const style =
+          s.state === "done"
+            ? "border-emerald-700/60 bg-emerald-950/30 text-emerald-200"
+            : s.state === "current"
+              ? "border-orange-500 bg-orange-500/15 text-orange-100"
+              : s.state === "skipped"
+                ? "border-gray-800 bg-transparent text-gray-600 line-through"
+                : "border-gray-800 bg-gray-950/40 text-gray-500";
+        return (
+          <li key={s.id} className={`rounded-lg border px-3 py-2 ${style}`} title={s.about}>
+            <span className="text-[10px] opacity-70">
+              {i + 1} · {s.state === "done" ? "done" : s.state === "current" ? "now" : s.state === "skipped" ? "not reached" : "next"}
+            </span>
+            <span className="block text-sm font-medium">{s.label}</span>
+            <span className="block text-[10px] leading-snug opacity-70">{s.about}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** **bold** in the lab's sentences → <b>. Nothing else is interpreted. */
+function rich(text: string): ReactNode {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) => (part.startsWith("**") ? <b key={i} className="font-semibold text-gray-50">{part.slice(2, -2)}</b> : <Fragment key={i}>{part}</Fragment>));
+}
+
+export function ActorBadge({ kind }: { kind: string }) {
+  const a = ACTOR[kind] ?? ACTOR.system;
+  return (
+    <span className="inline-block w-[7.5rem] shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-center text-[10px] font-medium" style={{ borderColor: a.hex, color: a.hex, background: `${a.hex}1a` }} title={a.explain}>
+      {a.label}
+    </span>
+  );
+}
+
+function ActorLegend() {
+  return (
+    <details className="text-[11px] text-gray-500">
+      <summary className="cursor-pointer">Who does what?</summary>
+      <ul className="mt-2 space-y-1 rounded-lg border border-gray-800 bg-gray-950/60 p-3">
+        {["client", "dmn", "decision-model", "llm", "human", "system", "wait"].map((k) => (
+          <li key={k} className="flex items-start gap-2">
+            <ActorBadge kind={k} />
+            <span className="text-gray-400">{ACTOR[k].explain}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function Story({ entries, stages }: { entries: StoryEntry[]; stages: Stage[] }) {
+  const label = (id: string | null) => stages.find((s) => s.id === id)?.label ?? "";
+  let lastStage: string | null = null;
+  return (
+    <ol className="space-y-0">
+      {entries.map((e, i) => {
+        const header = e.stage && e.stage !== lastStage;
+        lastStage = e.stage ?? lastStage;
+        return (
+          <Fragment key={i}>
+            {header && <li className="pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label(e.stage)}</li>}
+            <li className={`flex items-start gap-3 rounded-md px-2 py-1.5 ${e.active ? "bg-orange-500/[0.07]" : ""}`}>
+              {e.active ? (
+                <span className="w-14 shrink-0 pt-0.5 text-right text-[11px] font-semibold text-orange-300" title={`Since day ${e.day}`}>now</span>
+              ) : (
+                <span className="w-14 shrink-0 pt-0.5 text-right text-[11px] tabular-nums text-gray-500">day {e.day}</span>
+              )}
+              <ActorBadge kind={e.kind} />
+              <div className="min-w-0 text-[13px] leading-snug text-gray-300">
+                {rich(e.text)}
+                {e.active && <span className="ml-2 animate-pulse text-[11px] text-orange-300">in progress</span>}
+                {e.flag && <span className="ml-2 rounded bg-red-950 px-1.5 py-0.5 text-[10px] text-red-300">{e.flag}</span>}
+                {e.docUrl && (
+                  <a href={fileUrl(e.docUrl)} target="_blank" rel="noreferrer" className="ml-2 text-[11px] text-gray-500 underline">
+                    view document
+                  </a>
+                )}
+                {e.detail && <p className="mt-1 border-l-2 border-gray-700 pl-2 text-[12px] text-gray-400">{e.detail}</p>}
+              </div>
+            </li>
+          </Fragment>
+        );
+      })}
+    </ol>
+  );
+}
+
+function StepHelp({ id, guide, story }: { id: string | null; guide: Guide | null; story: StoryEntry[] }) {
+  if (!id) {
+    return (
+      <aside className="rounded-lg border border-gray-800 bg-gray-950/50 p-3 text-xs text-gray-400">
+        <p className="mb-2 font-medium text-gray-300">Reading the diagram</p>
+        <ul className="list-disc space-y-1 pl-4">
+          <li>Each box is a step; arrows are the order they happen in.</li>
+          <li>
+            <span className="text-orange-300">Orange</span> is where this case is now; <span className="text-emerald-300">green</span> is where it has been.
+          </li>
+          <li>The tag on a box says who decides there: a rule, a decision model, an AI, a person.</li>
+          <li>Diamonds are forks: the case goes one way or the other depending on an answer.</li>
+          <li>Drag to pan, scroll to zoom. Click a step to see what it does.</li>
+        </ul>
+      </aside>
+    );
+  }
+  const s = guide?.steps[id];
+  const here = story.filter((e) => e.activityId === id);
+  return (
+    <aside className="rounded-lg border border-gray-800 bg-gray-950/50 p-3 text-xs">
+      <p className="text-sm font-semibold text-gray-100">{s?.name ?? id}</p>
+      <p className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+        {s?.kind && <ActorBadge kind={s.kind} />}
+        {s?.stage && <span>stage: {guide?.stages.find((x) => x.id === s.stage)?.label}</span>}
+      </p>
+      <p className="mt-2 text-gray-300">{s?.doc ?? "No description for this step."}</p>
+      <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500">In this case</p>
+      {here.length ? (
+        <ul className="mt-1 space-y-1 text-gray-400">
+          {here.map((e, i) => (
+            <li key={i}>
+              day {e.day}: {rich(e.text)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1 text-gray-500">Nothing recorded here for this case (not reached, or a fork that just routes).</p>
+      )}
+    </aside>
+  );
+}
+
+function Fold({ title, hint, children, open = false }: { title: string; hint: string; children: ReactNode; open?: boolean }) {
+  return (
+    <details className="group rounded-lg border border-gray-800" open={open}>
+      <summary className="cursor-pointer px-3 py-2 text-sm text-gray-200">
+        {title} <span className="ml-1 text-[11px] text-gray-500">— {hint}</span>
+      </summary>
+      <div className="border-t border-gray-800 p-3">{children}</div>
+    </details>
+  );
+}
+
+// ── the technical view ─────────────────────────────────────────────────────
 
 export function DecisionTable({ decisions }: { decisions: Decision[] }) {
   return (
@@ -236,6 +448,9 @@ export function DecisionTable({ decisions }: { decisions: Decision[] }) {
         <tbody className="divide-y divide-gray-800">
           {decisions.map((x, i) => {
             const failedLocal = x.detail?.attempts?.filter((a) => !a.ok) ?? [];
+            // A decision model's unsure answer goes to the LLM tier, not to a
+            // person; only the final answer can hand a question to a person.
+            const handedTo = x.escalated ? (x.detail?.escalatedTo === "llm" ? "to LLM" : "to a person") : null;
             return (
               <tr key={(x.id ?? "") + x.at + i} className={x.rootDecisionInstanceId ? "opacity-60" : ""}>
                 <td className="px-3 py-2 align-top">
@@ -258,7 +473,7 @@ export function DecisionTable({ decisions }: { decisions: Decision[] }) {
                   )}
                 </td>
                 <td className="px-3 py-2 align-top text-[10px]">
-                  {x.escalated && <span className="mr-1 rounded bg-amber-950 px-1.5 py-0.5 text-amber-300">to a person</span>}
+                  {handedTo && <span className="mr-1 rounded bg-amber-950 px-1.5 py-0.5 text-amber-300">{handedTo}</span>}
                   {x.overridden && <span className="mr-1 rounded bg-red-950 px-1.5 py-0.5 text-red-300">overridden</span>}
                   {x.correct === true && <span className="mr-1 text-emerald-400">✓ truth</span>}
                   {x.correct === false && <span className="mr-1 text-red-400">✗ truth</span>}

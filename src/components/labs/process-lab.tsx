@@ -6,7 +6,7 @@ import { ToolPageHeader } from "@/components/tool-page";
 import { ServiceControl } from "@/components/service-control";
 import Markdown from "@/components/markdown";
 import type { LabComponentProps } from "@/lib/labs";
-import { lab, type LabStatus, type Overview } from "./process/api";
+import { lab, type Guide, type LabStatus, type Overview } from "./process/api";
 import CasesView from "./process/case-view";
 import InboxView from "./process/inbox-view";
 import { NumbersView, SimulateView } from "./process/sim-view";
@@ -32,6 +32,7 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
   const [ovErr, setOvErr] = useState<string | null>(null);
   const [sub, setSub] = useState<Sub>("cases");
   const [run, setRun] = useState("");
+  const [guide, setGuide] = useState<Guide | null>(null);
 
   const loadStatus = useCallback(async () => {
     const s = await fetch("/api/labs/process/status", { cache: "no-store" }).then((r) => r.json() as Promise<LabStatus>);
@@ -45,6 +46,10 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
     } catch (e) {
       setOvErr(e instanceof Error ? e.message : String(e));
     }
+  }, []);
+
+  useEffect(() => {
+    lab<Guide>("api/guide").then(setGuide, () => {});
   }, []);
 
   useEffect(() => {
@@ -132,6 +137,7 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
 
       {ov && labUp && (
         <>
+          <HowItWorks />
           <nav className="flex flex-wrap gap-1 border-b border-gray-800">
             {tabs.map((t) => (
               <button
@@ -144,7 +150,7 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
               </button>
             ))}
           </nav>
-          {sub === "cases" && <CasesView runFilter={run} onRunFilter={setRun} runs={ov.runs} />}
+          {sub === "cases" && <CasesView runFilter={run} onRunFilter={setRun} runs={ov.runs} guide={guide} onOpenInbox={() => setSub("inbox")} />}
           {sub === "inbox" && <InboxView onDone={loadOverview} />}
           {sub === "simulate" && (
             <SimulateView
@@ -163,6 +169,57 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
 
       <Doc path={def.doc} />
     </div>
+  );
+}
+
+/**
+ * The three sentences someone needs before any of this makes sense. Folded
+ * once read (remembered per browser), never gone.
+ */
+function HowItWorks() {
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("process-lab-howto") === "closed") setOpen(false);
+    } catch {}
+  }, []);
+  return (
+    <details
+      open={open}
+      onToggle={(e) => {
+        const o = (e.currentTarget as HTMLDetailsElement).open;
+        setOpen(o);
+        try {
+          localStorage.setItem("process-lab-howto", o ? "open" : "closed");
+        } catch {}
+      }}
+      className="rounded-xl border border-gray-800 bg-gray-900/60"
+    >
+      <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-gray-100">How this works</summary>
+      <div className="grid gap-4 border-t border-gray-800 px-4 py-4 text-[13px] leading-relaxed text-gray-300 md:grid-cols-3">
+        <div>
+          <p className="mb-1 font-semibold text-gray-100">1 · A pretend agency</p>
+          <p>
+            A relocation agency helps people move abroad: visas, residency permits, housing, bank accounts, school places, licences. Each client request becomes a <b>case</b>, and every case
+            goes through the same six stages: <b>Intake → Documents → Eligibility → Review → Authority → Outcome</b>.
+          </p>
+        </div>
+        <div>
+          <p className="mb-1 font-semibold text-gray-100">2 · Who decides what</p>
+          <p>
+            <b>Rules</b> decide what can be written down: fees, which documents are needed, who is eligible. <b>AI</b> does the reading and writing: it works out what the client wants,
+            reads their documents (Arabic too), writes their emails and briefs the consultant. A <b>person</b> steps in whenever the AI isn&apos;t sure, and approves every submission.
+          </p>
+        </div>
+        <div>
+          <p className="mb-1 font-semibold text-gray-100">3 · Try it</p>
+          <p>
+            <b>Simulate</b> runs pretend clients through it (each with a known right answer). <b>Cases</b> tells each one&apos;s story in plain words. Anything waiting for a person is in the{" "}
+            <b>Inbox</b>. <b>Numbers</b> shows how well it went; <b>Catalog &amp; rules</b> shows the rules themselves.
+          </p>
+        </div>
+      </div>
+    </details>
   );
 }
 

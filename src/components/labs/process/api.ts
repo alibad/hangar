@@ -84,7 +84,32 @@ export type Decision = {
   at: string;
 };
 
+export type StageState = "done" | "current" | "todo" | "skipped";
+export type Stage = { id: string; label: string; about: string; state: StageState };
+export type StoryEntry = {
+  at: string;
+  day: number;
+  stage: string | null;
+  activityId: string;
+  kind: string;
+  text: string;
+  active?: boolean;
+  needsPerson?: string | null;
+  flag?: string | null;
+  detail?: string | null;
+  docUrl?: string | null;
+};
+export type Now = { text: string; needsPerson: string | null; tone: "working" | "person" | "done" | "closed" | "bad" };
+/** Plain-language help for every step, from the BPMN file's own documentation. */
+export type Guide = {
+  stages: { id: string; label: string; about: string }[];
+  steps: Record<string, { id: string; type: string; name: string | null; doc: string | null; kind: string | null; stage: string | null }>;
+};
+
 export type CaseDetail = CaseRow & {
+  now: Now;
+  stages: Stage[];
+  story: StoryEntry[];
   variables: Record<string, unknown>;
   truth: Record<string, unknown> | null;
   activities: { id: string; name: string | null; type: string; start: string; end: string | null; ms: number | null; canceled: boolean }[];
@@ -135,6 +160,18 @@ export const KIND_STYLE: Record<DecisionKind, { label: string; cls: string; hex:
   llm: { label: "LLM", cls: "", hex: "#f59e0b" },
   human: { label: "Human", cls: "", hex: "#34d399" },
   system: { label: "System", cls: "", hex: "#9ca3af" },
+};
+
+/** Who or what acted, in words for someone who doesn't know the jargon. */
+export const ACTOR: Record<string, { label: string; hex: string; explain: string }> = {
+  client: { label: "Client", hex: "#e7e5e4", explain: "Something the client did" },
+  dmn: { label: "Rule", hex: "#38bdf8", explain: "A written rule table (DMN): same facts, same answer, every time" },
+  "decision-model": { label: "Decision model", hex: "#a78bfa", explain: "Laya, a small fast classifier that picks one of a few answers with a probability" },
+  llm: { label: "AI", hex: "#f59e0b", explain: "A large language model: reads documents, writes emails, briefs the consultant" },
+  human: { label: "Person", hex: "#34d399", explain: "A consultant, when the AI isn't sure, and to approve every submission" },
+  system: { label: "System", hex: "#9ca3af", explain: "Plumbing: submissions, escalations, the (simulated) authority" },
+  wait: { label: "Waiting", hex: "#78716c", explain: "Time passing: for the client, or for the authority" },
+  end: { label: "Outcome", hex: "#fb923c", explain: "How the case ended" },
 };
 
 export function fmtMs(ms: number | null | undefined): string {

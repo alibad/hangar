@@ -20,18 +20,28 @@ export default function BpmnView({
   visited = [],
   failed = [],
   height = 340,
+  selected = null,
+  onSelect,
 }: {
   xml: string;
   current?: string[];
   visited?: string[];
   failed?: string[];
   height?: number;
+  /** The step whose help is open, outlined in blue. */
+  selected?: string | null;
+  /** Called with a step's id when it is clicked (labels resolve to their step). */
+  onSelect?: (id: string | null) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   // bpmn-js has no types we depend on; keep the instance opaque.
   const viewer = useRef<{ importXML: (x: string) => Promise<unknown>; get: (n: string) => any; destroy: () => void } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(0);
+  // The click listener is bound once per import; the ref keeps it calling the
+  // latest handler without re-importing the diagram.
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
 
   useEffect(() => {
     let alive = true;
@@ -42,6 +52,12 @@ export default function BpmnView({
       viewer.current = v;
       try {
         await v.importXML(xml);
+        v.get("eventBus").on("element.click", (e: any) => {
+          const el = e.element?.labelTarget ?? e.element;
+          const type: string = el?.businessObject?.$type ?? "";
+          if (!el || type === "bpmn:Process" || type === "bpmn:SequenceFlow") return onSelectRef.current?.(null);
+          onSelectRef.current?.(el.id);
+        });
         setReady((n) => n + 1);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -63,7 +79,7 @@ export default function BpmnView({
     const overlays = v.get("overlays");
     overlays.clear();
     for (const el of registry.getAll()) {
-      for (const m of ["pl-current", "pl-visited", "pl-failed"]) canvas.removeMarker(el.id, m);
+      for (const m of ["pl-current", "pl-visited", "pl-failed", "pl-selected"]) canvas.removeMarker(el.id, m);
       const kind = kindOf(el.businessObject) as DecisionKind | null;
       if (kind && KIND_STYLE[kind]) {
         overlays.add(el.id, {
@@ -76,7 +92,8 @@ export default function BpmnView({
     visited.filter(has).forEach((id) => canvas.addMarker(id, "pl-visited"));
     current.filter(has).forEach((id) => canvas.addMarker(id, "pl-current"));
     failed.filter(has).forEach((id) => canvas.addMarker(id, "pl-failed"));
-  }, [ready, current.join(), visited.join(), failed.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (selected && has(selected)) canvas.addMarker(selected, "pl-selected");
+  }, [ready, current.join(), visited.join(), failed.join(), selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Frame the case: the whole process is 26 columns wide, unreadable when
   // fitted into a panel, so a live case opens zoomed onto where it is now and
@@ -108,6 +125,8 @@ export default function BpmnView({
         .pl-bpmn .djs-element.pl-visited .djs-visual > :first-child { fill: #ecfdf5 !important; stroke: #059669 !important; }
         .pl-bpmn .djs-element.pl-current .djs-visual > :first-child { fill: #fff7ed !important; stroke: #ea580c !important; stroke-width: 4px !important; }
         .pl-bpmn .djs-element.pl-failed .djs-visual > :first-child { fill: #fef2f2 !important; stroke: #dc2626 !important; stroke-width: 4px !important; }
+        .pl-bpmn .djs-element.pl-selected .djs-visual > :first-child { stroke: #2563eb !important; stroke-width: 5px !important; }
+        .pl-bpmn .djs-element.djs-shape { cursor: pointer; }
       `}</style>
       <div ref={box} className="pl-bpmn" style={{ height }} />
       {error && <p className="absolute left-3 top-3 rounded bg-red-50 px-2 py-1 text-xs text-red-700">Could not draw the diagram: {error}</p>}
