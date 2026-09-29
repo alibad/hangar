@@ -8,6 +8,16 @@ import { fileUrl, lab, type InboxItem } from "./api";
  * beside the form. Completing a task records what the person decided and
  * whether it overrode the AI — the numbers on the Numbers tab come from here.
  */
+
+// The rules' verdict at a glance: green to go, amber for a judgement call,
+// red for no. (The theme's accent colours are category hues, not pass/fail.)
+const ELIGIBILITY_TONE: Record<string, string> = {
+  eligible: "text-emerald-300",
+  refer: "text-amber-300",
+  ineligible: "text-red-300",
+  "not-required": "text-gray-300",
+};
+
 export default function InboxView({ onDone }: { onDone?: () => void }) {
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -202,7 +212,7 @@ function Approve({ t, busy, submit }: { t: InboxItem; busy: boolean; submit: (b:
       <div className="space-y-2 text-xs">
         <p>
           <span className="text-gray-500">Eligibility (DMN): </span>
-          <span className="text-sky-300">{t.eligibility?.outcome}</span>
+          <span className={ELIGIBILITY_TONE[String(t.eligibility?.outcome)] ?? "text-gray-200"}>{t.eligibility?.outcome}</span>
           <span className="text-gray-400"> — {t.eligibility?.reason}</span>
           {t.eligibility?.route && <span className="block text-gray-500">route: {t.eligibility.route}</span>}
         </p>
