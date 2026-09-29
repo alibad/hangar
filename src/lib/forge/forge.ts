@@ -332,7 +332,21 @@ class Forge {
             item.status = "brief";
             note(item, "Window closed before the first frame was made; back to tonight's list");
             await saveItem(item);
-          } else await this.advance(item, s);
+            continue;
+          }
+          // A clip that never got the memory (on the first night quote-forge's
+          // drip started vllm-small again between two jobs) would otherwise wait
+          // in the coordinator's queue all day. Give up on it, keep the brief.
+          const job = item.video ? await videoQueue.get(item.video.jobId) : undefined;
+          if (job && (job.status === "queued" || job.status === "waiting")) {
+            await videoQueue.cancel(job.id);
+            item.status = "brief";
+            item.video = undefined;
+            note(item, `Window closed while the clip was still waiting for memory${job.block ? ` (${job.block.message})` : ""}; back to tonight's list`);
+            await saveItem(item);
+            continue;
+          }
+          await this.advance(item, s);
         }
         if (!(await itemsWithStatus("rendering")).length) await this.leaveWindow("window closed");
         if (s.enabled) await this.maybeListen(s);
@@ -545,7 +559,8 @@ class Forge {
       } else {
         const step = job.stepsTotal ? `, step ${job.stepsDone ?? 0}/${job.stepsTotal}` : "";
         const eta = job.etaSec != null ? `, ~${Math.max(1, Math.round(job.etaSec / 60))} min left` : "";
-        this.runtime.now = `Rendering "${item.topic}" (${job.stage}${step}${eta}).${job.block ? ` Waiting: ${job.block.message}` : ""}`;
+        const holder = job.block && (await smallModelUp()) ? " vllm-small is running again — something restarted it after the forge paused it (quote-forge's drip does, every 5 min)." : "";
+        this.runtime.now = `Rendering "${item.topic}" (${job.stage}${step}${eta}).${job.block ? ` Waiting for memory: ${job.block.message}.${holder}` : ""}`;
         return;
       }
       await saveItem(item);
