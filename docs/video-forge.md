@@ -1,6 +1,6 @@
 # Video Forge — a loop that listens and makes clips overnight
 
-**Status (2026-09-30 01:00):** the listening and brief-writing half works end to end on live data. The render half runs for the first time in tonight's window; the results below are filled in as they land.
+**Status (2026-09-30 01:15):** working end to end, unattended. In the first night's window it made four clips from four briefs — each time taking the GPU claim, pausing vllm-small, rendering, and starting vllm-small again — and they are waiting for review in the Forge tab.
 
 ## What it is
 
@@ -31,9 +31,27 @@ Nothing is published anywhere.
 | 2 | Code changes had no effect: the loop object kept the **old module's closures** across hot reload | The singleton is now replaced whenever its class changes |
 | 3 | The ranker, shown the full news line, anchored on the person in each headline and scored all 24 candidates 0 | Titles + a 90-character hint, worked examples ("NHL schedule → an ice rink under arena lights") |
 | 4 | 8 of 24 scored 2+. It searched, read IMDb, was **sent back twice** for "people" in its prompt, rewrote it, and submitted a people-free sunset street scene for a trending film release | — |
+| 5 | Twice the whole-list ranker's reply held no JSON; the fallback passed the list **unranked** and an NFL player's name became a brief | Each candidate judged on its own ("is it a specific person? how visual without people?"), in parallel — 24 in ~5.5 s; a person is skipped outright; nothing judged means nothing made |
+| 6 | Five refusals in a row: "an empty checkpoint with **no travelers**" read as people | Negated mentions ("no", "without", "empty of") are allowed; after two refusals on one candidate it is told to move on |
+| 7 | 24/24 judged, 17–19 usable; people skipped by name (Justin Verlander, Kate Upton, Virat Kohli…). Briefs in 3.9–5.7 s | — |
 
 A 7B is a modest researcher: briefs are usable, not inspired. It follows the tool protocol reliably through vLLM's hermes parser (every call so far arrived as a proper `tool_calls` entry).
 
-## Measurements
+## The first night (2026-09-30, 01:00–01:08)
 
-*Pending tonight's window.*
+| Clip | Render | Card peak | Verdict on looking at it |
+|---|---|---|---|
+| 2026 Asian Games medal table — a stadium scoreboard | 58 s | 25.1 GB | **Bad.** The brief asked for a scoreboard showing the table; the lettering is gibberish and the frame melts into blur. Written before briefs with writing were refused. |
+| USA vs Chile — an empty stadium at dusk under floodlights | 58 s | 25.4 GB | **Good.** Coherent slow pan; a light streak and a green glow creep in at the end. |
+| Airport security checkpoint — scanners in morning light | 56 s | 25.4 GB | **Good until the last second**, when the video model walks a traveller in. The still had nobody. |
+| India at the Asian Games — a flag in a floodlit stadium | 58 s | 25.4 GB | **Good.** The first clip made with the negative prompt; the still model (Z-Image) put a faint crowd in the stands although the prompt said empty. |
+
+Each clip: Z-Image Turbo first frame (1280×720, a few seconds), then Wan 2.2 5B image-to-video, 832×480, 5 s at 24 fps, 20 steps. Pause → render → restart of vllm-small happened twice without help; the claim file was written, confirmed and cleared each time.
+
+Fixes from looking at the clips:
+
+- **Writing on screen** is refused in briefs (video models cannot render text).
+- **A negative prompt** — people, faces, crowds, text, logos — is appended for every forge clip. Wan 2.2 5B samples with real CFG (5), so it steers; the distilled models (cfg 1) would ignore it.
+- ComfyUI's cached still weights are dropped before the clip asks the coordinator for memory.
+
+Still open: the still model can add people the prompt said were absent (Z-Image Turbo has no negative prompt). A vision check of the still before animating it would catch that, at the cost of loading a vision model in the window.
