@@ -149,6 +149,19 @@ export const LABS: LabDefinition[] = [
     doc: "docs/video-model-experiment-2026-09-27.md",
     load: () => import("@/components/labs/video-lab"),
   },
+  {
+    id: "forge",
+    label: "Video Forge",
+    hint: "A loop: hears what is trending, a local model writes a brief, clips are made overnight for your review",
+    keywords: "video forge loop trending trends listen research brief overnight nightly searxng search agent tools review approve reject",
+    capability: "video",
+    input: "structured",
+    output: "video",
+    // Everything is local by design; there is nothing to compare against.
+    cloudComparison: false,
+    doc: "docs/video-forge.md",
+    load: () => import("@/components/labs/video-forge"),
+  },
 ];
 
 // ── tabs ────────────────────────────────────────────────────────────────────

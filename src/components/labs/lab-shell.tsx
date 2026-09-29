@@ -386,7 +386,7 @@ function ResultColumn<T>({
   );
 }
 
-function ExperimentDoc({ path }: { path?: string }) {
+export function ExperimentDoc({ path }: { path?: string }) {
   const [md, setMd] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   if (!path) {
