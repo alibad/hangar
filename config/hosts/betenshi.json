@@ -244,6 +244,18 @@
       "note": "Operaton 2.1.4 (Apache-2.0 fork of Camunda 7): executes the process lab's BPMN 2.0 processes and DMN 1.3 decisions, with Cockpit and Tasklist at /operaton/app/. Docker container 'process-engine' from C:\\Users\\Admin\\Code\\AI\\process-lab\\docker-compose.yml; H2 in a named volume. No GPU; measured 628 MiB RAM with 16 cases in flight (docker stats, 27 Sep 2026). localOnly and bound to 127.0.0.1: the REST API is unauthenticated. Why this engine: process-lab/docs/engine-choice.md."
     },
     {
+      "id": "searxng",
+      "name": "SearXNG (web search)",
+      "localPort": 8888,
+      "localUrl": "http://127.0.0.1:8888",
+      "publicUrl": "http://127.0.0.1:8888",
+      "healthPath": "/healthz",
+      "category": "app",
+      "authRequired": false,
+      "localOnly": true,
+      "note": "Self-hosted metasearch (Brave, Google, Bing, Wikipedia and more) so a local model can search the web for free: the Video Forge's search tool calls /search?format=json. Docker container 'searxng' (searxng/searxng), published on 127.0.0.1:8888 only, restart unless-stopped; settings in C:\\Users\\Admin\\Code\\AI\\searxng\\settings.yml, secret in the container env. No GPU; ~125 MB RAM measured (docker stats, 30 Sep 2026). DuckDuckGo answers it with a CAPTCHA; the other engines work. localOnly: it must never be exposed."
+    },
+    {
       "id": "process-lab",
       "name": "Process lab",
       "localPort": 8086,

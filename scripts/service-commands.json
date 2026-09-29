@@ -125,6 +125,11 @@
     "docker": "process-engine"
   },
 
+  "searxng": {
+    "_doc": "Free web search for local models (the Video Forge's search tool). The manager only docker-starts an existing container; it was created once with: docker run -d --name searxng --restart unless-stopped -p 127.0.0.1:8888:8080 -e SEARXNG_SECRET=<random hex> -e SEARXNG_BASE_URL=http://127.0.0.1:8888/ -v C:/Users/Admin/Code/AI/searxng:/etc/searxng searxng/searxng:latest. Loopback-only: never publish it on 0.0.0.0.",
+    "docker": "searxng"
+  },
+
   "process-lab": {
     "_doc": "The process lab's workers, simulator and API (Node 24, no npm dependencies). WHEN_LOCAL_UNAVAILABLE=cloud: when the coordinator will not give the GPU, or another session holds logs/gpu-claim.txt, an AI step runs on the cloud model instead of waiting, and the case record says so with the cost. Set it to 'fail' to make cases wait for the local model instead.",
     "cmd": "C:\\Program Files\\nodejs\\node.exe",

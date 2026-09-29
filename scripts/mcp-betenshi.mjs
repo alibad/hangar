@@ -605,6 +605,43 @@ async function generateVideo({ prompt, model, image, seconds, resolution, wait_m
   return job.status === "failed" || job.status === "cancelled" ? fail(describeVideoJob(job)) : ok(describeVideoJob(job));
 }
 
+async function videoForge({ action = "status", id, verdict, reason }) {
+  const post = async (body, ms) => {
+    const { error, res } = await consoleFetch("/api/forge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, ms);
+    if (error) return { error };
+    const json = await res.json().catch(() => ({}));
+    return res.ok ? { json } : { error: json.error ?? `HTTP ${res.status}` };
+  };
+  if (action === "listen") {
+    const { error, json } = await post({ action: "listen" }, 300_000);
+    if (error) return fail(error);
+    const i = json.item;
+    if (i.status !== "brief") return ok(`Listened, made no brief: ${i.error}`);
+    return ok(`Brief "${i.topic}" (heard: ${i.heard}). Why now: ${i.whyNow}\nFirst frame: ${i.stillPrompt}\nMotion: ${i.motionPrompt}\nIt will be made in tonight's window.`);
+  }
+  if (action === "review") {
+    if (!id || !["approved", "rejected"].includes(verdict)) return fail("Pass id and verdict (approved | rejected).");
+    const { error, json } = await post({ action: "review", id, verdict, reason }, 30_000);
+    if (error) return fail(error);
+    return ok(`${json.item.topic}: ${verdict}${reason ? ` — ${reason}` : ""}. The next briefs will take it into account.`);
+  }
+  const { error, res } = await consoleFetch("/api/forge", {}, 30_000);
+  if (error) return fail(error);
+  const d = await res.json().catch(() => ({}));
+  const by = (s) => d.items.filter((i) => s.includes(i.status));
+  const review = by(["review"]).map((i) => `  ${i.id} "${i.topic}" — ${i.video?.output ? path.join(CONSOLE_GENERATED, "video", i.video.output) : "no file"}`);
+  const tonight = by(["brief", "still", "rendering"]).map((i) => `  "${i.topic}" (${i.status})`);
+  return ok(
+    [
+      `Right now: ${d.runtime.now ?? "starting"}`,
+      d.window.open ? `Render window open, ${d.window.minutesLeft} min left.` : `Next render window ${new Date(d.window.nextStart).toLocaleString()} (${d.settings.window.start}-${d.settings.window.end}).`,
+      `Brief writer (vllm-small): ${d.services.smallModel ? "up" : "down"}; web search (SearXNG): ${d.services.search ? "up" : "down"}.`,
+      `Waiting for review (${review.length}):${review.length ? `\n${review.join("\n")}` : " none"}`,
+      `To make (${tonight.length}):${tonight.length ? `\n${tonight.join("\n")}` : " none"}`,
+    ].join("\n"),
+  );
+}
+
 async function videoJob({ id }) {
   if (!id) return fail("Which job? Pass the id generate_video returned.");
   const { error, res } = await consoleFetch(`/api/video/jobs/${encodeURIComponent(id)}`, {}, 15_000);
@@ -862,6 +899,27 @@ const TOOLS = [
       required: ["id"],
     },
     run: videoJob,
+  },
+  {
+    name: "video_forge",
+    description:
+      "The Video Forge: a loop in the console that listens to what is trending (Google Trends, Wikipedia most-read, Hacker News), has a local model " +
+      "(vllm-small, free) research one topic with web search and write a brief, and makes a 5 s clip from it overnight (01:00-07:00, when it may pause " +
+      "vllm-small) for the user's review. Actions: status (what it is doing, tonight's list, clips waiting for review with their mp4 paths), listen " +
+      "(hear the trends and write one brief now, ~15 s, costs nothing), review (approve or reject a finished clip, with a reason the next briefs learn from). " +
+      "Do NOT use it to make a specific clip now (use generate_video), do not approve or reject clips unless the user said which and why, and never " +
+      "publish its clips anywhere — nothing it makes is published.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["status", "listen", "review"] },
+        id: { type: "string", description: "review: the clip's item id, from status." },
+        verdict: { type: "string", enum: ["approved", "rejected"], description: "review." },
+        reason: { type: "string", description: "review: why, in the user's words — it steers the next briefs." },
+      },
+      required: ["action"],
+    },
+    run: videoForge,
   },
 ];
 
