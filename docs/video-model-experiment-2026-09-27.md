@@ -1,10 +1,39 @@
 # Video model experiment — 2026-09-27
 
-_Draft — measurements in progress on BeTenshi (RTX 5090 32 GB, 63 GB RAM)._
+_BeTenshi (RTX 5090 32 GB, 63 GB RAM). Updated 2026-09-30 after the first night's measured runs._
 
 ## Recommendation
 
-_Pending measurements._
+**Use Wan 2.2 TI2V 5B (Apache 2.0) as the default local video model — for the Video Lab and for the Video Forge.** It is the only model measured end to end on this box so far, and it is fast enough to be useful: **a 5 s, 480p clip in ~58 s** (5.2 s of video per minute of generation), 10 s at 480p in 130 s, and 5 s at 720p in 152 s. Eight clips were made with it on 2026-09-30, four of them by the Forge unattended.
+
+- **For the city-page use case (10–15 s):** 10 s at 480p in ~2 min, or 10 s at 720p in ~6.5 min. Wan 5B's graph caps a clip at 10 s; a 15 s page clip is two clips or a heavier model.
+- **It needs the card to itself.** ComfyUI's process peaked at 23–24 GB VRAM and 17–19 GB RAM, with the card free. Beside quote-forge's vllm-small (17.5 GB) it is refused by the coordinator — which is why video is made in the owner-approved 01:00–07:00 window.
+- **Not yet measured:** Wan 2.2 14B, LTX-2.5, HunyuanVideo 1.5, MiniMax H3 — all installed (LTX-2.5 finished downloading) with graphs validated against ComfyUI's `/object_info`. Their runs were queued on the first night and could not start: quote-forge's drip starts vllm-small again within 5 minutes of it being paused (its dependency check asks the manager, and the manager says yes whenever there is room between two jobs). Until the window can hold vllm-small off, only a model that fits beside it can be measured. See "What blocks the rest".
+- **On public evidence, MiniMax H3 is the strongest open model** (arena Elo 1220 / 1181, above Veo 3.1) — but its licence grants no rights in the USA, EU, UK or South Korea, so it stays a benchmark, not a default. LTX-2.5 is the strongest with a usable licence and adds audio.
+- **Cloud comparison: none reachable.** Veo 3.1 Fast/Lite are wired into the Lab but Google refuses them on this key (quota / billing); Sora's video API is gone. Their price, for the record, is $0.10/s (Fast, 720p) and $0.05/s (Lite) — a 10 s city clip would be $0.50–$1.00.
+
+## Measured on BeTenshi (2026-09-30, 01:08–01:20)
+
+Image-to-video from the same locally made Lisbon still (Z-Image Turbo), one seed, the Video Lab's queue, card to itself (vllm-small paused in the window). "Process" figures are ComfyUI's own, from Windows' per-process GPU and working-set counters; "card" is nvidia-smi's total.
+
+| model | size | clip | wall time | s of video / min | load · sample · decode | ComfyUI VRAM peak | ComfyUI RAM peak | card peak |
+|---|---|---|---|---|---|---|---|---|
+| Wan 2.2 5B | 832×480 | 5 s | 58 s | 5.21 | 5 · 43 · 10 s | 23.2 GB | 18.2 GB | 25.4 GB |
+| Wan 2.2 5B | 832×480 | 10 s | 130 s | 4.62 | 5 · 106 · 19 s | 23.2 GB | 18.8 GB | 25.4 GB |
+| Wan 2.2 5B | 1280×704 | 5 s | 152 s | 1.98 | 5 · 128 · 19 s | 24.3 GB | 16.7 GB | 26.5 GB |
+| Wan 2.2 5B | 1280×704 | 10 s | 388 s | 1.55 | — | 24.4 GB | 16.8 GB | — |
+
+The Forge's four clips that night (480p, 5 s) took 56–58 s each — the same figure from a different path, which is the check that the bench and the product agree.
+
+Quality, by looking at the clips (the Forge doc has the frames): coherent slow camera moves on landscapes and venues; **writing on screen becomes gibberish**; and the model can **walk a person into an empty scene** in the last second. Wan 5B samples with real CFG (5), so a negative prompt steers it; the Forge now sends one.
+
+### What blocks the rest
+
+The window pauses vllm-small, but quote-forge's `src/deps.ts` asks the manager to start it every 5 minutes, and the coordinator admits it whenever the card is momentarily free — between two video jobs. Fixes, in order of preference (none applied; each is the owner's call):
+
+1. quote-forge honours `logs/gpu-claim.txt` before asking for a GPU service (the protocol every session already follows);
+2. the manager keeps a service stopped by a window owner stopped until the window ends;
+3. the window also pauses quote-forge's drip (its documented `var/STOP_DRIP` switch).
 
 ## What is current (verified 27 Sep 2026)
 
