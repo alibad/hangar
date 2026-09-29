@@ -5,7 +5,10 @@ import { getDb } from "../db";
 import { generateAndSave } from "../image-gen";
 import { videoQueue, videoRoot } from "../video-jobs";
 import { listenAll, SEARXNG_URL, type SignalSource } from "./sources";
-import { shortlist, writeBrief, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
+import { writeBrief, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
+import { nextWindowStart, shortlist, windowMinutesLeft } from "./rules";
+
+export { nextWindowStart, windowMinutesLeft } from "./rules";
 
 /**
  * The Video Forge: a loop that listens to what is trending, has a local model
@@ -206,31 +209,6 @@ export async function updateSettings(patch: Partial<ForgeSettings>): Promise<For
   await writeState("settings", next);
   forge.kick();
   return next;
-}
-
-// ── time ───────────────────────────────────────────────────────────────────────
-
-const minutesOf = (hhmm: string) => {
-  const [h, m] = hhmm.split(":").map(Number);
-  return (h || 0) * 60 + (m || 0);
-};
-
-/** Minutes left in the window, or null outside it. Handles windows that cross midnight. */
-export function windowMinutesLeft(win: { start: string; end: string }, at = new Date()): number | null {
-  const now = at.getHours() * 60 + at.getMinutes();
-  const s = minutesOf(win.start);
-  const e = minutesOf(win.end);
-  const inside = s <= e ? now >= s && now < e : now >= s || now < e;
-  if (!inside) return null;
-  return (e - now + 1440) % 1440 || 1440;
-}
-
-export function nextWindowStart(win: { start: string }, at = new Date()): Date {
-  const d = new Date(at);
-  const s = minutesOf(win.start);
-  d.setHours(Math.floor(s / 60), s % 60, 0, 0);
-  if (d <= at) d.setDate(d.getDate() + 1);
-  return d;
 }
 
 // ── the box: claim file, vllm-small ────────────────────────────────────────────
@@ -435,6 +413,7 @@ class Forge {
       await saveItem(item);
       this.runtime.lastListenAt = stamp();
       this.runtime.lastListenOutcome = item.status === "brief" ? `Picked "${item.topic}"` : item.error;
+      this.runtime.now = item.status === "brief" ? `Wrote a brief: "${item.topic}". It will be made in tonight's window.` : `Listened, made nothing: ${item.error}`;
       return item;
     } finally {
       this.runtime.listening = false;
