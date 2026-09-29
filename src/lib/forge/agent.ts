@@ -52,61 +52,89 @@ export type ReviewMemory = { topic: string; verdict: "approved" | "rejected"; re
 export type Ranked = Candidate & { score: number; subject: string };
 
 /**
- * Score every candidate for how good a people-free clip it can become, in one
- * plain JSON call. Without this the 7B took candidate #1 whatever it was (the
- * first live run: a TSA staffing rule). The research loop then only sees the
- * best few, in order, each with the subject the ranker had in mind.
+ * Ask, per candidate, whether it can become a good clip without people — one
+ * tiny JSON question each, in parallel (vLLM batches them; ~1-2 s for 24).
+ *
+ * Why not one call for the whole list: the 7B did that inconsistently — an
+ * "ice hockey rink" idea scored 0, whole lists scored 0, and twice the reply
+ * had no JSON at all, which let a list with people's names through unranked
+ * (an NFL player became a brief). A small question per topic is the shape a
+ * 7B answers reliably, and a named person is asked about explicitly.
  */
-export async function rankCandidates(candidates: Candidate[], model: string, trace: AgentTrace, signal?: AbortSignal): Promise<Ranked[]> {
-  // Titles with a short hint only: with the full news line attached, the 7B
-  // anchored on the person in the headline and scored a whole night's list 0.
-  const list = candidates.map((c) => `${c.n}. ${c.title}${c.detail ? ` (${c.detail.replace(/^news: /, "").slice(0, 90)})` : ""}`).join("\n");
+async function judgeOne(c: Candidate, model: string, signal?: AbortSignal): Promise<{ person: boolean; visual: number; subject: string; tokens: [number, number] } | null> {
   const prompt = [
-    "Rate each topic for a 5-second silent video clip. The clip may NOT show any person, so think of the PLACE, OBJECT, NATURE or MOOD that evokes the topic.",
-    "3 = the topic itself is visual without people: a sky or space event, a season, weather, a landscape or city, nature, animals, food, a festival's lights, a launch, a machine",
-    "2 = shown well through a place or object: a sports event → the empty stadium or rink under floodlights; a new phone → the device on a table; a film → its setting",
-    "1 = abstract, it would need words to explain",
-    "0 = it only makes sense by showing a specific person, or it is news about politics, crime, lawsuits, business deals or conflict",
-    'Examples: "NHL schedule" → 2, an ice rink under arena lights. "Harvest moon" → 3, the moon rising over fields. "Kate Upton" → 0, a person. "Senate vote" → 0, politics.',
+    `Topic trending today: "${c.title}"${c.detail ? ` (${c.detail.replace(/^news: /, "").slice(0, 100)})` : ""}`,
     "",
-    list,
-    "",
-    'Reply with JSON only: [{"n": 1, "score": 0, "subject": "what the clip would show, in a few words, with no people"}, ...] — one entry per topic.',
+    "We make a 5-second silent video clip that evokes a topic WITHOUT showing any person and without any text on screen.",
+    "Answer three things:",
+    '- "person": true if the topic is a specific real person (an athlete, a celebrity, a politician, a named individual), else false.',
+    '- "visual": 3 if the topic itself is visual without people (sky, space, season, weather, landscape, city, nature, animals, food, festival lights, a launch, a machine); 2 if a place or object evokes it well (a sports event: the empty stadium or rink under floodlights; a new phone: the device on a table); 1 if it is abstract; 0 if it is news about politics, crime, lawsuits, business or conflict.',
+    '- "subject": what the clip would show, in a few words, with no people.',
+    'Reply with JSON only, e.g. {"person": false, "visual": 2, "subject": "an ice rink under arena lights"}',
   ].join("\n");
-  try {
-    const res = await fetch(`${routerUrl()}/v1/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Source": "video-forge" },
-      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.3, max_tokens: 1800 }),
-      signal: signal ?? AbortSignal.timeout(120_000),
-    });
-    const body = (await res.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
-    trace.promptTokens += body.usage?.prompt_tokens ?? 0;
-    trace.completionTokens += body.usage?.completion_tokens ?? 0;
-    const text = body.choices?.[0]?.message?.content ?? "";
-    const json = text.slice(text.indexOf("["), text.lastIndexOf("]") + 1);
-    const rows = JSON.parse(json) as { n?: number; score?: number; subject?: string }[];
-    const byN = new Map(rows.map((r) => [Number(r.n), r]));
-    const ranked = candidates
-      .map((c) => ({ ...c, score: Number(byN.get(c.n)?.score ?? 0), subject: String(byN.get(c.n)?.subject ?? "") }))
-      .filter((c) => c.score >= 2 && !peopleIn(c.subject));
-    ranked.sort((a, b) => b.score - a.score || a.n - b.n);
-    const scored = rows.length;
-    trace.calls.push({
-      name: "rank",
-      args: { candidates: candidates.length },
-      ok: scored > 0,
-      ms: 0,
-      summary: ranked.length
-        ? `${ranked.length} of ${scored} scored 2+: ${ranked.slice(0, 5).map((r) => `${r.title} (${r.score})`).join(", ")}`
-        : `none of ${scored} scored 2+ — ${text.slice(0, 600)}`,
-    });
-    return ranked;
-  } catch (err) {
-    // Ranking is an improvement, not a requirement: fall back to the list as heard.
-    trace.calls.push({ name: "rank", args: {}, ok: false, ms: 0, summary: `ranking failed (${err instanceof Error ? err.message : err}); using the list as heard` });
-    return candidates.map((c) => ({ ...c, score: 0, subject: "" }));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(`${routerUrl()}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Source": "video-forge" },
+        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.1, max_tokens: 120 }),
+        signal: signal ?? AbortSignal.timeout(60_000),
+      });
+      const body = (await res.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
+      const text = body.choices?.[0]?.message?.content ?? "";
+      const m = /\{[\s\S]*\}/.exec(text);
+      if (!m) continue;
+      const j = JSON.parse(m[0]) as { person?: unknown; visual?: unknown; subject?: unknown };
+      return {
+        person: j.person === true || j.person === "true",
+        visual: Math.max(0, Math.min(3, Number(j.visual) || 0)),
+        subject: String(j.subject ?? ""),
+        tokens: [body.usage?.prompt_tokens ?? 0, body.usage?.completion_tokens ?? 0],
+      };
+    } catch {
+      // retry once
+    }
   }
+  return null;
+}
+
+export async function rankCandidates(candidates: Candidate[], model: string, trace: AgentTrace, signal?: AbortSignal): Promise<Ranked[]> {
+  const started = Date.now();
+  const judged: (Awaited<ReturnType<typeof judgeOne>>)[] = new Array(candidates.length).fill(null);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(8, candidates.length) }, async () => {
+      for (let i = next++; i < candidates.length; i = next++) judged[i] = await judgeOne(candidates[i], model, signal);
+    }),
+  );
+  let answered = 0;
+  const ranked: Ranked[] = [];
+  const people: string[] = [];
+  judged.forEach((j, i) => {
+    if (!j) return;
+    answered++;
+    trace.promptTokens += j.tokens[0];
+    trace.completionTokens += j.tokens[1];
+    if (j.person || peopleIn(j.subject) || writingIn(j.subject)) {
+      if (j.person) people.push(candidates[i].title);
+      return;
+    }
+    if (j.visual >= 2) ranked.push({ ...candidates[i], score: j.visual, subject: j.subject });
+  });
+  ranked.sort((a, b) => b.score - a.score || a.n - b.n);
+  trace.calls.push({
+    name: "rank",
+    args: { candidates: candidates.length },
+    ok: answered > 0,
+    ms: Date.now() - started,
+    summary:
+      `${answered}/${candidates.length} judged; ${ranked.length} can be shown without people` +
+      (ranked.length ? `: ${ranked.slice(0, 5).map((r) => `${r.title} (${r.score}: ${r.subject})`).join("; ")}` : "") +
+      (people.length ? `. People, skipped: ${people.slice(0, 6).join(", ")}` : ""),
+  });
+  // No fallback to the unjudged list: an unranked list is exactly how a
+  // person's name reached a brief. Nothing judged means nothing made this time.
+  return ranked;
 }
 
 const TOOLS = [
