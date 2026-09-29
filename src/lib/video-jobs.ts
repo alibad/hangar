@@ -75,6 +75,8 @@ export type VideoJobRequest = {
   compareGroup?: string;
   /** Where the request came from — "lab", "mcp", "bench". */
   origin?: string;
+  /** Appended to the negative prompt where the model uses one (see VideoGraphParams.avoid). */
+  avoid?: string;
 };
 
 /** Why a job is not running yet, in the coordinator's own words. */
@@ -676,6 +678,7 @@ class VideoQueue {
           seed: job.seed,
           steps: job.steps !== spec.steps ? job.steps : undefined,
           prefix: `betenshi-video/${job.id}`,
+          avoid: job.avoid,
         });
         job.stepsTotal = samplerSteps(graph);
         job.stepsDone = 0;

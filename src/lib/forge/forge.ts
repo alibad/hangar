@@ -519,6 +519,10 @@ class Forge {
         tier: s.tier,
         sourceImage: item.still.file,
         origin: "forge",
+        // The still has no one in it, but the first night's airport clip walked
+        // a traveller into the last second. Wan 5B samples with real CFG, so a
+        // negative prompt steers it; the channel never shows people or text.
+        avoid: "people, person, human figure, pedestrians, crowd, face, hands, text, letters, words, watermark, logo",
       });
       item.video = { jobId: job.id, model: s.videoModel, seconds: s.seconds, tier: s.tier };
       item.status = "rendering";

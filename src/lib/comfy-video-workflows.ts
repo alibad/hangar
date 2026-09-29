@@ -38,6 +38,12 @@ export type VideoGraphParams = {
   steps?: number;
   /** SaveVideo filename_prefix (under ComfyUI's output dir). */
   prefix: string;
+  /**
+   * Extra things to steer away from, appended to the model's own negative
+   * prompt. Only models sampled with real CFG honour it (Wan 2.2 5B, cfg 5);
+   * the distilled ones run at cfg 1, where a negative prompt does nothing.
+   */
+  avoid?: string;
 };
 
 /** Wan's own negative prompt, verbatim from its templates. */
@@ -99,7 +105,7 @@ function wan5b(spec: VideoModelSpec, p: VideoGraphParams): ComfyGraph {
   const vae = add("VAELoader", { vae_name: "wan2.2_vae.safetensors" });
   const model = add("ModelSamplingSD3", { model: ref(unet), shift: 8 });
   const pos = add("CLIPTextEncode", { text: p.prompt, clip: ref(clip) });
-  const neg = add("CLIPTextEncode", { text: WAN_NEGATIVE, clip: ref(clip) });
+  const neg = add("CLIPTextEncode", { text: p.avoid ? `${WAN_NEGATIVE}, ${p.avoid}` : WAN_NEGATIVE, clip: ref(clip) });
   const latent = add("Wan22ImageToVideoLatent", {
     vae: ref(vae),
     width: p.width,
