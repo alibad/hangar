@@ -36,6 +36,7 @@ export default function LabShell<T>({
   renderOutput,
   toolbar,
   compareLabel,
+  below,
 }: {
   lab: LabDefinition;
   /** The capability's own input controls. The Lab owns their state. */
@@ -52,6 +53,10 @@ export default function LabShell<T>({
   toolbar?: ReactNode;
   /** The comparison checkbox's wording, when the default does not say what it does. */
   compareLabel?: string;
+   * Optional panel between the results and the runs record — for Labs whose
+   * runs outlive the request, like the Video Lab's queue.
+   */
+  below?: ReactNode;
 }) {
   const [payload, setPayload] = useState<LabModelsPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -271,6 +276,8 @@ export default function LabShell<T>({
           ))}
         </section>
       )}
+
+      {below}
 
       {/* ── runs record ── */}
       <RecentRuns lab={lab.id} refreshKey={runsVersion} />

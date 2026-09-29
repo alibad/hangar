@@ -545,6 +545,75 @@ async function decideTool({ question, choices, type, context, model }) {
   return ok(`${body.choice} (${(body.confidence * 100).toFixed(1)}%). Distribution: ${dist}. [${how}]${body.parsed === false ? " Warning: the LLM did not return the requested JSON; the distribution is a fallback." : ""}`);
 }
 
+/**
+ * Video goes through the console's QUEUE (/api/video/jobs), not a request that
+ * waits: a clip takes minutes, and the queue is what holds the resource lease,
+ * collects the file if the caller goes away, and records the run. This tool
+ * waits a bounded time and otherwise hands back the job id for video_job.
+ */
+function describeVideoJob(j) {
+  if (j.status === "done") {
+    return `Done: ${j.output ? path.join(CONSOLE_GENERATED, "video", j.output) : "(no file)"} — ${j.model}, ${j.seconds}s ${j.width}×${j.height}, generated in ${Math.round((j.latencyMs ?? 0) / 1000)}s${j.costUsd != null ? `, $${j.costUsd}` : ""}.`;
+  }
+  if (j.status === "failed" || j.status === "cancelled") return `Job ${j.id} ${j.status}: ${j.error ?? ""}`.trim();
+  const eta = j.etaSec != null ? ` ~${Math.round(j.etaSec / 60)} min left (${j.etaBasis})` : "";
+  const block = j.block ? ` Waiting: ${j.block.message}` : "";
+  return `Job ${j.id} is ${j.status} (${j.stage}${j.stepsTotal ? `, step ${j.stepsDone ?? 0}/${j.stepsTotal}` : ""}).${eta}${block} Check again with video_job.`;
+}
+const CONSOLE_GENERATED = process.env.QWEN_OUTPUT_DIR ?? path.join(HERE, "..", "generated");
+
+async function generateVideo({ prompt, model, image, seconds, resolution, wait_minutes }) {
+  if (!prompt?.trim()) return fail("Describe the shot: pass a prompt.");
+  let sourceImage;
+  if (image) {
+    if (!fs.existsSync(image)) return fail(`No such image: ${image}`);
+    const ext = path.extname(image).toLowerCase().replace(".jpg", ".jpeg").slice(1);
+    if (!["png", "jpeg", "webp"].includes(ext)) return fail("The image must be PNG, JPEG or WebP.");
+    const { error, res } = await consoleFetch("/api/video/source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dataUrl: `data:image/${ext};base64,${fs.readFileSync(image).toString("base64")}` }),
+    }, 30_000);
+    if (error) return fail(error);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return fail(body.error ?? `Could not register the image (${res.status}).`);
+    sourceImage = body.path;
+  }
+  const { error, res } = await consoleFetch("/api/video/jobs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: model || "wan2.2-ti2v-5b",
+      mode: sourceImage ? "i2v" : "t2v",
+      prompt: prompt.trim(),
+      seconds: seconds ?? 5,
+      tier: resolution === "high" ? "high" : "low",
+      sourceImage,
+      origin: "mcp",
+    }),
+  }, 30_000);
+  if (error) return fail(error);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) return fail(body.error ?? `Could not queue the clip (${res.status}).`);
+  let job = body.job;
+  const deadline = Date.now() + Math.min(Math.max(Number(wait_minutes ?? 10), 0), 30) * 60_000;
+  while (["queued", "waiting", "running"].includes(job.status) && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const poll = await consoleFetch(`/api/video/jobs/${job.id}`, {}, 15_000);
+    if (poll.res?.ok) job = (await poll.res.json()).job ?? job;
+  }
+  return job.status === "failed" || job.status === "cancelled" ? fail(describeVideoJob(job)) : ok(describeVideoJob(job));
+}
+
+async function videoJob({ id }) {
+  if (!id) return fail("Which job? Pass the id generate_video returned.");
+  const { error, res } = await consoleFetch(`/api/video/jobs/${encodeURIComponent(id)}`, {}, 15_000);
+  if (error) return fail(error);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) return fail(body.error ?? `No such job (${res.status}).`);
+  return ok(describeVideoJob(body.job));
+}
+
 // ── tool table ────────────────────────────────────────────────────────────────
 
 const TOOLS = [
@@ -757,6 +826,42 @@ const TOOLS = [
       required: ["question", "context"],
     },
     run: decideTool,
+  },
+  {
+    name: "generate_video",
+    description:
+      "Make a short video clip (3–15 s) with a local video model, from a prompt or from a still image plus a prompt, and save it as an mp4. " +
+      "Expensive: a clip takes several minutes to tens of minutes and needs most of the GPU AND 20–45 GB of RAM, so other models may have to be stopped first " +
+      "(the job waits and says what is in the way rather than failing). Use it only when a video is the deliverable or the user asked for one — " +
+      "never to illustrate an answer, never in a loop, and never for a cloud project (globe_quest, ColdClub, avatar-lab, tinkerer-presenter): " +
+      "those call vendors directly and must not depend on this box. Waits up to wait_minutes, then returns a job id for video_job.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: { type: "string", description: "What happens in the shot: subject, motion, camera move, light." },
+        image: { type: "string", description: "Absolute path to a still to animate (image-to-video). Omit for text-to-video." },
+        model: {
+          type: "string",
+          description:
+            'Default "wan2.2-ti2v-5b" (fastest). Others: "wan2.2-14b", "ltx-2.5" (adds audio), "hunyuanvideo-1.5", "minimax-h3" (heaviest; its licence excludes the USA/EU/UK/Korea).',
+        },
+        seconds: { type: "number", description: "Clip length, 3–15. Default 5; snapped to what the model accepts." },
+        resolution: { type: "string", enum: ["low", "high"], description: "low ≈ 480p (default), high ≈ 720p." },
+        wait_minutes: { type: "number", description: "How long to wait before returning a job id instead, 0–30. Default 10." },
+      },
+      required: ["prompt"],
+    },
+    run: generateVideo,
+  },
+  {
+    name: "video_job",
+    description: "Status of a clip queued by generate_video: stage, progress, ETA, what it is waiting for, or the saved mp4 path when done.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string", description: "The job id generate_video returned." } },
+      required: ["id"],
+    },
+    run: videoJob,
   },
 ];
 

@@ -136,6 +136,19 @@ export const LABS: LabDefinition[] = [
     doc: "docs/3d-model-experiment-2026-09-27.md",
     load: () => import("@/components/labs/mesh-lab"),
   },
+  {
+    id: "video",
+    label: "Video Lab",
+    hint: "A still or a prompt → a clip, queued, with what to stop when it will not fit",
+    keywords: "video clip animate image-to-video text-to-video wan ltx hunyuan minimax h3 veo comfyui",
+    capability: "video",
+    input: "image+prompt",
+    output: "video",
+    // Veo is not routable through the AI Router; the Lab offers it itself.
+    cloudComparison: false,
+    doc: "docs/video-model-experiment-2026-09-27.md",
+    load: () => import("@/components/labs/video-lab"),
+  },
 ];
 
 // ── tabs ────────────────────────────────────────────────────────────────────

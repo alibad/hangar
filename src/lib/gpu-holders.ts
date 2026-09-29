@@ -45,3 +45,31 @@ export function releaseRequest(h: GpuHolder): {
     title: `Stop the ${h.label} and release everything it holds. It can be started again from Run setup.`,
   };
 }
+
+/**
+ * The fewest holders whose release covers a shortfall — "stop these two
+ * things". Exhaustive over subsets (there are never more than a dozen
+ * holders); among the smallest sets, the one that frees the least, so nothing
+ * is stopped that did not need to be. Null when even all of them are not
+ * enough — then the memory is held outside the console's reach.
+ */
+export function smallestRelease(
+  holders: GpuHolder[],
+  shortVramGb: number,
+  shortRamGb: number,
+): GpuHolder[] | null {
+  if (shortVramGb <= 0 && shortRamGb <= 0) return [];
+  const pool = holders.filter((h) => h.vramGb > 0 || h.ramGb > 0).slice(0, 14);
+  let best: { set: GpuHolder[]; freed: number } | null = null;
+  for (let mask = 1; mask < 1 << pool.length; mask++) {
+    const set = pool.filter((_, i) => mask & (1 << i));
+    const v = set.reduce((a, h) => a + h.vramGb, 0);
+    const r = set.reduce((a, h) => a + h.ramGb, 0);
+    if (v + 1e-6 < shortVramGb || r + 1e-6 < shortRamGb) continue;
+    const freed = v + r;
+    if (!best || set.length < best.set.length || (set.length === best.set.length && freed < best.freed)) {
+      best = { set, freed };
+    }
+  }
+  return best?.set ?? null;
+}

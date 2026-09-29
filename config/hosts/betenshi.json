@@ -167,6 +167,9 @@
       },
       "category": "app",
       "authRequired": false,
+      "serves": {
+        "video": ["wan2.2-ti2v-5b", "ltx-2.5", "wan2.2-14b", "hunyuanvideo-1.5", "minimax-h3"]
+      },
       "note": "Categorised as an APP, not an AI backend: it's a browser workflow UI you open and drive by hand (its card CTA is 'Open ↗', like Open WebUI), rather than a headless model server other code calls. It does use the GPU, but that's shown per-card as VRAM instead of being a category."
     },
     {

@@ -67,6 +67,11 @@
     },
     "trellis-generate": { "service": "trellis", "model": "local-trellis-2", "slot": "gpu-heavy", "aliases": ["trellis-2", "pixal3d"], "ttlMs": 1800000 },
     "triposr-generate": { "service": "triposr", "model": "local-triposr", "slot": "gpu-heavy", "aliases": ["triposr"], "ttlMs": 300000 },
+    "video-wan5b": { "service": "comfyui", "model": "local-wan2.2-ti2v-5b", "slot": "gpu-heavy", "ttlMs": 3900000 },
+    "video-wan14b": { "service": "comfyui", "model": "local-wan2.2-14b", "slot": "gpu-heavy", "ttlMs": 3900000 },
+    "video-ltx": { "service": "comfyui", "model": "local-ltx-2.5", "slot": "gpu-heavy", "ttlMs": 3900000 },
+    "video-hunyuan": { "service": "comfyui", "model": "local-hunyuanvideo-1.5", "slot": "gpu-heavy", "ttlMs": 3900000 },
+    "video-h3": { "service": "comfyui", "model": "local-minimax-h3", "slot": "gpu-heavy", "ttlMs": 3900000 },
     "ollama-chat": {
       "service": "ollama",
       "model": "local-qwen3-vl",
