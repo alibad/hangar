@@ -35,6 +35,7 @@ export default function LabShell<T>({
   run,
   renderOutput,
   toolbar,
+  compareLabel,
 }: {
   lab: LabDefinition;
   /** The capability's own input controls. The Lab owns their state. */
@@ -46,9 +47,11 @@ export default function LabShell<T>({
   /**
    * Lab-level controls shown above the model list — for a Lab whose choice (the
    * 3D Lab's Object / Person) changes which capability, and so which models,
-   * the shell lists.
+   * the shell lists — or the Lab's own orientation for a reader arriving cold.
    */
   toolbar?: ReactNode;
+  /** The comparison checkbox's wording, when the default does not say what it does. */
+  compareLabel?: string;
 }) {
   const [payload, setPayload] = useState<LabModelsPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -233,9 +236,10 @@ export default function LabShell<T>({
           {lab.cloudComparison && (
             <label className="flex items-center gap-2 text-xs text-gray-400">
               <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} className="accent-orange-500" />
-              {lab.compareCapability
-                ? `Same input on a ${CAPABILITY_LABELS[lab.compareCapability]} model`
-                : "Same input on a cloud model"}
+              {compareLabel ??
+                (lab.compareCapability
+                  ? `Same input on a ${CAPABILITY_LABELS[lab.compareCapability]} model`
+                  : "Same input on a cloud model")}
               {compare && (
                 <select
                   value={cloudId}
