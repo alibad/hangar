@@ -53,6 +53,7 @@ export default function LabShell<T>({
   toolbar?: ReactNode;
   /** The comparison checkbox's wording, when the default does not say what it does. */
   compareLabel?: string;
+  /**
    * Optional panel between the results and the runs record — for Labs whose
    * runs outlive the request, like the Video Lab's queue.
    */
