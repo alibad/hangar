@@ -284,7 +284,7 @@
       "idleVramGb": 0,
       "idleRamGb": 0,
       "kind": "peak",
-      "basis": "PROVISIONAL, pending measurement: the 10 GB fp16 DiT plus 480p-720p activations. ComfyUI offloads the text encoder before sampling and uses any extra free VRAM, so 16 GB is the working minimum, not a peak on an empty card. Lowered from 24 on 2026-09-27 because vllm-small (quote-forge, 13 GB) is a standing tenant that leaves ~17 GB."
+      "basis": "Measured 2026-09-30 with the card to itself (Video Lab bench, Windows per-process counters): ComfyUI peaked at 23.2 GB VRAM / 18.2-18.8 GB RAM at 832x480 and 24.3-24.4 GB VRAM / 16.7 GB RAM at 1280x704; the card peaked at 25.4-26.5 GB. ComfyUI keeps weights resident when there is room, so the VRAM peak is what it takes on an empty card, not what it needs. 16 GB is kept as the admission figure (the working minimum with the text encoder offloaded, still unmeasured under pressure); RAM 20 covers the measured 18.8 peak. In practice it is refused beside vllm-small (17.5 GB) and runs in the Video Forge 01:00-07:00 window."
     }
   },
   "local-wan2.2-14b": {
