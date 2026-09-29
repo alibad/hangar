@@ -127,7 +127,10 @@ function CaseDetailView({ caseKey, guide, onOpenInbox }: { caseKey: string; guid
     const load = async () => {
       try {
         const c = await lab<CaseDetail>(`api/cases/${encodeURIComponent(caseKey)}`);
-        if (alive) setD(c);
+        if (alive) {
+          setD(c);
+          setErr(null);
+        }
       } catch (e) {
         if (alive) setErr(e instanceof Error ? e.message : String(e));
       }
@@ -148,8 +151,9 @@ function CaseDetailView({ caseKey, guide, onOpenInbox }: { caseKey: string; guid
 
   const visited = useMemo(() => [...new Set((d?.activities ?? []).filter((a) => a.end).map((a) => a.id))], [d]);
 
-  if (err) return <p className="text-xs text-red-300">{err}</p>;
-  if (!d) return <p className="text-xs text-gray-500">Loading {caseKey}…</p>;
+  // A failed refresh keeps the last good story on screen; only a case that
+  // never loaded shows the error in its place.
+  if (!d) return err ? <p className="text-xs text-red-300">{err}</p> : <p className="text-xs text-gray-500">Loading {caseKey}…</p>;
 
   const v = d.variables;
   const service = v.service ? `a ${String(v.service).replace(/-/g, " ")}` : "something not yet clear";
@@ -173,6 +177,7 @@ function CaseDetailView({ caseKey, guide, onOpenInbox }: { caseKey: string; guid
       </header>
 
       <NowBanner now={d.now} onOpenInbox={onOpenInbox} />
+      {err && <p className="-mt-3 text-[11px] text-amber-300">Couldn&apos;t refresh just now ({err}); showing the last update.</p>}
       <StageBar stages={d.stages} />
 
       {d.state === "ACTIVE" && d.current.includes("gw_wait") && !v.simulated && <Upload caseKey={d.caseKey} />}
@@ -258,8 +263,11 @@ function CaseDetailView({ caseKey, guide, onOpenInbox }: { caseKey: string; guid
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+// Status colours only from the theme's semantic families (emerald = ok,
+// amber = needs someone, red = error). sky/cyan/violet are category hues the
+// theme derives from the accent, and can come out red.
 const TONE = {
-  working: "border-sky-700/60 bg-sky-950/30 text-sky-100",
+  working: "border-gray-600 bg-gray-800/50 text-gray-100",
   person: "border-amber-600/70 bg-amber-950/40 text-amber-100",
   done: "border-emerald-700/60 bg-emerald-950/30 text-emerald-100",
   closed: "border-gray-700 bg-gray-950/60 text-gray-200",
@@ -465,7 +473,7 @@ export function DecisionTable({ decisions }: { decisions: Decision[] }) {
                 <td className="px-3 py-2 text-right align-top tabular-nums text-gray-400">{fmtMs(x.latencyMs)}</td>
                 <td className="px-3 py-2 align-top text-gray-400">
                   {x.model ?? (x.kind === "dmn" ? "engine" : "—")}
-                  {x.provider === "cloud" && <span className="block text-[10px] text-sky-300">cloud · {fmtCost(x.costUsd, x.provider)}</span>}
+                  {x.provider === "cloud" && <span className="block text-[10px] text-gray-400">cloud ·{fmtCost(x.costUsd, x.provider)}</span>}
                   {failedLocal.length > 0 && (
                     <span className="block text-[10px] text-amber-300" title={failedLocal.map((a) => `${a.model}: ${a.why}`).join("\n")}>
                       after {failedLocal.map((a) => a.model).join(", ")} failed
