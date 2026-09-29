@@ -3,7 +3,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { getDb } from "../db";
 import { generateAndSave } from "../image-gen";
-import { videoQueue, videoRoot } from "../video-jobs";
+import { freeComfyIfIdle, videoQueue, videoRoot } from "../video-jobs";
 import { listenAll, SEARXNG_URL, type SignalSource } from "./sources";
 import { writeBrief, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
 import { nextWindowStart, shortlist, windowMinutesLeft } from "./rules";
@@ -510,6 +510,7 @@ class Forge {
       const file = `forge-${item.id}${path.extname(savedPath) || ".png"}`;
       await fs.copyFile(savedPath, path.join(dir, file));
       item.still = { file: `sources/${file}`, latencyMs: Number(res.body.latency ?? 0), model: s.stillModel };
+      await freeComfyIfIdle();
       const job = await videoQueue.add({
         model: s.videoModel,
         mode: "i2v",

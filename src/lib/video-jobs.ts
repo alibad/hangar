@@ -380,6 +380,26 @@ function samplerSteps(graph: ComfyGraph): number {
  * ComfyUI - how the cu128-vs-cu130 comparison in the experiment doc was run -
  * without touching the one the image studio uses.
  */
+/**
+ * Drop ComfyUI's cached weights when nothing is queued there. Exported for the
+ * Video Forge, which makes a still (Z-Image) and then a clip: the still's
+ * weights, left cached, are counted against the clip's RAM admission.
+ */
+export async function freeComfyIfIdle(base = comfyBase()) {
+  try {
+    const q = (await fetch(`${base}/queue`).then((r) => r.json())) as { queue_running?: unknown[]; queue_pending?: unknown[] };
+    if (!q.queue_running?.length && !q.queue_pending?.length) {
+      await fetch(`${base}/free`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ unload_models: true, free_memory: true }),
+      });
+    }
+  } catch {
+    /* housekeeping */
+  }
+}
+
 function comfyBase(): string {
   return process.env.VIDEO_COMFY_URL || getServiceUrl("comfyui");
 }
@@ -860,18 +880,7 @@ class VideoQueue {
    * Qwen-Image or LLM start will be refused for.
    */
   private async freeComfy(base: string) {
-    try {
-      const q = (await fetch(`${base}/queue`).then((r) => r.json())) as { queue_running?: unknown[]; queue_pending?: unknown[] };
-      if (!q.queue_running?.length && !q.queue_pending?.length) {
-        await fetch(`${base}/free`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ unload_models: true, free_memory: true }),
-        });
-      }
-    } catch {
-      /* the clip is safe on disk; this is housekeeping */
-    }
+    await freeComfyIfIdle(base);
   }
 
   private async readDenial(job: VideoJob, owner: string) {
