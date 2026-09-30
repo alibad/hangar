@@ -87,6 +87,24 @@ export type ForgeSettings = {
   stillModel: string;
   /** Minutes a render is assumed to take before any has been measured. */
   assumeRenderMin: number;
+  /**
+   * Keep going for the whole window: write a batch of briefs while vllm-small
+   * is up, pause it, render the batch back to back, start it again, repeat —
+   * until the window closes or there is nothing fresh left to make.
+   */
+  unlimited: boolean;
+  /** Briefs written per cycle in unlimited mode (one vllm-small pause each). */
+  batchSize: number;
+  /** Google Trends countries, rotated one per listen so a day has more than 20 topics. */
+  geos: string[];
+  /** A one-off window that is open until this time (ISO), on top of the nightly one. */
+  extraWindowUntil?: string;
+  /**
+   * If vllm-small is started again mid-window by something else (quote-forge's
+   * drip asks for it every 5 minutes) while a clip waits for memory, pause it
+   * again. Off unless the owner turns it on.
+   */
+  reclaimVllmSmall: boolean;
 };
 
 export const DEFAULT_SETTINGS: ForgeSettings = {
@@ -107,6 +125,10 @@ export const DEFAULT_SETTINGS: ForgeSettings = {
   seconds: 5,
   stillModel: "z-image-turbo",
   assumeRenderMin: 15,
+  unlimited: true,
+  batchSize: 8,
+  geos: ["US", "GB", "CA", "AU", "IN", "IE", "NZ", "SG", "ZA", "PH"],
+  reclaimVllmSmall: false,
 };
 
 export type ForgeRuntime = {
@@ -119,7 +141,22 @@ export type ForgeRuntime = {
   claimHeld?: boolean;
   waitingFor?: string;
   listening?: boolean;
+  /** Next Google Trends country, in unlimited mode. */
+  geoIndex?: number;
+  /** Nothing fresh was heard; do not listen again before this (ISO). */
+  quietUntil?: string;
+  /** Times vllm-small was paused again mid-window after something restarted it. */
+  repauses?: number;
+  lastRepauseAt?: string;
 };
+
+/** Minutes left in the nightly window or the one-off extra window, whichever is open. */
+export function openWindowMinutes(s: ForgeSettings, at = new Date()): number | null {
+  const extra = s.extraWindowUntil ? Date.parse(s.extraWindowUntil) : NaN;
+  const nightly = windowMinutesLeft(s.window, at);
+  if (extra > at.getTime()) return Math.max(Math.ceil((extra - at.getTime()) / 60_000), nightly ?? 0);
+  return nightly;
+}
 
 // ── persistence ────────────────────────────────────────────────────────────────
 
@@ -292,6 +329,7 @@ class Forge {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private busy = false;
   private stopped = false;
+  private fast = false;
   runtime: ForgeRuntime = {};
 
   constructor() {
@@ -320,7 +358,8 @@ class Forge {
       const persisted = await readState<ForgeRuntime>("runtime", {});
       this.runtime = { ...persisted, ...this.runtime, pausedVllmSmall: persisted.pausedVllmSmall };
       const s = await getSettings();
-      const left = windowMinutesLeft(s.window);
+      const left = openWindowMinutes(s);
+      this.fast = false;
       if (process.env.FORGE_DISABLED) this.runtime.now = "Disabled on this console (FORGE_DISABLED).";
       else if (s.enabled && left != null) await this.windowTick(s, left);
       else {
@@ -358,7 +397,10 @@ class Forge {
     } finally {
       this.busy = false;
       await writeState("runtime", this.runtime).catch(() => undefined);
-      this.schedule(TICK_MS);
+      // While a window is busy, look again every few seconds: a minute between
+      // one clip ending and the next starting is a minute the card sits idle,
+      // and a gap in which something else can take it.
+      this.schedule(this.fast ? 4_000 : TICK_MS);
     }
   }
 
@@ -386,15 +428,16 @@ class Forge {
   }
 
   /** One listen: hear, shortlist, research, brief. Also the "Listen now" button. */
-  async listen(s?: ForgeSettings): Promise<ForgeItem> {
+  async listen(s?: ForgeSettings, geo?: string): Promise<ForgeItem> {
     s ??= await getSettings();
+    geo ??= s.channel.geo;
     if (this.runtime.listening) throw new Error("Already listening");
     this.runtime.listening = true;
-    this.runtime.now = "Listening: reading Google Trends, Wikipedia and Hacker News…";
+    this.runtime.now = `Listening: reading Google Trends (${geo}), Wikipedia and Hacker News…`;
     try {
       const searchNote = await ensureSearch();
-      const heard = await listenAll({ geo: s.channel.geo, sources: s.channel.sources });
-      const recent = (await listItems(120)).filter((i) => i.status !== "failed" && Date.parse(i.createdAt) > Date.now() - 21 * 86_400_000);
+      const heard = await listenAll({ geo, sources: s.channel.sources });
+      const recent = (await listItems(500)).filter((i) => i.status !== "failed" && Date.parse(i.createdAt) > Date.now() - 21 * 86_400_000);
       const recentTopics = recent.flatMap((i) => [i.topic, i.heard.replace(/ \([^)]*\)$/, "")]).filter(Boolean);
       const reviews: ReviewMemory[] = recent.filter((i) => i.review).map((i) => ({ topic: i.topic, verdict: i.review!.verdict, reason: i.review!.reason }));
       const { candidates, dropped } = shortlist(heard.signals, recentTopics);
@@ -416,7 +459,7 @@ class Forge {
       let item: ForgeItem;
       if (outcome.kind === "brief") {
         item = { ...base, ...outcome.brief, status: "brief" };
-        note(item, `Brief written by ${outcome.trace.model} in ${(outcome.trace.latencyMs / 1000).toFixed(0)} s`);
+        note(item, `Brief written by ${outcome.trace.model} in ${(outcome.trace.latencyMs / 1000).toFixed(0)} s, from Google Trends ${geo}`);
       } else if (outcome.kind === "skip") {
         item = { ...base, status: "skipped", topic: "(nothing made)", error: outcome.reason };
         note(item, `Skipped: ${outcome.reason}`);
@@ -427,7 +470,7 @@ class Forge {
       await saveItem(item);
       this.runtime.lastListenAt = stamp();
       this.runtime.lastListenOutcome = item.status === "brief" ? `Picked "${item.topic}"` : item.error;
-      this.runtime.now = item.status === "brief" ? `Wrote a brief: "${item.topic}". It will be made in tonight's window.` : `Listened, made nothing: ${item.error}`;
+      this.runtime.now = item.status === "brief" ? `Wrote a brief: "${item.topic}". It will be made in the next window.` : `Listened, made nothing: ${item.error}`;
       return item;
     } finally {
       this.runtime.listening = false;
@@ -438,12 +481,39 @@ class Forge {
 
   private async windowTick(s: ForgeSettings, minutesLeft: number) {
     // A clip that is already in the video queue finishes whatever the clock says.
+    this.fast = true;
     const inFlight = await itemsWithStatus("still", "rendering");
     for (const item of inFlight) await this.advance(item, s);
     if ((await itemsWithStatus("still", "rendering")).length) return;
 
     let pending = await itemsWithStatus("brief");
-    if (!pending.length && !this.runtime.pausedVllmSmall && (await smallModelUp())) {
+    if (s.unlimited && !this.runtime.pausedVllmSmall && pending.length < s.batchSize) {
+      const quiet = this.runtime.quietUntil ? Date.parse(this.runtime.quietUntil) : 0;
+      if (Date.now() >= quiet) {
+        if (!(await smallModelUp())) {
+          this.runtime.now = pending.length
+            ? `Waiting for vllm-small to finish loading before writing more briefs (${pending.length} ready).`
+            : "Waiting for vllm-small, the brief writer, to finish loading.";
+          if (!pending.length) return;
+        } else {
+          // Write a batch while the writer is up; one vllm-small pause then covers all of it.
+          let misses = 0;
+          const geos = s.geos.length ? s.geos : [s.channel.geo];
+          while (pending.length < s.batchSize && misses < 3) {
+            const geo = geos[(this.runtime.geoIndex ?? 0) % geos.length];
+            this.runtime.geoIndex = ((this.runtime.geoIndex ?? 0) + 1) % geos.length;
+            const item = await this.listen(s, geo);
+            if (item.status === "brief") pending.push(item);
+            else misses++;
+          }
+          if (misses >= 3) {
+            // Every country's list is used up for now; trends refresh through the day.
+            this.runtime.quietUntil = new Date(Date.now() + 30 * 60_000).toISOString();
+          }
+          pending = await itemsWithStatus("brief");
+        }
+      }
+    } else if (!s.unlimited && !pending.length && !this.runtime.pausedVllmSmall && (await smallModelUp())) {
       // Nothing written by day (a fresh install, or every brief was removed):
       // listen once now, while the brief writer is still up, then render it.
       const last = this.runtime.lastListenAt ? Date.parse(this.runtime.lastListenAt) : 0;
@@ -454,7 +524,12 @@ class Forge {
     }
     if (!pending.length) {
       await this.leaveWindow("nothing left to render");
-      this.runtime.now = "Window open, nothing to render. vllm-small is running.";
+      const quietAt = this.runtime.quietUntil ? Date.parse(this.runtime.quietUntil) : 0;
+      const quiet = quietAt > Date.now();
+      this.runtime.now = quiet
+        ? `Window open, but nothing fresh to make: every country's trending list is used up. Listening again at ${new Date(quietAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. vllm-small is running.`
+        : "Window open, nothing to render yet. vllm-small is running.";
+      this.fast = !quiet;
       return;
     }
     const perClip = await this.expectedRenderMin(s);
@@ -464,7 +539,8 @@ class Forge {
       return;
     }
 
-    const claim = await takeClaim(`nightly window ${s.window.start}-${s.window.end}, ${pending.length} clip(s); vllm-small paused, restarted by ${s.window.end}`);
+    const until = s.extraWindowUntil && Date.parse(s.extraWindowUntil) > Date.now() ? new Date(s.extraWindowUntil).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : s.window.end;
+    const claim = await takeClaim(`render window until ${until}: a batch of ${pending.length} clip(s), ~${Math.ceil(pending.length * 1.3)} min; vllm-small paused and started again after the batch`);
     if (!claim.ok) {
       this.runtime.waitingFor = claim.holder;
       this.runtime.now = `Waiting for the GPU: another session holds it (${claim.holder.slice(0, 120)}).`;
@@ -559,7 +635,25 @@ class Forge {
       } else {
         const step = job.stepsTotal ? `, step ${job.stepsDone ?? 0}/${job.stepsTotal}` : "";
         const eta = job.etaSec != null ? `, ~${Math.max(1, Math.round(job.etaSec / 60))} min left` : "";
-        const holder = job.block && (await smallModelUp()) ? " vllm-small is running again — something restarted it after the forge paused it (quote-forge's drip does, every 5 min)." : "";
+        const smallBack = !!job.block && this.runtime.pausedVllmSmall && (await smallModelUp());
+        const reclaim = smallBack && s.reclaimVllmSmall;
+        let holder = smallBack
+          ? " vllm-small was started again by something else (quote-forge's drip asks for it every 5 minutes); this clip waits until the window closes, then goes back on the list."
+          : "";
+        if (reclaim) {
+          // Inside the window the card is the forge's (the owner's standing OK).
+          // quote-forge's drip asks the manager for vllm-small every 5 minutes and
+          // gets it in any gap; pause it again, at most every 3 minutes.
+          const last = this.runtime.lastRepauseAt ? Date.parse(this.runtime.lastRepauseAt) : 0;
+          if (Date.now() - last > 3 * 60_000) {
+            const err = await manager("stop", "vllm-small");
+            this.runtime.lastRepauseAt = stamp();
+            this.runtime.repauses = (this.runtime.repauses ?? 0) + 1;
+            note(item, err ? `vllm-small came back mid-window; pausing it again failed: ${err}` : "vllm-small came back mid-window (restarted by something else); paused it again");
+            await saveItem(item);
+          }
+          holder = " vllm-small had been started again by something else; the forge paused it again.";
+        }
         this.runtime.now = `Rendering "${item.topic}" (${job.stage}${step}${eta}).${job.block ? ` Waiting for memory: ${job.block.message}.${holder}` : ""}`;
         return;
       }

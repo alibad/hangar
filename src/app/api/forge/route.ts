@@ -5,8 +5,8 @@ import {
   getSettings,
   listItems,
   nextWindowStart,
+  openWindowMinutes,
   updateSettings,
-  windowMinutesLeft,
   type ForgeSettings,
 } from "@/lib/forge/forge";
 
@@ -29,7 +29,7 @@ export async function GET() {
     up(`${SEARXNG_URL}/healthz`),
     up("http://127.0.0.1:8006/health"),
   ]);
-  const left = windowMinutesLeft(settings.window);
+  const left = openWindowMinutes(settings);
   return NextResponse.json({
     settings,
     runtime: forge.runtime,
