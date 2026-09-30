@@ -261,6 +261,17 @@ function callsFromContent(content: string | null): RawToolCall[] {
  * topic doubles what a day's trends can feed and gives a reel short sequences
  * instead of ten unrelated cuts. Held to the same rules as the first shot.
  */
+/** Share of shot 2's words that already appear in shot 1 (0 … 1). */
+function overlap(a: string, b: string): number {
+  const words = (t: string) => new Set(t.toLowerCase().match(/[a-z]{3,}/g) ?? []);
+  const A = words(a);
+  const B = words(b);
+  if (!A.size) return 1;
+  let same = 0;
+  for (const w of A) if (B.has(w)) same++;
+  return same / A.size;
+}
+
 export async function writeSecondShot(input: { brief: Brief; model?: string }): Promise<{ stillPrompt: string; motionPrompt: string } | { error: string }> {
   const model = input.model ?? "local-small";
   let feedback = "";
@@ -270,7 +281,7 @@ export async function writeSecondShot(input: { brief: Brief; model?: string }): 
       `First frame: ${input.brief.stillPrompt}`,
       `Motion: ${input.brief.motionPrompt}`,
       "",
-      "Write shot 2: the SAME place and moment seen from a different distance — if shot 1 is wide, go close on one telling detail; if it is close, pull back wide. Keep the same light, time of day and colour palette so the two cut together.",
+      "Write shot 2: a CLOSE-UP of one telling detail in that same scene — an object, a surface, a texture, a light — with the same light, time of day and colour palette, so the two cut together. Example: for an empty tennis court at dusk, a single ball resting on the white baseline, the net's shadow across it. Describe a NEW frame; do not repeat shot 1's wording.",
       "Rules: no people or human figures at all, no text, letters, signs, logos or brand names, nothing violent or sad. One continuous shot.",
       feedback,
       'Reply with JSON only: {"still_prompt": "40-80 words describing the first frame", "motion_prompt": "20-50 words: what moves and how the camera moves"}',
@@ -294,6 +305,8 @@ export async function writeSecondShot(input: { brief: Brief; model?: string }): 
       const problem =
         still.length < 30 || motion.length < 10
           ? "both prompts are required"
+          : overlap(still, input.brief.stillPrompt) > 0.55
+          ? "shot 2's first frame repeats shot 1 — describe a close-up of one detail instead"
           : unsafeReason(both) ?? (peopleIn(both) ? `it shows people ("${peopleIn(both)}")` : null) ?? (writingIn(both) ? `it asks for writing ("${writingIn(both)}")` : null) ?? (brandIn(both) ? `it names "${brandIn(both)}"` : null);
       if (!problem) return { stillPrompt: still, motionPrompt: motion };
       feedback = `Your last answer was not usable: ${problem}. Fix that.`;
