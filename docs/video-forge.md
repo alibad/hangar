@@ -1,6 +1,6 @@
 # Video Forge — a loop that listens and makes clips overnight
 
-**Status (2026-09-30 01:15):** working end to end, unattended. In the first night's window it made four clips from four briefs — each time taking the GPU claim, pausing vllm-small, rendering, and starting vllm-small again — and they are waiting for review in the Forge tab.
+**Status (2026-09-30 15:00):** working end to end, unattended, in unlimited mode. It feeds **Montage** (`hq/montage`, http://localhost:8017), which turns the clips into one-minute 1080p reels. The first night made 4 clips; the first all-day window made ~50 more at 480p before the forge moved to 720p with a vision check on every still.
 
 ## What it is
 
@@ -55,3 +55,22 @@ Fixes from looking at the clips:
 - ComfyUI's cached still weights are dropped before the clip asks the coordinator for memory.
 
 Still open: the still model can add people the prompt said were absent (Z-Image Turbo has no negative prompt). A vision check of the still before animating it would catch that, at the cost of loading a vision model in the window.
+
+## Unlimited, 720p, and checked (2026-09-30, daytime)
+
+The owner asked for unlimited clips through the night windows and an all-day test, then for one-minute high-quality videos. What changed, and why:
+
+| Change | Why |
+|---|---|
+| **Unlimited batches.** In a window: write a batch of briefs while vllm-small is up, pause it once, render the batch back to back (ticks every 4 s while busy), start it again, repeat | One vllm-small pause per batch instead of per clip |
+| **Google Trends across 16 English-speaking countries**, three days of Wikipedia most-read | One country's 20 trends were used up by mid-morning |
+| **Two shots per topic** — the brief's scene, then a close-up of one detail, same light and palette | Twice the clips per topic, and reels get establishing-shot → detail sequences instead of ten unrelated cuts. The 7B copied shot 1 into shot 2 at first; an overlap check sends that back |
+| **Weather fallback** — when trends miss twice, "Golden hour, scattered clouds in Lisbon" from Open-Meteo for 40 photogenic cities (none repeated within 3 days) | Trends ran dry for hours at a time |
+| **720p** (1280×704, Wan 5B's native size): 141 s per 5 s clip vs 58 s at 480p | 480p looks soft at 1080p |
+| **Every still checked** by Qwen3-VL 8B (Ollama, unloaded after each look, ~15 s) and redrawn up to 3× if it shows people, writing or a logo | On the first 20 480p clips Montage's gate turned away 13 — mostly people and lettering the still model drew despite the prompt |
+| **Filters**: brand names and acronyms in prompts, risky news (drugs, legal cases, hijacks, receiverships, strikes), a per-topic "risky" judgement, negated mentions ("no travelers") allowed | Each was a brief the gallery exposed |
+| **Retry** a clip once when ComfyUI's weight streamer fails (`HostBuffer.read_file_slice`, 2 of the first 27) | Transient |
+| **Re-pause vllm-small** mid-window if quote-forge's drip restarts it (owner's choice, 2026-09-30) | The drip asks the manager for it every 5 minutes |
+| **One tick at a time** across hot reloads (a lock on `globalThis`) | A retired loop finishing a step while the new one starts could queue a clip twice |
+
+First 720p clip (an empty tennis court at sunset): still made and checked in 15 s, clip rendered in 141 s, passed Montage's gate.

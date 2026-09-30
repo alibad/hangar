@@ -201,16 +201,24 @@ export default function VideoForge({ lab }: LabComponentProps) {
         <summary className="cursor-pointer px-4 py-2.5 font-medium text-gray-200">How it works</summary>
         <div className="space-y-2 px-4 pb-4">
           <p>
-            <b className="text-gray-100">Listen</b> — every {inWords(settings.listenEveryMin)}: Google Trends ({settings.channel.geo}), Wikipedia most-read and the Hacker News front page. All free, no keys.
+            <b className="text-gray-100">Listen</b> — Google Trends (rotating {settings.geos.length} countries), three days of Wikipedia most-read and the Hacker News front page. All free, no keys.
             Topics about death, violence, disasters, crime, politics or sex are removed in code before the model sees the list, as are topics made in the last three weeks.
+            {settings.weatherFallback && " When every list is used up, it listens to the weather right now in photogenic cities instead."}
           </p>
           <p>
-            <b className="text-gray-100">Research</b> — vllm-small (Qwen2.5-7B, already running for quote-forge, so it costs no extra memory) scores the list for how well each can be shown <i>without people</i>, then
-            uses two tools — web search through a self-hosted SearXNG, and reading a page — to learn why the best one matters today, and writes the brief. A brief that puts people in frame is sent back to be rewritten.
+            <b className="text-gray-100">Research</b> — vllm-small (Qwen2.5-7B, already running for quote-forge) asks of each topic whether it is a person or risky news and how well it can be shown <i>without people</i>,
+            then uses web search (a self-hosted SearXNG) and page reading to learn why the best one matters today, and writes the brief. Briefs with people, writing or brand names are sent back.
+            {settings.shotsPerTopic >= 2 && " Each topic gets two shots: the scene, then a close-up of one detail."}
           </p>
           <p>
-            <b className="text-gray-100">Make</b> — {settings.window.start}–{settings.window.end}: the forge takes the shared GPU claim, pauses vllm-small, makes the first frame with {settings.stillModel} and animates it with{" "}
-            {settings.videoModel} ({settings.seconds} s, {settings.tier === "low" ? "480p" : "720p"}) through the Video Lab&apos;s queue. When the list is done — or there is no time left for another clip — vllm-small is started again.
+            <b className="text-gray-100">Make</b> — in the render window ({settings.window.start}–{settings.window.end} nightly{settings.extraWindowUntil && Date.parse(settings.extraWindowUntil) > Date.now() ? `, and today until ${hhmm(settings.extraWindowUntil)}` : ""}):
+            it takes the shared GPU claim, pauses vllm-small, and for each brief makes the first frame with {settings.stillModel}
+            {settings.stillCheck && ", shows it to a local vision model (Qwen3-VL 8B) and draws again if it shows people, writing or a logo"}, then animates it with {settings.videoModel} ({settings.seconds} s,{" "}
+            {settings.tier === "low" ? "832×480" : "1280×704"}) through the Video Lab&apos;s queue.
+            {settings.unlimited ? ` It works in batches of ${settings.batchSize}, starting vllm-small again between batches, until the window closes.` : " When the list is done, vllm-small is started again."}
+          </p>
+          <p>
+            <b className="text-gray-100">Then</b> — Montage (http://localhost:8017) checks every clip again, keeps the best, and cuts them into one-minute reels with captions and music.
           </p>
           <p>
             <b className="text-gray-100">You</b> — approve or reject each clip, with a reason if you like. The last reviews go into every new brief: more of what you approved, less of what you rejected.
