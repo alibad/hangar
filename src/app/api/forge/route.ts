@@ -25,7 +25,7 @@ async function up(url: string): Promise<boolean> {
 export async function GET() {
   const [settings, items, searchUp, smallUp] = await Promise.all([
     getSettings(),
-    listItems(80),
+    listItems(400),
     up(`${SEARXNG_URL}/healthz`),
     up("http://127.0.0.1:8006/health"),
   ]);

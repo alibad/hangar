@@ -75,7 +75,8 @@ export default function VideoForge({ lab }: LabComponentProps) {
   const { settings, runtime, window: win, services, items } = state;
   const review = items.filter((i) => i.status === "review");
   const tonight = items.filter((i) => i.status === "brief" || i.status === "still" || i.status === "rendering");
-  const history = items.filter((i) => !["review", "brief", "still", "rendering"].includes(i.status));
+  // Clips live in the gallery; history is what made nothing (skipped, failed).
+  const history = items.filter((i) => !["review", "brief", "still", "rendering"].includes(i.status) && !i.video?.output);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5 p-4 sm:p-6">
@@ -125,19 +126,13 @@ export default function VideoForge({ lab }: LabComponentProps) {
         {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
       </section>
 
-      {/* ── waiting for you ── */}
-      <section>
-        <h2 className="mb-2 text-sm font-medium text-gray-200">Waiting for your review {review.length > 0 && <span className="text-orange-300">({review.length})</span>}</h2>
-        {review.length === 0 ? (
-          <p className="rounded-xl border border-gray-800 bg-gray-900/40 px-4 py-3 text-sm text-gray-500">No finished clips waiting. Clips are made during the window and appear here.</p>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {review.map((i) => (
-              <ReviewCard key={i.id} item={i} busy={!!busy} onVerdict={(verdict, reason) => act(`review-${i.id}`, { action: "review", id: i.id, verdict, reason })} />
-            ))}
-          </div>
-        )}
-      </section>
+      {/* ── the gallery ── */}
+      <Gallery
+        items={items}
+        waiting={review.length}
+        busy={!!busy}
+        onVerdict={(id, verdict, reason) => act(`review-${id}`, { action: "review", id, verdict, reason })}
+      />
 
       {/* ── tonight ── */}
       <section>
@@ -251,12 +246,164 @@ function StatusWord({ status }: { status: ForgeItem["status"] }) {
   return <span className={c}>{w}</span>;
 }
 
-function ReviewCard({ item, busy, onVerdict }: { item: ForgeItem; busy: boolean; onVerdict: (v: "approved" | "rejected", reason: string) => void }) {
+type GalleryFilter = "review" | "approved" | "rejected" | "all";
+
+/**
+ * Every finished clip as a grid: hover plays it, click opens it large with
+ * Approve / Reject, and a verdict moves straight on to the next clip — so
+ * thirty clips are a few minutes' review, not a long scroll of cards.
+ */
+function Gallery({
+  items,
+  waiting,
+  busy,
+  onVerdict,
+}: {
+  items: ForgeItem[];
+  waiting: number;
+  busy: boolean;
+  onVerdict: (id: string, v: "approved" | "rejected", reason: string) => Promise<void>;
+}) {
+  const clips = items.filter((i) => i.video?.output);
+  const [filter, setFilter] = useState<GalleryFilter>(waiting > 0 ? "review" : "all");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const shown = clips.filter((i) => filter === "all" || i.status === filter);
+  const count = (f: GalleryFilter) => (f === "all" ? clips.length : clips.filter((i) => i.status === f).length);
+  const idx = openId ? shown.findIndex((i) => i.id === openId) : -1;
+  const open = idx >= 0 ? shown[idx] : openId ? clips.find((i) => i.id === openId) ?? null : null;
+
+  const step = useCallback(
+    (d: number) => {
+      if (!shown.length) return;
+      const from = idx >= 0 ? idx : 0;
+      setOpenId(shown[(from + d + shown.length) % shown.length].id);
+    },
+    [idx, shown],
+  );
+
+  useEffect(() => {
+    if (!openId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if (e.key === "Escape") setOpenId(null);
+      if (e.key === "ArrowRight") step(1);
+      if (e.key === "ArrowLeft") step(-1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openId, step]);
+
+  const tabs: [GalleryFilter, string][] = [
+    ["review", "Waiting for review"],
+    ["approved", "Approved"],
+    ["rejected", "Rejected"],
+    ["all", "All"],
+  ];
+
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-gray-200">
+          Gallery <span className="text-gray-500">({clips.length} clips)</span>
+        </h2>
+        <div className="flex flex-wrap gap-1.5">
+          {tabs.map(([f, label]) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`rounded-full px-2.5 py-1 text-xs ${filter === f ? "bg-orange-600 text-white" : "bg-gray-800/70 text-gray-300 hover:bg-gray-800"}`}
+            >
+              {label} ({count(f)})
+            </button>
+          ))}
+        </div>
+      </div>
+      {shown.length === 0 ? (
+        <p className="rounded-xl border border-gray-800 bg-gray-900/40 px-4 py-3 text-sm text-gray-500">
+          {filter === "review" ? "Nothing waiting for review. Clips are made during the window and appear here." : "No clips here yet."}
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {shown.map((i) => (
+            <button key={i.id} onClick={() => setOpenId(i.id)} className="group overflow-hidden rounded-lg border border-gray-800 bg-gray-900/60 text-left hover:border-orange-500/50">
+              <div className="relative aspect-video bg-black">
+                <video
+                  src={fileUrl(i.video!.output!)}
+                  poster={i.still ? fileUrl(i.still.file) : undefined}
+                  muted
+                  loop
+                  playsInline
+                  preload="none"
+                  className="h-full w-full object-cover"
+                  onMouseEnter={(e) => void e.currentTarget.play().catch(() => undefined)}
+                  onMouseLeave={(e) => e.currentTarget.pause()}
+                />
+                {i.status !== "review" && (
+                  <span className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${i.status === "approved" ? "bg-emerald-600/90 text-white" : "bg-red-600/90 text-white"}`}>
+                    {i.status === "approved" ? "✓" : "✕"}
+                  </span>
+                )}
+              </div>
+              <p className="truncate px-2 py-1.5 text-xs text-gray-300 group-hover:text-gray-100">{i.topic}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setOpenId(null)}>
+          <div className="relative w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between text-xs text-gray-400">
+              <span>
+                {idx >= 0 ? `${idx + 1} of ${shown.length}` : ""} · ← → to move, Esc to close
+              </span>
+              <div className="flex gap-2">
+                <button onClick={() => step(-1)} className="rounded-md border border-gray-700 px-2 py-0.5 hover:bg-gray-800">
+                  ←
+                </button>
+                <button onClick={() => step(1)} className="rounded-md border border-gray-700 px-2 py-0.5 hover:bg-gray-800">
+                  →
+                </button>
+                <button onClick={() => setOpenId(null)} className="rounded-md border border-gray-700 px-2 py-0.5 hover:bg-gray-800">
+                  Close
+                </button>
+              </div>
+            </div>
+            <ReviewCard
+              key={open.id}
+              item={open}
+              busy={busy}
+              autoPlay
+              onVerdict={async (v, reason) => {
+                const next = shown.length > 1 ? shown[(Math.max(idx, 0) + 1) % shown.length].id : null;
+                await onVerdict(open.id, v, reason);
+                // In the "waiting" view the reviewed clip leaves the list; either way, move on.
+                setOpenId(next && next !== open.id ? next : null);
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ReviewCard({
+  item,
+  busy,
+  onVerdict,
+  autoPlay = false,
+}: {
+  item: ForgeItem;
+  busy: boolean;
+  onVerdict: (v: "approved" | "rejected", reason: string) => void | Promise<void>;
+  autoPlay?: boolean;
+}) {
   const [reason, setReason] = useState("");
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-orange-500/30 bg-gray-900/60 p-3">
-      {item.video?.output && <video src={fileUrl(item.video.output)} controls loop playsInline className="w-full rounded-lg bg-black" />}
-      <p className="font-medium text-gray-100">{item.topic}</p>
+      {item.video?.output && <video src={fileUrl(item.video.output)} poster={item.still ? fileUrl(item.still.file) : undefined} controls loop playsInline autoPlay={autoPlay} muted={autoPlay} className="w-full rounded-lg bg-black" />}
+      <p className="font-medium text-gray-100">{item.topic}{item.review && <span className={`ml-2 text-xs ${item.review.verdict === "approved" ? "text-emerald-300" : "text-red-300"}`}>{item.review.verdict}{item.review.reason ? ` — “${item.review.reason}”` : ""}</span>}</p>
       <p className="text-sm text-gray-300">{item.whyNow}</p>
       <p className="text-xs text-gray-500">
         {item.video?.model} · {item.video?.seconds} s{item.video?.latencyMs ? ` · made in ${inWords(item.video.latencyMs / 60000)}` : ""}
