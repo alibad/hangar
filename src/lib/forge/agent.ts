@@ -69,7 +69,7 @@ async function judgeOne(c: Candidate, model: string, signal?: AbortSignal): Prom
     "Answer three things:",
     '- "person": true if the topic is a specific real person (an athlete, a celebrity, a politician, a named individual), else false.',
     '- "visual": 3 if the topic itself is visual without people (sky, space, season, weather, landscape, city, nature, animals, food, festival lights, a launch, a machine); 2 if a place or object evokes it well (a sports event: the empty stadium or rink under floodlights; a new phone: the device on a table); 1 if it is abstract; 0 if it is news about politics, crime, lawsuits, business or conflict.',
-    '- "risky": true if the topic is news about crime, drugs, a court case, an accident or emergency, a disaster, conflict, politics, a company in trouble, a hack, or a medicine; else false.',
+    '- "risky": true if the topic is news about crime, drugs, a court case, an accident or emergency, a disaster, conflict, politics, a company in trouble, a hack, a medicine, or money, prices and markets (which only show as symbols and numbers); else false.',
     '- "subject": what the clip would show, in a few words, with no people.',
     'Reply with JSON only, e.g. {"person": false, "visual": 2, "risky": false, "subject": "an ice rink under arena lights"}',
   ].join("\n");
