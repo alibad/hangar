@@ -20,7 +20,7 @@ import net from "net";
  * `problems`, never an exception — so a listen always has something to say.
  */
 
-export type SignalSource = "google-trends" | "wikipedia" | "hacker-news";
+export type SignalSource = "google-trends" | "wikipedia" | "hacker-news" | "weather";
 
 export type Signal = {
   source: SignalSource;
@@ -106,16 +106,87 @@ export async function hackerNews(): Promise<Signal[]> {
   })).filter((s) => s.title);
 }
 
+// ── the fallback: the weather right now in photogenic cities ─────────────────
+
+/**
+ * When every trending list is used up, the forge still has something true and
+ * visual to say: what the sky is doing right now somewhere beautiful. Open-Meteo
+ * is free and keyless, and one request covers every city.
+ */
+const CITIES: [string, number, number][] = [
+  ["Lisbon", 38.72, -9.14], ["Kyoto", 35.01, 135.77], ["Reykjavik", 64.15, -21.94], ["Cape Town", -33.92, 18.42],
+  ["Venice", 45.44, 12.33], ["Santorini", 36.39, 25.46], ["Marrakesh", 31.63, -8.0], ["Hallstatt", 47.56, 13.65],
+  ["Queenstown", -45.03, 168.66], ["Banff", 51.18, -115.57], ["Havana", 23.11, -82.37], ["Hoi An", 15.88, 108.33],
+  ["Petra", 30.33, 35.44], ["Tromsø", 69.65, 18.96], ["Cusco", -13.53, -71.97], ["Chefchaouen", 35.17, -5.26],
+  ["Bergen", 60.39, 5.32], ["Dubrovnik", 42.65, 18.09], ["Ushuaia", -54.8, -68.3], ["Luang Prabang", 19.89, 102.13],
+  ["Salzburg", 47.8, 13.04], ["Porto", 41.15, -8.61], ["Edinburgh", 55.95, -3.19], ["Bruges", 51.21, 3.22],
+  ["Sapporo", 43.06, 141.35], ["Hobart", -42.88, 147.33], ["Valparaíso", -33.05, -71.62], ["Oaxaca", 17.07, -96.72],
+  ["Siem Reap", 13.36, 103.86], ["Zanzibar", -6.16, 39.2], ["Lofoten", 68.23, 14.56], ["Kotor", 42.42, 18.77],
+  ["Jaipur", 26.91, 75.79], ["Istanbul", 41.01, 28.98], ["Quebec City", 46.81, -71.21], ["Sedona", 34.87, -111.76],
+  ["Wanaka", -44.7, 169.13], ["Colmar", 48.08, 7.36], ["Matera", 40.67, 16.6], ["Positano", 40.63, 14.48],
+];
+
+function skyWords(code: number): string {
+  if (code === 0) return "clear skies";
+  if (code <= 2) return "scattered clouds";
+  if (code === 3) return "overcast skies";
+  if (code === 45 || code === 48) return "fog";
+  if (code >= 51 && code <= 57) return "drizzle";
+  if (code >= 61 && code <= 67) return "rain";
+  if (code >= 71 && code <= 77) return "falling snow";
+  if (code >= 80 && code <= 82) return "passing showers";
+  if (code === 85 || code === 86) return "snow showers";
+  if (code >= 95) return "a thunderstorm";
+  return "changing skies";
+}
+
+function phaseWords(hour: number): string {
+  if (hour >= 5 && hour < 7) return "Dawn";
+  if (hour >= 7 && hour < 10) return "Morning";
+  if (hour >= 10 && hour < 16) return "Midday";
+  if (hour >= 16 && hour < 19) return "Golden hour";
+  if (hour >= 19 && hour < 22) return "Evening";
+  return "Night";
+}
+
+/** "Golden hour, scattered clouds in Lisbon" for each city not used in `avoid`. */
+export async function worldWeather(avoid: string[] = []): Promise<Signal[]> {
+  const used = avoid.join(" ").toLowerCase();
+  const cities = CITIES.filter(([name]) => !used.includes(name.toLowerCase()));
+  if (!cities.length) return [];
+  const lat = cities.map((c) => c[1]).join(",");
+  const lon = cities.map((c) => c[2]).join(",");
+  const res = await get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code,is_day,temperature_2m,wind_speed_10m&timezone=auto`);
+  if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
+  const body = (await res.json()) as { current?: { time: string; weather_code: number; temperature_2m: number; wind_speed_10m: number } }[] | { current?: { time: string; weather_code: number; temperature_2m: number; wind_speed_10m: number } };
+  const rows = Array.isArray(body) ? body : [body];
+  return rows
+    .map((r, i): Signal | null => {
+      if (!r.current) return null;
+      const hour = Number(r.current.time.slice(11, 13));
+      const name = cities[i][0];
+      return {
+        source: "weather",
+        title: `${phaseWords(hour)}, ${skyWords(r.current.weather_code)} in ${name}`,
+        detail: `right now: ${Math.round(r.current.temperature_2m)} °C, wind ${Math.round(r.current.wind_speed_10m)} km/h, local time ${r.current.time.slice(11, 16)}`,
+      };
+    })
+    .filter((x): x is Signal => !!x)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 12);
+}
+
 export type ListenResult = { signals: Signal[]; problems: string[] };
 
 /** Every source, in parallel; a failing one is reported, not thrown. */
-export async function listenAll(opts: { geo?: string; sources?: SignalSource[] } = {}): Promise<ListenResult> {
+export async function listenAll(opts: { geo?: string; sources?: SignalSource[]; avoid?: string[] } = {}): Promise<ListenResult> {
   const want = new Set(opts.sources ?? ["google-trends", "wikipedia", "hacker-news"]);
   const jobs: [SignalSource, () => Promise<Signal[]>][] = [
     ["google-trends", () => googleTrends(opts.geo)],
     // Three days of most-read: more topics for an unlimited window; the shortlist dedupes.
     ["wikipedia", async () => (await Promise.all([1, 2, 3].map((d) => wikipediaMostRead(new Date(Date.now() - d * 86_400_000))))).flat()],
     ["hacker-news", () => hackerNews()],
+    ["weather", () => worldWeather(opts.avoid)],
   ];
   const settled = await Promise.allSettled(jobs.filter(([id]) => want.has(id)).map(([, fn]) => fn()));
   const signals: Signal[] = [];

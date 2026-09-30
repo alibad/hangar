@@ -155,6 +155,8 @@ export type ForgeSettings = {
   stillCheck: boolean;
   /** Shots written per topic: 2 = the brief's shot plus the same place from another distance. */
   shotsPerTopic: number;
+  /** When trends run dry, listen to the weather right now in photogenic cities instead. */
+  weatherFallback: boolean;
   /**
    * If vllm-small is started again mid-window by something else (quote-forge's
    * drip asks for it every 5 minutes) while a clip waits for memory, pause it
@@ -187,6 +189,7 @@ export const DEFAULT_SETTINGS: ForgeSettings = {
   reclaimVllmSmall: false,
   stillCheck: true,
   shotsPerTopic: 2,
+  weatherFallback: true,
 };
 
 export type ForgeRuntime = {
@@ -492,7 +495,7 @@ class Forge {
   }
 
   /** One listen: hear, shortlist, research, brief. Also the "Listen now" button. */
-  async listen(s?: ForgeSettings, geo?: string): Promise<ForgeItem> {
+  async listen(s?: ForgeSettings, geo?: string, sourcesOverride?: SignalSource[]): Promise<ForgeItem> {
     s ??= await getSettings();
     geo ??= s.channel.geo;
     if (this.runtime.listening) throw new Error("Already listening");
@@ -500,7 +503,9 @@ class Forge {
     this.runtime.now = `Listening: reading Google Trends (${geo}), Wikipedia and Hacker News…`;
     try {
       const searchNote = await ensureSearch();
-      const heard = await listenAll({ geo, sources: s.channel.sources });
+      // Cities shown in the last three days are not offered again by the weather fallback.
+      const lately = (await listItems(500)).filter((i) => Date.parse(i.createdAt) > Date.now() - 3 * 86_400_000).map((i) => i.topic);
+      const heard = await listenAll({ geo, sources: sourcesOverride ?? s.channel.sources, avoid: lately });
       const recent = (await listItems(500)).filter((i) => i.status !== "failed" && Date.parse(i.createdAt) > Date.now() - 21 * 86_400_000);
       const recentTopics = recent.flatMap((i) => [i.topic, i.heard.replace(/ \([^)]*\)$/, "")]).filter(Boolean);
       const reviews: ReviewMemory[] = recent.filter((i) => i.review).map((i) => ({ topic: i.topic, verdict: i.review!.verdict, reason: i.review!.reason }));
@@ -583,16 +588,22 @@ class Forge {
         } else {
           // Write a batch while the writer is up; one vllm-small pause then covers all of it.
           let misses = 0;
+          let weatherMisses = 0;
           const geos = s.geos.length ? s.geos : [s.channel.geo];
-          while (pending.length < s.batchSize && misses < 3) {
+          while (pending.length < s.batchSize && weatherMisses < 2) {
             const geo = geos[(this.runtime.geoIndex ?? 0) % geos.length];
             this.runtime.geoIndex = ((this.runtime.geoIndex ?? 0) + 1) % geos.length;
-            const item = await this.listen(s, geo);
+            // Trends first; once they miss twice, the weather right now in a
+            // photogenic city — always true, always visual, never used up.
+            const fallback = misses >= 2 && s.weatherFallback;
+            if (misses >= 2 && !s.weatherFallback) break;
+            const item = await this.listen(s, geo, fallback ? ["weather"] : undefined);
+            if (fallback && item.status !== "brief") weatherMisses++;
             // A listen can add two briefs (two shots of one topic): count what is really waiting.
             if (item.status === "brief") pending = await itemsWithStatus("brief");
             else misses++;
           }
-          if (misses >= 3) {
+          if (misses >= 2 && (!s.weatherFallback || weatherMisses >= 2)) {
             // Every country's list is used up for now; trends refresh through the day.
             this.runtime.quietUntil = new Date(Date.now() + 30 * 60_000).toISOString();
           }
