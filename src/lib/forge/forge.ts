@@ -38,6 +38,51 @@ const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
 const CLAIM_FILE = process.env.GPU_CLAIM_FILE ?? "C:\\Users\\Admin\\Code\\AI\\logs\\gpu-claim.txt";
 const CLAIM_TAG = "Video Forge";
 const TICK_MS = 60_000;
+const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://127.0.0.1:11434";
+/** A small local vision model (Ollama, ~10 GB while loaded; unloaded after every look). */
+const VISION_MODEL = process.env.FORGE_VISION_MODEL ?? "qwen3-vl:8b";
+
+/**
+ * Does this still show people, writing or a logo? Null when the vision model
+ * is not available — the check is skipped, never counted as a failure.
+ */
+async function checkStill(file: string): Promise<{ people: boolean; text: boolean; logo: boolean; notes: string } | null> {
+  try {
+    const image = (await fs.readFile(file)).toString("base64");
+    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        stream: false,
+        think: false,
+        keep_alive: 0,
+        options: { temperature: 0 },
+        format: {
+          type: "object",
+          properties: { people: { type: "boolean" }, text: { type: "boolean" }, logo: { type: "boolean" }, notes: { type: "string" } },
+          required: ["people", "text", "logo", "notes"],
+        },
+        messages: [
+          {
+            role: "user",
+            content:
+              'This image is the first frame of a calm, cinematic video clip. Answer in JSON: "people": true if ANY person, face, hand, body or human silhouette is visible, even small or far away; "text": true if any letters, words, numbers or signage are visible (real or garbled); "logo": true if any brand logo or app icon is visible; "notes": what it shows, in a few words.',
+            images: [image],
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(120_000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { message?: { content?: string } };
+    const j = JSON.parse(body.message?.content ?? "{}") as { people?: boolean; text?: boolean; logo?: boolean; notes?: string };
+    return { people: !!j.people, text: !!j.text, logo: !!j.logo, notes: String(j.notes ?? "").slice(0, 120) };
+  } catch {
+    return null;
+  }
+}
+
 /** ComfyUI failures worth one retry: a weight-streaming read, a CUDA hiccup. */
 const TRANSIENT = /read_file_slice|HostBuffer|CUDA error|out of memory|allocation/i;
 
@@ -103,6 +148,8 @@ export type ForgeSettings = {
   geos: string[];
   /** A one-off window that is open until this time (ISO), on top of the nightly one. */
   extraWindowUntil?: string;
+  /** Look at every still with a local vision model and draw again when it shows people, writing or a logo. */
+  stillCheck: boolean;
   /**
    * If vllm-small is started again mid-window by something else (quote-forge's
    * drip asks for it every 5 minutes) while a clip waits for memory, pause it
@@ -133,6 +180,7 @@ export const DEFAULT_SETTINGS: ForgeSettings = {
   batchSize: 8,
   geos: ["US", "GB", "CA", "AU", "IN", "IE", "NZ", "SG", "ZA", "PH"],
   reclaimVllmSmall: false,
+  stillCheck: true,
 };
 
 export type ForgeRuntime = {
@@ -356,8 +404,13 @@ class Forge {
   }
 
   private async tick() {
-    if (this.busy) return this.schedule(TICK_MS);
+    // The lock lives on globalThis, not the instance: after a hot reload the
+    // retired loop may still be finishing a step, and two loops advancing the
+    // same item would queue the same clip twice.
+    const lock = globalThis as typeof globalThis & { __forgeTicking?: boolean };
+    if (this.busy || lock.__forgeTicking) return this.schedule(this.fast ? 4_000 : TICK_MS);
     this.busy = true;
+    lock.__forgeTicking = true;
     try {
       const persisted = await readState<ForgeRuntime>("runtime", {});
       this.runtime = { ...persisted, ...this.runtime, pausedVllmSmall: persisted.pausedVllmSmall };
@@ -400,6 +453,7 @@ class Forge {
       console.error("[forge] tick failed:", err);
     } finally {
       this.busy = false;
+      lock.__forgeTicking = false;
       await writeState("runtime", this.runtime).catch(() => undefined);
       // While a window is busy, look again every few seconds: a minute between
       // one clip ending and the next starting is a minute the card sits idle,
@@ -583,12 +637,40 @@ class Forge {
       item.status = "still";
       note(item, `Making the first frame with ${s.stillModel}`);
       await saveItem(item);
-      this.runtime.now = `Making the first frame of "${item.topic}"…`;
-      const res = await generateAndSave({ prompt: `${item.stillPrompt} ${STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
-      const savedPath = res.ok ? (res.body.savedPath as string | null) : null;
-      if (!res.ok || !savedPath) {
-        const why = String(res.body.error ?? "no image saved");
-        if (res.body.resourceBlocked) {
+      let savedPath: string | null = null;
+      let res: Awaited<ReturnType<typeof generateAndSave>> | null = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        this.runtime.now = `Making the first frame of "${item.topic}"${attempt > 1 ? ` (try ${attempt})` : ""}…`;
+        res = await generateAndSave({ prompt: `${item.stillPrompt} ${STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
+        savedPath = res.ok ? (res.body.savedPath as string | null) : null;
+        if (!res.ok || !savedPath) break;
+        if (!s.stillCheck) break;
+        // The still model draws people and lettering the prompt said to leave
+        // out; a clip made from such a still is turned away later anyway.
+        // Look first, and draw again rather than spend ~2.5 min animating it.
+        await freeComfyIfIdle();
+        this.runtime.now = `Checking the first frame of "${item.topic}" with the vision model…`;
+        const look = await checkStill(savedPath);
+        if (!look) {
+          note(item, "Vision check unavailable; the still was not checked");
+          break;
+        }
+        const bad = [look.people && "people", look.text && "writing", look.logo && "a logo"].filter(Boolean).join(", ");
+        if (!bad) {
+          note(item, `First frame passed the vision check${attempt > 1 ? ` on try ${attempt}` : ""}`);
+          break;
+        }
+        note(item, `First frame ${attempt} showed ${bad} (${look.notes}); ${attempt < 3 ? "drawing again" : "giving up"}`);
+        if (attempt === 3) {
+          item.status = "failed";
+          item.error = `Three first frames in a row showed ${bad}; not animated`;
+          await saveItem(item);
+          return;
+        }
+      }
+      if (!res || !res.ok || !savedPath) {
+        const why = String(res?.body.error ?? "no image saved");
+        if (res?.body.resourceBlocked) {
           // Not a failure: something else holds the card. Stay in "still" and retry next tick.
           this.runtime.now = `First frame of "${item.topic}" is waiting for memory: ${why}`;
           return;
