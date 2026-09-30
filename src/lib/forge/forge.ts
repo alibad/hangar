@@ -38,6 +38,8 @@ const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
 const CLAIM_FILE = process.env.GPU_CLAIM_FILE ?? "C:\\Users\\Admin\\Code\\AI\\logs\\gpu-claim.txt";
 const CLAIM_TAG = "Video Forge";
 const TICK_MS = 60_000;
+/** ComfyUI failures worth one retry: a weight-streaming read, a CUDA hiccup. */
+const TRANSIENT = /read_file_slice|HostBuffer|CUDA error|out of memory|allocation/i;
 
 export type ForgeStatus =
   | "brief" // written, waiting for tonight's window
@@ -67,6 +69,8 @@ export type ForgeItem = {
   video?: { jobId: string; model: string; seconds: number; tier: string; output?: string; latencyMs?: number; peakVramGb?: number };
   review?: { verdict: "approved" | "rejected"; reason?: string; at: string };
   error?: string;
+  /** Times the clip was queued again after a transient ComfyUI failure. */
+  retries?: number;
   timeline: { at: string; what: string }[];
 };
 
@@ -575,7 +579,7 @@ class Forge {
 
   /** Move one item one step: brief → still → rendering → review. */
   private async advance(item: ForgeItem, s: ForgeSettings) {
-    if (item.status === "brief" || item.status === "still") {
+    if ((item.status === "brief" || item.status === "still") && !item.still) {
       item.status = "still";
       note(item, `Making the first frame with ${s.stillModel}`);
       await saveItem(item);
@@ -601,6 +605,8 @@ class Forge {
       await fs.copyFile(savedPath, path.join(dir, file));
       item.still = { file: `sources/${file}`, latencyMs: Number(res.body.latency ?? 0), model: s.stillModel };
       await freeComfyIfIdle();
+    }
+    if ((item.status === "brief" || item.status === "still") && item.still) {
       const job = await videoQueue.add({
         model: s.videoModel,
         mode: "i2v",
@@ -628,6 +634,14 @@ class Forge {
         item.status = "review";
         item.video = { ...item.video, output: job.output, latencyMs: job.latencyMs ?? undefined, peakVramGb: job.peakVramGb ?? undefined };
         note(item, `Clip done in ${Math.round((job.latencyMs ?? 0) / 1000)} s — waiting for review`);
+      } else if (job.status === "failed" && TRANSIENT.test(job.error ?? "") && (item.retries ?? 0) < 1) {
+        // ComfyUI's weight streamer (comfy_aimdo) failed to read a slice of the
+        // model file mid-sample on 2 of the first 27 clips, each time right
+        // after the batch's previous clip. Once more, with the same still.
+        item.retries = (item.retries ?? 0) + 1;
+        item.status = "still";
+        item.video = undefined;
+        note(item, `Clip failed (${job.error}); trying once more with the same first frame`);
       } else if (job.status === "failed" || job.status === "cancelled") {
         item.status = "failed";
         item.error = `Video ${job.status}: ${job.error ?? ""}`.trim();

@@ -113,7 +113,8 @@ export async function listenAll(opts: { geo?: string; sources?: SignalSource[] }
   const want = new Set(opts.sources ?? ["google-trends", "wikipedia", "hacker-news"]);
   const jobs: [SignalSource, () => Promise<Signal[]>][] = [
     ["google-trends", () => googleTrends(opts.geo)],
-    ["wikipedia", () => wikipediaMostRead()],
+    // Three days of most-read: more topics for an unlimited window; the shortlist dedupes.
+    ["wikipedia", async () => (await Promise.all([1, 2, 3].map((d) => wikipediaMostRead(new Date(Date.now() - d * 86_400_000))))).flat()],
     ["hacker-news", () => hackerNews()],
   ];
   const settled = await Promise.allSettled(jobs.filter(([id]) => want.has(id)).map(([, fn]) => fn()));

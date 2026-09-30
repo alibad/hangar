@@ -61,7 +61,7 @@ export type Ranked = Candidate & { score: number; subject: string };
  * (an NFL player became a brief). A small question per topic is the shape a
  * 7B answers reliably, and a named person is asked about explicitly.
  */
-async function judgeOne(c: Candidate, model: string, signal?: AbortSignal): Promise<{ person: boolean; visual: number; subject: string; tokens: [number, number] } | null> {
+async function judgeOne(c: Candidate, model: string, signal?: AbortSignal): Promise<{ person: boolean; risky: boolean; visual: number; subject: string; tokens: [number, number] } | null> {
   const prompt = [
     `Topic trending today: "${c.title}"${c.detail ? ` (${c.detail.replace(/^news: /, "").slice(0, 100)})` : ""}`,
     "",
@@ -69,8 +69,9 @@ async function judgeOne(c: Candidate, model: string, signal?: AbortSignal): Prom
     "Answer three things:",
     '- "person": true if the topic is a specific real person (an athlete, a celebrity, a politician, a named individual), else false.',
     '- "visual": 3 if the topic itself is visual without people (sky, space, season, weather, landscape, city, nature, animals, food, festival lights, a launch, a machine); 2 if a place or object evokes it well (a sports event: the empty stadium or rink under floodlights; a new phone: the device on a table); 1 if it is abstract; 0 if it is news about politics, crime, lawsuits, business or conflict.',
+    '- "risky": true if the topic is news about crime, drugs, a court case, an accident or emergency, a disaster, conflict, politics, a company in trouble, a hack, or a medicine; else false.',
     '- "subject": what the clip would show, in a few words, with no people.',
-    'Reply with JSON only, e.g. {"person": false, "visual": 2, "subject": "an ice rink under arena lights"}',
+    'Reply with JSON only, e.g. {"person": false, "visual": 2, "risky": false, "subject": "an ice rink under arena lights"}',
   ].join("\n");
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -84,9 +85,10 @@ async function judgeOne(c: Candidate, model: string, signal?: AbortSignal): Prom
       const text = body.choices?.[0]?.message?.content ?? "";
       const m = /\{[\s\S]*\}/.exec(text);
       if (!m) continue;
-      const j = JSON.parse(m[0]) as { person?: unknown; visual?: unknown; subject?: unknown };
+      const j = JSON.parse(m[0]) as { person?: unknown; risky?: unknown; visual?: unknown; subject?: unknown };
       return {
         person: j.person === true || j.person === "true",
+        risky: j.risky === true || j.risky === "true",
         visual: Math.max(0, Math.min(3, Number(j.visual) || 0)),
         subject: String(j.subject ?? ""),
         tokens: [body.usage?.prompt_tokens ?? 0, body.usage?.completion_tokens ?? 0],
@@ -110,6 +112,7 @@ export async function rankCandidates(candidates: Candidate[], model: string, tra
   let answered = 0;
   const ranked: Ranked[] = [];
   const people: string[] = [];
+  const risky: string[] = [];
   judged.forEach((j, i) => {
     if (!j) return;
     answered++;
@@ -117,6 +120,11 @@ export async function rankCandidates(candidates: Candidate[], model: string, tra
     trace.completionTokens += j.tokens[1];
     if (j.person || peopleIn(j.subject) || writingIn(j.subject)) {
       if (j.person) people.push(candidates[i].title);
+      return;
+    }
+    // A 7B let a cocaine court case and a hijack alert through on "visual" alone.
+    if (j.risky) {
+      risky.push(candidates[i].title);
       return;
     }
     if (j.visual >= 2) ranked.push({ ...candidates[i], score: j.visual, subject: j.subject });
@@ -130,7 +138,8 @@ export async function rankCandidates(candidates: Candidate[], model: string, tra
     summary:
       `${answered}/${candidates.length} judged; ${ranked.length} can be shown without people` +
       (ranked.length ? `: ${ranked.slice(0, 5).map((r) => `${r.title} (${r.score}: ${r.subject})`).join("; ")}` : "") +
-      (people.length ? `. People, skipped: ${people.slice(0, 6).join(", ")}` : ""),
+      (people.length ? `. People, skipped: ${people.slice(0, 6).join(", ")}` : "") +
+      (risky.length ? `. Risky news, skipped: ${risky.slice(0, 6).join(", ")}` : ""),
   });
   // No fallback to the unjudged list: an unranked list is exactly how a
   // person's name reached a brief. Nothing judged means nothing made this time.

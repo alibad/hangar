@@ -78,3 +78,12 @@ test("saying the frame is empty of people is allowed", () => {
   assert.equal(peopleIn("the terminal, empty of passengers at dawn"), null);
   assert.equal(peopleIn("no crowds; later, travelers stream in"), "travelers");
 });
+
+test("the first all-day run's bad briefs are filtered now; courts for sport are not", () => {
+  for (const t of ["Flour replacing cocaine exhibit in Fiji court case", "Flydubai aircraft activates hijack-related code en route to Tel Aviv", "Crystal Jade holding companies receivership", "Counterfeit Postage Labels Website Shut Down", "PS5 Relapse Exploit"]) {
+    assert.ok(unsafeReason(t), `${t} should be unsafe`);
+  }
+  for (const t of ["tennis court at dawn", "basketball court under lights", "Real-time Solar System with asteroids and satellites", "a method for brewing coffee"]) {
+    assert.equal(unsafeReason(t), null, `${t} should pass`);
+  }
+});
