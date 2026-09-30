@@ -156,8 +156,15 @@ export async function worldWeather(avoid: string[] = []): Promise<Signal[]> {
   if (!cities.length) return [];
   const lat = cities.map((c) => c[1]).join(",");
   const lon = cities.map((c) => c[2]).join(",");
-  const res = await get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code,is_day,temperature_2m,wind_speed_10m&timezone=auto`);
-  if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
+  // Open-Meteo answered 503 twice in the same second on 2026-09-30; a short
+  // backoff turns a blip into a pause instead of a missed listen.
+  let res: Response | null = null;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    res = await get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code,is_day,temperature_2m,wind_speed_10m&timezone=auto`).catch(() => null);
+    if (res?.ok) break;
+    await new Promise((r) => setTimeout(r, 2000 * attempt));
+  }
+  if (!res?.ok) throw new Error(`Open-Meteo HTTP ${res?.status ?? "unreachable"}`);
   const body = (await res.json()) as { current?: { time: string; weather_code: number; temperature_2m: number; wind_speed_10m: number } }[] | { current?: { time: string; weather_code: number; temperature_2m: number; wind_speed_10m: number } };
   const rows = Array.isArray(body) ? body : [body];
   return rows

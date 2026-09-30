@@ -102,3 +102,9 @@ test("money and markets are filtered: they only show as symbols and numbers", ()
   for (const t of ["naira dollar exchange rate 2026", "stock market today", "bitcoin price", "interest rates rise"]) assert.ok(unsafeReason(t), t);
   assert.equal(unsafeReason("autumn market stalls at dusk"), null);
 });
+
+test("floodlights are not a flood", () => {
+  assert.equal(unsafeReason("an empty cricket pitch under floodlights"), null);
+  assert.ok(unsafeReason("flash flood warning in the valley"));
+  assert.ok(unsafeReason("floods close the coast road"));
+});
