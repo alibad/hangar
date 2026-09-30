@@ -391,6 +391,7 @@ class Forge {
   private busy = false;
   private stopped = false;
   private fast = false;
+  private listeningNow = false;
   runtime: ForgeRuntime = {};
 
   constructor() {
@@ -422,7 +423,7 @@ class Forge {
     lock.__forgeTicking = true;
     try {
       const persisted = await readState<ForgeRuntime>("runtime", {});
-      this.runtime = { ...persisted, ...this.runtime, pausedVllmSmall: persisted.pausedVllmSmall };
+      this.runtime = { ...persisted, ...this.runtime, pausedVllmSmall: persisted.pausedVllmSmall, listening: this.listeningNow };
       const s = await getSettings();
       const left = openWindowMinutes(s);
       this.fast = false;
@@ -498,7 +499,11 @@ class Forge {
   async listen(s?: ForgeSettings, geo?: string, sourcesOverride?: SignalSource[]): Promise<ForgeItem> {
     s ??= await getSettings();
     geo ??= s.channel.geo;
-    if (this.runtime.listening) throw new Error("Already listening");
+    // The guard is this loop's own field, not the persisted runtime: a loop
+    // replaced mid-listen by a hot reload left "listening: true" in saved state,
+    // and its successor refused every listen after that.
+    if (this.listeningNow) throw new Error("Already listening");
+    this.listeningNow = true;
     this.runtime.listening = true;
     this.runtime.now = `Listening: reading Google Trends (${geo}), Wikipedia and Hacker News…`;
     try {
@@ -563,6 +568,7 @@ class Forge {
       this.runtime.now = item.status === "brief" ? `Wrote a brief: "${item.topic}". It will be made in the next window.` : `Listened, made nothing: ${item.error}`;
       return item;
     } finally {
+      this.listeningNow = false;
       this.runtime.listening = false;
     }
   }
