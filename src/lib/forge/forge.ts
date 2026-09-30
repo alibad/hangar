@@ -36,6 +36,23 @@ export { nextWindowStart, windowMinutesLeft } from "./rules";
 
 const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
 const CLAIM_FILE = process.env.GPU_CLAIM_FILE ?? "C:\\Users\\Admin\\Code\\AI\\logs\\gpu-claim.txt";
+/**
+ * A short job waiting on the forge's batch writes one line here (who, when);
+ * the forge yields its claim between clips while it is fresh (< 10 min).
+ */
+const YIELD_FILE = process.env.GPU_YIELD_FILE ?? path.join(path.dirname(CLAIM_FILE), "gpu-yield.txt");
+
+async function readYieldRequest(): Promise<string | null> {
+  try {
+    const text = (await fs.readFile(YIELD_FILE, "utf8")).trim();
+    if (!text) return null;
+    const at = /\d{4}-\d{2}-\d{2}T[\d:.]+Z/.exec(text)?.[0];
+    if (at && Date.now() - Date.parse(at) > 10 * 60_000) return null;
+    return text;
+  } catch {
+    return null;
+  }
+}
 const CLAIM_TAG = "Video Forge";
 const TICK_MS = 60_000;
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://127.0.0.1:11434";
@@ -721,6 +738,19 @@ class Forge {
     if (minutesLeft < perClip + 5) {
       await this.leaveWindow("not enough time left for another clip");
       this.runtime.now = `${pending.length} brief(s) left for tomorrow night — a clip takes ~${Math.round(perClip)} min and the window closes in ${minutesLeft} min.`;
+      return;
+    }
+
+    // Between clips (nothing in flight here), give way to a short job that asked
+    // for the card — Montage's music for a reel takes ~2 min; without this it
+    // waited out a whole ~25-minute batch.
+    const yieldTo = await readYieldRequest();
+    if (yieldTo) {
+      if (this.runtime.claimHeld || (await readClaim()).startsWith(CLAIM_TAG)) {
+        await dropClaim();
+        this.runtime.claimHeld = false;
+      }
+      this.runtime.now = `Giving the GPU to ${yieldTo.slice(0, 80)} for a moment; the batch continues after.`;
       return;
     }
 
