@@ -83,6 +83,86 @@ async function checkStill(file: string): Promise<{ people: boolean; text: boolea
   }
 }
 
+export type ClipCheck = { people: boolean; text: boolean; logo: boolean; artifacts: number; beauty: number; notes: string; model: string; checkedAt: string };
+
+/**
+ * The same three-frame look Montage takes (start, middle, end; the same
+ * questions), so a clip graded here needs no second look there. Null when the
+ * model or ffmpeg is unavailable.
+ */
+async function checkClip(file: string, seconds: number): Promise<ClipCheck | null> {
+  const { execFile } = await import("child_process");
+  const { promisify } = await import("util");
+  const os = await import("os");
+  const run = promisify(execFile);
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "forge-check-"));
+  try {
+    const images: string[] = [];
+    for (const [i, t] of [0.4, seconds / 2, Math.max(0.5, seconds - 0.35)].entries()) {
+      const jpg = path.join(dir, `f${i}.jpg`);
+      await run("ffmpeg", ["-v", "error", "-y", "-ss", t.toFixed(2), "-i", file, "-frames:v", "1", "-vf", "scale=640:-2", "-q:v", "4", jpg]);
+      images.push((await fs.readFile(jpg)).toString("base64"));
+    }
+    const res = await fetch(`${OLLAMA_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        stream: false,
+        think: false,
+        keep_alive: 0,
+        options: { temperature: 0 },
+        format: {
+          type: "object",
+          properties: {
+            people: { type: "boolean" },
+            text: { type: "boolean" },
+            logo: { type: "boolean" },
+            artifacts: { type: "integer" },
+            beauty: { type: "integer" },
+            notes: { type: "string" },
+          },
+          required: ["people", "text", "logo", "artifacts", "beauty", "notes"],
+        },
+        messages: [
+          {
+            role: "user",
+            content: [
+              "These are three frames (start, middle, end) of one 5-second AI-generated video clip meant for a calm, cinematic reel.",
+              "Look carefully at every frame and answer in JSON:",
+              '"people": true if ANY person, face, hand, body or human silhouette is visible in any frame, even small or in the distance;',
+              '"text": true if any letters, words, numbers, signage or captions are visible (real or garbled);',
+              '"logo": true if any brand logo, trademark or app icon is visible;',
+              '"artifacts": 0 to 3 — how distorted it is (melting shapes, warped geometry, flicker, smeared faces): 0 none, 1 slight, 2 clear, 3 severe;',
+              '"beauty": 1 to 5 — how cinematic, well-lit and pleasing it is to watch;',
+              '"notes": what the clip shows, in a few words.',
+            ].join("\n"),
+            images,
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(180_000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { message?: { content?: string } };
+    const j = JSON.parse(body.message?.content ?? "{}") as Partial<ClipCheck>;
+    return {
+      people: !!j.people,
+      text: !!j.text,
+      logo: !!j.logo,
+      artifacts: Math.max(0, Math.min(3, Number(j.artifacts) || 0)),
+      beauty: Math.max(1, Math.min(5, Number(j.beauty) || 1)),
+      notes: String(j.notes ?? "").slice(0, 200),
+      model: VISION_MODEL,
+      checkedAt: new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
 /** ComfyUI failures worth one retry: a weight-streaming read, a CUDA hiccup. */
 const TRANSIENT = /read_file_slice|HostBuffer|CUDA error|out of memory|allocation/i;
 
@@ -119,6 +199,8 @@ export type ForgeItem = {
   /** Shots of one topic share a group (the first shot's id); shot 1 is the brief's own, shot 2 the other distance. */
   group?: string;
   shot?: number;
+  /** The vision model's look at the finished clip (the same check Montage runs). */
+  check?: ClipCheck;
   timeline: { at: string; what: string }[];
 };
 
@@ -761,6 +843,17 @@ class Forge {
         item.status = "review";
         item.video = { ...item.video, output: job.output, latencyMs: job.latencyMs ?? undefined, peakVramGb: job.peakVramGb ?? undefined };
         note(item, `Clip done in ${Math.round((job.latencyMs ?? 0) / 1000)} s — waiting for review`);
+        // Grade the finished clip now, inside this batch's claim: the vision
+        // model is loaded between clips anyway, while Montage could only grade
+        // after the whole batch had given the card back (~25 min later).
+        if (s.stillCheck && job.output) {
+          await freeComfyIfIdle();
+          const check = await checkClip(path.join(videoRoot(), ...job.output.split("/")), item.video.seconds ?? s.seconds);
+          if (check) {
+            item.check = check;
+            note(item, `Vision check: ${[check.people && "people", check.text && "writing", check.logo && "a logo", check.artifacts > 1 && "artifacts"].filter(Boolean).join(", ") || "clean"}, beauty ${check.beauty}/5`);
+          }
+        }
       } else if (job.status === "failed" && TRANSIENT.test(job.error ?? "") && (item.retries ?? 0) < 1) {
         // ComfyUI's weight streamer (comfy_aimdo) failed to read a slice of the
         // model file mid-sample on 2 of the first 27 clips, each time right
