@@ -97,3 +97,8 @@ test("brands and acronyms in a prompt are caught; plain words and LED are not", 
   assert.equal(brandIn("A harvest moon over wheat fields"), null);
   assert.ok(unsafeReason("nigerian civil service strike october"));
 });
+
+test("money and markets are filtered: they only show as symbols and numbers", () => {
+  for (const t of ["naira dollar exchange rate 2026", "stock market today", "bitcoin price", "interest rates rise"]) assert.ok(unsafeReason(t), t);
+  assert.equal(unsafeReason("autumn market stalls at dusk"), null);
+});
