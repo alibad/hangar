@@ -5,7 +5,7 @@ import { getDb } from "../db";
 import { generateAndSave } from "../image-gen";
 import { freeComfyIfIdle, videoQueue, videoRoot } from "../video-jobs";
 import { listenAll, SEARXNG_URL, type SignalSource } from "./sources";
-import { writeBrief, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
+import { writeBrief, writeSecondShot, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
 import { nextWindowStart, shortlist, STILL_SUFFIX, windowMinutesLeft } from "./rules";
 
 export { nextWindowStart, windowMinutesLeft } from "./rules";
@@ -116,6 +116,9 @@ export type ForgeItem = {
   error?: string;
   /** Times the clip was queued again after a transient ComfyUI failure. */
   retries?: number;
+  /** Shots of one topic share a group (the first shot's id); shot 1 is the brief's own, shot 2 the other distance. */
+  group?: string;
+  shot?: number;
   timeline: { at: string; what: string }[];
 };
 
@@ -150,6 +153,8 @@ export type ForgeSettings = {
   extraWindowUntil?: string;
   /** Look at every still with a local vision model and draw again when it shows people, writing or a logo. */
   stillCheck: boolean;
+  /** Shots written per topic: 2 = the brief's shot plus the same place from another distance. */
+  shotsPerTopic: number;
   /**
    * If vllm-small is started again mid-window by something else (quote-forge's
    * drip asks for it every 5 minutes) while a clip waits for memory, pause it
@@ -181,6 +186,7 @@ export const DEFAULT_SETTINGS: ForgeSettings = {
   geos: ["US", "GB", "CA", "AU", "IN", "IE", "NZ", "SG", "ZA", "PH"],
   reclaimVllmSmall: false,
   stillCheck: true,
+  shotsPerTopic: 2,
 };
 
 export type ForgeRuntime = {
@@ -525,6 +531,27 @@ class Forge {
         item = { ...base, status: "failed", topic: "(listen failed)", error: outcome.error };
         note(item, `Failed: ${outcome.error}`);
       }
+      if (outcome.kind === "brief" && s.shotsPerTopic >= 2) {
+        this.runtime.now = `Writing a second shot of "${item.topic}"…`;
+        const second = await writeSecondShot({ brief: outcome.brief });
+        if ("error" in second) {
+          note(item, `No second shot: ${second.error}`);
+        } else {
+          item.group = item.id;
+          item.shot = 1;
+          const twin: ForgeItem = {
+            ...item,
+            id: randomUUID().slice(0, 12),
+            createdAt: new Date(Date.parse(item.createdAt) + 1).toISOString(),
+            stillPrompt: second.stillPrompt,
+            motionPrompt: second.motionPrompt,
+            shot: 2,
+            timeline: [{ at: stamp(), what: `Second shot of "${item.topic}" (the same place from another distance)` }],
+          };
+          note(item, "Wrote a second shot of the same topic");
+          await saveItem(twin);
+        }
+      }
       await saveItem(item);
       this.runtime.lastListenAt = stamp();
       this.runtime.lastListenOutcome = item.status === "brief" ? `Picked "${item.topic}"` : item.error;
@@ -561,7 +588,8 @@ class Forge {
             const geo = geos[(this.runtime.geoIndex ?? 0) % geos.length];
             this.runtime.geoIndex = ((this.runtime.geoIndex ?? 0) + 1) % geos.length;
             const item = await this.listen(s, geo);
-            if (item.status === "brief") pending.push(item);
+            // A listen can add two briefs (two shots of one topic): count what is really waiting.
+            if (item.status === "brief") pending = await itemsWithStatus("brief");
             else misses++;
           }
           if (misses >= 3) {

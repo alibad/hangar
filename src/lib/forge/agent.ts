@@ -254,6 +254,57 @@ function callsFromContent(content: string | null): RawToolCall[] {
   return out;
 }
 
+/**
+ * A second shot of the same topic: the same place and moment from another
+ * distance (wide → close detail, or close → wide), same light and palette, so
+ * the two cut together like an establishing shot and its detail. Two shots per
+ * topic doubles what a day's trends can feed and gives a reel short sequences
+ * instead of ten unrelated cuts. Held to the same rules as the first shot.
+ */
+export async function writeSecondShot(input: { brief: Brief; model?: string }): Promise<{ stillPrompt: string; motionPrompt: string } | { error: string }> {
+  const model = input.model ?? "local-small";
+  let feedback = "";
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const prompt = [
+      `A short video reel shows the topic "${input.brief.topic}" in two consecutive shots. Shot 1:`,
+      `First frame: ${input.brief.stillPrompt}`,
+      `Motion: ${input.brief.motionPrompt}`,
+      "",
+      "Write shot 2: the SAME place and moment seen from a different distance — if shot 1 is wide, go close on one telling detail; if it is close, pull back wide. Keep the same light, time of day and colour palette so the two cut together.",
+      "Rules: no people or human figures at all, no text, letters, signs, logos or brand names, nothing violent or sad. One continuous shot.",
+      feedback,
+      'Reply with JSON only: {"still_prompt": "40-80 words describing the first frame", "motion_prompt": "20-50 words: what moves and how the camera moves"}',
+    ]
+      .filter(Boolean)
+      .join("\n");
+    try {
+      const res = await fetch(`${routerUrl()}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Source": "video-forge" },
+        body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.6, max_tokens: 400 }),
+        signal: AbortSignal.timeout(90_000),
+      });
+      const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+      const text = body.choices?.[0]?.message?.content ?? "";
+      const m = /\{[\s\S]*\}/.exec(text);
+      const j = m ? (JSON.parse(m[0]) as { still_prompt?: string; motion_prompt?: string }) : {};
+      const still = String(j.still_prompt ?? "").trim();
+      const motion = String(j.motion_prompt ?? "").trim();
+      const both = `${still} ${motion}`;
+      const problem =
+        still.length < 30 || motion.length < 10
+          ? "both prompts are required"
+          : unsafeReason(both) ?? (peopleIn(both) ? `it shows people ("${peopleIn(both)}")` : null) ?? (writingIn(both) ? `it asks for writing ("${writingIn(both)}")` : null) ?? (brandIn(both) ? `it names "${brandIn(both)}"` : null);
+      if (!problem) return { stillPrompt: still, motionPrompt: motion };
+      feedback = `Your last answer was not usable: ${problem}. Fix that.`;
+    } catch (err) {
+      feedback = "";
+      if (attempt === 3) return { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+  return { error: "no usable second shot in three tries" };
+}
+
 export async function writeBrief(input: {
   channel: ChannelSpec;
   candidates: Candidate[];
