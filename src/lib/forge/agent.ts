@@ -1,6 +1,6 @@
 import { routerUrl } from "../providers";
 import { readPage, webSearch } from "./sources";
-import { peopleIn, unsafeReason, writingIn, type Candidate } from "./rules";
+import { brandIn, peopleIn, unsafeReason, writingIn, type Candidate } from "./rules";
 
 export { shortlist, type Candidate } from "./rules";
 
@@ -340,6 +340,8 @@ export async function writeBrief(input: {
         if (person) problems.push(`the prompts show people ("${person}") — rewrite still_prompt and motion_prompt to show only the place, objects, light and nature, with no human figures at all`);
         const writing = writingIn(`${still} ${motion}`);
         if (writing) problems.push(`the prompts ask for writing on screen ("${writing}") — video models cannot render text or numbers; show the scene without any`);
+        const brand = brandIn(`${still} ${motion}`);
+        if (brand) problems.push(`the prompts name "${brand}" — a brand or acronym becomes a logo or lettering in the image; describe the object or place generically instead`);
         if (problems.length && turn < maxTurns) {
           trace.calls.push({ name, args, ok: false, ms: Date.now() - started, summary: problems.join("; ") });
           // A 7B that fails twice on one candidate tends to keep failing on it

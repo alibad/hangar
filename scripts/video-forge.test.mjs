@@ -87,3 +87,13 @@ test("the first all-day run's bad briefs are filtered now; courts for sport are 
     assert.equal(unsafeReason(t), null, `${t} should pass`);
   }
 });
+
+test("brands and acronyms in a prompt are caught; plain words and LED are not", async () => {
+  const { brandIn } = await import("../src/lib/forge/rules.ts");
+  assert.equal(brandIn("a phone showing WhatsApp on a desk"), "WhatsApp");
+  assert.equal(brandIn("a city street from GTA at night"), "GTA");
+  assert.equal(brandIn("an iPhone on a table"), "iPhone");
+  assert.equal(brandIn("an LED display in a dark room, UV light"), null);
+  assert.equal(brandIn("A harvest moon over wheat fields"), null);
+  assert.ok(unsafeReason("nigerian civil service strike october"));
+});

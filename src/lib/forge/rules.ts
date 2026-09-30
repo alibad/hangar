@@ -12,7 +12,7 @@ import type { Signal } from "./sources";
  * what this box should never produce. A false positive costs one candidate.
  */
 const UNSAFE =
-  /\b(die[sd]?|dead|deaths?|dying|kill(s|ed|ing)?|murder\w*|shoot\w*|shot|gun\w*|war|wars|attack\w*|bomb\w*|explosion|crash\w*|collision|earthquake\w*|hurricane\w*|typhoon\w*|tornado\w*|flood\w*|wildfire\w*|blaze\w*|storm surge|arrest\w*|charged|trial|lawsuit|sued|sentenc\w*|prison|jail|police|election\w*|vote[sd]?|voting|ballot|president|senator|congress|parliament|minister|governor|campaign|protest\w*|riot\w*|israel\w*|gaza|palestin\w*|ukrain\w*|russia\w*|iran|hamas|abortion|porn\w*|sex\w*|nude|naked|onlyfans|suicide|overdose|cancer|disease|outbreak|virus|obituar\w*|funeral|terror\w*|hostage|victim\w*|injur\w*|missing|abuse\w*|scandal|layoffs?|recall|hijack\w*|cocaine|heroin|fentanyl|meth|drugs?|narcotic\w*|overdos\w*|court (?:case|ruling|hearing|order)|in court|supreme court|high court|courtroom|judge|jury|verdict|counterfeit\w*|fraud\w*|scam\w*|smuggl\w*|traffick\w*|emergency|evacuat\w*|receivership|bankrupt\w*|insolven\w*|liquidat\w*|weapons?|missiles?|military|army|troops|airstrike\w*|kidnap\w*|assault\w*|stabb\w*|raids?|sanctions?|hack\w*|breach\w*|exploit\w*|ransomware|deport\w*|immigra\w*|refugee\w*|tel aviv|kyiv|sudan|syria)\b/i;
+  /\b(die[sd]?|dead|deaths?|dying|kill(s|ed|ing)?|murder\w*|shoot\w*|shot|gun\w*|war|wars|attack\w*|bomb\w*|explosion|crash\w*|collision|earthquake\w*|hurricane\w*|typhoon\w*|tornado\w*|flood\w*|wildfire\w*|blaze\w*|storm surge|arrest\w*|charged|trial|lawsuit|sued|sentenc\w*|prison|jail|police|election\w*|vote[sd]?|voting|ballot|president|senator|congress|parliament|minister|governor|campaign|protest\w*|strikes?|walkout\w*|riot\w*|israel\w*|gaza|palestin\w*|ukrain\w*|russia\w*|iran|hamas|abortion|porn\w*|sex\w*|nude|naked|onlyfans|suicide|overdose|cancer|disease|outbreak|virus|obituar\w*|funeral|terror\w*|hostage|victim\w*|injur\w*|missing|abuse\w*|scandal|layoffs?|recall|hijack\w*|cocaine|heroin|fentanyl|meth|drugs?|narcotic\w*|overdos\w*|court (?:case|ruling|hearing|order)|in court|supreme court|high court|courtroom|judge|jury|verdict|counterfeit\w*|fraud\w*|scam\w*|smuggl\w*|traffick\w*|emergency|evacuat\w*|receivership|bankrupt\w*|insolven\w*|liquidat\w*|weapons?|missiles?|military|army|troops|airstrike\w*|kidnap\w*|assault\w*|stabb\w*|raids?|sanctions?|hack\w*|breach\w*|exploit\w*|ransomware|deport\w*|immigra\w*|refugee\w*|tel aviv|kyiv|sudan|syria)\b/i;
 
 export function unsafeReason(text: string): string | null {
   const m = UNSAFE.exec(text);
@@ -46,6 +46,26 @@ export function writingIn(text: string): string | null {
   const m = WRITING.exec(text);
   return m ? m[0] : null;
 }
+
+/**
+ * A brand or an acronym in a prompt: "WhatsApp", "iPhone", "GTA", "DVLA".
+ * The image model draws those as logos and lettering — the first all-day
+ * gallery had a WhatsApp logo on a phone. Words with a capital inside, or
+ * all-caps words of 2+ letters (except a few that are not names).
+ */
+const NOT_BRANDS = new Set(["LED", "LEDS", "TV", "UK", "US", "USA", "EU", "AI", "HD", "UV", "DNA", "CO2"]);
+
+export function brandIn(text: string): string | null {
+  for (const w of text.match(/\b[A-Za-z][A-Za-z0-9]+\b/g) ?? []) {
+    if (NOT_BRANDS.has(w.toUpperCase())) continue;
+    if (/^[a-z]+[A-Z]/.test(w) || /^[A-Z][a-z]+[A-Z]/.test(w)) return w; // iPhone, WhatsApp, PlayStation
+    if (/^[A-Z]{2,}$/.test(w)) return w; // GTA, DVLA, RFID
+  }
+  return null;
+}
+
+/** Appended to every first-frame prompt: the still model has no negative prompt, so the scene is described as empty. */
+export const STILL_SUFFIX = "Deserted scene with nobody in frame, no signage, no writing, no logos, photorealistic, cinematic light.";
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 

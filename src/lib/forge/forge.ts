@@ -6,7 +6,7 @@ import { generateAndSave } from "../image-gen";
 import { freeComfyIfIdle, videoQueue, videoRoot } from "../video-jobs";
 import { listenAll, SEARXNG_URL, type SignalSource } from "./sources";
 import { writeBrief, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
-import { nextWindowStart, shortlist, windowMinutesLeft } from "./rules";
+import { nextWindowStart, shortlist, STILL_SUFFIX, windowMinutesLeft } from "./rules";
 
 export { nextWindowStart, windowMinutesLeft } from "./rules";
 
@@ -584,7 +584,7 @@ class Forge {
       note(item, `Making the first frame with ${s.stillModel}`);
       await saveItem(item);
       this.runtime.now = `Making the first frame of "${item.topic}"…`;
-      const res = await generateAndSave({ prompt: item.stillPrompt, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
+      const res = await generateAndSave({ prompt: `${item.stillPrompt} ${STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
       const savedPath = res.ok ? (res.body.savedPath as string | null) : null;
       if (!res.ok || !savedPath) {
         const why = String(res.body.error ?? "no image saved");
