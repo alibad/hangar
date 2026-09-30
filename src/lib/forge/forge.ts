@@ -820,6 +820,14 @@ class Forge {
     }
   }
 
+  /** Forget "nothing fresh until …" and look again now — trends move, and a fix may have widened what passes. */
+  async wake(): Promise<void> {
+    const persisted = await readState<ForgeRuntime>("runtime", {});
+    this.runtime = { ...persisted, ...this.runtime, quietUntil: undefined };
+    await writeState("runtime", this.runtime);
+    this.kick();
+  }
+
   async review(id: string, verdict: "approved" | "rejected", reason?: string): Promise<ForgeItem> {
     const item = await getItem(id);
     if (!item) throw new Error("No such item");

@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
     switch (body.action) {
       case "listen":
         return NextResponse.json({ item: await forge.listen() });
+      case "wake":
+        await forge.wake();
+        return NextResponse.json({ woken: true });
       case "settings":
         return NextResponse.json({ settings: await updateSettings(body.patch ?? {}) });
       case "review":
