@@ -4,6 +4,7 @@ import {
   forge,
   getSettings,
   listItems,
+  listStories,
   nextWindowStart,
   openWindowMinutes,
   updateSettings,
@@ -23,9 +24,10 @@ async function up(url: string): Promise<boolean> {
 
 /** Everything the Forge page shows: settings, what it is doing, the items. */
 export async function GET() {
-  const [settings, items, searchUp, smallUp] = await Promise.all([
+  const [settings, items, stories, searchUp, smallUp] = await Promise.all([
     getSettings(),
     listItems(400),
+    listStories(40),
     up(`${SEARXNG_URL}/healthz`),
     up("http://127.0.0.1:8006/health"),
   ]);
@@ -36,6 +38,7 @@ export async function GET() {
     window: { open: left != null, minutesLeft: left, nextStart: nextWindowStart(settings.window).toISOString() },
     services: { search: searchUp, smallModel: smallUp },
     items,
+    stories,
   });
 }
 

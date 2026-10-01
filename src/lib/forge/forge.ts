@@ -7,6 +7,8 @@ import { freeComfyIfIdle, videoQueue, videoRoot } from "../video-jobs";
 import { listenAll, SEARXNG_URL, type SignalSource } from "./sources";
 import { writeBrief, writeSecondShot, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
 import { nextWindowStart, shortlist, STILL_SUFFIX, windowMinutesLeft } from "./rules";
+import { pickSeed, shotStillPrompt, STORY_AVOID, STORY_MODEL, STORY_STILL_SUFFIX, writeStory, type Story } from "./story";
+import { recordLabRun } from "../lab-runs";
 
 export { nextWindowStart, windowMinutesLeft } from "./rules";
 
@@ -218,6 +220,8 @@ export type ForgeItem = {
   shot?: number;
   /** The vision model's look at the finished clip (the same check Montage runs). */
   check?: ClipCheck;
+  /** A shot of a story film: which story, which shot, and the line said over it. */
+  story?: { id: string; index: number; count: number; title: string; narration: string };
   timeline: { at: string; what: string }[];
 };
 
@@ -262,6 +266,14 @@ export type ForgeSettings = {
    * again. Off unless the owner turns it on.
    */
   reclaimVllmSmall: boolean;
+  /**
+   * "trending": clips about what people search for today. "stories": short
+   * narrated films — a local model writes a parable, fable or original tale as
+   * a shot list, and Montage cuts the finished shots into the film.
+   */
+  mode?: "trending" | "stories";
+  /** Shots per story film (5 s each). */
+  storyShots?: number;
 };
 
 export const DEFAULT_SETTINGS: ForgeSettings = {
@@ -289,6 +301,8 @@ export const DEFAULT_SETTINGS: ForgeSettings = {
   stillCheck: true,
   shotsPerTopic: 2,
   weatherFallback: true,
+  mode: "trending",
+  storyShots: 14,
 };
 
 export type ForgeRuntime = {
@@ -329,6 +343,7 @@ async function db() {
     ready = (async () => {
       await d.run(`CREATE TABLE IF NOT EXISTS forge_items (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, status TEXT NOT NULL, data TEXT NOT NULL)`);
       await d.run(`CREATE TABLE IF NOT EXISTS forge_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
+      await d.run(`CREATE TABLE IF NOT EXISTS forge_stories (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, data TEXT NOT NULL)`);
     })().catch((e) => {
       ready = null;
       throw e;
@@ -377,6 +392,17 @@ async function itemsWithStatus(...status: ForgeStatus[]): Promise<ForgeItem[]> {
     status,
   );
   return rows.map((r) => JSON.parse(r.data) as ForgeItem);
+}
+
+async function saveStory(story: Story) {
+  const d = await db();
+  await serial(() => retrying(() => d.run(`INSERT OR REPLACE INTO forge_stories (id, created_at, data) VALUES (?, ?, ?)`, [story.id, story.createdAt, JSON.stringify(story)])));
+}
+
+export async function listStories(limit = 40): Promise<Story[]> {
+  const d = await db();
+  const rows = await d.all<{ data: string }>(`SELECT data FROM forge_stories ORDER BY created_at DESC LIMIT ?`, [limit]);
+  return rows.map((r) => JSON.parse(r.data) as Story);
 }
 
 export async function getItem(id: string): Promise<ForgeItem | undefined> {
@@ -554,7 +580,10 @@ class Forge {
           await this.advance(item, s);
         }
         if (!(await itemsWithStatus("rendering")).length) await this.leaveWindow("window closed");
-        if (s.enabled) await this.maybeListen(s);
+        if (s.enabled && s.mode === "stories") {
+          const next = new Date(nextWindowStart(s.window)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          this.runtime.now = `Stories: the next film is written and made in the next window (${next}).`;
+        } else if (s.enabled) await this.maybeListen(s);
         else this.runtime.now = "Paused — not listening or rendering.";
       }
     } catch (err) {
@@ -682,7 +711,13 @@ class Forge {
     if ((await itemsWithStatus("still", "rendering")).length) return;
 
     let pending = await itemsWithStatus("brief");
-    if (s.unlimited && !this.runtime.pausedVllmSmall && pending.length < s.batchSize) {
+    if (s.mode === "stories") {
+      if (!pending.length) {
+        if (!(await this.writeNextStory(s, minutesLeft))) return;
+        pending = await itemsWithStatus("brief");
+        if (!pending.length) return;
+      }
+    } else if (s.unlimited && !this.runtime.pausedVllmSmall && pending.length < s.batchSize) {
       const quiet = this.runtime.quietUntil ? Date.parse(this.runtime.quietUntil) : 0;
       if (Date.now() >= quiet) {
         if (!(await smallModelUp())) {
@@ -754,12 +789,18 @@ class Forge {
       return;
     }
 
+    if (!(await this.holdCard(s, `a batch of ${pending.length} clip(s), ~${Math.ceil(pending.length * 2.7)} min`))) return;
+    await this.advance(pending[0], s);
+  }
+
+  /** Take the shared claim and pause vllm-small (the owner's standing OK for the window). */
+  private async holdCard(s: ForgeSettings, what: string): Promise<boolean> {
     const until = s.extraWindowUntil && Date.parse(s.extraWindowUntil) > Date.now() ? new Date(s.extraWindowUntil).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : s.window.end;
-    const claim = await takeClaim(`render window until ${until}: a batch of ${pending.length} clip(s), ~${Math.ceil(pending.length * 1.3)} min; vllm-small paused and started again after the batch`);
+    const claim = await takeClaim(`render window until ${until}: ${what}; vllm-small paused and started again after the window`);
     if (!claim.ok) {
       this.runtime.waitingFor = claim.holder;
       this.runtime.now = `Waiting for the GPU: another session holds it (${claim.holder.slice(0, 120)}).`;
-      return;
+      return false;
     }
     this.runtime.claimHeld = true;
     this.runtime.waitingFor = undefined;
@@ -774,11 +815,93 @@ class Forge {
         if (err) {
           this.runtime.pausedVllmSmall = false;
           this.runtime.now = `Could not pause vllm-small: ${err}`;
-          return;
+          return false;
         }
       }
     }
-    await this.advance(pending[0], s);
+    return true;
+  }
+
+  /**
+   * Stories mode: write the next film's shot list with the large local writer
+   * and queue every shot as a brief, in order. The writer needs ~18 GB, so it
+   * runs inside the GPU turn, after vllm-small is paused and ComfyUI is empty.
+   */
+  private async writeNextStory(s: ForgeSettings, minutesLeft: number): Promise<boolean> {
+    const quiet = this.runtime.quietUntil ? Date.parse(this.runtime.quietUntil) : 0;
+    if (Date.now() < quiet) {
+      this.runtime.now = `The story writer failed a moment ago; trying again at ${new Date(quiet).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`;
+      return false;
+    }
+    const perClip = await this.expectedRenderMin(s);
+    if (minutesLeft < perClip * 4 + 10) {
+      await this.leaveWindow("not enough of the window left to start a new film");
+      this.runtime.now = `Not starting a new film: the window closes in ${minutesLeft} min.`;
+      return false;
+    }
+    const yieldTo = await readYieldRequest();
+    if (yieldTo) {
+      if (this.runtime.claimHeld || (await readClaim()).startsWith(CLAIM_TAG)) {
+        await dropClaim();
+        this.runtime.claimHeld = false;
+      }
+      this.runtime.now = `Giving the GPU to ${yieldTo.slice(0, 80)} before writing the next film.`;
+      return false;
+    }
+    if (!(await this.holdCard(s, "writing a story film, then rendering its shots"))) return false;
+    await freeComfyIfIdle();
+    const recent = await listStories(60);
+    const seed = pickSeed(recent.map((r) => r.seed), recent[0]?.kind);
+    this.runtime.now = `Writing the next film with ${STORY_MODEL} (from the seed "${seed.id}")…`;
+    await writeState("runtime", this.runtime);
+    const t0 = Date.now();
+    let story: Story;
+    try {
+      story = await writeStory({ seed, shots: s.storyShots ?? 14 });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.runtime.quietUntil = new Date(Date.now() + 5 * 60_000).toISOString();
+      this.runtime.now = `The story writer failed: ${msg.slice(0, 300)}`;
+      void recordLabRun({ lab: "forge", capability: "text", model: STORY_MODEL, local: true, inputSummary: `Story film from the seed "${seed.id}"`, params: { seed: seed.id }, status: "error", error: msg.slice(0, 1000), latencyMs: Date.now() - t0 });
+      return false;
+    }
+    await saveStory(story);
+    void recordLabRun({
+      lab: "forge",
+      capability: "text",
+      model: story.model,
+      local: true,
+      inputSummary: `Story film from the seed "${seed.id}" (${seed.kind})`,
+      params: { seed: seed.id, shots: story.shots.length, look: story.look, storyId: story.id },
+      status: "ok",
+      latencyMs: story.latencyMs,
+      outputSummary: `${story.title}: ${story.logline} Lesson: ${story.lesson}`,
+    });
+    const base = Date.now();
+    for (const [i, shot] of story.shots.entries()) {
+      const item: ForgeItem = {
+        id: randomUUID().slice(0, 12),
+        createdAt: new Date(base + i).toISOString(),
+        status: "brief",
+        channel: "stories",
+        topic: `${story.title} — shot ${i + 1}`,
+        whyNow: shot.narration,
+        heard: `${story.kind} "${seed.id}" (story)`,
+        sources: [],
+        stillPrompt: shotStillPrompt(story, shot),
+        motionPrompt: shot.motion,
+        listen: { heardCount: 0, shortlisted: 0, dropped: [], problems: [] },
+        agent: { model: story.model, turns: 1, calls: [], latencyMs: story.latencyMs, promptTokens: 0, completionTokens: 0 },
+        group: story.id,
+        shot: i + 1,
+        story: { id: story.id, index: i, count: story.shots.length, title: story.title, narration: shot.narration },
+        timeline: [{ at: stamp(), what: `Shot ${i + 1} of ${story.shots.length} of the film "${story.title}", written by ${story.model} in ${Math.round(story.latencyMs / 1000)} s` }],
+      };
+      await saveItem(item);
+    }
+    this.runtime.quietUntil = undefined;
+    this.runtime.now = `Wrote "${story.title}" (${story.shots.length} shots) in ${Math.round((Date.now() - t0) / 1000)} s; rendering its shots now.`;
+    return true;
   }
 
   private async expectedRenderMin(s: ForgeSettings): Promise<number> {
@@ -798,7 +921,7 @@ class Forge {
       let res: Awaited<ReturnType<typeof generateAndSave>> | null = null;
       for (let attempt = 1; attempt <= 3; attempt++) {
         this.runtime.now = `Making the first frame of "${item.topic}"${attempt > 1 ? ` (try ${attempt})` : ""}…`;
-        res = await generateAndSave({ prompt: `${item.stillPrompt} ${STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
+        res = await generateAndSave({ prompt: `${item.stillPrompt} ${item.story ? STORY_STILL_SUFFIX : STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
         savedPath = res.ok ? (res.body.savedPath as string | null) : null;
         if (!res.ok || !savedPath) break;
         if (!s.stillCheck) break;
@@ -812,7 +935,8 @@ class Forge {
           note(item, "Vision check unavailable; the still was not checked");
           break;
         }
-        const bad = [look.people && "people", look.text && "writing", look.logo && "a logo"].filter(Boolean).join(", ");
+        // A story's characters are people on purpose; only writing and logos fail its stills.
+        const bad = [look.people && !item.story && "people", look.text && "writing", look.logo && "a logo"].filter(Boolean).join(", ");
         if (!bad) {
           note(item, `First frame passed the vision check${attempt > 1 ? ` on try ${attempt}` : ""}`);
           break;
@@ -843,6 +967,18 @@ class Forge {
       const file = `forge-${item.id}${path.extname(savedPath) || ".png"}`;
       await fs.copyFile(savedPath, path.join(dir, file));
       item.still = { file: `sources/${file}`, latencyMs: Number(res.body.latency ?? 0), model: s.stillModel };
+      void recordLabRun({
+        lab: "forge",
+        capability: "image",
+        model: s.stillModel,
+        local: true,
+        inputSummary: item.stillPrompt.slice(0, 300),
+        params: { width: 1280, height: 720, itemId: item.id, ...(item.story ? { storyId: item.story.id, shot: item.story.index + 1 } : {}) },
+        status: "ok",
+        latencyMs: item.still.latencyMs,
+        outputPath: item.still.file,
+        outputSummary: `First frame of "${item.topic}"`,
+      });
       await freeComfyIfIdle();
     }
     if ((item.status === "brief" || item.status === "still") && item.still) {
@@ -857,7 +993,7 @@ class Forge {
         // The still has no one in it, but the first night's airport clip walked
         // a traveller into the last second. Wan 5B samples with real CFG, so a
         // negative prompt steers it; the channel never shows people or text.
-        avoid: "people, person, human figure, pedestrians, crowd, face, hands, text, letters, words, watermark, logo",
+        avoid: item.story ? STORY_AVOID : "people, person, human figure, pedestrians, crowd, face, hands, text, letters, words, watermark, logo",
       });
       item.video = { jobId: job.id, model: s.videoModel, seconds: s.seconds, tier: s.tier };
       item.status = "rendering";
@@ -881,7 +1017,15 @@ class Forge {
           const check = await checkClip(path.join(videoRoot(), ...job.output.split("/")), item.video.seconds ?? s.seconds);
           if (check) {
             item.check = check;
-            note(item, `Vision check: ${[check.people && "people", check.text && "writing", check.logo && "a logo", check.artifacts > 1 && "artifacts"].filter(Boolean).join(", ") || "clean"}, beauty ${check.beauty}/5`);
+            note(item, `Vision check: ${[check.people && !item.story && "people", check.text && "writing", check.logo && "a logo", check.artifacts > 1 && "artifacts"].filter(Boolean).join(", ") || "clean"}, beauty ${check.beauty}/5`);
+            if (item.story && check.artifacts >= 3 && (item.retries ?? 0) < 1) {
+              // A film cannot skip a shot the way a reel skips a clip: draw it again.
+              item.retries = (item.retries ?? 0) + 1;
+              item.status = "brief";
+              item.still = undefined;
+              item.video = undefined;
+              note(item, `Severely distorted (${check.notes}); drawing and animating this shot once more`);
+            }
           }
         }
       } else if (job.status === "failed" && TRANSIENT.test(job.error ?? "") && (item.retries ?? 0) < 1) {
