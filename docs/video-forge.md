@@ -90,3 +90,11 @@ The owner found the trending topics lame and asked for real stories instead — 
 A shot takes ~2.7 minutes (13 s still, 8 s check, ~140 s clip, 8 s grade), so a 14-shot film is ~40 minutes of the window, and the cut adds ~3 minutes of GPU (narration and score, in a turn the forge gives up between two shots) and ~2 minutes of CPU.
 
 What went wrong first: ComfyUI had been stopped, nothing starts it, and the first story's 14 stills failed in 14 seconds with "fetch failed". The forge now starts ComfyUI through the manager before a still, retries a dropped connection three times, and can put a story's failed shots back (`{ action: "requeue", id }`). The writer's character names were also replaced by their look even when the look was already in the prompt, doubling it; only a capitalised name with its look absent is replaced now.
+
+### The first story night (2026-10-02, 02:50–09:00)
+
+- **RAM, not VRAM, was the wall.** quote-forge's Qwen image server (`qwen`, :8021) held 28–31 GB of RAM with 98 GB committed; the coordinator refused every first frame for 40 minutes. The owner had it stopped and kept off; quote-forge's loop starts it again whenever it finds room (it did during Montage's turn), so the forge now stops the services in `keepOffInWindow` again while the window is open (at most every 2 minutes each).
+- **vllm-small comes back during handovers** — quote-forge's drip restarts it in the minutes Montage holds the card. A first frame waiting for memory now frees ComfyUI's cache and pauses it again, as a waiting clip already did.
+- **Bigger video models do not fit beside the rest:** Wan 2.2 14B (4-step) asked for ~38 GB more RAM, LTX-2.5 22B similar; both test jobs were cancelled before they could hold the queue. Wan 2.2 5B stays.
+- **The writer's brief matters most.** The first two screenplays were plain ("The current was soft and the air was heavy."); with a storyteller's brief, a list of banned clichés and stylised looks only, the third read "the salt air tasted of iron… a small, clicking fire of cedar… The sky remained, wide and indifferent to the fall."
+- **Stylised looks hold together:** ink wash, clay stop-motion and papercut kept characters the same across 14 shots, every clip graded 4–5/5 with no distortion. The photoreal look was dropped.
