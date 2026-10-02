@@ -98,3 +98,18 @@ What went wrong first: ComfyUI had been stopped, nothing starts it, and the firs
 - **Bigger video models do not fit beside the rest:** Wan 2.2 14B (4-step) asked for ~38 GB more RAM, LTX-2.5 22B similar; both test jobs were cancelled before they could hold the queue. Wan 2.2 5B stays.
 - **The writer's brief matters most.** The first two screenplays were plain ("The current was soft and the air was heavy."); with a storyteller's brief, a list of banned clichés and stylised looks only, the third read "the salt air tasted of iron… a small, clicking fire of cedar… The sky remained, wide and indifferent to the fall."
 - **Stylised looks hold together:** ink wash, clay stop-motion and papercut kept characters the same across 14 shots, every clip graded 4–5/5 with no distortion. The photoreal look was dropped.
+
+## Stack bake-offs (from 2026-10-02)
+
+The owner asked to keep experimenting with other stacks, varying the video model, sound design, voice and music, and finishing, all local. A bake-off takes one finished story and re-renders it so that only one part differs:
+
+| Variant | What changes | Made by | GPU |
+|---|---|---|---|
+| HunyuanVideo 1.5 (848×480) · LTX-2.5 22B (1280×704, with sound) · Wan 2.2 14B 4-step (1280×720, 16 fps) · MiniMax H3 33B (864×480, with sound) | the motion model, from the **same first frames** | the forge (`{ action: "bakeoff", storyId }`): every shot queued once per model, lightest first; a model that waits 12 minutes for memory is given up on | in the window |
+| Sound design | LTX / H3 clips keep their own sound, played as ambience under the narrator | Montage | — |
+| RIFE v4.26 | Wan 14B's 16 fps clips interpolated ×3 in ComfyUI instead of ffmpeg's guess | Montage (`lib/finish.ts`) | a Montage turn |
+| Real-ESRGAN ×2 | the film's clips upscaled by a learned model instead of Lanczos | Montage | a Montage turn |
+| Kokoro (am_michael) · the owner's cloned Chatterbox voice | the narrator | Montage | a Montage turn |
+| Solo piano | the score | Montage | a Montage turn |
+
+Every variant is cut with the same timing as the film, so they can be played side by side (Montage → Bake-offs, "Play all together"). The lab's bake-off table shows per model: clips made, average clip time, peak VRAM, the vision model's beauty and distortion grades, and clips with writing or logos. These are the first measurements of the heavy models on this box; their footprints in the console are still provisional. The first bake-off is on "The Weight of Wax" (Icarus in papercut), since its faces and flight are where the models differ most.
