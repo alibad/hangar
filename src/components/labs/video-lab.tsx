@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LabShell from "./lab-shell";
+import Dialog, { buttonStyles } from "@/components/dialog";
 import { ServiceControl } from "@/components/service-control";
 import { releaseRequest, type GpuHolder } from "@/lib/gpu-holders";
 import { VIDEO_MODELS, clampSeconds, getVideoModel, videoSecondsPerMinute, type VideoMode, type VideoTier } from "@/lib/video-models";
@@ -506,8 +507,17 @@ function Filmstrip({ src, count = 8 }: { src: string; count?: number }) {
 
 // ── queue + "will it fit" ─────────────────────────────────────────────────────
 
+/** Finished clips the page itself lists; the whole history opens in a dialog. */
+const QUEUE_ON_PAGE = 5;
+const FINISHED = new Set(["done", "failed", "cancelled"]);
+
 function QueueAndFit({ jobs, fit, reload }: { jobs: VideoJob[]; fit: Fit | null; reload: () => void }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
+  // What is still to come, always; of what is finished, only the latest few.
+  const pending = jobs.filter((j) => !FINISHED.has(j.status));
+  const recent = jobs.filter((j) => FINISHED.has(j.status)).slice(0, QUEUE_ON_PAGE);
+  const shown = [...pending, ...recent];
   const localModels = useMemo(() => fit?.models.filter((m) => m.spec.local && m.available) ?? [], [fit]);
   return (
     <div className="grid gap-4 xl:grid-cols-[3fr_2fr]">
@@ -516,11 +526,27 @@ function QueueAndFit({ jobs, fit, reload }: { jobs: VideoJob[]; fit: Fit | null;
         {jobs.length === 0 ? (
           <p className="px-4 py-4 text-xs text-gray-500">Nothing queued. Every clip lands here and in Recent runs, and keeps running if you leave the page.</p>
         ) : (
-          <ul className="divide-y divide-gray-800/70">
-            {jobs.map((j) => (
-              <JobRow key={j.id} job={j} fit={fit} open={open === j.id} onToggle={() => setOpen(open === j.id ? null : j.id)} reload={reload} />
-            ))}
-          </ul>
+          <>
+            <ul className="divide-y divide-gray-800/70">
+              {shown.map((j) => (
+                <JobRow key={j.id} job={j} fit={fit} open={open === j.id} onToggle={() => setOpen(open === j.id ? null : j.id)} reload={reload} />
+              ))}
+            </ul>
+            {jobs.length > shown.length && (
+              <div className="border-t border-gray-800 px-4 py-3">
+                <button type="button" onClick={() => setAll(true)} className={buttonStyles.secondarySm}>
+                  Show all {jobs.length} clips
+                </button>
+              </div>
+            )}
+            <Dialog open={all} onClose={() => setAll(false)} title="Every clip" subtitle="The whole queue, newest first. Open one to see it, its settings and its timings." size="xl">
+              <ul className="divide-y divide-gray-800/70">
+                {jobs.map((j) => (
+                  <JobRow key={j.id} job={j} fit={fit} open={open === j.id} onToggle={() => setOpen(open === j.id ? null : j.id)} reload={reload} />
+                ))}
+              </ul>
+            </Dialog>
+          </>
         )}
       </section>
 

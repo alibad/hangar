@@ -10,6 +10,7 @@ import SendClients from "./process/send";
 import Results from "./process/results";
 import HowItsBuilt from "./process/built";
 import { Dialog, btn } from "./process/parts";
+import { useTabActive } from "@/components/tab-pane";
 
 /**
  * The Process Lab — the console's window onto the process lab
@@ -53,6 +54,8 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
   const [notice, setNotice] = useState<string | null>(null);
   const tabsRef = useRef<HTMLElement>(null);
   const listScroll = useRef(0);
+  // The console keeps this tab alive while another shows; don't poll for nobody.
+  const visible = useTabActive();
 
   // ── navigation, with the browser's history ────────────────────────────────
   // The console keys its own tabs on the URL hash (#lab-process), so the lab
@@ -121,18 +124,18 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
     loadStatus();
     loadOverview();
     const iv = setInterval(() => {
-      if (document.hidden) return;
+      if (document.hidden || !visible) return;
       loadStatus();
       loadOverview();
     }, 5000);
     return () => clearInterval(iv);
-  }, [loadStatus, loadOverview]);
+  }, [loadStatus, loadOverview, visible]);
   useEffect(() => {
     if (!ready) return;
     loadCases();
-    const iv = setInterval(() => !document.hidden && loadCases(), 5000);
+    const iv = setInterval(() => !document.hidden && visible && loadCases(), 5000);
     return () => clearInterval(iv);
-  }, [ready, loadCases]);
+  }, [ready, loadCases, visible]);
 
   // First visit: open "How it works" once.
   useEffect(() => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import BpmnView from "./bpmn-view";
+import { useTabActive } from "@/components/tab-pane";
 import YourTurn from "./your-turn";
 import { ActorBadge, ActorKey, Avatar, DecisionTable, Dialog, StepHelp, btn, dayLabel, rich } from "./parts";
 import { fileUrl, lab, type CaseDetail, type CaseRow, type Guide, type Stage, type StoryEntry, type Tone } from "./api";
@@ -155,11 +156,15 @@ export function CasePage({
   const [err, setErr] = useState<string | null>(null);
   const [answered, setAnswered] = useState(false);
   const [behind, setBehind] = useState(false);
+  const visible = useTabActive();
 
+  // A new case starts empty; coming back to the tab keeps what's on screen.
   useEffect(() => {
-    let alive = true;
     setD(null);
     setAnswered(false);
+  }, [caseKey]);
+  useEffect(() => {
+    let alive = true;
     const load = async () => {
       try {
         const c = await lab<CaseDetail>(`api/cases/${encodeURIComponent(caseKey)}`);
@@ -171,13 +176,14 @@ export function CasePage({
         if (alive) setErr(e instanceof Error ? e.message : String(e));
       }
     };
+    if (!visible) return;
     load();
     const iv = setInterval(() => !document.hidden && load(), 3000);
     return () => {
       alive = false;
       clearInterval(iv);
     };
-  }, [caseKey]);
+  }, [caseKey, visible]);
 
   const crumbs = (name: string) => (
     <nav className="flex items-center gap-1.5 text-sm" aria-label="Breadcrumb">

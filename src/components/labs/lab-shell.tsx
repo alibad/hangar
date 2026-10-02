@@ -7,6 +7,7 @@ import ModelFootprint from "@/components/model-footprint";
 import ModelDiscovery from "@/components/model-discovery";
 import CapacityBlocker from "@/components/capacity-blocker";
 import Markdown from "@/components/markdown";
+import Dialog, { buttonStyles } from "@/components/dialog";
 import { ServiceControl } from "@/components/service-control";
 import RecentRuns, { fmtCost, fmtLatency } from "@/components/labs/recent-runs";
 import { CAPABILITY_LABELS } from "@/lib/capabilities";
@@ -22,6 +23,10 @@ import type { LabModel, LabModelsPayload, LabRunResult } from "@/lib/lab-types";
  * an optional cloud column for the same input; latency, VRAM and cost per run;
  * the recent runs from the runs record; and the experiment doc. A Lab supplies
  * only its input controls, how to run one model, and how to draw one output.
+ *
+ * The runs record and the experiment doc open from the header in dialogs, not
+ * as sections under the page: they are for looking back, and stacked below the
+ * Lab they made every Lab a long scroll past the part you came for.
  */
 
 type RunCtx = { compareGroup: string; signal: AbortSignal };
@@ -64,6 +69,7 @@ export default function LabShell<T>({
   const [slots, setSlots] = useState<Slot<T>[]>([]);
   // Bumped when a run finishes, so the runs record re-reads itself.
   const [runsVersion, setRunsVersion] = useState(0);
+  const [panel, setPanel] = useState<null | "runs" | "doc">(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async (): Promise<LabModelsPayload | null> => {
@@ -157,6 +163,18 @@ export default function LabShell<T>({
         eyebrow="Lab"
         title={lab.label}
         description={lab.hint}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setPanel("runs")} className={buttonStyles.secondarySm}>
+              Recent runs
+            </button>
+            {lab.doc && (
+              <button type="button" onClick={() => setPanel("doc")} className={buttonStyles.secondarySm}>
+                What we learned
+              </button>
+            )}
+          </div>
+        }
         icon={<FlaskConical className="h-5 w-5" />}
         meta={
           <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[11px] text-gray-400">
@@ -276,12 +294,28 @@ export default function LabShell<T>({
 
       {below}
 
-      {/* ── runs record ── */}
-      <RecentRuns lab={lab.id} refreshKey={runsVersion} />
-
-      <ExperimentDoc path={lab.doc} />
+      <Dialog open={panel === "runs"} onClose={() => setPanel(null)} title={`Recent runs — ${lab.label}`} subtitle="Every run is kept, with its model, seed and numbers." size="xl">
+        <RecentRuns lab={lab.id} refreshKey={runsVersion} limit={40} bare />
+      </Dialog>
+      <Dialog open={panel === "doc"} onClose={() => setPanel(null)} title="What we learned" subtitle={lab.doc} size="lg">
+        <DocBody path={lab.doc} />
+      </Dialog>
     </div>
   );
+}
+
+/** The experiment doc, loaded when its dialog opens. */
+function DocBody({ path }: { path?: string }) {
+  const [md, setMd] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!path) return;
+    fetch(`/api/labs/doc?path=${encodeURIComponent(path)}`)
+      .then((r) => r.json())
+      .then((j) => (j.markdown ? setMd(j.markdown) : setErr(j.error ?? "Could not load.")))
+      .catch((e) => setErr(String(e)));
+  }, [path]);
+  return err ? <p className="text-sm text-red-300">{err}</p> : md ? <Markdown>{md}</Markdown> : <p className="text-sm text-gray-500">Loading…</p>;
 }
 
 function ModelRow({

@@ -13,6 +13,7 @@ import { useVoiceInput, appendTranscript } from "./voice-input";
 import CompareView from "./compare-view";
 import ImageEvalView from "./image-eval-view";
 import CapacityBlocker from "./capacity-blocker";
+import { useTabActive } from "./tab-pane";
 import { qwenCheckpointState } from "@/lib/qwen-checkpoint";
 
 // ── types ───────────────────────────────────────────────────────────────────
@@ -162,6 +163,9 @@ function StudioDialog({
 }
 
 export default function QwenStudio() {
+  // The console keeps this tab alive while you're on another one; keys aimed at
+  // that other tab mustn't select or page through images here.
+  const tabActive = useTabActive();
   const [health, setHealth] = useState<QwenHealth | null>(null);
   const [mode, setMode] = useState<"generate" | "batch" | "jobs" | "edit" | "compare" | "eval">("generate");
   const [setupDialog, setSetupDialog] = useState<null | "model" | "runtime">(null);
@@ -1304,6 +1308,7 @@ export default function QwenStudio() {
   // ⌘/Ctrl+A selects the visible set, unless a text field has focus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!tabActive) return;
       if (e.key !== "a" || !(e.metaKey || e.ctrlKey)) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
@@ -1313,7 +1318,7 @@ export default function QwenStudio() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pagedImages, selectPage]);
+  }, [pagedImages, selectPage, tabActive]);
 
   const favCount = useMemo(() => gallery.filter((g) => g.favorite).length, [gallery]);
   // value→label map for the "Move to" selects (root + every folder)
@@ -1335,7 +1340,7 @@ export default function QwenStudio() {
 
   // Arrow-key navigation while the lightbox is open (needs live visibleImages).
   useEffect(() => {
-    if (!lightbox) return;
+    if (!lightbox || !tabActive) return;
     function onArrow(e: KeyboardEvent) {
       if (e.key === "ArrowRight") { e.preventDefault(); navLightbox(1); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); navLightbox(-1); }
@@ -1344,7 +1349,7 @@ export default function QwenStudio() {
     window.addEventListener("keydown", onArrow);
     return () => window.removeEventListener("keydown", onArrow);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lightbox, visibleImages]);
+  }, [lightbox, visibleImages, tabActive]);
 
   // Drive the marquee: on drag, recompute which tiles the box intersects.
   useEffect(() => {

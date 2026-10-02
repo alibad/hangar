@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import LabShell from "./lab-shell";
+import Dialog, { buttonStyles } from "@/components/dialog";
 import type { LabComponentProps } from "@/lib/labs";
 import type { LabRunResult } from "@/lib/lab-types";
 import type { MusicTrack } from "@/lib/music-store";
@@ -520,8 +521,12 @@ export default function MusicLab({ lab }: LabComponentProps) {
 
 // ── gallery ───────────────────────────────────────────────────────────────────
 
+/** How many tracks the page itself shows; the rest open in a dialog, so the page stays short. */
+const GALLERY_ON_PAGE = 6;
+
 function Gallery({ refreshKey, onUseAsSource }: { refreshKey: number; onUseAsSource: (t: MusicTrack) => void }) {
   const [tracks, setTracks] = useState<MusicTrack[] | null>(null);
+  const [all, setAll] = useState(false);
   const load = useCallback(() => {
     fetch("/api/music/tracks?limit=60", { cache: "no-store" })
       .then((r) => r.json())
@@ -547,13 +552,38 @@ function Gallery({ refreshKey, onUseAsSource }: { refreshKey: number; onUseAsSou
       ) : tracks.length === 0 ? (
         <p className="px-4 py-4 text-xs text-gray-500">Nothing yet. Generated tracks land here.</p>
       ) : (
-        <ul className="divide-y divide-gray-800/70">
-          {tracks.map((t) => (
-            <li key={t.id} className="px-4 py-3">
-              <TrackCard track={t} onUseAsSource={onUseAsSource} onDelete={() => remove(t.id)} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="divide-y divide-gray-800/70">
+            {tracks.slice(0, GALLERY_ON_PAGE).map((t) => (
+              <li key={t.id} className="px-4 py-3">
+                <TrackCard track={t} onUseAsSource={onUseAsSource} onDelete={() => remove(t.id)} />
+              </li>
+            ))}
+          </ul>
+          {tracks.length > GALLERY_ON_PAGE && (
+            <div className="border-t border-gray-800 px-4 py-3">
+              <button type="button" onClick={() => setAll(true)} className={buttonStyles.secondarySm}>
+                Show all {tracks.length} tracks
+              </button>
+            </div>
+          )}
+          <Dialog open={all} onClose={() => setAll(false)} title="Gallery" subtitle={`All ${tracks.length} tracks, newest first — each with the seed and settings that made it.`} size="xl">
+            <ul className="divide-y divide-gray-800/70">
+              {tracks.map((t) => (
+                <li key={t.id} className="py-3">
+                  <TrackCard
+                    track={t}
+                    onUseAsSource={(x) => {
+                      setAll(false);
+                      onUseAsSource(x);
+                    }}
+                    onDelete={() => remove(t.id)}
+                  />
+                </li>
+              ))}
+            </ul>
+          </Dialog>
+        </>
       )}
     </section>
   );

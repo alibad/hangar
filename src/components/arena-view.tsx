@@ -6,6 +6,7 @@ import type { Footprint } from "./model-footprint";
 import { ToolPageHeader, ToolSectionHeading } from "./tool-page";
 import { useVoiceInput, appendTranscript } from "./voice-input";
 import RecentRuns, { fmtCost } from "./labs/recent-runs";
+import Dialog, { buttonStyles } from "./dialog";
 import { Swords, ImagePlus, X, Gavel, Loader2, Copy, Check, Cpu, Cloud, Search } from "lucide-react";
 
 /**
@@ -141,6 +142,7 @@ export default function ArenaView() {
   const [copied, setCopied] = useState(false);
   /** Bumped as each run lands, so the runs record below re-reads itself. */
   const [runsVersion, setRunsVersion] = useState(0);
+  const [showRuns, setShowRuns] = useState(false);
 
   const controllers = useRef<Record<string, AbortController>>({});
   /** Set when the user cancels everything, so the sequential chain stops too. */
@@ -428,6 +430,11 @@ export default function ArenaView() {
           <span className="tool-page-chip">
             {localModels.length} local · {cloudModels.length} cloud
           </span>
+        }
+        actions={
+          <button type="button" onClick={() => setShowRuns(true)} className={buttonStyles.secondarySm}>
+            Recent runs
+          </button>
         }
       />
 
@@ -911,8 +918,11 @@ export default function ArenaView() {
         </section>
       )}
 
-      {/* ── 6. the runs record: every run above, kept across reloads ── */}
-      <RecentRuns lab="arena" refreshKey={runsVersion} limit={20} />
+      {/* ── 6. the runs record: every run above, kept across reloads — in a
+          dialog from the header, so it doesn't lengthen the page ── */}
+      <Dialog open={showRuns} onClose={() => setShowRuns(false)} title="Recent runs — Arena" subtitle="Every run is kept across reloads, with its model and numbers." size="xl">
+        <RecentRuns lab="arena" refreshKey={runsVersion} limit={40} bare />
+      </Dialog>
     </div>
   );
 }

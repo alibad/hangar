@@ -177,12 +177,12 @@ export default function ConsoleHeader({
           <button
             type="button"
             onClick={() => onSelect("services")}
-            aria-label={`Service status: ${readyServices} ready now, ${onDemandServices} on demand, ${attentionServices} need attention`}
+            aria-label={`Service status: ${readyServices} ready now, ${onDemandServices} on demand, ${attentionServices} ${attentionServices === 1 ? "needs" : "need"} attention`}
             className="hidden h-10 items-center gap-2 rounded-lg border border-gray-800 bg-gray-900/55 px-3 lg:flex"
           >
             <span className={`h-2 w-2 rounded-full ${overallStatus === "operational" ? "bg-emerald-400" : overallStatus === "degraded" ? "bg-amber-400" : "bg-red-400"}`} />
             <span className="leading-tight">
-              <span className="block text-xs font-medium text-gray-200">{attentionServices ? `${attentionServices} need attention` : `${readyServices} ready now`}</span>
+              <span className="block text-xs font-medium text-gray-200">{attentionServices ? `${attentionServices} ${attentionServices === 1 ? "needs" : "need"} attention` : `${readyServices} ready now`}</span>
               <span className="block text-[9px] text-gray-600">{onDemandServices} on demand</span>
             </span>
           </button>

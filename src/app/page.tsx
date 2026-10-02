@@ -19,7 +19,7 @@ import { ThemePicker } from "@/components/theme-picker";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import LabHost from "@/components/labs/lab-host";
 import { LABS, isConsoleTab, labForTab, labTab, type LabTab } from "@/lib/labs";
-import TabErrorBoundary from "@/components/tab-error-boundary";
+import { KEEP_TABS, TabPane } from "@/components/tab-pane";
 import HomeCockpit from "@/components/home-cockpit";
 import ConsoleHeader from "@/components/console-header";
 import ResourcePulse from "@/components/resource-pulse";
@@ -402,6 +402,20 @@ export default function Home() {
   const [catalogByService, setCatalogByService] = useState<Record<string, CatalogEntry[]>>({});
   const [activeModels, setActiveModels] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<ConsoleTab>("stack");
+  // The tabs kept built (newest first) and where each was scrolled to — see TabPane.
+  const [kept, setKept] = useState<ConsoleTab[]>([]);
+  const tabNow = useRef<ConsoleTab>("stack");
+  const scrollByTab = useRef<Partial<Record<ConsoleTab, number>>>({});
+  /** Leave the current tab where it was; open the next one where you left it (or at the top). */
+  const switchTab = useCallback((next: ConsoleTab) => {
+    if (next === tabNow.current) return;
+    scrollByTab.current[tabNow.current] = window.scrollY;
+    tabNow.current = next;
+    setTab(next);
+    setKept((k) => [next, ...k.filter((t) => t !== next)].slice(0, KEEP_TABS));
+    // After React has shown the next tab (a timer, not a frame: frames pause in background tabs).
+    setTimeout(() => window.scrollTo({ top: scrollByTab.current[next] ?? 0 }), 0);
+  }, []);
   // Incremented to ask the cockpit to expand its Resource map panel.
   const [resourceMapSignal, setResourceMapSignal] = useState(0);
   /** Stack tab filter — All / GPU / or a service category. */
@@ -413,12 +427,14 @@ export default function Home() {
   const audioInputRef = useRef<HTMLInputElement>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  const selectTab = useCallback((next: ConsoleTab) => {
-    setTab(next);
-    window.localStorage.setItem("bt-active-tab", next);
-    window.history.pushState({ tab: next }, "", `#${next}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+  const selectTab = useCallback(
+    (next: ConsoleTab) => {
+      window.localStorage.setItem("bt-active-tab", next);
+      if (next !== tabNow.current) window.history.pushState({ tab: next }, "", `#${next}`);
+      switchTab(next);
+    },
+    [switchTab],
+  );
 
   useEffect(() => {
     // Built-in tabs and every registered Lab — see src/lib/labs.ts.
@@ -434,12 +450,13 @@ export default function Home() {
         window.history.replaceState({ tab: hash }, "", "#lab-3d");
       }
       const next: ConsoleTab = isConsoleTab(hash) ? hash : isConsoleTab(saved) ? saved : "stack";
-      setTab(next);
+      switchTab(next);
+      setKept((k) => (k.length ? k : [next]));
     };
     resolve();
     window.addEventListener("popstate", resolve);
     return () => window.removeEventListener("popstate", resolve);
-  }, []);
+  }, [switchTab]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("bt-stack-density");
@@ -829,6 +846,9 @@ export default function Home() {
     ...LABS.map((l) => ({ id: labTab(l.id), label: l.label, count: undefined })),
   ];
 
+  /** Props for one tab's pane: which tab is showing, which are kept built, and its name for errors. */
+  const pane = (id: ConsoleTab) => ({ id, current: tab, kept, label: tabs.find((item) => item.id === id)?.label ?? "Console" });
+
   return (
     <div className="console-shell min-h-screen bg-gray-950 text-gray-100">
       <ConsoleHeader
@@ -944,10 +964,10 @@ export default function Home() {
 
       <main className="mx-auto max-w-[1500px] space-y-6 px-4 pb-24 pt-4 sm:px-6 sm:pt-5 md:pb-5">
 
-        <TabErrorBoundary key={tab} label={tabs.find((item) => item.id === tab)?.label ?? "Console"}>
+        <>
 
         {/* ── STACK TAB (services + GPU) ── */}
-        {tab === "stack" && (
+        <TabPane {...pane("stack")}>
           <HomeCockpit
             managedServices={managedServices}
             catalogByService={catalogByService}
@@ -967,9 +987,9 @@ export default function Home() {
             onTranscribeFile={transcribeAudio}
             openResourceMapSignal={resourceMapSignal}
           />
-        )}
+        </TabPane>
 
-        {tab === "services" && (
+        <TabPane {...pane("services")}>
           <ServicesControlCenter
             services={managedServices}
             catalogByService={catalogByService}
@@ -981,9 +1001,11 @@ export default function Home() {
             onServiceAction={serviceAction}
             onSelectTab={selectTab}
           />
-        )}
+        </TabPane>
 
-        {tab === "storage" && <StorageManager />}
+        <TabPane {...pane("storage")}>
+          <StorageManager />
+        </TabPane>
 
         {/* Kept hidden for one checkpoint so the former Stack markup remains a
             local rollback while the new Home cockpit settles. */}
@@ -1635,7 +1657,7 @@ export default function Home() {
         )}
 
         {/* ── LLM TAB ── */}
-        {tab === "llm" && (
+        <TabPane {...pane("llm")}>
           <div className="tool-page chat-page chat-page-layout">
             <ToolPageHeader
               eyebrow="Text workstream"
@@ -1844,11 +1866,13 @@ export default function Home() {
               </div>
             </section>
           </div>
-        )}
+        </TabPane>
 
         {/* ── SPEECH TAB ── */}
-        {tab === "speech" && !hostHasTab("speech") && <HostUnavailable tab="speech" title="Speech" />}
-        {tab === "speech" && hostHasTab("speech") && (
+        <TabPane {...pane("speech")}>
+          {!hostHasTab("speech") ? (
+            <HostUnavailable tab="speech" title="Speech" />
+          ) : (
           <div className="tool-page speech-page">
             <ToolPageHeader
               eyebrow="Voice workstream"
@@ -2036,30 +2060,45 @@ export default function Home() {
             )}
             </div>
           </div>
-        )}
+          )}
+        </TabPane>
 
         {/* ── CREATIVE TAB ── */}
 
         {/* ── IMAGE TAB — Qwen-Image + FLUX, model picked inside the studio ── */}
-        {tab === "qwen" && (hostHasTab("qwen") ? <QwenTab /> : <HostUnavailable tab="qwen" title="Image Studio" />)}
+        <TabPane {...pane("qwen")}>{hostHasTab("qwen") ? <QwenTab /> : <HostUnavailable tab="qwen" title="Image Studio" />}</TabPane>
 
         {/* Arena — one prompt across several chat/vision models, scored. */}
-        {tab === "arena" && <ArenaView />}
+        <TabPane {...pane("arena")}>
+          <ArenaView />
+        </TabPane>
 
         {/* ── REQUESTS TAB ── */}
-        {tab === "requests" && <RequestsView />}
+        <TabPane {...pane("requests")}>
+          <RequestsView />
+        </TabPane>
 
         {/* ── USAGE TAB ── */}
-        {tab === "usage" && <UsageView />}
+        <TabPane {...pane("usage")}>
+          <UsageView />
+        </TabPane>
 
-        {tab === "sam3" && (hostHasTab("sam3") ? <Sam3View /> : <HostUnavailable tab="sam3" title="Segment" />)}
+        <TabPane {...pane("sam3")}>{hostHasTab("sam3") ? <Sam3View /> : <HostUnavailable tab="sam3" title="Segment" />}</TabPane>
 
         {/* ── MODELS / AI ROUTER TAB ── */}
-        {tab === "models" && <ModelsPage />}
+        <TabPane {...pane("models")}>
+          <ModelsPage />
+        </TabPane>
 
         {/* ── LABS — one line for all of them; see src/lib/labs.ts ── */}
-        {labForTab(tab) && <LabHost tab={tab as LabTab} />}
-        </TabErrorBoundary>
+        {[tab, ...kept.filter((t) => t !== tab)]
+          .filter((t) => labForTab(t))
+          .map((t) => (
+            <TabPane key={t} {...pane(t)}>
+              <LabHost tab={t as LabTab} />
+            </TabPane>
+          ))}
+        </>
 
 
         {/* Footer */}

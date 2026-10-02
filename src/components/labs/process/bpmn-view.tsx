@@ -137,6 +137,8 @@ export default function BpmnView({
     canvas.scrollToElement(el, { top: 120, bottom: 120, left: 260, right: 260 });
   }, [ready, selected]);
 
+  // The canvas is white in both modes, so everything drawn on it uses fixed
+  // colours, not the theme's (greys flip, hues remap).
   return (
     <div className="relative overflow-hidden rounded-lg border border-gray-700 bg-white">
       <style>{`
@@ -147,20 +149,20 @@ export default function BpmnView({
         .pl-bpmn .djs-element.djs-shape { cursor: pointer; }
       `}</style>
       <div ref={box} className="pl-bpmn" style={{ height }} />
-      {error && <p className="absolute left-3 top-3 rounded bg-red-50 px-2 py-1 text-xs text-red-700">Could not draw the diagram: {error}</p>}
+      {error && <p className="absolute left-3 top-3 rounded bg-[#fef2f2] px-2 py-1 text-xs text-[#b91c1c]">Could not draw the diagram: {error}</p>}
       <div className="absolute right-3 top-2 flex gap-1">
-        <button onClick={() => frame(true)} className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] text-gray-700 hover:bg-gray-100">Fit</button>
+        <button onClick={() => frame(true)} className="rounded border border-stone-300 bg-white px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-100">Fit</button>
         {focus && (
-          <button onClick={() => frame(false)} className="rounded border border-gray-300 bg-white px-2 py-0.5 text-[10px] text-gray-700 hover:bg-gray-100">
+          <button onClick={() => frame(false)} className="rounded border border-stone-300 bg-white px-2 py-0.5 text-[10px] text-stone-700 hover:bg-stone-100">
             Now
           </button>
         )}
       </div>
       {legend && (
-        <div className="pointer-events-none absolute left-3 top-2 flex gap-3 text-[10px] text-gray-600">
-          <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-orange-600" />now</span>
-          <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-emerald-600 bg-emerald-50" />done</span>
-          <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-red-600" />stuck</span>
+        <div className="pointer-events-none absolute left-3 top-2 flex gap-3 text-[10px] text-stone-600">
+          <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-[#ea580c]" />now</span>
+          <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-[#059669] bg-[#ecfdf5]" />done</span>
+          <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-[#dc2626]" />stuck</span>
         </div>
       )}
     </div>

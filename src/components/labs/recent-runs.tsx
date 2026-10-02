@@ -31,12 +31,15 @@ export default function RecentRuns({
   refreshKey = 0,
   limit = 12,
   className = "",
+  bare = false,
 }: {
   /** The `lab` value runs were recorded under. */
   lab: string;
   refreshKey?: number;
   limit?: number;
   className?: string;
+  /** Inside a dialog: no frame or heading of its own. */
+  bare?: boolean;
 }) {
   const [runs, setRuns] = useState<RecentRun[]>([]);
 
@@ -54,10 +57,8 @@ export default function RecentRuns({
     void load();
   }, [load, refreshKey]);
 
-  return (
-    <section className={`rounded-xl border border-gray-800 bg-gray-900/40 ${className}`}>
-      <h2 className="border-b border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-200">Recent runs</h2>
-      {runs.length === 0 ? (
+  const body =
+      runs.length === 0 ? (
         <p className="px-4 py-4 text-xs text-gray-500">No runs recorded yet. Every run here is kept, with its model, host, seed and numbers.</p>
       ) : (
         <div className="overflow-x-auto">
@@ -92,7 +93,12 @@ export default function RecentRuns({
             </tbody>
           </table>
         </div>
-      )}
+      );
+  if (bare) return body;
+  return (
+    <section className={`rounded-xl border border-gray-800 bg-gray-900/40 ${className}`}>
+      <h2 className="border-b border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-200">Recent runs</h2>
+      {body}
     </section>
   );
 }

@@ -492,7 +492,7 @@ export default function HomeCockpit({
         <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-orange-300">System brief</p>
-            <h2 id="system-brief-title" className="mt-0.5 text-base font-semibold text-gray-100">{issueCount ? `${issueCount} items need attention` : "Everything is ready for work"}</h2>
+            <h2 id="system-brief-title" className="mt-0.5 text-base font-semibold text-gray-100">{issueCount ? `${issueCount} ${issueCount === 1 ? "item needs" : "items need"} attention` : "Everything is ready for work"}</h2>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[420px]">
             <button type="button" onClick={() => onSelectTab("services")} className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-left">
@@ -981,7 +981,7 @@ export default function HomeCockpit({
 
         <div className="flex flex-wrap items-center gap-4 border-t border-gray-800 bg-gray-950/25 px-4 py-2 text-[10px] text-gray-600 sm:px-5">
           <span className="flex items-center gap-1.5 text-emerald-300"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />{online}/{managedServices.length} services online</span>
-          <span>{attentionCount ? `${attentionCount} need attention` : "No active issues"}</span>
+          <span>{attentionCount ? `${attentionCount} ${attentionCount === 1 ? "needs" : "need"} attention` : "No active issues"}</span>
           <span>Queue {queueDepth}</span>
           <button type="button" onClick={() => onSelectTab("services")} className="ml-auto flex items-center gap-1.5 text-gray-400 hover:text-gray-100"><Gear size={12} />Manage services<ArrowRight size={12} /></button>
         </div>
