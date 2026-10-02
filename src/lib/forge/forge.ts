@@ -884,7 +884,8 @@ class Forge {
     // A film is only worth starting if all of its shots can be made tonight;
     // half a film waits a whole day for the rest. A shot is ~2.7 min.
     const perShot = Math.max(2.4, Math.min(4, await this.expectedRenderMin(s)));
-    const need = Math.round(perShot * (s.storyShots ?? 14) * 0.9);
+    // ~10% on top for the GPU turns Montage takes between shots for narration and score.
+    const need = Math.round(perShot * (s.storyShots ?? 14) * 1.1);
     if (minutesLeft < need) {
       await this.leaveWindow("not enough of the window left for a whole film");
       this.runtime.now = `Not starting a new film: one needs ~${need} min and the window closes in ${minutesLeft} min. vllm-small is running again.`;
