@@ -120,7 +120,7 @@ export default function VideoForge({ lab }: LabComponentProps) {
         </p>
         <p className="mt-2 text-sm text-gray-400">
           {win.open
-            ? `The render window is open — it closes in ${inWords(win.minutesLeft ?? 0)}${settings.extraWindowUntil && Date.parse(settings.extraWindowUntil) > Date.now() ? " (a one-off extra window)" : ""}.${settings.unlimited ? ` Making clips in batches of ${settings.batchSize} until then, or until nothing fresh is left.` : ""}`
+            ? `The render window is open — it closes in ${inWords(win.minutesLeft ?? 0)}${settings.extraWindowUntil && Date.parse(settings.extraWindowUntil) > Date.now() ? " (a one-off extra window)" : ""}.${settings.mode === "stories" ? " Writing story films and rendering their shots until then." : settings.unlimited ? ` Making clips in batches of ${settings.batchSize} until then, or until nothing fresh is left.` : ""}`
             : `Tonight's render window: ${settings.window.start}–${settings.window.end} (opens ${hhmm(win.nextStart)}). vllm-small pauses for it and starts again after.`}
           {runtime.lastListenAt && ` Last listened ${when(runtime.lastListenAt)}${runtime.lastListenOutcome ? ` — ${runtime.lastListenOutcome}` : ""}.`}
         </p>

@@ -74,3 +74,19 @@ The owner asked for unlimited clips through the night windows and an all-day tes
 | **One tick at a time** across hot reloads (a lock on `globalThis`) | A retired loop finishing a step while the new one starts could queue a clip twice |
 
 First 720p clip (an empty tennis court at sunset): still made and checked in 15 s, clip rendered in 141 s, passed Montage's gate.
+
+## Story films (2026-10-02, from 02:50)
+
+The owner found the trending topics lame and asked for real stories instead — "an actual movie… philosophical stories that teach lessons" — made through the night and traceable in the Lab. The forge now has a second mode, `mode: "stories"` (the switch is at the top of this page).
+
+| Step | What | Model | Where it is recorded |
+|---|---|---|---|
+| Seed | A public-domain parable, fable or myth, or an original premise, from 38 in `src/lib/forge/story.ts`; told tales alternate with originals, none repeats while unused ones remain | — | the story |
+| Screenplay | 14 shots: one narration line each (6–14 words), the picture as an image prompt with every character's full look repeated, the motion; a title, logline, lesson, one visual look, a music brief | **Gemma 4 31B** (Ollama, ~18 GB) — written inside the GPU turn after vllm-small is paused, unloaded right after; ~35 s | lab run `forge` · text; the story in `forge_stories` |
+| First frames | Z-Image Turbo; Qwen3-VL turns away writing and logos (people are the characters here, so they pass) | Z-Image Turbo, Qwen3-VL 8B | lab run `forge` · image |
+| Clips | Wan 2.2 5B, 5 s at 1280×704; a negative prompt against text, morphing and distorted hands; a clip graded 3/3 for distortion is drawn and animated once more | Wan 2.2 5B | the Video Lab's queue (lab run `video`) |
+| The film | Narration, score and the cut happen in **Montage** (http://localhost:8017) once every shot is done | Kokoro, ACE-Step, Remotion | lab runs `forge` · tts and video; the score in the Music Lab |
+
+A shot takes ~2.7 minutes (13 s still, 8 s check, ~140 s clip, 8 s grade), so a 14-shot film is ~40 minutes of the window, and the cut adds ~3 minutes of GPU (narration and score, in a turn the forge gives up between two shots) and ~2 minutes of CPU.
+
+What went wrong first: ComfyUI had been stopped, nothing starts it, and the first story's 14 stills failed in 14 seconds with "fetch failed". The forge now starts ComfyUI through the manager before a still, retries a dropped connection three times, and can put a story's failed shots back (`{ action: "requeue", id }`). The writer's character names were also replaced by their look even when the look was already in the prompt, doubling it; only a capitalised name with its look absent is replaced now.
