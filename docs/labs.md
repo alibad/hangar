@@ -74,8 +74,15 @@ Three files, none of them `src/app/page.tsx`:
    that model's column. Set `resourceBlocked: true` when the resource
    coordinator refused, and the shell offers to free the card in place.
 
-The smallest complete example is the **Decision Lab**:
-`src/components/labs/decision-lab.tsx` and `src/app/api/labs/decide/run/route.ts`.
+The smallest complete example is the **Music Lab**:
+`src/components/labs/music-lab.tsx` and `src/app/api/labs/music/run/route.ts`.
+
+A Lab whose point is a fixed comparison or a guided story, not "pick a model and
+run it", can skip the shell and lay itself out, as the **Decision Lab** and the
+**Process Lab** do. It still records through its run route and reuses the
+shell's pieces: `RecentRuns`, `ExperimentDoc`, `ServiceControl`,
+`CapacityBlocker`. Lead with what was found and one thing to try, and fold the
+machinery (model rows, measurements, the doc) below it.
 
 Text has no Lab: the **Arena** is the text and vision experiment surface. It
 records every run under `lab: "arena"` through the same `measureRun` /

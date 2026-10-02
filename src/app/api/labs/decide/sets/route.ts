@@ -13,9 +13,42 @@ const RESULTS_DIR = path.join(process.cwd(), "experiments", "decide", "results")
  *
  * The sets are experiments/decide/sets/*.json; the summary is the newest
  * experiments/decide/results/*.summary.json written by
- * scripts/decide-bench.mjs. Per-item predictions stay in the full results file
- * and are not sent to the browser.
+ * scripts/decide-bench.mjs. From the full results file beside it, only what
+ * each headline model answered per item is sent (`recorded`): enough for the
+ * Lab to show "what each said when we tested it" with nothing running.
  */
+const RECORDED_MODELS = ["laya", "local-gemma4", "claude-haiku"];
+
+type Prediction = { choice?: string; probabilities?: Record<string, number>; latencyMs?: number | null; costUsd?: number | null; error?: string };
+
+function recorded(summaryFile: string) {
+  const full = path.join(RESULTS_DIR, summaryFile.replace(/\.summary\.json$/, ".json"));
+  if (!fs.existsSync(full)) return null;
+  try {
+    const { predictions } = JSON.parse(fs.readFileSync(full, "utf8")) as {
+      predictions: Record<string, Record<string, Record<string, Prediction>>>;
+    };
+    const answers: Record<string, Record<string, Record<string, { choice: string; confidence: number; latencyMs: number | null; costUsd: number | null }>>> = {};
+    for (const [setId, byModel] of Object.entries(predictions ?? {})) {
+      for (const model of RECORDED_MODELS) {
+        for (const [itemId, p] of Object.entries(byModel[model] ?? {})) {
+          if (!p?.choice || p.error) continue;
+          const conf = p.probabilities?.[p.choice] ?? Math.max(0, ...Object.values(p.probabilities ?? {}));
+          ((answers[setId] ??= {})[itemId] ??= {})[model] = {
+            choice: p.choice,
+            confidence: conf,
+            latencyMs: p.latencyMs ?? null,
+            costUsd: p.costUsd ?? null,
+          };
+        }
+      }
+    }
+    return { models: RECORDED_MODELS, answers };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   const sets = fs.existsSync(SETS_DIR)
     ? fs
@@ -50,6 +83,7 @@ export async function GET() {
     : [];
 
   let summary: unknown = null;
+  let answers: ReturnType<typeof recorded> = null;
   if (fs.existsSync(RESULTS_DIR)) {
     const latest = fs
       .readdirSync(RESULTS_DIR)
@@ -62,7 +96,8 @@ export async function GET() {
       } catch {
         summary = null;
       }
+      answers = recorded(latest);
     }
   }
-  return NextResponse.json({ sets, summary });
+  return NextResponse.json({ sets, summary, recorded: answers });
 }
