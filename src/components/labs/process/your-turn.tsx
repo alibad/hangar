@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { fileUrl, lab, type InboxItem } from "./api";
+import { btn } from "./parts";
 
 /**
  * "Your turn": the question a case is waiting for you to answer, asked inside
@@ -45,14 +46,14 @@ export default function YourTurn({ caseKey, onDone }: { caseKey: string; onDone:
     }
   };
 
-  if (done) return <p className="rounded-lg border border-emerald-700/50 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-100">Thanks — the case carries on from here.</p>;
+  if (done) return <p className="rounded-xl border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 text-[15px] text-gray-100">Thanks — the case carries on from here.</p>;
   if (task === undefined) return <p className="text-xs text-gray-500">Loading your question…</p>;
   if (!task) return null;
   const fn = task.people?.firstName ?? task.client.name;
 
   return (
-    <section className="rounded-xl border border-amber-500/60 bg-amber-950/20 p-4">
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-300">Your turn</p>
+    <section className="rounded-xl border border-amber-500/60 bg-amber-500/[0.07] p-5">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-300">Your turn</p>
       {task.key === "confirm_type" && <ChooseWant t={task} fn={fn} busy={busy} submit={submit} />}
       {task.key === "verify_documents" && <CheckDocuments t={task} fn={fn} busy={busy} submit={submit} />}
       {task.key === "approve_submission" && <Approve t={task} fn={fn} busy={busy} submit={submit} />}
@@ -61,7 +62,7 @@ export default function YourTurn({ caseKey, onDone }: { caseKey: string; onDone:
   );
 }
 
-const choice = "rounded-lg border px-3 py-2 text-left text-sm transition-colors disabled:opacity-50";
+const choice = "rounded-lg border border-gray-700 bg-gray-950 px-3 py-2.5 text-left text-sm text-gray-100 transition-colors hover:border-amber-500 hover:bg-amber-500/[0.06] disabled:opacity-50";
 
 function ChooseWant({ t, fn, busy, submit }: { t: InboxItem; fn: string; busy: boolean; submit: (b: unknown) => void }) {
   const [service, setService] = useState<string | null>(null);
@@ -75,11 +76,11 @@ function ChooseWant({ t, fn, busy, submit }: { t: InboxItem; fn: string; busy: b
     .map(([k]) => labels[k] ?? k);
   return (
     <div className="space-y-3">
-      <h3 className="text-base font-semibold text-gray-50">What does {fn} want help with?</h3>
-      <blockquote dir="auto" className="border-l-2 border-amber-600/60 pl-3 text-sm text-gray-300">
+      <h3 className="text-lg font-semibold text-gray-100">What does {fn} want help with?</h3>
+      <blockquote dir="auto" className="border-l-2 border-amber-500/60 pl-3 text-[15px] leading-relaxed text-gray-200">
         “{t.client.request}”
       </blockquote>
-      <p className="text-xs text-gray-400">
+      <p className="text-sm text-gray-400">
         The AI couldn&apos;t tell{guesses.length ? <> — its best guesses were {guesses.map((g, i) => <b key={g} className="text-gray-200">{i ? " or " : ""}{g.toLowerCase()}</b>)}</> : null}. Pick one:
       </p>
       {!service || service !== "residency-permit" ? (
@@ -89,7 +90,7 @@ function ChooseWant({ t, fn, busy, submit }: { t: InboxItem; fn: string; busy: b
               key={s}
               disabled={busy}
               onClick={() => (s === "residency-permit" ? setService(s) : submit({ service: s, purpose: null }))}
-              className={`${choice} border-gray-700 bg-gray-900 text-gray-100 hover:border-amber-500`}
+              className={choice}
             >
               {labels[s] ?? s}
             </button>
@@ -99,13 +100,13 @@ function ChooseWant({ t, fn, busy, submit }: { t: InboxItem; fn: string; busy: b
         <div className="space-y-2">
           <p className="text-sm text-gray-200">
             A residency permit — for what?{" "}
-            <button className="ml-2 text-xs text-gray-400 underline" onClick={() => setService(null)}>
+            <button className={`ml-2 ${btn.link}`} onClick={() => setService(null)}>
               back
             </button>
           </p>
           <div className="grid gap-2 sm:grid-cols-4">
             {(t.choices?.purposes ?? []).map((p) => (
-              <button key={p} disabled={busy} onClick={() => submit({ service, purpose: p })} className={`${choice} border-gray-700 bg-gray-900 text-gray-100 hover:border-amber-500`}>
+              <button key={p} disabled={busy} onClick={() => submit({ service, purpose: p })} className={choice}>
                 {cap(purposes[p] ?? p)}
               </button>
             ))}
@@ -136,7 +137,7 @@ function CheckDocuments({ t, fn, busy, submit }: { t: InboxItem; fn: string; bus
   const set = (id: number, k: string, val: string) => setEdits({ ...edits, [id]: { ...edits[id], [k]: val } });
   return (
     <div className="space-y-3">
-      <h3 className="text-base font-semibold text-gray-50">What does {flagged.length === 1 ? "this document" : "each document"} say?</h3>
+      <h3 className="text-lg font-semibold text-gray-100">What does {flagged.length === 1 ? "this document" : "each document"} say?</h3>
       <p className="text-xs text-gray-400">
         The AI couldn&apos;t read {flagged.length === 1 ? "it" : "them"} clearly, so it didn&apos;t guess. Look at {fn}&apos;s {flagged.length === 1 ? "document" : "documents"} and fill in what you can see; the AI&apos;s reading is filled in where it had one.
       </p>
@@ -176,7 +177,7 @@ function CheckDocuments({ t, fn, busy, submit }: { t: InboxItem; fn: string; bus
             }),
           })
         }
-        className="rounded-lg border border-amber-500 bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-50 hover:bg-amber-500/30 disabled:opacity-50"
+        className={btn.primary}
       >
         Save what it says
       </button>
@@ -199,9 +200,9 @@ function Approve({ t, fn, busy, submit }: { t: InboxItem; fn: string; busy: bool
   const recommends = t.ai?.recommendation === "submit";
   return (
     <div className="space-y-3">
-      <h3 className="text-base font-semibold text-gray-50">Should we submit {fn}&apos;s application?</h3>
+      <h3 className="text-lg font-semibold text-gray-100">Should we submit {fn}&apos;s application?</h3>
       <div className="grid gap-3 md:grid-cols-2">
-        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3 text-sm">
+        <div className="rounded-lg border border-gray-800 bg-gray-950 p-4 text-sm">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">The rules say</p>
           <p className={`mt-1 ${rules.cls}`}>
             <span className="mr-1.5 font-bold">{rules.mark}</span>
@@ -218,14 +219,14 @@ function Approve({ t, fn, busy, submit }: { t: InboxItem; fn: string; busy: bool
             </p>
           )}
         </div>
-        <div className="rounded-lg border border-gray-800 bg-gray-900/60 p-3 text-sm">
+        <div className="rounded-lg border border-gray-800 bg-gray-950 p-4 text-sm">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             The AI recommends <span className={recommends ? "text-emerald-300" : "text-amber-300"}>{recommends ? "submitting" : "not submitting"}</span>
           </p>
           <p className="mt-1 text-gray-300">{t.ai?.summary}</p>
           {!!t.ai?.reasons?.length && (
             <>
-              <button className="mt-2 text-[11px] text-gray-400 underline" onClick={() => setWhy(!why)}>
+              <button className={`mt-2 ${btn.link}`} onClick={() => setWhy(!why)}>
                 {why ? "Hide its reasons" : "Its reasons"}
               </button>
               {why && (
@@ -238,10 +239,10 @@ function Approve({ t, fn, busy, submit }: { t: InboxItem; fn: string; busy: bool
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <button disabled={busy} onClick={() => submit({ approved: true, note })} className="rounded-lg border border-emerald-500 bg-emerald-500/20 px-4 py-2 text-sm font-medium text-emerald-50 hover:bg-emerald-500/30 disabled:opacity-50">
+        <button disabled={busy} onClick={() => submit({ approved: true, note })} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-40">
           Yes, submit it
         </button>
-        <button disabled={busy} onClick={() => submit({ approved: false, note })} className="rounded-lg border border-gray-600 px-4 py-2 text-sm text-gray-200 hover:border-gray-400 disabled:opacity-50">
+        <button disabled={busy} onClick={() => submit({ approved: false, note })} className={btn.secondary}>
           No, don&apos;t submit
         </button>
         <input

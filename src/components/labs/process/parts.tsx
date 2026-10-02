@@ -1,29 +1,115 @@
 "use client";
 
-import { Fragment, type ReactNode } from "react";
-import { ACTOR, KIND_STYLE, fmtCost, fmtMs, type Decision, type Guide, type StoryEntry } from "./api";
+import { Fragment, useEffect, useRef, type ReactNode } from "react";
+import { X } from "lucide-react";
+import { ACTOR, fmtCost, fmtMs, type Decision, type Guide, type StoryEntry } from "./api";
 
 /**
- * Small pieces the Process Lab's screens share. Colours here are fixed hex on
- * purpose: the console theme maps Tailwind's sky, cyan, violet, purple and blue
- * families to accent-derived hues, so they can't carry a fixed meaning.
+ * Small pieces the Process Lab's screens share.
+ *
+ * Colour rules, because the console has a light and a dark mode and themes:
+ *  • greys (gray-*) flip between modes, so gray-100 is the main text in both;
+ *  • the theme remaps sky, cyan, violet, purple, blue… to accent-derived hues,
+ *    so they can't carry a fixed meaning;
+ *  • a coloured *-50 text shade stays near-white in light mode — never use one.
+ * Tags therefore carry their own light and dark colours, and buttons use the
+ * theme's primary token (its accent, with near-black text in both modes).
  */
+
+/** Button looks, in the console's tokens. */
+export const btn = {
+  primary:
+    "inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40",
+  primarySm:
+    "inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40",
+  secondary: "inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-200 transition hover:bg-gray-800/60 disabled:opacity-40",
+  secondarySm: "inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-700 px-3 py-1.5 text-sm text-gray-200 transition hover:bg-gray-800/60 disabled:opacity-40",
+  ghost: "inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-gray-400 transition hover:bg-gray-800/60 hover:text-gray-100",
+  link: "text-[13px] text-gray-400 underline decoration-gray-600 underline-offset-2 hover:text-gray-100",
+};
+
+/**
+ * A dialog for anything that is not the main path: how it works, choosing
+ * clients, an email, the machinery. The page underneath stays as it was.
+ * Native <dialog>: Escape closes it, focus stays inside, a click on the
+ * backdrop closes it too.
+ */
+export function Dialog({
+  open,
+  onClose,
+  title,
+  subtitle,
+  size = "lg",
+  footer,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  size?: "sm" | "md" | "lg" | "xl";
+  footer?: ReactNode;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (open && !d.open) d.showModal();
+    if (!open && d.open) d.close();
+  }, [open]);
+  const width = { sm: "w-[min(94vw,28rem)]", md: "w-[min(94vw,40rem)]", lg: "w-[min(94vw,56rem)]", xl: "w-[min(96vw,72rem)]" }[size];
+  return (
+    <dialog
+      ref={ref}
+      onClose={onClose}
+      onClick={(e) => e.target === ref.current && onClose()}
+      className={`${width} m-auto max-h-[88vh] overflow-hidden rounded-2xl border border-gray-800 bg-gray-950 p-0 text-gray-200 shadow-2xl backdrop:bg-black/55 backdrop:backdrop-blur-[2px]`}
+    >
+      {open && (
+        <div className="flex max-h-[88vh] flex-col">
+          <header className="flex items-start justify-between gap-4 border-b border-gray-800 px-5 py-4">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-gray-100">{title}</h2>
+              {subtitle && <p className="mt-0.5 text-sm text-gray-400">{subtitle}</p>}
+            </div>
+            <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-800/60 hover:text-gray-100" aria-label="Close">
+              <X className="size-4" />
+            </button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+          {footer && <footer className="border-t border-gray-800 px-5 py-3">{footer}</footer>}
+        </div>
+      )}
+    </dialog>
+  );
+}
 
 /** **bold** in the lab's sentences → <b>. Nothing else is interpreted. */
 export function rich(text: string): ReactNode {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) => (part.startsWith("**") ? <b key={i} className="font-semibold text-gray-50">{part.slice(2, -2)}</b> : <Fragment key={i}>{part}</Fragment>));
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) => (part.startsWith("**") ? <b key={i} className="font-semibold text-gray-100">{part.slice(2, -2)}</b> : <Fragment key={i}>{part}</Fragment>));
 }
+
+/** Each actor's tag colour, readable on a light page and on a dark one. */
+const ACTOR_CLS: Record<string, string> = {
+  client: "text-stone-600 border-stone-400 dark:text-stone-300 dark:border-stone-500",
+  rules: "text-[#0369a1] border-[#0369a1]/50 dark:text-[#38bdf8] dark:border-[#38bdf8]/60",
+  ai: "text-[#b45309] border-[#b45309]/50 dark:text-[#f59e0b] dark:border-[#f59e0b]/60",
+  model: "text-[#6d28d9] border-[#6d28d9]/50 dark:text-[#a78bfa] dark:border-[#a78bfa]/60",
+  person: "text-[#047857] border-[#047857]/50 dark:text-[#34d399] dark:border-[#34d399]/60",
+  agency: "text-stone-500 border-stone-400 dark:text-stone-400 dark:border-stone-600",
+  authority: "text-[#7e22ce] border-[#7e22ce]/50 dark:text-[#c084fc] dark:border-[#c084fc]/60",
+  wait: "text-stone-500 border-stone-300 dark:text-stone-500 dark:border-stone-700",
+  end: "text-[#c2410c] border-[#c2410c]/50 dark:text-[#fb923c] dark:border-[#fb923c]/60",
+};
+const tag = "inline-block shrink-0 whitespace-nowrap rounded-full border bg-current/[0.06] px-2 py-0.5 text-center text-[10px] font-medium";
 
 /** Who acted, as a small coloured tag. A person is "You" when it's you. */
 export function ActorBadge({ kind, by }: { kind: string; by?: "you" | "consultant" }) {
   const a = ACTOR[kind] ?? ACTOR.agency;
   const label = kind === "person" ? (by === "consultant" ? "Consultant" : "You") : a.label;
   return (
-    <span
-      className="inline-block w-[5.5rem] shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-center text-[10px] font-medium"
-      style={{ borderColor: `${a.hex}99`, color: a.hex, background: `${a.hex}14` }}
-      title={a.explain}
-    >
+    <span className={`${tag} w-[5.5rem] ${ACTOR_CLS[kind] ?? ACTOR_CLS.agency}`} title={a.explain}>
       {label}
     </span>
   );
@@ -32,9 +118,9 @@ export function ActorBadge({ kind, by }: { kind: string; by?: "you" | "consultan
 /** The key to the tags, for "Who's who?". */
 export function ActorKey() {
   return (
-    <ul className="grid gap-1.5 rounded-lg border border-gray-800 bg-gray-950/60 p-3 sm:grid-cols-2">
+    <ul className="grid gap-2.5">
       {["client", "ai", "rules", "person", "agency", "authority", "wait", "end"].map((k) => (
-        <li key={k} className="flex items-start gap-2 text-[12px] text-gray-400">
+        <li key={k} className="flex items-start gap-3 text-sm text-gray-300">
           <ActorBadge kind={k} by="you" />
           <span>{ACTOR[k].explain}</span>
         </li>
@@ -54,18 +140,6 @@ export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg"
     <span className={`${cls} grid shrink-0 place-items-center rounded-full border border-gray-700 bg-gray-800 font-semibold text-gray-200`} aria-hidden="true">
       {initials}
     </span>
-  );
-}
-
-/** A folded section for the detail most people don't need. */
-export function Fold({ title, hint, children, open = false }: { title: string; hint?: string; children: ReactNode; open?: boolean }) {
-  return (
-    <details className="group rounded-lg border border-gray-800" open={open}>
-      <summary className="cursor-pointer px-3 py-2 text-sm text-gray-200">
-        {title} {hint && <span className="ml-1 text-[11px] text-gray-500">— {hint}</span>}
-      </summary>
-      <div className="border-t border-gray-800 p-3">{children}</div>
-    </details>
   );
 }
 
@@ -116,14 +190,17 @@ export function StepHelp({ id, guide, story }: { id: string | null; guide: Guide
   );
 }
 
-/** The builder's tag for a kind of decision, on the diagram and in the decision table. */
+/** The builder's tag for a kind of decision (decision table, step list), in the story's colours. */
+const KIND_TAG: Record<string, [string, string]> = {
+  dmn: ["Rules", "rules"],
+  "decision-model": ["Decision model", "model"],
+  llm: ["AI", "ai"],
+  human: ["Person", "person"],
+  system: ["Agency", "agency"],
+};
 export function KindBadge({ kind }: { kind: string }) {
-  const k = KIND_STYLE[kind as keyof typeof KIND_STYLE] ?? KIND_STYLE.system;
-  return (
-    <span className="whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium" style={{ borderColor: k.hex, color: k.hex, background: `${k.hex}1f` }}>
-      {k.label}
-    </span>
-  );
+  const [label, cls] = KIND_TAG[kind] ?? KIND_TAG.system;
+  return <span className={`${tag} ${ACTOR_CLS[cls]}`}>{label}</span>;
 }
 
 /** Every decision on a case, with model, confidence, time and cost: the builder's view. */
@@ -169,8 +246,8 @@ export function DecisionTable({ decisions }: { decisions: Decision[] }) {
                   )}
                 </td>
                 <td className="px-3 py-2 align-top text-[10px]">
-                  {handedTo && <span className="mr-1 rounded bg-amber-950 px-1.5 py-0.5 text-amber-300">{handedTo}</span>}
-                  {x.overridden && <span className="mr-1 rounded bg-red-950 px-1.5 py-0.5 text-red-300">overridden</span>}
+                  {handedTo && <span className="mr-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300">{handedTo}</span>}
+                  {x.overridden && <span className="mr-1 rounded bg-red-500/15 px-1.5 py-0.5 text-red-300">overridden</span>}
                   {x.correct === true && <span className="mr-1 text-emerald-400">✓ truth</span>}
                   {x.correct === false && <span className="mr-1 text-red-400">✗ truth</span>}
                 </td>

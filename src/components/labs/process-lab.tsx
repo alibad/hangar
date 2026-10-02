@@ -9,6 +9,7 @@ import { CasePage, ClientList } from "./process/clients";
 import SendClients from "./process/send";
 import Results from "./process/results";
 import HowItsBuilt from "./process/built";
+import { Dialog, btn } from "./process/parts";
 
 /**
  * The Process Lab — the console's window onto the process lab
@@ -18,15 +19,25 @@ import HowItsBuilt from "./process/built";
  * Built for someone who has never heard of BPMN, DMN or an LLM. One path:
  * send in a pretend client → watch the case → answer when it asks you → see
  * how it ended. Three tabs: Clients (that path), Results (how well it went),
- * How it's built (the engine, the diagram, the rules, the services — the
- * machinery, for whoever wants it).
+ * How it's built (the machinery, for whoever wants it).
+ *
+ * Navigation is meant to feel calm:
+ *  • switching tabs changes only what is under the tabs — nothing above them
+ *    moves, the page doesn't scroll, and a tab once opened stays built, so
+ *    coming back to it shows it at once instead of loading again;
+ *  • a client's case opens like a page ("Clients › Hana Saleh"), and the
+ *    browser's Back button returns to the list where you were;
+ *  • everything that is not the main path — how it works, choosing clients,
+ *    an email, the machinery — opens in a dialog over the page.
  *
  * Not on LabShell: the shell is built around picking a model and running one
  * input through it, and here the unit is a case moving through a process.
  */
 
 type Tab = "clients" | "results" | "built";
-const INTRO_KEY = "process-lab-intro";
+type View = { tab: Tab; caseKey: string | null };
+const HOME: View = { tab: "clients", caseKey: null };
+const SEEN_KEY = "process-lab-howto-seen";
 
 export default function ProcessLab({ lab: def }: LabComponentProps) {
   const [status, setStatus] = useState<LabStatus | null>(null);
@@ -34,25 +45,46 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
   const [ovErr, setOvErr] = useState<string | null>(null);
   const [rows, setRows] = useState<CaseRow[] | null>(null);
   const [guide, setGuide] = useState<Guide | null>(null);
-  const [tab, setTab] = useState<Tab>("clients");
-  const [open, setOpen] = useState<string | null>(null);
+  const [view, setView] = useState<View>(HOME);
+  // Tabs are built the first time they're opened and then kept.
+  const [built, setBuilt] = useState<Set<Tab>>(new Set(["clients"]));
+  const [howto, setHowto] = useState(false);
   const [sending, setSending] = useState(false);
-  const [intro, setIntro] = useState(true);
-  const navRef = useRef<HTMLElement>(null);
-  const firstView = useRef(true);
+  const [notice, setNotice] = useState<string | null>(null);
+  const tabsRef = useRef<HTMLElement>(null);
+  const listScroll = useRef(0);
 
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(INTRO_KEY) === "hidden") setIntro(false);
-    } catch {}
+  // ── navigation, with the browser's history ────────────────────────────────
+  // The console keys its own tabs on the URL hash (#lab-process), so the lab
+  // keeps that hash and puts where it is inside the lab in history.state.
+  const show = useCallback((next: View) => {
+    setView(next);
+    setBuilt((b) => (b.has(next.tab) ? b : new Set(b).add(next.tab)));
   }, []);
-  const showIntro = (on: boolean) => {
-    setIntro(on);
-    try {
-      localStorage.setItem(INTRO_KEY, on ? "shown" : "hidden");
-    } catch {}
-  };
+  const go = useCallback(
+    (next: View) => {
+      const leavingList = !view.caseKey && next.caseKey;
+      if (leavingList) listScroll.current = window.scrollY;
+      show(next);
+      window.history.pushState({ ...window.history.state, tab: "lab-process", lab: next }, "", "#lab-process");
+      if (leavingList) requestAnimationFrame(() => toTabs(tabsRef.current));
+      if (view.caseKey && !next.caseKey && next.tab === "clients") requestAnimationFrame(() => window.scrollTo({ top: listScroll.current }));
+    },
+    [view.caseKey, show],
+  );
+  useEffect(() => {
+    const here = window.history.state?.lab as View | undefined;
+    if (here) show(here);
+    const onPop = (e: PopStateEvent) => {
+      const v = (e.state?.lab as View | undefined) ?? HOME;
+      show(v);
+      if (!v.caseKey) requestAnimationFrame(() => window.scrollTo({ top: listScroll.current }));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [show]);
 
+  // ── data ─────────────────────────────────────────────────────────────────
   const loadStatus = useCallback(async () => {
     const s = await fetch("/api/labs/process/status", { cache: "no-store" }).then((r) => r.json() as Promise<LabStatus>);
     setStatus(s);
@@ -70,15 +102,15 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
     try {
       setRows(await lab<CaseRow[]>("api/cases?limit=60"));
     } catch {
-      // The overview reports the lab being down; the list just keeps its last state.
+      // The overview reports the lab being down; the list keeps its last state.
     }
   }, []);
 
-  const labUp = status?.services.find((s) => s.id === "process-lab")?.up;
   // Without any of these three a case can't move: the engine runs it, the
   // router carries its AI calls, the lab does the work.
-  const up = (id: string) => status?.services.find((s) => s.id === id);
-  const essentialsUp = ESSENTIAL.every((id) => !up(id)?.onHost || up(id)?.up);
+  const svc = (id: string) => status?.services.find((s) => s.id === id);
+  const essentialsUp = ESSENTIAL.every((id) => !svc(id)?.onHost || svc(id)?.up);
+  const labUp = svc("process-lab")?.up;
   const servicesUp = !!(status && essentialsUp);
   const ready = servicesUp && !!ov?.engine.up;
 
@@ -102,30 +134,16 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
     return () => clearInterval(iv);
   }, [ready, loadCases]);
 
-  // Opening the picker, a case or another tab replaces what's under the tabs:
-  // bring the tabs to the top (below the console's pinned bars), or the new
-  // view can open below the fold and look like nothing happened.
+  // First visit: open "How it works" once.
   useEffect(() => {
-    if (firstView.current) {
-      firstView.current = false;
-      return;
-    }
-    // Like a page change: jump, once the new view has laid out (and again a
-    // moment later — the list and the intro settle after the first frame).
-    const place = () => {
-      const nav = navRef.current;
-      if (!nav) return;
-      const pinned = Math.max(0, ...[...document.querySelectorAll<HTMLElement>(".console-header, .resource-pulse")].map((e) => e.getBoundingClientRect().bottom));
-      const top = nav.getBoundingClientRect().top + window.scrollY - pinned - 8;
-      if (Math.abs(window.scrollY - top) > 4) window.scrollTo({ top });
-    };
-    const raf = requestAnimationFrame(place);
-    const t = setTimeout(place, 400);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(t);
-    };
-  }, [tab, open, sending]);
+    if (!ready) return;
+    try {
+      if (!localStorage.getItem(SEEN_KEY)) {
+        setHowto(true);
+        localStorage.setItem(SEEN_KEY, "1");
+      }
+    } catch {}
+  }, [ready]);
 
   const probe = (id: string) => async () => !!(await loadStatus()).services.find((s) => s.id === id)?.up;
 
@@ -133,7 +151,7 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
     return (
       <div className="space-y-5">
         <Header def={def} />
-        <p className="rounded-xl border border-amber-700/50 bg-amber-950/30 p-4 text-sm text-amber-200">
+        <p className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-gray-200">
           Nothing on this machine serves business processes. The process lab runs on BeTenshi; to run it here, declare a service with{" "}
           <code>&quot;serves&quot;: {"{"} &quot;process&quot;: &quot;relocation-case&quot; {"}"}</code> in this host&apos;s <code>config/hosts/&lt;host&gt;.json</code>.
         </p>
@@ -143,39 +161,29 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
 
   const live = (rows ?? []).filter((r) => r.state !== "EXTERNALLY_TERMINATED");
   const waiting = live.filter((r) => r.state === "ACTIVE" && r.plain.status.tone === "you");
-  const goTo = (t: Tab) => {
-    setTab(t);
-    setOpen(null);
-    setSending(false);
-  };
-  const startSending = () => {
-    setTab("clients");
-    setOpen(null);
-    setSending(true);
-  };
 
   return (
     <div className="space-y-5">
-      <Header def={def} meta={<ReadyPill status={status} ready={ready} />} />
+      <Header
+        def={def}
+        meta={<ReadyPill status={status} ready={ready} />}
+        actions={
+          ready ? (
+            <button onClick={() => setHowto(true)} className={btn.secondarySm}>
+              How it works
+            </button>
+          ) : null
+        }
+      />
 
       {status && !servicesUp && <StartLab status={status} loadStatus={loadStatus} onReady={loadOverview} />}
-      {servicesUp && !ov && !ovErr && <p className="text-xs text-gray-500">Connecting…</p>}
+      {servicesUp && !ov && !ovErr && <p className="text-sm text-gray-500">Connecting…</p>}
       {ovErr && labUp && <p className="text-xs text-red-300">{ovErr}</p>}
 
       {ready && ov && (
         <>
-          {/* The intro belongs to the list; a case or the picker gets the screen to itself. */}
-          {tab === "clients" && !open && !sending &&
-            (intro ? (
-              <Intro onHide={() => showIntro(false)} onSend={startSending} />
-            ) : (
-              <button onClick={() => showIntro(true)} className="text-xs text-gray-500 underline">
-                How does this work?
-              </button>
-            ))}
-
-          <nav ref={navRef} className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-800">
-            <div className="flex gap-1">
+          <nav ref={tabsRef} className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-800">
+            <div className="flex gap-1" role="tablist">
               {(
                 [
                   ["clients", "Clients"],
@@ -185,117 +193,166 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
               ).map(([id, label]) => (
                 <button
                   key={id}
-                  onClick={() => goTo(id)}
-                  className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === id ? "border-orange-500 text-gray-100" : "border-transparent text-gray-400 hover:text-gray-200"}`}
+                  role="tab"
+                  aria-selected={view.tab === id}
+                  onClick={() => (view.tab === id && !view.caseKey ? null : go({ tab: id, caseKey: null }))}
+                  className={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${view.tab === id ? "border-orange-500 font-medium text-gray-100" : "border-transparent text-gray-400 hover:text-gray-200"}`}
                 >
                   {label}
                   {id === "clients" && waiting.length > 0 && (
-                    <span className="ml-1.5 rounded-full bg-amber-500/25 px-1.5 text-[10px] font-semibold text-amber-200" title="Waiting for you">
+                    <span className="ml-1.5 rounded-full bg-amber-500/20 px-1.5 text-[11px] font-semibold text-amber-300" title="Waiting for you">
                       {waiting.length}
                     </span>
                   )}
                 </button>
               ))}
             </div>
-            {!(tab === "clients" && sending) && (
-              <button
-                onClick={startSending}
-                className="mb-1.5 rounded-lg border border-orange-500 bg-orange-500/20 px-3 py-1.5 text-sm font-medium text-orange-50 hover:bg-orange-500/30"
-              >
-                + Send in pretend clients
-              </button>
-            )}
+            <button onClick={() => setSending(true)} className={`${btn.primarySm} mb-1.5`}>
+              + Send in pretend clients
+            </button>
           </nav>
 
-          {tab === "clients" &&
-            (sending ? (
-              <SendClients
-                overview={ov}
-                onCancel={() => setSending(false)}
-                onSent={() => {
-                  setSending(false);
-                  loadOverview();
-                  loadCases();
-                }}
-              />
-            ) : open ? (
+          <div hidden={view.tab !== "clients"} className="min-h-[70vh]">
+            {view.caseKey ? (
               <CasePage
-                caseKey={open}
+                caseKey={view.caseKey}
                 guide={guide}
-                onBack={() => setOpen(null)}
-                onOpen={setOpen}
-                nextWaiting={waiting.find((r) => r.caseKey !== open) ?? null}
+                onBack={() => go({ tab: "clients", caseKey: null })}
+                onOpen={(k) => go({ tab: "clients", caseKey: k })}
+                nextWaiting={waiting.find((r) => r.caseKey !== view.caseKey) ?? null}
               />
             ) : rows && live.length === 0 ? (
-              <Empty onSend={() => setSending(true)} />
+              <Empty onSend={() => setSending(true)} onHowto={() => setHowto(true)} />
             ) : rows ? (
-              <ClientList rows={rows} onOpen={setOpen} />
+              <div className="space-y-4">
+                {notice && (
+                  <p className="flex items-center justify-between gap-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-sm text-gray-200">
+                    {notice}
+                    <button onClick={() => setNotice(null)} className={btn.ghost}>
+                      Dismiss
+                    </button>
+                  </p>
+                )}
+                <ClientList rows={rows} onOpen={(k) => go({ tab: "clients", caseKey: k })} />
+              </div>
             ) : (
-              <p className="text-xs text-gray-500">Loading clients…</p>
-            ))}
-          {tab === "results" && <Results runs={ov.runs} />}
-          {tab === "built" && <HowItsBuilt status={status} ov={ov} guide={guide} probe={probe} doc={def.doc} />}
+              <p className="text-sm text-gray-500">Loading clients…</p>
+            )}
+          </div>
+          {built.has("results") && (
+            <div hidden={view.tab !== "results"} className="min-h-[70vh]">
+              <Results runs={ov.runs} active={view.tab === "results"} />
+            </div>
+          )}
+          {built.has("built") && (
+            <div hidden={view.tab !== "built"} className="min-h-[70vh]">
+              <HowItsBuilt status={status} ov={ov} guide={guide} probe={probe} doc={def.doc} />
+            </div>
+          )}
+
+          <Dialog open={howto} onClose={() => setHowto(false)} title="How it works" subtitle="A pretend relocation agency, in three steps." size="md">
+            <HowItWorks
+              onSend={() => {
+                setHowto(false);
+                setSending(true);
+              }}
+            />
+          </Dialog>
+          <Dialog
+            open={sending}
+            onClose={() => setSending(false)}
+            title="Send in pretend clients"
+            subtitle="Each one is made up — name, documents and all — and the lab knows how their case should end, so it can check itself."
+            size="xl"
+          >
+            <SendClients
+              overview={ov}
+              onSent={(n) => {
+                setSending(false);
+                setNotice(
+                  n === 1
+                    ? "Sent in. Your client is under “In progress” — when the case needs you, it moves to “Waiting for you”."
+                    : n
+                      ? `${n} clients sent in. They're under “In progress” — when one needs you, it moves to “Waiting for you”.`
+                      : "Your client is in. Open their case to send their documents.",
+                );
+                loadOverview();
+                loadCases();
+                if (view.tab !== "clients" || view.caseKey) go(HOME);
+              }}
+            />
+          </Dialog>
         </>
       )}
     </div>
   );
 }
 
-function Header({ def, meta }: { def: LabComponentProps["lab"]; meta?: React.ReactNode }) {
-  return <ToolPageHeader eyebrow="Lab" title={def.label} description={def.hint} icon={<Workflow className="h-5 w-5" />} meta={meta} />;
+/** Scroll so the lab's tabs sit just under the console's pinned bars — where a new page starts. */
+function toTabs(el: HTMLElement | null) {
+  if (!el) return;
+  const pinned = Math.max(0, ...[...document.querySelectorAll<HTMLElement>(".console-header, .resource-pulse")].map((e) => e.getBoundingClientRect().bottom));
+  const top = el.getBoundingClientRect().top + window.scrollY - pinned - 8;
+  if (window.scrollY > top) window.scrollTo({ top });
+}
+
+function Header({ def, meta, actions }: { def: LabComponentProps["lab"]; meta?: React.ReactNode; actions?: React.ReactNode }) {
+  return <ToolPageHeader eyebrow="Lab" title={def.label} description={def.hint} icon={<Workflow className="h-5 w-5" />} meta={meta} actions={actions} />;
 }
 
 function ReadyPill({ status, ready }: { status: LabStatus | null; ready: boolean }) {
   if (!status) return null;
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-700 px-2 py-0.5 text-[11px] text-gray-300">
-      <span className={`size-1.5 rounded-full ${ready ? "bg-emerald-400" : "bg-gray-500"}`} aria-hidden="true" />
+      <span className={`size-1.5 rounded-full ${ready ? "bg-emerald-500" : "bg-gray-500"}`} aria-hidden="true" />
       {ready ? "Ready" : "Off"}
     </span>
   );
 }
 
-/** Three steps, one button. Folds away once read (remembered per browser). */
-function Intro({ onHide, onSend }: { onHide: () => void; onSend: () => void }) {
-  const steps = [
-    ["Send in a pretend client", "Pick someone who wants help moving abroad — a visa, a residency permit, a home, a bank account. Each is made up, and the lab knows how their case should end."],
-    ["Watch their case", "Written rules set the price and check who qualifies. AI works out what the client wants, reads their documents (Arabic too) and writes their emails."],
-    ["Step in when it asks", "When the AI isn't sure, or an application is ready to submit, the case waits for you. You answer right on the case."],
-  ];
+const STEPS: [string, string][] = [
+  ["Send in a pretend client", "Pick someone who wants help moving abroad — a visa, a residency permit, a home, a bank account. Each is made up, and the lab knows how their case should end."],
+  ["Watch their case", "Written rules set the price and check who qualifies. AI works out what the client wants, reads their documents (Arabic too) and writes their emails."],
+  ["Step in when it asks", "When the AI isn't sure, or an application is ready to submit, the case waits for you. You answer right on the case."],
+];
+
+function HowItWorks({ onSend }: { onSend: () => void }) {
   return (
-    <section className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <h3 className="text-sm font-semibold text-gray-100">How it works</h3>
-        <button onClick={onHide} className="text-xs text-gray-500 hover:text-gray-300">
-          Hide
-        </button>
-      </div>
-      <ol className="grid gap-4 md:grid-cols-3">
-        {steps.map(([title, text], i) => (
+    <div className="space-y-5">
+      <ol className="space-y-4">
+        {STEPS.map(([title, text], i) => (
           <li key={title} className="flex gap-3">
-            <span className="grid size-7 shrink-0 place-items-center rounded-full border border-orange-500/60 text-sm font-semibold text-orange-200">{i + 1}</span>
+            <span className="grid size-7 shrink-0 place-items-center rounded-full border border-orange-500/60 text-sm font-semibold text-orange-300">{i + 1}</span>
             <span>
-              <span className="block text-sm font-medium text-gray-100">{title}</span>
-              <span className="mt-0.5 block text-[13px] leading-relaxed text-gray-400">{text}</span>
+              <span className="block font-medium text-gray-100">{title}</span>
+              <span className="mt-0.5 block text-sm leading-relaxed text-gray-400">{text}</span>
             </span>
           </li>
         ))}
       </ol>
-      <button onClick={onSend} className="mt-4 rounded-lg border border-orange-500 bg-orange-500/20 px-4 py-2 text-sm font-medium text-orange-50 hover:bg-orange-500/30">
+      <p className="text-sm text-gray-400">
+        Then <b className="text-gray-200">Results</b> shows how well it went, and <b className="text-gray-200">How it&apos;s built</b> shows the machinery underneath, for the curious.
+      </p>
+      <button onClick={onSend} className={btn.primary}>
         Send in a pretend client
       </button>
-    </section>
+    </div>
   );
 }
 
-function Empty({ onSend }: { onSend: () => void }) {
+function Empty({ onSend, onHowto }: { onSend: () => void; onHowto: () => void }) {
   return (
     <div className="rounded-xl border border-dashed border-gray-700 px-6 py-10 text-center">
-      <p className="text-base text-gray-200">No clients yet.</p>
-      <p className="mt-1 text-sm text-gray-500">Send in a pretend client and watch their case unfold.</p>
-      <button onClick={onSend} className="mt-4 rounded-lg border border-orange-500 bg-orange-500/20 px-4 py-2 text-sm font-medium text-orange-50 hover:bg-orange-500/30">
-        Send in a pretend client
-      </button>
+      <p className="text-base text-gray-100">No clients yet.</p>
+      <p className="mt-1 text-sm text-gray-400">Send in a pretend client and watch their case unfold. It takes a few minutes.</p>
+      <div className="mt-4 flex justify-center gap-2">
+        <button onClick={onSend} className={btn.primary}>
+          Send in a pretend client
+        </button>
+        <button onClick={onHowto} className={btn.secondary}>
+          How it works
+        </button>
+      </div>
     </div>
   );
 }
@@ -303,9 +360,9 @@ function Empty({ onSend }: { onSend: () => void }) {
 /**
  * The lab is off: one button that starts what it needs, in order — the
  * process engine, the AI router, the lab itself, then the small decision
- * model. The
- * local LLM is not started here: it needs the GPU, and the lab falls back to
- * the cloud without it. Each service is still under How it's built.
+ * model. The local LLM is not started here: it needs the GPU, and the lab
+ * falls back to the cloud without it. Each service is still under How it's
+ * built.
  */
 const ESSENTIAL = ["process-engine", "ai-router", "process-lab"];
 const NEEDED = [...ESSENTIAL, "laya"];
@@ -318,15 +375,15 @@ function StartLab({ status, loadStatus, onReady }: { status: LabStatus; loadStat
     setErr(null);
     try {
       for (const id of NEEDED) {
-        const svc = (await loadStatus()).services.find((s) => s.id === id);
-        if (!svc?.onHost || svc.up) continue;
-        setStep(svc.name);
+        const s = (await loadStatus()).services.find((x) => x.id === id);
+        if (!s?.onHost || s.up) continue;
+        setStep(s.name);
         const r = await fetch(`/api/services/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start" }) });
         const j = await r.json().catch(() => ({}));
-        if (!r.ok || j.error) throw new Error(`${svc.name}: ${j.error ?? `HTTP ${r.status}`}`);
+        if (!r.ok || j.error) throw new Error(`${s.name}: ${j.error ?? `HTTP ${r.status}`}`);
         const deadline = Date.now() + 150_000;
-        while (!(await loadStatus()).services.find((s) => s.id === id)?.up) {
-          if (Date.now() > deadline) throw new Error(`${svc.name} didn't come up within two and a half minutes. Its log is under How it's built once the lab is up, or on the Services tab.`);
+        while (!(await loadStatus()).services.find((x) => x.id === id)?.up) {
+          if (Date.now() > deadline) throw new Error(`${s.name} didn't come up within two and a half minutes. Its log is on the Services tab.`);
           await new Promise((res) => setTimeout(res, 2000));
         }
       }
@@ -338,14 +395,14 @@ function StartLab({ status, loadStatus, onReady }: { status: LabStatus; loadStat
     }
   };
   return (
-    <section className="rounded-xl border border-gray-700 bg-gray-900/60 p-5">
+    <section className="rounded-xl border border-gray-800 bg-gray-900 p-5">
       <h3 className="text-base font-semibold text-gray-100">The lab is switched off</h3>
       <p className="mt-1 text-sm text-gray-400">It runs on a few programs on this machine. Press start and it switches them on — about half a minute.</p>
-      {missing.length > 0 && <p className="mt-1 text-[11px] text-gray-500">Not running: {missing.map((s) => s.name).join(", ")}.</p>}
-      <button onClick={start} disabled={!!step} className="mt-3 rounded-lg border border-orange-500 bg-orange-500/20 px-4 py-2 text-sm font-medium text-orange-50 hover:bg-orange-500/30 disabled:opacity-60">
+      {missing.length > 0 && <p className="mt-1 text-xs text-gray-500">Not running: {missing.map((s) => s.name).join(", ")}.</p>}
+      <button onClick={start} disabled={!!step} className={`${btn.primary} mt-4`}>
         {step ? `Starting ${step}…` : "Start the lab"}
       </button>
-      {err && <p className="mt-2 text-xs text-red-300">{err}</p>}
+      {err && <p className="mt-2 text-sm text-red-300">{err}</p>}
     </section>
   );
 }

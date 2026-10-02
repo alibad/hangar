@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KindBadge } from "./parts";
+import { Dialog, KindBadge, btn } from "./parts";
 import { fmtMs, lab, type Run, type Stats } from "./api";
 
 /**
@@ -18,12 +18,15 @@ export function batchLabel(r: Run) {
   return `${when} · ${n} client${n === 1 ? "" : "s"} · ${state}`;
 }
 
-export default function Results({ runs }: { runs: Run[] }) {
+export default function Results({ runs, active = true }: { runs: Run[]; active?: boolean }) {
   // Default: the newest batch — usually the one you just sent in; its numbers fill in as it runs.
   const [run, setRun] = useState<string>(() => runs[0]?.id ?? "");
   const [s, setS] = useState<Stats | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [detail, setDetail] = useState(false);
+  // Refreshes only while the tab is showing; when hidden it keeps what it has.
   useEffect(() => {
+    if (!active) return;
     let alive = true;
     const load = () =>
       lab<Stats>(`api/stats${run ? `?run=${encodeURIComponent(run)}` : ""}`).then(
@@ -36,12 +39,12 @@ export default function Results({ runs }: { runs: Run[] }) {
       alive = false;
       clearInterval(iv);
     };
-  }, [run]);
+  }, [run, active]);
 
   const tile = (label: string, value: string, sub?: string) => (
     <div className="rounded-xl border border-gray-800 bg-gray-900/60 px-4 py-3">
       <p className="text-xs text-gray-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-50">{value}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-100">{value}</p>
       {sub && <p className="mt-0.5 text-[11px] text-gray-500">{sub}</p>}
     </div>
   );
@@ -66,14 +69,19 @@ export default function Results({ runs }: { runs: Run[] }) {
         <p className="rounded-xl border border-gray-800 px-4 py-6 text-center text-sm text-gray-500">No clients in this batch yet.</p>
       ) : (
         <>
-          <p className="max-w-3xl text-base leading-relaxed text-gray-200">{summary(s)}</p>
+          <p className="max-w-3xl text-[17px] leading-relaxed text-gray-200">{summary(s)}</p>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {tile("Ended the way they should", s.pathAccuracy ? `${s.pathAccuracy.right} of ${s.pathAccuracy.of}` : "—", s.pathAccuracy ? "checked against what the lab knew should happen" : "no known answer for these clients")}
             {tile("AI wasn't sure, asked a person", `${s.escalation.escalated}×`, `out of ${s.escalation.aiDecisions} AI decisions`)}
             {tile("Typical time per case", s.cycle.medianDays != null ? `${Math.round(s.cycle.medianDays)} days` : "—", "simulated days, from request to the end")}
             {tile("Cloud cost", `$${s.models.costUsd.toFixed(2)}`, `${s.models.cloudFallbacks} of ${s.models.calls} AI answers came from the cloud`)}
           </div>
-          <Detail s={s} />
+          <button onClick={() => setDetail(true)} className={btn.secondarySm}>
+            More detail
+          </button>
+          <Dialog open={detail} onClose={() => setDetail(false)} title="Results in detail" subtitle="Every measure for this batch, where cases wait, and each kind of decision." size="xl">
+            <Detail s={s} />
+          </Dialog>
         </>
       )}
     </div>
@@ -116,9 +124,7 @@ function Detail({ s }: { s: Stats }) {
     </div>
   );
   return (
-    <details className="rounded-xl border border-gray-800 bg-gray-900/40">
-      <summary className="cursor-pointer px-4 py-2.5 text-sm text-gray-300">More detail — every measure, where cases wait, and each kind of decision</summary>
-      <div className="space-y-4 border-t border-gray-800 p-4">
+    <div className="space-y-6">
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
           {tile("Finished", `${s.finished} of ${s.cases}`, `${s.active} still open`)}
           {tile("Within the promised time", s.cycle.slaMet ? `${s.cycle.slaMet.pct}%` : "—", s.cycle.slaMet ? `${s.cycle.slaMet.met} of ${s.cycle.slaMet.of} completed` : "")}
@@ -185,7 +191,6 @@ function Detail({ s }: { s: Stats }) {
             </p>
           </section>
         </div>
-      </div>
-    </details>
+    </div>
   );
 }
