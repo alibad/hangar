@@ -58,6 +58,9 @@ export async function POST(req: NextRequest) {
   };
   try {
     switch (body.action) {
+      case "redo":
+        if (!body.id) return NextResponse.json({ error: "Pass id" }, { status: 400 });
+        return NextResponse.json({ item: await forge.redoShot(body.id, body.reason ?? "asked for") });
       case "requeue":
         return NextResponse.json({ requeued: await forge.requeueFailedShots(body.id) });
       case "listen":

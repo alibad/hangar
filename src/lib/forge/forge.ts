@@ -1099,13 +1099,15 @@ class Forge {
           if (check) {
             item.check = check;
             note(item, `Vision check: ${[check.people && !item.story && "people", check.text && "writing", check.logo && "a logo", check.artifacts > 1 && "artifacts"].filter(Boolean).join(", ") || "clean"}, beauty ${check.beauty}/5`);
-            if (item.story && check.artifacts >= 3 && (item.retries ?? 0) < 1) {
-              // A film cannot skip a shot the way a reel skips a clip: draw it again.
+            // Writing or a logo can appear while a clean first frame is animated (a
+            // king walked up to a television in the first story night); like a badly
+            // distorted clip, a film cannot use it and cannot skip it: draw it again.
+            if (item.story && (check.artifacts >= 3 || check.text || check.logo) && (item.retries ?? 0) < 1) {
               item.retries = (item.retries ?? 0) + 1;
               item.status = "brief";
               item.still = undefined;
               item.video = undefined;
-              note(item, `Severely distorted (${check.notes}); drawing and animating this shot once more`);
+              note(item, `${check.artifacts >= 3 ? "Severely distorted" : "Writing or a logo appeared"} (${check.notes}); drawing and animating this shot once more`);
             }
           }
         }
@@ -1184,6 +1186,23 @@ class Forge {
     item.review = { verdict, reason: reason?.trim() || undefined, at: stamp() };
     note(item, `${verdict === "approved" ? "Approved" : "Rejected"}${item.review.reason ? `: ${item.review.reason}` : ""}`);
     await saveItem(item);
+    return item;
+  }
+
+  /** Make one finished shot again from a fresh first frame (keeps its place in the film). */
+  async redoShot(id: string, why: string): Promise<ForgeItem> {
+    const item = await getItem(id);
+    if (!item) throw new Error("No such item");
+    if (["brief", "still", "rendering"].includes(item.status)) throw new Error("It is already being made");
+    item.status = "brief";
+    item.still = undefined;
+    item.video = undefined;
+    item.check = undefined;
+    item.error = undefined;
+    item.retries = 1;
+    note(item, `To be made again: ${why}`);
+    await saveItem(item);
+    this.kick();
     return item;
   }
 
