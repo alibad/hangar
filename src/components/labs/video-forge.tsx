@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { LabComponentProps } from "@/lib/labs";
 import type { ForgeItem, ForgeRuntime, ForgeSettings } from "@/lib/forge/forge";
+import type { Story } from "@/lib/forge/story";
 import { ExperimentDoc } from "./lab-shell";
 
 /**
@@ -17,7 +18,11 @@ type ForgeState = {
   window: { open: boolean; minutesLeft: number | null; nextStart: string };
   services: { search: boolean; smallModel: boolean };
   items: ForgeItem[];
+  stories?: Story[];
 };
+
+const MONTAGE = "http://localhost:8017";
+const KIND: Record<string, string> = { parable: "A parable", fable: "A fable", myth: "A myth, retold", original: "An original story" };
 
 const fileUrl = (rel: string) => `/api/video/file?path=${encodeURIComponent(rel)}`;
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -72,7 +77,9 @@ export default function VideoForge({ lab }: LabComponentProps) {
 
   if (!state) return <div className="p-6 text-sm text-gray-400">{error ? `Could not load the forge: ${error}` : "Loading the forge…"}</div>;
 
-  const { settings, runtime, window: win, services, items } = state;
+  const { settings, runtime, window: win, services, stories = [] } = state;
+  // A story's shots are shown with their story, not one by one.
+  const items = state.items.filter((i) => !i.story);
   const review = items.filter((i) => i.status === "review");
   const tonight = items.filter((i) => i.status === "brief" || i.status === "still" || i.status === "rendering");
   // Clips live in the gallery; history is what made nothing (skipped, failed).
@@ -118,6 +125,19 @@ export default function VideoForge({ lab }: LabComponentProps) {
           {runtime.lastListenAt && ` Last listened ${when(runtime.lastListenAt)}${runtime.lastListenOutcome ? ` — ${runtime.lastListenOutcome}` : ""}.`}
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-gray-800/70 p-0.5">
+            {(["trending", "stories"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => act(`mode-${m}`, { action: "settings", patch: { mode: m } })}
+                disabled={!!busy}
+                className={`rounded-full px-2 py-0.5 ${(settings.mode ?? "trending") === m ? "bg-orange-600 text-white" : "text-gray-300 hover:text-white"}`}
+                title={m === "stories" ? "Short narrated films: a large local model writes a story as a shot list" : "Clips about what people search for today"}
+              >
+                {m === "stories" ? "Making story films" : "Making trending clips"}
+              </button>
+            ))}
+          </span>
           <Chip ok={services.smallModel} label="Brief writer (vllm-small)" />
           <Chip ok={services.search} label="Web search (SearXNG)" okText="up" badText="down — using Wikipedia search" />
           {runtime.pausedVllmSmall && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-300">vllm-small paused by the forge</span>}
@@ -125,6 +145,9 @@ export default function VideoForge({ lab }: LabComponentProps) {
         </div>
         {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
       </section>
+
+      {/* ── story films ── */}
+      {stories.length > 0 && <Stories stories={stories} items={state.items} onRequeue={(id) => act(`requeue-${id}`, { action: "requeue", id })} busy={!!busy} />}
 
       {/* ── the gallery ── */}
       <Gallery
@@ -228,6 +251,94 @@ export default function VideoForge({ lab }: LabComponentProps) {
 
       <ExperimentDoc path={lab.doc} />
     </div>
+  );
+}
+
+/**
+ * Every story the forge has written: the screenplay, each shot's first frame or
+ * clip as it is made, and the model behind every step. The finished film is cut
+ * in Montage.
+ */
+function Stories({ stories, items, onRequeue, busy }: { stories: Story[]; items: ForgeItem[]; onRequeue: (id: string) => void; busy: boolean }) {
+  return (
+    <section>
+      <h2 className="mb-2 text-sm font-medium text-gray-200">
+        Story films <span className="text-gray-500">({stories.length}) — written here, cut into films in </span>
+        <a href={MONTAGE} target="_blank" rel="noreferrer" className="text-orange-300 hover:underline">
+          Montage ↗
+        </a>
+      </h2>
+      <div className="flex flex-col gap-3">
+        {stories.map((st) => {
+          const shots = items.filter((i) => i.story?.id === st.id).sort((a, b) => a.story!.index - b.story!.index);
+          const done = shots.filter((i) => i.video?.output && (i.status === "review" || i.status === "approved")).length;
+          const failed = shots.filter((i) => i.status === "failed").length;
+          return (
+            <details key={st.id} className="rounded-xl border border-gray-800 bg-gray-900/40" open={shots.some((i) => ["still", "rendering"].includes(i.status))}>
+              <summary className="cursor-pointer list-none px-4 py-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-gray-100">
+                    <span className="mr-2 text-[11px] uppercase tracking-wider text-orange-300">{KIND[st.kind] ?? st.kind}</span>
+                    <span className="font-medium">{st.title}</span>
+                    <span className="ml-2 text-sm italic text-gray-400">{st.logline}</span>
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {done}/{st.shots.length} shots animated{failed ? ` · ${failed} failed` : ""} · {when(st.createdAt)}
+                  </p>
+                </div>
+                <div className="mt-2 flex gap-0.5">
+                  {st.shots.map((_, idx) => {
+                    const it = shots.find((x) => x.story!.index === idx);
+                    const c = !it ? "bg-gray-800" : it.video?.output ? "bg-orange-400" : it.status === "failed" ? "bg-red-500/70" : it.status === "rendering" || it.status === "still" ? "animate-pulse bg-orange-200/70" : "bg-gray-700";
+                    return <span key={idx} className={`h-1 flex-1 rounded-full ${c}`} />;
+                  })}
+                </div>
+              </summary>
+              <div className="border-t border-gray-800 px-4 py-3">
+                <p className="text-sm text-gray-300">
+                  <span className="text-gray-500">Lesson:</span> {st.lesson}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Written by {st.model} in {Math.round(st.latencyMs / 1000)} s from the seed “{st.seed}” · look: {st.look} · score brief: {st.score}
+                  {st.characters.length ? ` · characters: ${st.characters.map((c) => `${c.name} (${c.look})`).join("; ")}` : ""}
+                </p>
+                {failed > 0 && (
+                  <button onClick={() => onRequeue(st.id)} disabled={busy} className="mt-2 rounded-md border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-40">
+                    Make the {failed} failed shot{failed > 1 ? "s" : ""} again
+                  </button>
+                )}
+                <ol className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {st.shots.map((shot, idx) => {
+                    const it = shots.find((x) => x.story!.index === idx);
+                    return (
+                      <li key={idx} className="text-xs">
+                        <div className="relative aspect-video overflow-hidden rounded-md bg-black">
+                          {it?.video?.output ? (
+                            <video src={fileUrl(it.video.output)} poster={it.still ? fileUrl(it.still.file) : undefined} muted loop playsInline preload="none" className="h-full w-full object-cover" onMouseEnter={(e) => void e.currentTarget.play().catch(() => undefined)} onMouseLeave={(e) => e.currentTarget.pause()} />
+                          ) : it?.still ? (
+                            <img src={fileUrl(it.still.file)} alt="" className="h-full w-full object-cover opacity-70" />
+                          ) : null}
+                          <span className="absolute left-1.5 top-1 text-[11px] font-medium text-white [text-shadow:0_1px_3px_black]">{idx + 1}</span>
+                          {it && <span className="absolute bottom-1 right-1.5 text-[10px] text-white/80 [text-shadow:0_1px_3px_black]"><StatusWord status={it.status} /></span>}
+                        </div>
+                        <p className="mt-1 italic text-gray-200">{shot.narration}</p>
+                        <details className="mt-0.5 text-gray-500">
+                          <summary className="cursor-pointer hover:text-gray-300">Prompts{it?.check ? ` · beauty ${it.check.beauty}/5` : ""}</summary>
+                          <p className="mt-1">Picture: {it?.stillPrompt ?? shot.picture}</p>
+                          <p className="mt-1">Motion: {shot.motion}</p>
+                          {it?.video?.latencyMs ? <p className="mt-1">Clip: {it.video.model} in {Math.round(it.video.latencyMs / 1000)} s</p> : null}
+                          {it?.error && <p className="mt-1 text-red-300">{it.error}</p>}
+                        </details>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
