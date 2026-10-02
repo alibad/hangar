@@ -1018,6 +1018,18 @@ class Forge {
         if (res?.body.resourceBlocked) {
           // Not a failure: something else holds the card. Stay in "still" and retry next tick.
           this.runtime.now = `First frame of "${item.topic}" is waiting for memory: ${why}`;
+          // quote-forge's drip starts vllm-small again in any gap — Montage's turn
+          // between two shots is one. Same standing OK as for a waiting clip.
+          await freeComfyIfIdle();
+          if (s.reclaimVllmSmall && this.runtime.pausedVllmSmall && (await smallModelUp())) {
+            const last = this.runtime.lastRepauseAt ? Date.parse(this.runtime.lastRepauseAt) : 0;
+            if (Date.now() - last > 2 * 60_000) {
+              const err = await manager("stop", "vllm-small");
+              this.runtime.lastRepauseAt = stamp();
+              this.runtime.repauses = (this.runtime.repauses ?? 0) + 1;
+              note(item, err ? `vllm-small came back mid-window; pausing it again failed: ${err}` : "vllm-small came back mid-window (restarted by something else); paused it again");
+            }
+          }
           if (!item.timeline.some((t) => t.what.startsWith("Waiting for memory"))) {
             note(item, `Waiting for memory: ${why}`);
             await saveItem(item);
