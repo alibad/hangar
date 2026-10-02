@@ -218,11 +218,13 @@ export function shapeStory(raw: unknown, want: number): Omit<Story, "id" | "crea
     .map((c) => ({ name: clean(c.name, 40), look: clean(c.look, 300) }))
     .filter((c) => c.name && c.look)
     .slice(0, 4);
-  // The 7B and sometimes the 31B forget to repeat a character's look; a name
-  // in a picture means nothing to the image model.
+  // A writer sometimes names a character instead of describing them; a name
+  // means nothing to the image model. Only a capitalised name is replaced, and
+  // only when the look is not already there ("Frog" vs "a green frog").
   for (const shot of shots) {
     for (const c of characters) {
-      const re = new RegExp(`\\b${c.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      if (shot.picture.toLowerCase().includes(c.look.toLowerCase().slice(0, 30))) continue;
+      const re = new RegExp(`\\b${c.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
       if (re.test(shot.picture)) shot.picture = shot.picture.replace(re, c.look);
     }
   }
@@ -272,7 +274,8 @@ export async function writeStory(opts: { seed: StorySeed; shots: number; look?: 
 
 /** The still prompt for one shot: the picture plus the film's look. */
 export function shotStillPrompt(story: Pick<Story, "look">, shot: StoryShot): string {
-  return `${shot.picture} ${story.look}.`;
+  const look = story.look.replace(/\.$/, "");
+  return shot.picture.toLowerCase().includes(look.toLowerCase().slice(0, 40)) ? shot.picture : `${shot.picture} ${look}.`;
 }
 
 export const STORY_STILL_SUFFIX = "Cinematic composition, beautiful light, highly detailed, no text, no lettering, no signs, no logos, no watermark.";

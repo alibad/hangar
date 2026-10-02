@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
   };
   try {
     switch (body.action) {
+      case "requeue":
+        return NextResponse.json({ requeued: await forge.requeueFailedShots(body.id) });
       case "listen":
         return NextResponse.json({ item: await forge.listen() });
       case "wake":

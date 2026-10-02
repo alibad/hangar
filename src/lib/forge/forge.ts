@@ -486,6 +486,32 @@ async function manager(action: "start" | "stop", id: string): Promise<string | n
   }
 }
 
+/**
+ * ComfyUI draws the stills and the clips; nothing else starts it. On the first
+ * story night it had been stopped, and every still failed with "fetch failed"
+ * in a second. Start it through the manager (the coordinator still decides).
+ */
+async function ensureComfy(): Promise<string | null> {
+  const alive = async () => {
+    try {
+      return (await fetch("http://127.0.0.1:8188/system_stats", { signal: AbortSignal.timeout(4000) })).ok;
+    } catch {
+      return false;
+    }
+  };
+  if (await alive()) return null;
+  const svc = await serviceStatus("comfyui");
+  if (!svc || svc.status !== "running") {
+    const err = await manager("start", "comfyui");
+    if (err) return `ComfyUI is stopped and could not be started: ${err}`;
+  }
+  for (let i = 0; i < 45; i++) {
+    if (await alive()) return null;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  return "ComfyUI was started but is not answering yet";
+}
+
 async function smallModelUp(): Promise<boolean> {
   try {
     const res = await fetch("http://127.0.0.1:8006/health", { signal: AbortSignal.timeout(4000) });
@@ -914,6 +940,11 @@ class Forge {
   /** Move one item one step: brief → still → rendering → review. */
   private async advance(item: ForgeItem, s: ForgeSettings) {
     if ((item.status === "brief" || item.status === "still") && !item.still) {
+      const comfyProblem = await ensureComfy();
+      if (comfyProblem) {
+        this.runtime.now = `Waiting for ComfyUI before "${item.topic}": ${comfyProblem}`;
+        return;
+      }
       item.status = "still";
       note(item, `Making the first frame with ${s.stillModel}`);
       await saveItem(item);
@@ -951,6 +982,13 @@ class Forge {
       }
       if (!res || !res.ok || !savedPath) {
         const why = String(res?.body.error ?? "no image saved");
+        // A dropped connection (ComfyUI restarting, a model loading) is not the prompt's fault.
+        if (/fetch failed|ECONNREFUSED|ECONNRESET|socket hang up/i.test(why) && (item.retries ?? 0) < 3) {
+          item.retries = (item.retries ?? 0) + 1;
+          note(item, `Still failed (${why}); trying again`);
+          await saveItem(item);
+          return;
+        }
         if (res?.body.resourceBlocked) {
           // Not a failure: something else holds the card. Stay in "still" and retry next tick.
           this.runtime.now = `First frame of "${item.topic}" is waiting for memory: ${why}`;
@@ -1104,6 +1142,24 @@ class Forge {
     note(item, `${verdict === "approved" ? "Approved" : "Rejected"}${item.review.reason ? `: ${item.review.reason}` : ""}`);
     await saveItem(item);
     return item;
+  }
+
+  /** Put a story's failed shots back on the list (keeps their place in the film). */
+  async requeueFailedShots(storyId?: string): Promise<number> {
+    let n = 0;
+    for (const item of await itemsWithStatus("failed")) {
+      if (!item.story || (storyId && item.story.id !== storyId)) continue;
+      item.status = "brief";
+      item.still = undefined;
+      item.video = undefined;
+      item.error = undefined;
+      item.retries = 0;
+      note(item, "Put back on the list to be made again");
+      await saveItem(item);
+      n++;
+    }
+    this.kick();
+    return n;
   }
 
   async discard(id: string): Promise<boolean> {
