@@ -23,6 +23,7 @@ export const maxDuration = 120;
 const DEPENDENCIES: { id: string; role: string }[] = [
   { id: "process-engine", role: "Runs the BPMN processes and DMN decisions (Operaton)" },
   { id: "process-lab", role: "Workers, simulator and this page's API" },
+  { id: "ai-router", role: "Carries every AI call: the local model first, the cloud when the GPU is busy" },
   { id: "laya", role: "Decision model for the triage step (/api/decide)" },
   { id: "ollama", role: "Local LLM: document reading, emails, case briefs (Gemma 4)" },
   { id: "voice", role: "Spoken status update, when it earns its place" },

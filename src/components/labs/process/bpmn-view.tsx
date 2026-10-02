@@ -22,6 +22,7 @@ export default function BpmnView({
   height = 340,
   selected = null,
   onSelect,
+  legend = true,
 }: {
   xml: string;
   current?: string[];
@@ -32,6 +33,8 @@ export default function BpmnView({
   selected?: string | null;
   /** Called with a step's id when it is clicked (labels resolve to their step). */
   onSelect?: (id: string | null) => void;
+  /** The now / done / stuck key: only meaningful with a case on the diagram. */
+  legend?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   // bpmn-js has no types we depend on; keep the instance opaque.
@@ -42,6 +45,9 @@ export default function BpmnView({
   // latest handler without re-importing the diagram.
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  // The last step chosen by clicking the diagram itself, so a step chosen
+  // elsewhere (a list of steps) can be zoomed to without fighting a click.
+  const clicked = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -56,6 +62,7 @@ export default function BpmnView({
           const el = e.element?.labelTarget ?? e.element;
           const type: string = el?.businessObject?.$type ?? "";
           if (!el || type === "bpmn:Process" || type === "bpmn:SequenceFlow") return onSelectRef.current?.(null);
+          clicked.current = el.id;
           onSelectRef.current?.(el.id);
         });
         setReady((n) => n + 1);
@@ -119,6 +126,17 @@ export default function BpmnView({
     if (ready) frame(false);
   }, [ready, frame]);
 
+  // A step chosen outside the diagram: bring it into view at a readable size.
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v || !ready || !selected || selected === clicked.current) return;
+    const el = v.get("elementRegistry").get(selected);
+    if (!el) return;
+    const canvas = v.get("canvas");
+    canvas.zoom(0.9);
+    canvas.scrollToElement(el, { top: 120, bottom: 120, left: 260, right: 260 });
+  }, [ready, selected]);
+
   return (
     <div className="relative overflow-hidden rounded-lg border border-gray-700 bg-white">
       <style>{`
@@ -138,11 +156,13 @@ export default function BpmnView({
           </button>
         )}
       </div>
-      <div className="pointer-events-none absolute left-3 top-2 flex gap-3 text-[10px] text-gray-600">
-        <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-orange-600" />now</span>
-        <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-emerald-600 bg-emerald-50" />done</span>
-        <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-red-600" />incident</span>
-      </div>
+      {legend && (
+        <div className="pointer-events-none absolute left-3 top-2 flex gap-3 text-[10px] text-gray-600">
+          <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-orange-600" />now</span>
+          <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-emerald-600 bg-emerald-50" />done</span>
+          <span><span className="mr-1 inline-block size-2 rounded-sm border-2 border-red-600" />stuck</span>
+        </div>
+      )}
     </div>
   );
 }

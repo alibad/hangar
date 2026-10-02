@@ -1,38 +1,57 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Workflow } from "lucide-react";
 import { ToolPageHeader } from "@/components/tool-page";
-import { ServiceControl } from "@/components/service-control";
-import Markdown from "@/components/markdown";
 import type { LabComponentProps } from "@/lib/labs";
-import { lab, type Guide, type LabStatus, type Overview } from "./process/api";
-import CasesView from "./process/case-view";
-import InboxView from "./process/inbox-view";
-import { NumbersView, SimulateView } from "./process/sim-view";
+import { lab, type CaseRow, type Guide, type LabStatus, type Overview } from "./process/api";
+import { CasePage, ClientList } from "./process/clients";
+import SendClients from "./process/send";
+import Results from "./process/results";
+import HowItsBuilt from "./process/built";
 
 /**
- * The Process Lab — the console's entry point to the process lab
- * (C:\Users\Admin\Code\AI\process-lab): a simulated relocation agency whose
- * processes run on a real BPMN engine, whose rules are DMN tables, and whose
- * judgement steps call a decision model or an LLM.
+ * The Process Lab — the console's window onto the process lab
+ * (C:\Users\Admin\Code\AI\process-lab): a pretend relocation agency. Clients
+ * ask for help moving abroad; written rules, AI and a person handle each case.
+ *
+ * Built for someone who has never heard of BPMN, DMN or an LLM. One path:
+ * send in a pretend client → watch the case → answer when it asks you → see
+ * how it ended. Three tabs: Clients (that path), Results (how well it went),
+ * How it's built (the engine, the diagram, the rules, the services — the
+ * machinery, for whoever wants it).
  *
  * Not on LabShell: the shell is built around picking a model and running one
- * input through it, and here the unit is a case moving through a process. The
- * Lab contract is kept anyway — the services it runs on with Start/Stop, a way
- * to try it (Simulate, or a single case), latency on every decision, the cloud
- * beside the local model per decision, and the experiment doc.
+ * input through it, and here the unit is a case moving through a process.
  */
 
-type Sub = "cases" | "inbox" | "simulate" | "numbers" | "catalog";
+type Tab = "clients" | "results" | "built";
+const INTRO_KEY = "process-lab-intro";
 
 export default function ProcessLab({ lab: def }: LabComponentProps) {
   const [status, setStatus] = useState<LabStatus | null>(null);
   const [ov, setOv] = useState<Overview | null>(null);
   const [ovErr, setOvErr] = useState<string | null>(null);
-  const [sub, setSub] = useState<Sub>("cases");
-  const [run, setRun] = useState("");
+  const [rows, setRows] = useState<CaseRow[] | null>(null);
   const [guide, setGuide] = useState<Guide | null>(null);
+  const [tab, setTab] = useState<Tab>("clients");
+  const [open, setOpen] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [intro, setIntro] = useState(true);
+  const navRef = useRef<HTMLElement>(null);
+  const firstView = useRef(true);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(INTRO_KEY) === "hidden") setIntro(false);
+    } catch {}
+  }, []);
+  const showIntro = (on: boolean) => {
+    setIntro(on);
+    try {
+      localStorage.setItem(INTRO_KEY, on ? "shown" : "hidden");
+    } catch {}
+  };
 
   const loadStatus = useCallback(async () => {
     const s = await fetch("/api/labs/process/status", { cache: "no-store" }).then((r) => r.json() as Promise<LabStatus>);
@@ -47,11 +66,25 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
       setOvErr(e instanceof Error ? e.message : String(e));
     }
   }, []);
+  const loadCases = useCallback(async () => {
+    try {
+      setRows(await lab<CaseRow[]>("api/cases?limit=60"));
+    } catch {
+      // The overview reports the lab being down; the list just keeps its last state.
+    }
+  }, []);
+
+  const labUp = status?.services.find((s) => s.id === "process-lab")?.up;
+  // Without any of these three a case can't move: the engine runs it, the
+  // router carries its AI calls, the lab does the work.
+  const up = (id: string) => status?.services.find((s) => s.id === id);
+  const essentialsUp = ESSENTIAL.every((id) => !up(id)?.onHost || up(id)?.up);
+  const servicesUp = !!(status && essentialsUp);
+  const ready = servicesUp && !!ov?.engine.up;
 
   useEffect(() => {
     lab<Guide>("api/guide").then(setGuide, () => {});
-  }, []);
-
+  }, [labUp]);
   useEffect(() => {
     loadStatus();
     loadOverview();
@@ -62,9 +95,39 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
     }, 5000);
     return () => clearInterval(iv);
   }, [loadStatus, loadOverview]);
+  useEffect(() => {
+    if (!ready) return;
+    loadCases();
+    const iv = setInterval(() => !document.hidden && loadCases(), 5000);
+    return () => clearInterval(iv);
+  }, [ready, loadCases]);
+
+  // Opening the picker, a case or another tab replaces what's under the tabs:
+  // bring the tabs to the top (below the console's pinned bars), or the new
+  // view can open below the fold and look like nothing happened.
+  useEffect(() => {
+    if (firstView.current) {
+      firstView.current = false;
+      return;
+    }
+    // Like a page change: jump, once the new view has laid out (and again a
+    // moment later — the list and the intro settle after the first frame).
+    const place = () => {
+      const nav = navRef.current;
+      if (!nav) return;
+      const pinned = Math.max(0, ...[...document.querySelectorAll<HTMLElement>(".console-header, .resource-pulse")].map((e) => e.getBoundingClientRect().bottom));
+      const top = nav.getBoundingClientRect().top + window.scrollY - pinned - 8;
+      if (Math.abs(window.scrollY - top) > 4) window.scrollTo({ top });
+    };
+    const raf = requestAnimationFrame(place);
+    const t = setTimeout(place, 400);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
+  }, [tab, open, sending]);
 
   const probe = (id: string) => async () => !!(await loadStatus()).services.find((s) => s.id === id)?.up;
-  const labUp = status?.services.find((s) => s.id === "process-lab")?.up;
 
   if (status && !status.lab) {
     return (
@@ -78,148 +141,103 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
     );
   }
 
-  const tabs: { id: Sub; label: string; badge?: number }[] = [
-    { id: "cases", label: "Cases", badge: ov?.counts.activeCases },
-    { id: "inbox", label: "Inbox", badge: ov?.counts.openTasks },
-    { id: "simulate", label: "Simulate" },
-    { id: "numbers", label: "Numbers" },
-    { id: "catalog", label: "Catalog & rules" },
-  ];
+  const live = (rows ?? []).filter((r) => r.state !== "EXTERNALLY_TERMINATED");
+  const waiting = live.filter((r) => r.state === "ACTIVE" && r.plain.status.tone === "you");
+  const goTo = (t: Tab) => {
+    setTab(t);
+    setOpen(null);
+    setSending(false);
+  };
+  const startSending = () => {
+    setTab("clients");
+    setOpen(null);
+    setSending(true);
+  };
 
   return (
     <div className="space-y-5">
-      <Header
-        def={def}
-        meta={
-          ov?.engine.up ? (
-            <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[11px] text-gray-400">
-              Operaton {ov.engine.version} · {ov.definitions.length} process · {ov.decisions.length} decisions
-            </span>
-          ) : null
-        }
-      />
+      <Header def={def} meta={<ReadyPill status={status} ready={ready} />} />
 
-      <section className="rounded-xl border border-gray-800 bg-gray-900">
-        <ul className="divide-y divide-gray-800">
-          {status?.services.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
-              <span className={`size-2 shrink-0 rounded-full ${s.up ? "bg-emerald-400" : s.onHost ? "bg-gray-600" : "bg-gray-800"}`} aria-hidden="true" />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm text-gray-100">{s.name}</span>
-                <span className="block text-[11px] text-gray-500">{s.onHost ? s.role : `${s.role} — not on this host`}</span>
-              </span>
-              {s.id === "process-engine" && s.up && ov && (
-                <span className="flex gap-3 text-[11px]">
-                  <a href={ov.engineUi.cockpit} target="_blank" rel="noreferrer" className="text-sky-300 underline">Cockpit</a>
-                  <a href={ov.engineUi.tasklist} target="_blank" rel="noreferrer" className="text-sky-300 underline">Tasklist</a>
-                  <span className="text-gray-600">on this machine · demo / demo</span>
-                </span>
-              )}
-              {s.id === "process-lab" && s.up && ov && (
-                <span className="text-[11px] text-gray-500">
-                  {ov.workers.busy.length ? `working: ${ov.workers.busy.map((b) => `${b.caseKey} ${b.activityId}`).join(", ")}` : "idle"} · {ov.workers.processed} tasks done
-                  {ov.workers.failed ? ` · ${ov.workers.failed} failed` : ""}
-                </span>
-              )}
-              {s.onHost && <ServiceControl id={s.id} up={s.up ?? undefined} probe={probe(s.id)} actions={["stop"]} name={s.name} />}
-            </li>
-          ))}
-          {!status && <li className="px-4 py-3 text-xs text-gray-500">Checking services…</li>}
-        </ul>
-      </section>
-
-      {labUp === false && (
-        <p className="rounded-xl border border-amber-700/50 bg-amber-950/30 p-4 text-sm text-amber-200">
-          The process lab is not running. Start it above (and the process engine before it).
-        </p>
-      )}
+      {status && !servicesUp && <StartLab status={status} loadStatus={loadStatus} onReady={loadOverview} />}
+      {servicesUp && !ov && !ovErr && <p className="text-xs text-gray-500">Connecting…</p>}
       {ovErr && labUp && <p className="text-xs text-red-300">{ovErr}</p>}
 
-      {ov && labUp && (
+      {ready && ov && (
         <>
-          <HowItWorks />
-          <nav className="flex flex-wrap gap-1 border-b border-gray-800">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setSub(t.id)}
-                className={`-mb-px border-b-2 px-3 py-2 text-sm ${sub === t.id ? "border-orange-500 text-gray-100" : "border-transparent text-gray-400 hover:text-gray-200"}`}
-              >
-                {t.label}
-                {!!t.badge && <span className="ml-1.5 rounded-full bg-gray-800 px-1.5 text-[10px] text-gray-300">{t.badge}</span>}
+          {/* The intro belongs to the list; a case or the picker gets the screen to itself. */}
+          {tab === "clients" && !open && !sending &&
+            (intro ? (
+              <Intro onHide={() => showIntro(false)} onSend={startSending} />
+            ) : (
+              <button onClick={() => showIntro(true)} className="text-xs text-gray-500 underline">
+                How does this work?
               </button>
             ))}
+
+          <nav ref={navRef} className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-800">
+            <div className="flex gap-1">
+              {(
+                [
+                  ["clients", "Clients"],
+                  ["results", "Results"],
+                  ["built", "How it's built"],
+                ] as [Tab, string][]
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => goTo(id)}
+                  className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === id ? "border-orange-500 text-gray-100" : "border-transparent text-gray-400 hover:text-gray-200"}`}
+                >
+                  {label}
+                  {id === "clients" && waiting.length > 0 && (
+                    <span className="ml-1.5 rounded-full bg-amber-500/25 px-1.5 text-[10px] font-semibold text-amber-200" title="Waiting for you">
+                      {waiting.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            {!(tab === "clients" && sending) && (
+              <button
+                onClick={startSending}
+                className="mb-1.5 rounded-lg border border-orange-500 bg-orange-500/20 px-3 py-1.5 text-sm font-medium text-orange-50 hover:bg-orange-500/30"
+              >
+                + Send in pretend clients
+              </button>
+            )}
           </nav>
-          {sub === "cases" && <CasesView runFilter={run} onRunFilter={setRun} runs={ov.runs} guide={guide} onOpenInbox={() => setSub("inbox")} />}
-          {sub === "inbox" && <InboxView onDone={loadOverview} />}
-          {sub === "simulate" && (
-            <SimulateView
-              overview={ov}
-              onStarted={(id) => {
-                setRun(id);
-                setSub("cases");
-                loadOverview();
-              }}
-            />
-          )}
-          {sub === "numbers" && <NumbersView runs={ov.runs} run={run} onRun={setRun} />}
-          {sub === "catalog" && <CatalogView ov={ov} />}
+
+          {tab === "clients" &&
+            (sending ? (
+              <SendClients
+                overview={ov}
+                onCancel={() => setSending(false)}
+                onSent={() => {
+                  setSending(false);
+                  loadOverview();
+                  loadCases();
+                }}
+              />
+            ) : open ? (
+              <CasePage
+                caseKey={open}
+                guide={guide}
+                onBack={() => setOpen(null)}
+                onOpen={setOpen}
+                nextWaiting={waiting.find((r) => r.caseKey !== open) ?? null}
+              />
+            ) : rows && live.length === 0 ? (
+              <Empty onSend={() => setSending(true)} />
+            ) : rows ? (
+              <ClientList rows={rows} onOpen={setOpen} />
+            ) : (
+              <p className="text-xs text-gray-500">Loading clients…</p>
+            ))}
+          {tab === "results" && <Results runs={ov.runs} />}
+          {tab === "built" && <HowItsBuilt status={status} ov={ov} guide={guide} probe={probe} doc={def.doc} />}
         </>
       )}
-
-      <Doc path={def.doc} />
     </div>
-  );
-}
-
-/**
- * The three sentences someone needs before any of this makes sense. Folded
- * once read (remembered per browser), never gone.
- */
-function HowItWorks() {
-  const [open, setOpen] = useState(true);
-  useEffect(() => {
-    try {
-      if (localStorage.getItem("process-lab-howto") === "closed") setOpen(false);
-    } catch {}
-  }, []);
-  return (
-    <details
-      open={open}
-      onToggle={(e) => {
-        const o = (e.currentTarget as HTMLDetailsElement).open;
-        setOpen(o);
-        try {
-          localStorage.setItem("process-lab-howto", o ? "open" : "closed");
-        } catch {}
-      }}
-      className="rounded-xl border border-gray-800 bg-gray-900/60"
-    >
-      <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-gray-100">How this works</summary>
-      <div className="grid gap-4 border-t border-gray-800 px-4 py-4 text-[13px] leading-relaxed text-gray-300 md:grid-cols-3">
-        <div>
-          <p className="mb-1 font-semibold text-gray-100">1 · A pretend agency</p>
-          <p>
-            A relocation agency helps people move abroad: visas, residency permits, housing, bank accounts, school places, licences. Each client request becomes a <b>case</b>, and every case
-            goes through the same six stages: <b>Intake → Documents → Eligibility → Review → Authority → Outcome</b>.
-          </p>
-        </div>
-        <div>
-          <p className="mb-1 font-semibold text-gray-100">2 · Who decides what</p>
-          <p>
-            <b>Rules</b> decide what can be written down: fees, which documents are needed, who is eligible. <b>AI</b> does the reading and writing: it works out what the client wants,
-            reads their documents (Arabic too), writes their emails and briefs the consultant. A <b>person</b> steps in whenever the AI isn&apos;t sure, and approves every submission.
-          </p>
-        </div>
-        <div>
-          <p className="mb-1 font-semibold text-gray-100">3 · Try it</p>
-          <p>
-            <b>Simulate</b> runs pretend clients through it (each with a known right answer). <b>Cases</b> tells each one&apos;s story in plain words. Anything waiting for a person is in the{" "}
-            <b>Inbox</b>. <b>Numbers</b> shows how well it went; <b>Catalog &amp; rules</b> shows the rules themselves.
-          </p>
-        </div>
-      </div>
-    </details>
   );
 }
 
@@ -227,107 +245,107 @@ function Header({ def, meta }: { def: LabComponentProps["lab"]; meta?: React.Rea
   return <ToolPageHeader eyebrow="Lab" title={def.label} description={def.hint} icon={<Workflow className="h-5 w-5" />} meta={meta} />;
 }
 
-type Catalog = {
-  agency: string;
-  source: string;
-  services: { id: string; name: string; summary: string; authority: string; decisionPoints: string[]; terms: Record<string, { fee: number; slaDays: number }>; documents: Record<string, string[]> }[];
-};
-
-function CatalogView({ ov }: { ov: Overview }) {
-  const [c, setC] = useState<Catalog | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  useEffect(() => {
-    lab<Catalog>("api/catalog").then(setC, (e) => setErr(String(e)));
-  }, []);
+function ReadyPill({ status, ready }: { status: LabStatus | null; ready: boolean }) {
+  if (!status) return null;
   return (
-    <div className="space-y-4">
-      {err && <p className="text-xs text-red-300">{err}</p>}
-      <section className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-        <h3 className="text-sm font-semibold text-gray-100">{c?.agency ?? "Service catalog"}</h3>
-        <p className="mb-3 text-[11px] text-gray-500">{c?.source}</p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="text-[11px] text-gray-500">
-              <tr>
-                <th className="py-1">Service</th>
-                <th className="py-1 text-right">Fee (std / express)</th>
-                <th className="py-1 text-right">SLA days</th>
-                <th className="py-1">Documents</th>
-                <th className="py-1">Decisions in it</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {c?.services.map((s) => (
-                <tr key={s.id} className="align-top">
-                  <td className="py-2 pr-3">
-                    <span className="text-gray-200">{s.name}</span>
-                    <span className="block text-[11px] text-gray-500">{s.summary}</span>
-                  </td>
-                  <td className="py-2 text-right tabular-nums text-gray-300">
-                    €{s.terms.standard?.fee} / €{s.terms.express?.fee}
-                  </td>
-                  <td className="py-2 text-right tabular-nums text-gray-300">
-                    {s.terms.standard?.slaDays} / {s.terms.express?.slaDays}
-                  </td>
-                  <td className="py-2 pl-3 text-gray-400">
-                    {Object.entries(s.documents).map(([p, docs]) => (
-                      <span key={p} className="block">
-                        {p !== "any" && <span className="text-gray-500">{p}: </span>}
-                        {docs.join(", ")}
-                      </span>
-                    ))}
-                  </td>
-                  <td className="py-2 pl-3 text-gray-400">{s.decisionPoints.join(" · ")}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section className="rounded-xl border border-gray-800 bg-gray-900 p-4">
-        <h3 className="mb-2 text-sm font-semibold text-gray-100">Deployed on the engine</h3>
-        <ul className="grid gap-1 text-xs sm:grid-cols-2">
-          {ov.definitions.map((d) => (
-            <li key={d.id} className="text-gray-300">
-              <span className="rounded bg-gray-800 px-1.5 text-[10px] text-gray-400">BPMN</span> {d.name} <span className="text-gray-500">({d.key} v{d.version})</span>
-            </li>
-          ))}
-          {ov.decisions.map((d) => (
-            <li key={d.id} className="text-gray-300">
-              <span className="rounded bg-sky-950 px-1.5 text-[10px] text-sky-300">DMN</span> {d.name} <span className="text-gray-500">({d.key} v{d.version} · {d.resource})</span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 text-[11px] text-gray-500">
-          Thresholds: a decision-model answer below {ov.ai.classifyThreshold} and a document reading below {ov.ai.readThreshold} go to a person. Edit the tables in
-          process-lab/scripts/build-dmn.mjs, or open the deployed ones in Cockpit.
-        </p>
-      </section>
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-700 px-2 py-0.5 text-[11px] text-gray-300">
+      <span className={`size-1.5 rounded-full ${ready ? "bg-emerald-400" : "bg-gray-500"}`} aria-hidden="true" />
+      {ready ? "Ready" : "Off"}
+    </span>
+  );
+}
+
+/** Three steps, one button. Folds away once read (remembered per browser). */
+function Intro({ onHide, onSend }: { onHide: () => void; onSend: () => void }) {
+  const steps = [
+    ["Send in a pretend client", "Pick someone who wants help moving abroad — a visa, a residency permit, a home, a bank account. Each is made up, and the lab knows how their case should end."],
+    ["Watch their case", "Written rules set the price and check who qualifies. AI works out what the client wants, reads their documents (Arabic too) and writes their emails."],
+    ["Step in when it asks", "When the AI isn't sure, or an application is ready to submit, the case waits for you. You answer right on the case."],
+  ];
+  return (
+    <section className="rounded-xl border border-gray-800 bg-gray-900/60 p-4">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <h3 className="text-sm font-semibold text-gray-100">How it works</h3>
+        <button onClick={onHide} className="text-xs text-gray-500 hover:text-gray-300">
+          Hide
+        </button>
+      </div>
+      <ol className="grid gap-4 md:grid-cols-3">
+        {steps.map(([title, text], i) => (
+          <li key={title} className="flex gap-3">
+            <span className="grid size-7 shrink-0 place-items-center rounded-full border border-orange-500/60 text-sm font-semibold text-orange-200">{i + 1}</span>
+            <span>
+              <span className="block text-sm font-medium text-gray-100">{title}</span>
+              <span className="mt-0.5 block text-[13px] leading-relaxed text-gray-400">{text}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <button onClick={onSend} className="mt-4 rounded-lg border border-orange-500 bg-orange-500/20 px-4 py-2 text-sm font-medium text-orange-50 hover:bg-orange-500/30">
+        Send in a pretend client
+      </button>
+    </section>
+  );
+}
+
+function Empty({ onSend }: { onSend: () => void }) {
+  return (
+    <div className="rounded-xl border border-dashed border-gray-700 px-6 py-10 text-center">
+      <p className="text-base text-gray-200">No clients yet.</p>
+      <p className="mt-1 text-sm text-gray-500">Send in a pretend client and watch their case unfold.</p>
+      <button onClick={onSend} className="mt-4 rounded-lg border border-orange-500 bg-orange-500/20 px-4 py-2 text-sm font-medium text-orange-50 hover:bg-orange-500/30">
+        Send in a pretend client
+      </button>
     </div>
   );
 }
 
-function Doc({ path }: { path?: string }) {
-  const [md, setMd] = useState<string | null>(null);
+/**
+ * The lab is off: one button that starts what it needs, in order — the
+ * process engine, the AI router, the lab itself, then the small decision
+ * model. The
+ * local LLM is not started here: it needs the GPU, and the lab falls back to
+ * the cloud without it. Each service is still under How it's built.
+ */
+const ESSENTIAL = ["process-engine", "ai-router", "process-lab"];
+const NEEDED = [...ESSENTIAL, "laya"];
+
+function StartLab({ status, loadStatus, onReady }: { status: LabStatus; loadStatus: () => Promise<LabStatus>; onReady: () => void }) {
+  const [step, setStep] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  if (!path) return null;
+  const missing = status.services.filter((s) => NEEDED.includes(s.id) && s.onHost && !s.up);
+  const start = async () => {
+    setErr(null);
+    try {
+      for (const id of NEEDED) {
+        const svc = (await loadStatus()).services.find((s) => s.id === id);
+        if (!svc?.onHost || svc.up) continue;
+        setStep(svc.name);
+        const r = await fetch(`/api/services/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start" }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.error) throw new Error(`${svc.name}: ${j.error ?? `HTTP ${r.status}`}`);
+        const deadline = Date.now() + 150_000;
+        while (!(await loadStatus()).services.find((s) => s.id === id)?.up) {
+          if (Date.now() > deadline) throw new Error(`${svc.name} didn't come up within two and a half minutes. Its log is under How it's built once the lab is up, or on the Services tab.`);
+          await new Promise((res) => setTimeout(res, 2000));
+        }
+      }
+      setStep(null);
+      onReady();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setStep(null);
+    }
+  };
   return (
-    <details
-      className="rounded-xl border border-gray-800 bg-gray-900/40"
-      onToggle={(e) => {
-        if (!(e.currentTarget as HTMLDetailsElement).open || md || err) return;
-        fetch(`/api/labs/doc?path=${encodeURIComponent(path)}`)
-          .then((r) => r.json())
-          .then((j) => (j.markdown ? setMd(j.markdown) : setErr(j.error ?? "Could not load.")))
-          .catch((e) => setErr(String(e)));
-      }}
-    >
-      <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-gray-200">
-        What we learned <span className="ml-1 text-[11px] font-normal text-gray-500">{path}</span>
-      </summary>
-      <div className="max-h-[32rem] overflow-y-auto border-t border-gray-800 px-4 py-3">
-        {err ? <p className="text-xs text-red-300">{err}</p> : md ? <Markdown>{md}</Markdown> : <p className="text-xs text-gray-500">Loading…</p>}
-      </div>
-    </details>
+    <section className="rounded-xl border border-gray-700 bg-gray-900/60 p-5">
+      <h3 className="text-base font-semibold text-gray-100">The lab is switched off</h3>
+      <p className="mt-1 text-sm text-gray-400">It runs on a few programs on this machine. Press start and it switches them on — about half a minute.</p>
+      {missing.length > 0 && <p className="mt-1 text-[11px] text-gray-500">Not running: {missing.map((s) => s.name).join(", ")}.</p>}
+      <button onClick={start} disabled={!!step} className="mt-3 rounded-lg border border-orange-500 bg-orange-500/20 px-4 py-2 text-sm font-medium text-orange-50 hover:bg-orange-500/30 disabled:opacity-60">
+        {step ? `Starting ${step}…` : "Start the lab"}
+      </button>
+      {err && <p className="mt-2 text-xs text-red-300">{err}</p>}
+    </section>
   );
 }

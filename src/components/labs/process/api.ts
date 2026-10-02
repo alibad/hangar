@@ -38,7 +38,20 @@ export type Overview = {
   workers: { running: boolean; processed: number; failed: number; lastError: string | null; busy: { topic: string; activityId: string; caseKey: string; since: number }[] };
   ai: { models: { local: string; localVision: string; cloud: string }; whenLocalUnavailable: string; classifyThreshold: number; readThreshold: number };
   runs: Run[];
-  scenarios: { id: string; label: string }[];
+  /** The pretend clients, described for someone choosing one to try. */
+  scenarios: { id: string; label: string; name: string; from: string | null; to: string | null; group: string; teaser: string; expected: string }[];
+  scenarioGroups: { id: string; label: string; about: string }[];
+  firstTry: string[];
+};
+
+/** Who a case is about and where it stands, in words (from the lab's story.mjs). */
+export type Tone = "working" | "you" | "person" | "done" | "closed" | "bad";
+export type People = { name: string; firstName: string; from: string | null; to: string | null; want: string | null; language: string | null };
+export type Plain = People & {
+  status: { text: string; short: string; tone: Tone; needsPerson: string | null };
+  /** Who does the human tasks on this case: you at the console, or the simulation's pretend consultant. */
+  by: "you" | "consultant";
+  expected: string | null;
 };
 
 export type CaseRow = {
@@ -59,6 +72,7 @@ export type CaseRow = {
   scenario: string | null;
   label: string | null;
   simRunId: string | null;
+  plain: Plain;
 };
 
 export type DecisionKind = "dmn" | "decision-model" | "llm" | "human" | "system";
@@ -91,15 +105,22 @@ export type StoryEntry = {
   day: number;
   stage: string | null;
   activityId: string;
+  /** client | rules | ai | person | agency | authority | wait | end */
   kind: string;
+  /** For "person" entries: you, or the pretend consultant. */
+  by?: "you" | "consultant";
+  /** For anyone: names and plain verbs. **bold** marks the key words. */
   text: string;
+  /** For whoever asks how it was decided: model, confidence, rule table. */
+  how?: string | null;
   active?: boolean;
   needsPerson?: string | null;
   flag?: string | null;
-  detail?: string | null;
+  quote?: string | null;
+  email?: { subject: string; body: string; language: string | null } | null;
   docUrl?: string | null;
 };
-export type Now = { text: string; needsPerson: string | null; tone: "working" | "person" | "done" | "closed" | "bad" };
+export type Now = { text: string; needsPerson: string | null; tone: Tone };
 /** Plain-language help for every step, from the BPMN file's own documentation. */
 export type Guide = {
   stages: { id: string; label: string; about: string }[];
@@ -110,6 +131,8 @@ export type CaseDetail = CaseRow & {
   now: Now;
   stages: Stage[];
   story: StoryEntry[];
+  people: People;
+  by: "you" | "consultant";
   variables: Record<string, unknown>;
   truth: Record<string, unknown> | null;
   activities: { id: string; name: string | null; type: string; start: string; end: string | null; ms: number | null; canceled: boolean }[];
@@ -129,6 +152,8 @@ export type InboxItem = {
   caseKey: string;
   simulated: boolean;
   client: { name: string; language: string; passport: string; destination: string; request: string };
+  people: People;
+  labels?: { services: Record<string, string>; purposes: Record<string, string> };
   ai?: { service?: string; purpose?: string | null; confidence?: number; probabilities?: Record<string, number> | null; model?: string; recommendation?: string; summary?: string; reasons?: string[] };
   choices?: { services: string[]; purposes: string[] };
   eligibility?: { outcome: string; reason: string; route: string | null };
@@ -154,24 +179,25 @@ export type Stats = {
   reading: { fields: number; right: number; pct: number; documents: number } | null;
 };
 
+/** The builder's tags for kinds of decision (diagram, decision table), in the same words as the story. */
 export const KIND_STYLE: Record<DecisionKind, { label: string; cls: string; hex: string }> = {
-  dmn: { label: "DMN", cls: "", hex: "#38bdf8" },
+  dmn: { label: "Rules", cls: "", hex: "#38bdf8" },
   "decision-model": { label: "Decision model", cls: "", hex: "#a78bfa" },
-  llm: { label: "LLM", cls: "", hex: "#f59e0b" },
-  human: { label: "Human", cls: "", hex: "#34d399" },
-  system: { label: "System", cls: "", hex: "#9ca3af" },
+  llm: { label: "AI", cls: "", hex: "#f59e0b" },
+  human: { label: "Person", cls: "", hex: "#34d399" },
+  system: { label: "Agency", cls: "", hex: "#a8a29e" },
 };
 
-/** Who or what acted, in words for someone who doesn't know the jargon. */
+/** Who or what acted, in words for someone who doesn't know the jargon. Colours are fixed hex, not theme classes: the theme remaps several families. */
 export const ACTOR: Record<string, { label: string; hex: string; explain: string }> = {
-  client: { label: "Client", hex: "#e7e5e4", explain: "Something the client did" },
-  dmn: { label: "Rule", hex: "#38bdf8", explain: "A written rule table (DMN): same facts, same answer, every time" },
-  "decision-model": { label: "Decision model", hex: "#a78bfa", explain: "Laya, a small fast classifier that picks one of a few answers with a probability" },
-  llm: { label: "AI", hex: "#f59e0b", explain: "A large language model: reads documents, writes emails, briefs the consultant" },
-  human: { label: "Person", hex: "#34d399", explain: "A consultant, when the AI isn't sure, and to approve every submission" },
-  system: { label: "System", hex: "#9ca3af", explain: "Plumbing: submissions, escalations, the (simulated) authority" },
-  wait: { label: "Waiting", hex: "#78716c", explain: "Time passing: for the client, or for the authority" },
-  end: { label: "Outcome", hex: "#fb923c", explain: "How the case ended" },
+  client: { label: "Client", hex: "#d6d3d1", explain: "Something the client did: wrote in, sent documents." },
+  rules: { label: "Rules", hex: "#38bdf8", explain: "Written rules: the same facts always give the same answer (prices, documents, who qualifies)." },
+  ai: { label: "AI", hex: "#f59e0b", explain: "AI that reads and writes: works out what the client wants, reads documents, writes emails and a brief." },
+  person: { label: "Person", hex: "#34d399", explain: "A person: steps in when the AI isn't sure, and approves every application." },
+  agency: { label: "Agency", hex: "#a8a29e", explain: "The agency's own steps: sending the application, alerting a manager." },
+  authority: { label: "Authority", hex: "#c084fc", explain: "The government office that says yes or no (simulated here)." },
+  wait: { label: "Waiting", hex: "#78716c", explain: "Time passing: for the client to reply, or for the authority." },
+  end: { label: "Outcome", hex: "#fb923c", explain: "How the case ended." },
 };
 
 export function fmtMs(ms: number | null | undefined): string {

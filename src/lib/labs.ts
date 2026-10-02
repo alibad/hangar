@@ -86,7 +86,7 @@ export const LABS: LabDefinition[] = [
   {
     id: "process",
     label: "Process Lab",
-    hint: "A simulated relocation agency: BPMN processes and DMN rules on a real engine, with a decision model and an LLM at the judgement steps",
+    hint: "A pretend relocation agency: send in made-up clients, watch written rules and AI handle their cases, and step in when it asks you",
     keywords: "process bpmn dmn workflow business rules operaton camunda simulation case inbox human task relocation visa agency",
     capability: "process",
     input: "structured",
