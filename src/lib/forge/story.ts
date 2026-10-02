@@ -97,8 +97,10 @@ export const LOOKS = [
   "classical oil painting brought to life, chiaroscuro lighting, rich deep colors, visible brushwork, museum quality",
   "Chinese ink wash painting style with subtle color, misty mountains, soft paper texture, calm and spacious composition",
   "stop-motion miniature film, handcrafted felt and clay figures, tiny practical sets, warm tungsten light, tilt-shift depth of field",
-  "moody cinematic photograph, blue hour light, deep shadows, volumetric fog, teal and amber color grade",
+  "papercut shadow-puppet animation, layered paper silhouettes, warm backlight glowing through, delicate cut-paper textures",
 ];
+// No photoreal "cinematic photograph" look: Wan 5B keeps painted, inked and
+// clay characters steady, while photoreal faces are where it morphs.
 
 const SCHEMA = {
   type: "object",
@@ -145,6 +147,12 @@ function prompt(seed: StorySeed, shots: number, look: string): string {
     '- "narration": ONE sentence the narrator says over this 5-second shot, 6 to 14 words. Warm, simple, literary; past tense like a told tale. Together the lines tell the whole story; the last two lines land the lesson gently, without preaching. No quotation marks inside lines — report speech instead (He told them the sky was only as wide as the well).',
     '- "picture": the still image, written as an image-generation prompt of 30 to 60 words: the subject, the setting, the light, the time of day, and the framing (wide establishing shot, medium shot, close-up of hands or an object, over-the-shoulder, silhouette against the sky…). The model drawing it knows nothing about the other shots, so whenever a character appears, repeat their FULL look every time (age, build, hair, clothing and colours, one distinctive object) exactly as in "characters". Never use names in a picture — describe.',
     '- "motion": what moves during the clip and how the camera moves, 10 to 25 words (e.g. "slow push-in; wind ripples the grass, the old man\'s robe stirs, clouds drift"). Motion should be gentle and physical — wind, water, light, a slow turn of the head, walking away, a hand opening. No fast action, no fighting, no crowds running.',
+    "",
+    "How to write it — like a master storyteller at a fireside, not a summary:",
+    "- Concrete, sensory images (the cold of the river, the smell of cedar smoke, the weight of a stone) and varied rhythm: some lines short, some longer.",
+    "- One small surprising detail the listener will remember, and a turn where something changes.",
+    "- The last line should resonate quietly, like the end of a poem; never state the moral outright in the narration (the lesson card does that).",
+    "- Never use these tired words: tapestry, testament, whisper(ed) of, heart of, journey, embrace, profound, realm, delve, symphony, dance of, vibrant, beacon.",
     "",
     "Rules that make the film look good:",
     "- Vary the framing like a real film: open wide, then move closer; mix landscapes, medium shots, details (hands, objects, eyes, footprints) and silhouettes. At most a third of shots are close-ups of faces.",
