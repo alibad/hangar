@@ -17,8 +17,8 @@ export type LabModel = {
   /** Router alias, or the served-model-name for a service the router does not know. */
   id: string;
   local: boolean;
-  /** Where the model came from: the router catalogue, or a host service's `serves`. */
-  source: "router" | "service";
+  /** Where the model came from: the router catalogue, a host service's `serves`, or a hosted API called directly (Jev). */
+  source: "router" | "service" | "api";
   /** Backing service on this host, for local models — what Start/Stop acts on. */
   serviceId?: string;
   serviceName?: string;

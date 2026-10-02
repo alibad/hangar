@@ -68,7 +68,7 @@ type Recorded = { choice: string; confidence: number; latencyMs: number | null; 
 type SetsPayload = {
   sets: LabelledSet[];
   summary: Summary | null;
-  /** What laya, Gemma 4 and Claude Haiku answered per item in the benchmark: answers[set][item][model]. */
+  /** What laya, Jev, Gemma 4 and Claude Haiku answered per item in the benchmark: answers[set][item][model]. */
   recorded?: { models: string[]; answers: Record<string, Record<string, Record<string, Recorded>>> } | null;
 };
 
@@ -81,7 +81,7 @@ const TASKS: Record<string, { name: string; asks: string; use: string }> = {
   "feedback-triage": {
     name: "Feedback type",
     asks: "Is a Globe Quest report a bug, a feature request, a UI complaint, a content fix or noise?",
-    use: "Claude Haiku, called by Globe Quest itself",
+    use: "Jev or Claude Haiku, called by Globe Quest itself",
   },
   moderation: {
     name: "Moderation",
@@ -119,6 +119,7 @@ const MODEL_NAMES: Record<string, string> = {
   "local-small": "Qwen 7B",
   "local-gemma4": "Gemma 4",
   "claude-haiku": "Claude Haiku",
+  jev: "Jev",
   "reddit-scout-heuristic": "reddit-scout's keyword score",
 };
 const modelName = (id: string) => MODEL_NAMES[id] ?? id;
@@ -127,6 +128,7 @@ const isLaya = (id: string) => id === "laya" || id.startsWith("laya-");
 /** The comparisons offered first, in this order; any other router model is under "Other models". */
 const COMPARE_FIRST: Record<string, string> = {
   "claude-haiku": "Claude Haiku — cloud, about $0.0005 a question",
+  jev: "Jev — cloud decision model, about $0.00002 a question",
   "local-gemma4": "Gemma 4 — this machine, free, needs 20 GB of the GPU",
   "local-small": "Qwen 7B — this machine, free",
 };
@@ -472,6 +474,7 @@ function Findings({ summary, loading }: { summary: Summary | null; loading: bool
         n: s.n,
         task: TASKS[s.id],
         laya: s.scores.laya?.accuracy ?? null,
+        jev: s.scores.jev?.accuracy ?? null,
         gemma: s.scores["local-gemma4"]?.accuracy ?? null,
         haiku: s.scores["claude-haiku"]?.accuracy ?? null,
       };
@@ -483,7 +486,7 @@ function Findings({ summary, loading }: { summary: Summary | null; loading: bool
   const layaRange = range(rows.map((r) => r.laya));
   // Its three fixed versions, for the note under the chart: none rescues it.
   const fixedBest = Math.max(0, ...(summary?.sets ?? []).flatMap((s) => Object.entries(s.scores).filter(([m]) => m.startsWith("laya-")).map(([, v]) => v.accuracy)));
-  const llmRange = range(rows.flatMap((r) => [r.haiku, r.gemma]));
+  const othersRange = range(rows.flatMap((r) => [r.jev, r.haiku, r.gemma]));
   const examples = rows.reduce((a, r) => a + r.n, 0);
 
   return (
@@ -491,13 +494,14 @@ function Findings({ summary, loading }: { summary: Summary | null; loading: bool
       <div className="space-y-2">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-orange-300">What we found</p>
         <h2 id="decide-found" className="text-xl font-semibold text-gray-50">
-          Not yet. Laya was right {layaRange ?? "far less often"} of the time{llmRange ? <>; the LLMs, {llmRange}</> : null}.
+          Not yet. Laya was right {layaRange ?? "far less often"} of the time{othersRange ? <>; the others, {othersRange}</> : null}.
         </h2>
         <p className="max-w-4xl text-sm leading-relaxed text-gray-300">
           Several of our apps ask an AI quick multiple-choice questions all day: is this feedback a bug? Should this post be removed? Today
           an LLM answers. <b className="text-gray-100">Laya</b> is a small open model that runs free on this machine, in a fraction of a
-          second. We gave Laya and two LLMs the same {examples || ""} examples, each with a correct answer set by hand, and counted how often
-          each got it right. Laya is fast, but it tends to give the same answer to almost everything.
+          second. We gave Laya the same {examples || ""} examples as two LLMs and as <b className="text-gray-100">Jev</b>, a hosted decision
+          model built for exactly these questions. Each example has a correct answer set by hand, and we counted how often each got it right.
+          Laya is fast, but it tends to give the same answer to almost everything. Jev came close to Claude Haiku, at a fraction of the cost.
         </p>
       </div>
 
@@ -520,6 +524,7 @@ function Findings({ summary, loading }: { summary: Summary | null; loading: bool
                 </div>
                 <div className="space-y-1 self-center">
                   <Bar label="Laya" value={r.laya} color="bg-orange-500" />
+                  {r.jev != null && <Bar label="Jev" value={r.jev} color="bg-gray-300" />}
                   <Bar label="Gemma 4" value={r.gemma} color="bg-emerald-500" />
                   <Bar label="Claude Haiku" value={r.haiku} color="bg-sky-500" />
                 </div>
@@ -527,8 +532,10 @@ function Findings({ summary, loading }: { summary: Summary | null; loading: bool
             ))}
           </ul>
           <p className="text-[11px] leading-relaxed text-gray-500">
-            Globe Quest stays on Claude Haiku even where Gemma 4 scored higher: it runs in the cloud and must not call this machine. Gemma 4
-            needs about 20 GB of the GPU, so it only loads when nothing big is running. Laya&apos;s three fixed versions did no better
+            Jev answers in about 0.3 s for about $0.02 per 1,000 questions, roughly 25 times cheaper than Claude Haiku. Globe Quest can call
+            either, since both are in the cloud; it must not call this machine, so not Gemma 4 even where it scored higher. Gemma 4 needs about
+            20 GB of the GPU, so it only loads when nothing big is running. On moderation Jev scored higher than Haiku, but two of its misses
+            let a post that needed a person through as “allow”; Haiku&apos;s misses all went to review. Laya&apos;s three fixed versions did no better
             {fixedBest ? <>: at most {pct(fixedBest)} on any task</> : null}. Nothing in the apps has changed.
           </p>
         </div>
@@ -544,6 +551,9 @@ function Legend() {
     <span className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400">
       <span className="flex items-center gap-1.5">
         <span className="size-2 rounded-full bg-orange-500" /> Laya, small, this machine
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="size-2 rounded-full bg-gray-300" /> Jev, decision model, cloud
       </span>
       <span className="flex items-center gap-1.5">
         <span className="size-2 rounded-full bg-emerald-500" /> Gemma 4, large, this machine
@@ -706,12 +716,14 @@ function RecordedAnswers({
   return (
     <div className="space-y-2">
       <p className="text-sm text-gray-200">
-        <span className="text-gray-400">When we tested it{date ? ` on ${fmtDate(date)}` : ""}: </span>
+        <span className="text-gray-400" title={date ? `From the benchmark of ${fmtDate(date)}; Jev was added on 2 October 2026.` : undefined}>
+          When we tested them:{" "}
+        </span>
         <b className="text-gray-50">
           {wrong.length === 0 ? "everyone got it right." : wrong.length === shown.length ? "everyone got it wrong." : `${wrong.join(" and ")} got it wrong.`}
         </b>
       </p>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {shown.map((m) => {
           const r = answers![m];
           return (
@@ -771,7 +783,7 @@ function AnswerTile({
           </p>
           <p className="mt-0.5 text-xs text-gray-400">
             {confidence != null && <>{(confidence * 100).toFixed(0)}% sure · </>}
-            {fmtMs(latencyMs ?? null)} · {costUsd != null ? `$${costUsd.toFixed(4)}` : here ? "free" : "cost not reported"}
+            {fmtMs(latencyMs ?? null)} · {costUsd != null ? fmtCost(costUsd) : here ? "free" : "cost not reported"}
           </p>
         </>
       ) : (
@@ -913,7 +925,8 @@ function Distribution({ model, out, expected }: { model: string; out: DecisionLa
             Laya used its {out.checkpoint} version{out.routingReason ? <>, because: {out.routingReason}</> : null}.{" "}
           </>
         )}
-        {!isLaya(model) && out.parsed !== false && <>The LLM was asked to give a chance for each answer.</>}
+        {model === "jev" && <>Jev returns a chance for each answer directly.</>}
+        {!isLaya(model) && model !== "jev" && out.parsed !== false && <>The LLM was asked to give a chance for each answer.</>}
         {out.parsed === false && (
           <span className="text-amber-300">The LLM didn&apos;t reply in the requested format, so these chances are a best guess from its text.</span>
         )}
@@ -999,6 +1012,11 @@ function DevNote() {
 
 function pct(n: number | null | undefined, digits = 0) {
   return n == null ? "—" : `${(n * 100).toFixed(digits)}%`;
+}
+
+/** Jev's cents are millionths: $0.00002, not $0.0000. */
+function fmtCost(usd: number) {
+  return `$${usd > 0 && usd < 0.0001 ? usd.toPrecision(1) : usd.toFixed(4)}`;
 }
 
 function fmtDate(iso: string) {

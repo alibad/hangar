@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DEFAULT_DECIDE_MODEL, normalizeDecideRequest } from "@/lib/decide";
+import { CLOUD_DECISION_MODELS, DEFAULT_DECIDE_MODEL, normalizeDecideRequest } from "@/lib/decide";
 import { decide, hostDecisionModels } from "@/lib/decide-server";
 
 export const dynamic = "force-dynamic";
@@ -45,13 +45,19 @@ export async function GET() {
   return NextResponse.json({
     defaultModel: DEFAULT_DECIDE_MODEL,
     decisionModels: hostDecisionModels(),
+    cloudDecisionModels: Object.entries(CLOUD_DECISION_MODELS).map(([model, m]) => ({
+      model,
+      name: m.name,
+      ready: !!process.env[m.keyEnv],
+      costPerMTokIn: m.costPerMTokIn,
+    })),
     llms: "Any router chat alias (see /api/providers) — asked the same question and parsed to the same shape.",
     request: {
       question: "string (required)",
       choices: "string[] | { label: description } (2-64; ignored for yesno)",
       type: '"choice" (default) | "yesno" | "score" (choices ordered low → high)',
       context: "string | object — what the decision is about",
-      model: `"${DEFAULT_DECIDE_MODEL}" (default) | a decision model above | a router chat alias`,
+      model: `"${DEFAULT_DECIDE_MODEL}" (default) | a decision model above | a cloud decision model above | a router chat alias`,
     },
     response: {
       choice: "the chosen label",

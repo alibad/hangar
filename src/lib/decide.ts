@@ -59,7 +59,7 @@ export type DecideResult = {
   score?: number;
 };
 
-/** Decision models served by the Laya service. Anything else is a router alias. */
+/** Decision models served by the Laya service. Besides these and CLOUD_DECISION_MODELS, a model is a router alias. */
 export const LAYA_MODELS = ["laya", "laya-english", "laya-multilingual", "laya-typed-decisions"] as const;
 
 export function isLayaModel(model: string): boolean {
@@ -67,6 +67,79 @@ export function isLayaModel(model: string): boolean {
 }
 
 export const DEFAULT_DECIDE_MODEL = "laya";
+
+/**
+ * Cloud decision models: typed decisions from a hosted decision API, not a
+ * chat prompt. Jev (TypeSafe) through OpenRouter, generally available there
+ * since early October 2026 (it was a TypeSafe waitlist when brief 05 ran). It
+ * returns a distribution directly, so nothing is parsed from text.
+ */
+export const CLOUD_DECISION_MODELS: Record<
+  string,
+  { name: string; upstream: string; url: string; keyEnv: string; costPerMTokIn: number; docs: string }
+> = {
+  jev: {
+    name: "Jev (TypeSafe, via OpenRouter)",
+    upstream: "typesafe/jev-1.13",
+    url: "https://openrouter.ai/api/v1/systemone",
+    keyEnv: "OPENROUTER_API_KEY",
+    costPerMTokIn: 0.042,
+    docs: "https://openrouter.ai/docs/guides/community/jev",
+  },
+};
+
+export function isCloudDecisionModel(model: string): boolean {
+  return Object.hasOwn(CLOUD_DECISION_MODELS, model);
+}
+
+/** One decision as a System One request: our question is its one named question. */
+export function buildSystemOneRequest(req: DecideRequest, upstream: string) {
+  const labels = Object.keys(req.choices);
+  const question =
+    req.type === "yesno"
+      ? { type: "noul", instructions: req.question, criteria: { true: req.choices.yes ?? "yes", false: req.choices.no ?? "no" } }
+      : req.type === "score"
+        ? { type: "score", instructions: req.question, criteria: labels.map((l) => req.choices[l]) }
+        : { type: "choice", instructions: req.question, criteria: req.choices };
+  return { model: upstream, state: req.context, questions: { decision: question } };
+}
+
+export type SystemOneAnswer = {
+  type?: string;
+  choice?: string;
+  noul?: number;
+  score?: number;
+  confidence?: number;
+  probabilities?: Record<string, number>;
+};
+
+/**
+ * A System One answer in /api/decide's shape: every label, summing to 1. A
+ * yes/no comes back as p(true); a score's probabilities are keyed by level
+ * ("0", "1", ...), which map back to the labels in the order they were sent.
+ */
+export function parseSystemOneAnswer(
+  a: SystemOneAnswer,
+  req: DecideRequest,
+): { choice: string; probabilities: Record<string, number>; confidence: number; score?: number } {
+  const labels = Object.keys(req.choices);
+  let probabilities: Record<string, number>;
+  if (req.type === "yesno") {
+    const p = Math.min(1, Math.max(0, Number(a.noul ?? a.probabilities?.true ?? 0.5)));
+    probabilities = { yes: p, no: 1 - p };
+  } else if (req.type === "score") {
+    probabilities = normalizeDistribution(labels, Object.fromEntries(labels.map((l, i) => [l, a.probabilities?.[String(i)] ?? 0])));
+  } else {
+    probabilities = normalizeDistribution(labels, a.probabilities ?? {});
+  }
+  const choice = req.type === "choice" && a.choice && labels.includes(a.choice) ? a.choice : argmax(probabilities);
+  return {
+    choice,
+    probabilities,
+    confidence: probabilities[choice] ?? 0,
+    ...(req.type === "score" && typeof a.score === "number" ? { score: a.score } : {}),
+  };
+}
 
 /** Validate an untrusted body. Returns the normalised request or a sentence saying what is wrong. */
 export function normalizeDecideRequest(body: unknown): { ok: true; req: DecideRequest } | { ok: false; error: string } {

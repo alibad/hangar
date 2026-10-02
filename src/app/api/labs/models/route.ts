@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { CLOUD_DECISION_MODELS } from "@/lib/decide";
 import { CAPABILITIES, getCatalogue, getRouting, localServiceHealthy, modelMetaFor, modelsFor, type Capability } from "@/lib/providers";
 import { getHost, servedModels } from "@/lib/host";
 import { isCapabilityId } from "@/lib/capabilities";
@@ -97,6 +98,24 @@ export async function GET(req: NextRequest) {
       });
     }
   });
+
+  // Hosted decision models (Jev): called directly by /api/decide, not through
+  // the router, so they are listed here with their key's presence as status.
+  if (capability === "decision") {
+    for (const [id, m] of Object.entries(CLOUD_DECISION_MODELS)) {
+      const hasKey = !!process.env[m.keyEnv];
+      models.push({
+        id,
+        local: false,
+        source: "api",
+        status: hasKey ? "ready" : "no-key",
+        detail: hasKey ? undefined : `Add ${m.keyEnv} to betenshi-console/.env.`,
+        docs: m.docs,
+        costPerMTokIn: m.costPerMTokIn,
+        costPerMTokOut: 0,
+      });
+    }
+  }
 
   // Local first (that is what a Lab is for), then ready before not, then name.
   models.sort(

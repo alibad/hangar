@@ -1,7 +1,7 @@
 {
  "date": "2026-09-27",
  "host": "BeTenshi",
- "generatedAt": "2026-09-27T21:16:55.279Z",
+ "generatedAt": "2026-10-02T12:22:08.955Z",
  "console": "http://localhost:8003",
  "models": [
   "claude-haiku",
@@ -11,6 +11,7 @@
   "laya-typed-decisions",
   "local-small",
   "local-gemma4",
+  "jev",
   "reddit-scout-heuristic"
  ],
  "sets": [
@@ -1845,6 +1846,190 @@
      "forwardP50Ms": null,
      "checkpoints": [],
      "wrong": []
+    },
+    "jev": {
+     "n": 35,
+     "accuracy": 0.8,
+     "macroF1": 0.7907002801120449,
+     "ece": 0.12069841269841272,
+     "eceAfterTemperature": 0.05644689397655961,
+     "temperature": 0.6597202691638431,
+     "brier": 0.29938215692276293,
+     "nll": 0.5873843781867103,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 335.2,
+     "latencyP95Ms": 868.2,
+     "costUsd": 0.0006531000000000001,
+     "costPer1000Usd": 0.018660000000000003,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 4,
+       "confidence": 0.35250000000000004,
+       "accuracy": 0.25
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 6,
+       "confidence": 0.44999999999999996,
+       "accuracy": 0.6666666666666666
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 5,
+       "confidence": 0.5351111111111111,
+       "accuracy": 0.6
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 2,
+       "confidence": 0.6499999999999999,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 2,
+       "confidence": 0.745,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 3,
+       "confidence": 0.8566666666666666,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 13,
+       "confidence": 0.9576923076923076,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "msa": {
+       "msa": 7,
+       "egyptian": 0,
+       "levantine": 0,
+       "gulf": 0,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "egyptian": {
+       "msa": 0,
+       "egyptian": 6,
+       "levantine": 1,
+       "gulf": 0,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "levantine": {
+       "msa": 0,
+       "egyptian": 1,
+       "levantine": 6,
+       "gulf": 0,
+       "maghrebi": 0,
+       "error": 0
+      },
+      "gulf": {
+       "msa": 1,
+       "egyptian": 0,
+       "levantine": 2,
+       "gulf": 3,
+       "maghrebi": 1,
+       "error": 0
+      },
+      "maghrebi": {
+       "msa": 0,
+       "egyptian": 0,
+       "levantine": 1,
+       "gulf": 0,
+       "maghrebi": 6,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": [
+      {
+       "id": "ar-14",
+       "label": "egyptian",
+       "choice": "levantine",
+       "p": 0.58,
+       "error": null
+      },
+      {
+       "id": "ar-16",
+       "label": "levantine",
+       "choice": "egyptian",
+       "p": 0.43,
+       "error": null
+      },
+      {
+       "id": "ar-22",
+       "label": "gulf",
+       "choice": "levantine",
+       "p": 0.39999999999999997,
+       "error": null
+      },
+      {
+       "id": "ar-26",
+       "label": "gulf",
+       "choice": "maghrebi",
+       "p": 0.39,
+       "error": null
+      },
+      {
+       "id": "ar-27",
+       "label": "gulf",
+       "choice": "msa",
+       "p": 0.44,
+       "error": null
+      },
+      {
+       "id": "ar-28",
+       "label": "gulf",
+       "choice": "levantine",
+       "p": 0.32,
+       "error": null
+      },
+      {
+       "id": "ar-35",
+       "label": "maghrebi",
+       "choice": "levantine",
+       "p": 0.53,
+       "error": null
+      }
+     ]
     }
    },
    "cascades": {
@@ -3668,6 +3853,170 @@
        "hi": 1,
        "n": 34,
        "confidence": 0.960058293587705,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "chat": {
+       "chat": 6,
+       "code": 0,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "code": {
+       "chat": 0,
+       "code": 6,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "image": {
+       "chat": 0,
+       "code": 0,
+       "image": 6,
+       "speech": 0,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "speech": {
+       "chat": 0,
+       "code": 0,
+       "image": 0,
+       "speech": 6,
+       "vision": 0,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "vision": {
+       "chat": 0,
+       "code": 0,
+       "image": 0,
+       "speech": 0,
+       "vision": 6,
+       "service": 0,
+       "models": 0,
+       "error": 0
+      },
+      "service": {
+       "chat": 0,
+       "code": 0,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 6,
+       "models": 0,
+       "error": 0
+      },
+      "models": {
+       "chat": 0,
+       "code": 0,
+       "image": 0,
+       "speech": 0,
+       "vision": 0,
+       "service": 0,
+       "models": 6,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": []
+    },
+    "jev": {
+     "n": 42,
+     "accuracy": 1,
+     "macroF1": 1,
+     "ece": 0.013809523809523732,
+     "eceAfterTemperature": 0.00000656107425012209,
+     "temperature": 0.2,
+     "brier": 0.0027666666666666673,
+     "nll": 0.014568463560519298,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 324.2,
+     "latencyP95Ms": 349.8,
+     "costUsd": 0.0008140859999999999,
+     "costPer1000Usd": 0.019382999999999997,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 3,
+       "confidence": 0.87,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 39,
+       "confidence": 0.9951282051282052,
        "accuracy": 1
       }
      ],
@@ -5598,6 +5947,155 @@
        "error": null
       }
      ]
+    },
+    "jev": {
+     "n": 40,
+     "accuracy": 0.95,
+     "macroF1": 0.949089068825911,
+     "ece": 0.056000000000000105,
+     "eceAfterTemperature": 0.09188537030205027,
+     "temperature": 1.2803268261605676,
+     "brier": 0.1008,
+     "nll": 0.16344507395076266,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 317.3,
+     "latencyP95Ms": 386.7,
+     "costUsd": 0.0007685579999999999,
+     "costPer1000Usd": 0.01921395,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 2,
+       "confidence": 0.51,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 3,
+       "confidence": 0.7200000000000001,
+       "accuracy": 0.6666666666666666
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 1,
+       "confidence": 0.83,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 34,
+       "confidence": 0.9920588235294117,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "bug": {
+       "bug": 9,
+       "feature_request": 0,
+       "ui_ux": 0,
+       "content_correction": 1,
+       "noise": 0,
+       "error": 0
+      },
+      "feature_request": {
+       "bug": 0,
+       "feature_request": 8,
+       "ui_ux": 0,
+       "content_correction": 0,
+       "noise": 0,
+       "error": 0
+      },
+      "ui_ux": {
+       "bug": 0,
+       "feature_request": 0,
+       "ui_ux": 8,
+       "content_correction": 0,
+       "noise": 0,
+       "error": 0
+      },
+      "content_correction": {
+       "bug": 0,
+       "feature_request": 0,
+       "ui_ux": 0,
+       "content_correction": 7,
+       "noise": 0,
+       "error": 0
+      },
+      "noise": {
+       "bug": 0,
+       "feature_request": 0,
+       "ui_ux": 0,
+       "content_correction": 1,
+       "noise": 6,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": [
+      {
+       "id": "ft-35",
+       "label": "bug",
+       "choice": "content_correction",
+       "p": 0.83,
+       "error": null
+      },
+      {
+       "id": "ft-37",
+       "label": "noise",
+       "choice": "content_correction",
+       "p": 0.7100000000000001,
+       "error": null
+      }
+     ]
     }
    },
    "cascades": {
@@ -7319,6 +7817,154 @@
        "label": "review",
        "choice": "remove",
        "p": 0.8,
+       "error": null
+      }
+     ]
+    },
+    "jev": {
+     "n": 36,
+     "accuracy": 0.8611111111111112,
+     "macroF1": 0.8308080808080808,
+     "ece": 0.11123456790123461,
+     "eceAfterTemperature": 0.09906695222423098,
+     "temperature": 0.5777868108302783,
+     "brier": 0.14337416306726067,
+     "nll": 0.24055604510297457,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 311.9,
+     "latencyP95Ms": 345.4,
+     "costUsd": 0.000630294,
+     "costPer1000Usd": 0.017508166666666665,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 3,
+       "confidence": 0.4766666666666666,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 2,
+       "confidence": 0.5477777777777778,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 2,
+       "confidence": 0.67,
+       "accuracy": 0.5
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 3,
+       "confidence": 0.7200000000000001,
+       "accuracy": 0.6666666666666666
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 6,
+       "confidence": 0.8649999999999999,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 20,
+       "confidence": 0.982,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "allow": {
+       "allow": 15,
+       "review": 1,
+       "remove": 0,
+       "error": 0
+      },
+      "review": {
+       "allow": 2,
+       "review": 5,
+       "remove": 0,
+       "error": 0
+      },
+      "remove": {
+       "allow": 0,
+       "review": 2,
+       "remove": 11,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": [
+      {
+       "id": "mo-21",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.48000000000000004,
+       "error": null
+      },
+      {
+       "id": "mo-24",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.66,
+       "error": null
+      },
+      {
+       "id": "mo-25",
+       "label": "review",
+       "choice": "allow",
+       "p": 0.74,
+       "error": null
+      },
+      {
+       "id": "mo-31",
+       "label": "allow",
+       "choice": "review",
+       "p": 0.49,
+       "error": null
+      },
+      {
+       "id": "mo-35",
+       "label": "remove",
+       "choice": "review",
+       "p": 0.46,
        "error": null
       }
      ]
@@ -9277,6 +9923,196 @@
       }
      ]
     },
+    "jev": {
+     "n": 36,
+     "accuracy": 0.6944444444444444,
+     "macroF1": 0.609138550315021,
+     "ece": 0.30611111111111106,
+     "eceAfterTemperature": 0.14332304866793139,
+     "temperature": 2.325336245474394,
+     "brier": 0.4631555555555555,
+     "nll": 0.7358434087636332,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 323,
+     "latencyP95Ms": 414.1,
+     "costUsd": 0.0007109340000000001,
+     "costPer1000Usd": 0.019748166666666667,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 7,
+       "confidence": 0.5342857142857144,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 4,
+       "confidence": 0.645,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 4,
+       "confidence": 0.75,
+       "accuracy": 0.25
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 6,
+       "confidence": 0.835,
+       "accuracy": 0.3333333333333333
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 15,
+       "confidence": 0.9886666666666668,
+       "accuracy": 1
+      }
+     ],
+     "confusion": {
+      "high": {
+       "high": 17,
+       "medium": 0,
+       "low": 0,
+       "error": 0
+      },
+      "medium": {
+       "high": 3,
+       "medium": 3,
+       "low": 0,
+       "error": 0
+      },
+      "low": {
+       "high": 0,
+       "medium": 8,
+       "low": 5,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": [
+      {
+       "id": "rr-02",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.72,
+       "error": null
+      },
+      {
+       "id": "rr-04",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.66,
+       "error": null
+      },
+      {
+       "id": "rr-06",
+       "label": "medium",
+       "choice": "high",
+       "p": 0.85,
+       "error": null
+      },
+      {
+       "id": "rr-09",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.63,
+       "error": null
+      },
+      {
+       "id": "rr-12",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.61,
+       "error": null
+      },
+      {
+       "id": "rr-17",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.86,
+       "error": null
+      },
+      {
+       "id": "rr-18",
+       "label": "medium",
+       "choice": "high",
+       "p": 0.82,
+       "error": null
+      },
+      {
+       "id": "rr-20",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.73,
+       "error": null
+      },
+      {
+       "id": "rr-22",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.68,
+       "error": null
+      },
+      {
+       "id": "rr-25",
+       "label": "low",
+       "choice": "medium",
+       "p": 0.79,
+       "error": null
+      },
+      {
+       "id": "rr-26",
+       "label": "medium",
+       "choice": "high",
+       "p": 0.8,
+       "error": null
+      }
+     ]
+    },
     "reddit-scout-heuristic": {
      "n": 36,
      "accuracy": 0.4444444444444444,
@@ -10936,6 +11772,132 @@
      "forwardP50Ms": null,
      "checkpoints": [],
      "wrong": []
+    },
+    "jev": {
+     "n": 40,
+     "accuracy": 0.925,
+     "macroF1": 0.9210006583278472,
+     "ece": 0.048749999999999724,
+     "eceAfterTemperature": 0.038478863353117,
+     "temperature": 1.1213176073025066,
+     "brier": 0.09376500000000002,
+     "nll": 0.15171574587122952,
+     "zeroOnTruth": 0,
+     "errors": 0,
+     "unparsed": 0,
+     "latencyP50Ms": 323.3,
+     "latencyP95Ms": 388.8,
+     "costUsd": 0.000740502,
+     "costPer1000Usd": 0.01851255,
+     "reliability": [
+      {
+       "lo": 0,
+       "hi": 0.1,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.1,
+       "hi": 0.2,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.2,
+       "hi": 0.3,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.3,
+       "hi": 0.4,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.4,
+       "hi": 0.5,
+       "n": 0,
+       "confidence": 0,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.5,
+       "hi": 0.6,
+       "n": 2,
+       "confidence": 0.51,
+       "accuracy": 0.5
+      },
+      {
+       "lo": 0.6,
+       "hi": 0.7,
+       "n": 1,
+       "confidence": 0.6,
+       "accuracy": 0
+      },
+      {
+       "lo": 0.7,
+       "hi": 0.8,
+       "n": 1,
+       "confidence": 0.75,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.8,
+       "hi": 0.9,
+       "n": 3,
+       "confidence": 0.8466666666666667,
+       "accuracy": 1
+      },
+      {
+       "lo": 0.9,
+       "hi": 1,
+       "n": 33,
+       "confidence": 0.9884848484848482,
+       "accuracy": 0.9696969696969697
+      }
+     ],
+     "confusion": {
+      "local": {
+       "local": 23,
+       "cloud": 0,
+       "error": 0
+      },
+      "cloud": {
+       "local": 3,
+       "cloud": 14,
+       "error": 0
+      }
+     },
+     "forwardP50Ms": null,
+     "checkpoints": [],
+     "wrong": [
+      {
+       "id": "re-30",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.93,
+       "error": null
+      },
+      {
+       "id": "re-31",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.6,
+       "error": null
+      },
+      {
+       "id": "re-37",
+       "label": "cloud",
+       "choice": "local",
+       "p": 0.51,
+       "error": null
+      }
+     ]
     }
    },
    "cascades": {

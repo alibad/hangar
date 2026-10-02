@@ -17,7 +17,7 @@ const RESULTS_DIR = path.join(process.cwd(), "experiments", "decide", "results")
  * each headline model answered per item is sent (`recorded`): enough for the
  * Lab to show "what each said when we tested it" with nothing running.
  */
-const RECORDED_MODELS = ["laya", "local-gemma4", "claude-haiku"];
+const RECORDED_MODELS = ["laya", "jev", "local-gemma4", "claude-haiku"];
 
 type Prediction = { choice?: string; probabilities?: Record<string, number>; latencyMs?: number | null; costUsd?: number | null; error?: string };
 

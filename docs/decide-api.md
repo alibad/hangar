@@ -31,7 +31,7 @@ Callers: the Decision Lab, the MCP `decide` tool, and the BPMN decision gateways
 | `choices` | required unless `yesno` | A list of labels (`["bug", "noise"]`), or an object of label → what it means. **Descriptions help**: Laya scores each option beside its description. 2 to 64 options, but see *Limits*. |
 | `type` | optional | `"choice"` (default), `"yesno"` (choices are ignored; labels are `yes` and `no`), or `"score"` (choices are levels, ordered low → high). |
 | `context` | optional | The text being decided about, or a JSON object (sent to Laya as structured state, and pretty-printed for an LLM). |
-| `model` | optional | `"laya"` (default: the checkpoint is picked per request by script and language), `"laya-english"`, `"laya-multilingual"`, `"laya-typed-decisions"`, or any router **chat** alias such as `"claude-haiku"` or `"local-gemma4"`. |
+| `model` | optional | `"laya"` (default: the checkpoint is picked per request by script and language), `"laya-english"`, `"laya-multilingual"`, `"laya-typed-decisions"`, `"jev"` (TypeSafe's hosted decision model through OpenRouter; needs `OPENROUTER_API_KEY` in `betenshi-console/.env`, about $0.00002 a decision), or any router **chat** alias such as `"claude-haiku"` or `"local-gemma4"`. |
 
 `X-Source: <your-app>` tags the call in the console's Requests view.
 

@@ -12,6 +12,9 @@ import {
   parseLlmDecision,
   buildLlmPrompt,
   isLayaModel,
+  isCloudDecisionModel,
+  buildSystemOneRequest,
+  parseSystemOneAnswer,
 } from "../src/lib/decide.ts";
 import {
   accuracy,
@@ -191,4 +194,52 @@ test("an unmetered local model reports null cost, not zero", () => {
   const s = scoreSet([pred("a", { a: 1, b: 0 }, { costUsd: null })], ["a", "b"]);
   assert.equal(s.costUsd, null);
   assert.equal(s.costPer1000Usd, null);
+});
+
+// ── hosted decision models (Jev via OpenRouter's System One API) ────────────
+// Shapes taken from a real reply on 2026-10-02 and from OpenRouter's reference.
+
+const req = (type, choices, extra = {}) => ({ question: "Q?", type, choices, context: "ctx", model: "jev", ...extra });
+
+test("jev is a cloud decision model, not a Laya model or a router alias", () => {
+  assert.equal(isCloudDecisionModel("jev"), true);
+  assert.equal(isLayaModel("jev"), false);
+  assert.equal(isCloudDecisionModel("claude-haiku"), false);
+  assert.equal(isCloudDecisionModel("toString"), false);
+});
+
+test("a choice is sent with its descriptions as criteria, under one named question", () => {
+  const body = buildSystemOneRequest(req("choice", { bug: "broken", noise: "not actionable" }), "typesafe/jev-1.13");
+  assert.deepEqual(body, {
+    model: "typesafe/jev-1.13",
+    state: "ctx",
+    questions: { decision: { type: "choice", instructions: "Q?", criteria: { bug: "broken", noise: "not actionable" } } },
+  });
+});
+
+test("yes/no goes out as noul and comes back as p(yes)", () => {
+  const r = req("yesno", { yes: "yes", no: "no" });
+  assert.equal(buildSystemOneRequest(r, "m").questions.decision.type, "noul");
+  const out = parseSystemOneAnswer({ type: "noul", noul: 0.96 }, r);
+  assert.equal(out.choice, "yes");
+  close(out.probabilities.yes, 0.96);
+  close(out.probabilities.no, 0.04);
+});
+
+test("a score's level-keyed probabilities map back to the labels in order", () => {
+  const r = req("score", { low: "can wait", medium: "this week", high: "blocking" });
+  assert.deepEqual(buildSystemOneRequest(r, "m").questions.decision.criteria, ["can wait", "this week", "blocking"]);
+  const out = parseSystemOneAnswer({ type: "score", score: 1.99, probabilities: { 0: 0, 1: 0.01, 2: 0.99 } }, r);
+  assert.equal(out.choice, "high");
+  close(out.probabilities.high, 0.99);
+  assert.equal(out.score, 1.99);
+});
+
+test("a choice answer fills every label and renormalises", () => {
+  const r = req("choice", { bug: "b", feature_request: "f", noise: "n" });
+  const out = parseSystemOneAnswer({ type: "choice", choice: "bug", probabilities: { bug: 0.84, noise: 0.16 } }, r);
+  assert.equal(out.choice, "bug");
+  assert.deepEqual(Object.keys(out.probabilities).sort(), ["bug", "feature_request", "noise"]);
+  close(out.probabilities.feature_request, 0);
+  close(out.confidence, 0.84);
 });

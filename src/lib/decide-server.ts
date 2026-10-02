@@ -4,9 +4,14 @@ import { servicesForCapability, servedModels } from "./host";
 import { getServiceUrl, type ServiceEntry } from "./services";
 import {
   buildLlmPrompt,
+  buildSystemOneRequest,
+  CLOUD_DECISION_MODELS,
   contextText,
+  isCloudDecisionModel,
   isLayaModel,
   parseLlmDecision,
+  parseSystemOneAnswer,
+  type SystemOneAnswer,
   type DecideRequest,
   type DecideResult,
 } from "./decide";
@@ -47,7 +52,62 @@ export async function decide(
   req: DecideRequest,
   opts: { source: string; owner: string; signal?: AbortSignal; timeoutMs?: number },
 ): Promise<DecideOutcome> {
+  if (isCloudDecisionModel(req.model)) return decideWithCloud(req, opts);
   return isLayaModel(req.model) || decisionServiceFor(req.model) ? decideWithService(req, opts) : decideWithLlm(req, opts);
+}
+
+/**
+ * A hosted decision model (Jev via OpenRouter), called directly: it is not a
+ * chat model, so the AI Router — a chat proxy — cannot carry it. The key is
+ * read from the console's own env (betenshi-console/.env, the file the router
+ * also reads). The cost is the provider's own figure from `usage.cost`.
+ */
+async function decideWithCloud(
+  req: DecideRequest,
+  opts: { source: string; signal?: AbortSignal; timeoutMs?: number },
+): Promise<DecideOutcome> {
+  const m = CLOUD_DECISION_MODELS[req.model];
+  const key = process.env[m.keyEnv];
+  if (!key) {
+    return { status: 503, body: { error: `${m.name} needs ${m.keyEnv} in betenshi-console/.env.` } };
+  }
+  const started = performance.now();
+  let res: Response;
+  try {
+    res = await fetch(m.url, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "X-Title": "BeTenshi console" },
+      body: JSON.stringify(buildSystemOneRequest(req, m.upstream)),
+      signal: opts.signal ?? AbortSignal.timeout(opts.timeoutMs ?? 30_000),
+    });
+  } catch (err) {
+    return { status: 502, body: { error: `Could not reach ${m.name}: ${String(err)}`, latencyMs: Math.round(performance.now() - started) } };
+  }
+  const latencyMs = Math.round((performance.now() - started) * 10) / 10;
+  const text = await res.text();
+  let j: { answers?: Record<string, SystemOneAnswer>; usage?: { cost?: number }; error?: { message?: string } | string } = {};
+  try {
+    j = JSON.parse(text);
+  } catch {
+    /* reported below */
+  }
+  const answer = j.answers?.decision;
+  if (!res.ok || !answer) {
+    const detail = typeof j.error === "string" ? j.error : j.error?.message ?? text.slice(0, 300);
+    const why = res.status === 402 ? "the OpenRouter account is out of credit" : res.status === 401 ? "the OpenRouter key was refused" : detail;
+    return { status: res.ok ? 502 : res.status, body: { error: `${m.name}: ${why}`, latencyMs } };
+  }
+  return {
+    status: 200,
+    body: {
+      ...parseSystemOneAnswer(answer, req),
+      latencyMs,
+      model: req.model,
+      local: false,
+      costUsd: typeof j.usage?.cost === "number" ? j.usage.cost : null,
+      parsed: true,
+    },
+  };
 }
 
 /**

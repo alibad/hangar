@@ -4039,6 +4039,603 @@
      "parsed": true,
      "checkpoint": null
     }
+   },
+   "jev": {
+    "ar-01": {
+     "id": "ar-01",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.97,
+      "egyptian": 0,
+      "levantine": 0.02,
+      "gulf": 0.01,
+      "maghrebi": 0
+     },
+     "latencyMs": 352.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018942,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-02": {
+     "id": "ar-02",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 1,
+      "egyptian": 0,
+      "levantine": 0,
+      "gulf": 0,
+      "maghrebi": 0
+     },
+     "latencyMs": 370.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019068,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-03": {
+     "id": "ar-03",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.86,
+      "egyptian": 0.03,
+      "levantine": 0.07,
+      "gulf": 0.04,
+      "maghrebi": 0
+     },
+     "latencyMs": 368.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018648,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-04": {
+     "id": "ar-04",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 1,
+      "egyptian": 0,
+      "levantine": 0,
+      "gulf": 0,
+      "maghrebi": 0
+     },
+     "latencyMs": 384.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018984,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-05": {
+     "id": "ar-05",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 1,
+      "egyptian": 0,
+      "levantine": 0,
+      "gulf": 0,
+      "maghrebi": 0
+     },
+     "latencyMs": 309.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018984,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-06": {
+     "id": "ar-06",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.97,
+      "egyptian": 0,
+      "levantine": 0.02,
+      "gulf": 0.01,
+      "maghrebi": 0
+     },
+     "latencyMs": 321.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019026,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-07": {
+     "id": "ar-07",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.92,
+      "egyptian": 0.02,
+      "levantine": 0.05,
+      "gulf": 0.01,
+      "maghrebi": 0
+     },
+     "latencyMs": 349.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017934,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-10": {
+     "id": "ar-10",
+     "label": "egyptian",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.95,
+      "levantine": 0.03,
+      "gulf": 0.01,
+      "maghrebi": 0.01
+     },
+     "latencyMs": 316,
+     "modelLatencyMs": null,
+     "costUsd": 0.0000189,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-09": {
+     "id": "ar-09",
+     "label": "egyptian",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.88,
+      "levantine": 0.08,
+      "gulf": 0.02,
+      "maghrebi": 0.02
+     },
+     "latencyMs": 369.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019404,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-08": {
+     "id": "ar-08",
+     "label": "egyptian",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.92,
+      "levantine": 0.06,
+      "gulf": 0.01,
+      "maghrebi": 0.01
+     },
+     "latencyMs": 882.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018648,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-13": {
+     "id": "ar-13",
+     "label": "egyptian",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.5555555555555556,
+      "levantine": 0.23232323232323232,
+      "gulf": 0.1616161616161616,
+      "maghrebi": 0.050505050505050504
+     },
+     "latencyMs": 356.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018606,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-12": {
+     "id": "ar-12",
+     "label": "egyptian",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.95,
+      "levantine": 0.03,
+      "gulf": 0.01,
+      "maghrebi": 0.01
+     },
+     "latencyMs": 376.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018606,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-11": {
+     "id": "ar-11",
+     "label": "egyptian",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.6799999999999999,
+      "levantine": 0.17999999999999997,
+      "gulf": 0.059999999999999984,
+      "maghrebi": 0.07999999999999999
+     },
+     "latencyMs": 868.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018522,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-14": {
+     "id": "ar-14",
+     "label": "egyptian",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.22,
+      "levantine": 0.58,
+      "gulf": 0.13,
+      "maghrebi": 0.07
+     },
+     "latencyMs": 433.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018564,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-15": {
+     "id": "ar-15",
+     "label": "levantine",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.17,
+      "levantine": 0.62,
+      "gulf": 0.15,
+      "maghrebi": 0.06
+     },
+     "latencyMs": 314.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018774,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-16": {
+     "id": "ar-16",
+     "label": "levantine",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0.01,
+      "egyptian": 0.43,
+      "levantine": 0.31,
+      "gulf": 0.13,
+      "maghrebi": 0.12
+     },
+     "latencyMs": 313.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018732,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-17": {
+     "id": "ar-17",
+     "label": "levantine",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.14,
+      "levantine": 0.5,
+      "gulf": 0.24,
+      "maghrebi": 0.12
+     },
+     "latencyMs": 316.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018648,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-19": {
+     "id": "ar-19",
+     "label": "levantine",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.13,
+      "levantine": 0.51,
+      "gulf": 0.31,
+      "maghrebi": 0.05
+     },
+     "latencyMs": 308.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018774,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-18": {
+     "id": "ar-18",
+     "label": "levantine",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.29,
+      "levantine": 0.43,
+      "gulf": 0.13,
+      "maghrebi": 0.15
+     },
+     "latencyMs": 356.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001869,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-20": {
+     "id": "ar-20",
+     "label": "levantine",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.14,
+      "levantine": 0.49,
+      "gulf": 0.18,
+      "maghrebi": 0.19
+     },
+     "latencyMs": 369.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018438,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-21": {
+     "id": "ar-21",
+     "label": "levantine",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.01,
+      "egyptian": 0.38,
+      "levantine": 0.43,
+      "gulf": 0.15,
+      "maghrebi": 0.03
+     },
+     "latencyMs": 340.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018228,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-22": {
+     "id": "ar-22",
+     "label": "gulf",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.02,
+      "egyptian": 0.37,
+      "levantine": 0.39999999999999997,
+      "gulf": 0.14,
+      "maghrebi": 0.07
+     },
+     "latencyMs": 302.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001827,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-23": {
+     "id": "ar-23",
+     "label": "gulf",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.05,
+      "levantine": 0.11,
+      "gulf": 0.77,
+      "maghrebi": 0.07
+     },
+     "latencyMs": 318.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018774,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-24": {
+     "id": "ar-24",
+     "label": "gulf",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.28,
+      "levantine": 0.19,
+      "gulf": 0.48,
+      "maghrebi": 0.05
+     },
+     "latencyMs": 305.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018522,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-25": {
+     "id": "ar-25",
+     "label": "gulf",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.07,
+      "levantine": 0.07,
+      "gulf": 0.83,
+      "maghrebi": 0.03
+     },
+     "latencyMs": 415.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001848,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-26": {
+     "id": "ar-26",
+     "label": "gulf",
+     "choice": "maghrebi",
+     "probabilities": {
+      "msa": 0.02,
+      "egyptian": 0.24,
+      "levantine": 0.18,
+      "gulf": 0.17,
+      "maghrebi": 0.39
+     },
+     "latencyMs": 325.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018396,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-27": {
+     "id": "ar-27",
+     "label": "gulf",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.44,
+      "egyptian": 0.1,
+      "levantine": 0.31,
+      "gulf": 0.13,
+      "maghrebi": 0.02
+     },
+     "latencyMs": 335.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001848,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-28": {
+     "id": "ar-28",
+     "label": "gulf",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.03,
+      "egyptian": 0.3,
+      "levantine": 0.32,
+      "gulf": 0.28,
+      "maghrebi": 0.07
+     },
+     "latencyMs": 338.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018354,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-29": {
+     "id": "ar-29",
+     "label": "maghrebi",
+     "choice": "maghrebi",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.02,
+      "levantine": 0.04,
+      "gulf": 0.01,
+      "maghrebi": 0.93
+     },
+     "latencyMs": 309.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018858,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-30": {
+     "id": "ar-30",
+     "label": "maghrebi",
+     "choice": "maghrebi",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0,
+      "levantine": 0,
+      "gulf": 0,
+      "maghrebi": 1
+     },
+     "latencyMs": 294.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.0000189,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-31": {
+     "id": "ar-31",
+     "label": "maghrebi",
+     "choice": "maghrebi",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.12,
+      "levantine": 0.11,
+      "gulf": 0.05,
+      "maghrebi": 0.72
+     },
+     "latencyMs": 322,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001848,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-32": {
+     "id": "ar-32",
+     "label": "maghrebi",
+     "choice": "maghrebi",
+     "probabilities": {
+      "msa": 0.01,
+      "egyptian": 0.27,
+      "levantine": 0.23,
+      "gulf": 0.19,
+      "maghrebi": 0.3
+     },
+     "latencyMs": 327.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018312,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-34": {
+     "id": "ar-34",
+     "label": "maghrebi",
+     "choice": "maghrebi",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.06,
+      "levantine": 0.02,
+      "gulf": 0,
+      "maghrebi": 0.92
+     },
+     "latencyMs": 307.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018774,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-33": {
+     "id": "ar-33",
+     "label": "maghrebi",
+     "choice": "maghrebi",
+     "probabilities": {
+      "msa": 0.01,
+      "egyptian": 0.03,
+      "levantine": 0.03,
+      "gulf": 0.01,
+      "maghrebi": 0.92
+     },
+     "latencyMs": 333.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018606,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ar-35": {
+     "id": "ar-35",
+     "label": "maghrebi",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0,
+      "egyptian": 0.21,
+      "levantine": 0.53,
+      "gulf": 0.13,
+      "maghrebi": 0.13
+     },
+     "latencyMs": 354.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018774,
+     "parsed": true,
+     "checkpoint": null
+    }
    }
   },
   "console-intent": {
@@ -9473,6 +10070,806 @@
      "parsed": true,
      "checkpoint": null
     }
+   },
+   "jev": {
+    "ci-02": {
+     "id": "ci-02",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 1,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 305,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019488,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-03": {
+     "id": "ci-03",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 1,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 313.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019446,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-04": {
+     "id": "ci-04",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 1,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 315.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019404,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-01": {
+     "id": "ci-01",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 1,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 382.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001911,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-05": {
+     "id": "ci-05",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 1,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 309,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-06": {
+     "id": "ci-06",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 1,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 324.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019908,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-07": {
+     "id": "ci-07",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0,
+      "code": 1,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 324.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019572,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-08": {
+     "id": "ci-08",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.13,
+      "code": 0.87,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 349.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019656,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-09": {
+     "id": "ci-09",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0,
+      "code": 1,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 338.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019404,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-10": {
+     "id": "ci-10",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0,
+      "code": 1,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 316,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019278,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-11": {
+     "id": "ci-11",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.15,
+      "code": 0.85,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 298.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019782,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-12": {
+     "id": "ci-12",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0,
+      "code": 1,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 291.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019446,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-14": {
+     "id": "ci-14",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 1,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 311.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001974,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-15": {
+     "id": "ci-15",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0.89,
+      "speech": 0,
+      "vision": 0.11,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 309.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-13": {
+     "id": "ci-13",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 1,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 348.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019614,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-16": {
+     "id": "ci-16",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 1,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 326.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-17": {
+     "id": "ci-17",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 1,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 324.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019278,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-18": {
+     "id": "ci-18",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.01,
+      "code": 0,
+      "image": 0.99,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 342.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019656,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-19": {
+     "id": "ci-19",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 1,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 342.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019278,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-20": {
+     "id": "ci-20",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 1,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 337.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019194,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-21": {
+     "id": "ci-21",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 1,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 306.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019488,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-22": {
+     "id": "ci-22",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.01,
+      "code": 0,
+      "image": 0,
+      "speech": 0.99,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 332.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019194,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-23": {
+     "id": "ci-23",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0.9400000000000001,
+      "vision": 0,
+      "service": 0,
+      "models": 0.06
+     },
+     "latencyMs": 333.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019278,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-24": {
+     "id": "ci-24",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 1,
+      "vision": 0,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 342.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019404,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-25": {
+     "id": "ci-25",
+     "label": "vision",
+     "choice": "vision",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 1,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 301.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-27": {
+     "id": "ci-27",
+     "label": "vision",
+     "choice": "vision",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 1,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 348.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019404,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-28": {
+     "id": "ci-28",
+     "label": "vision",
+     "choice": "vision",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 1,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 325.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-26": {
+     "id": "ci-26",
+     "label": "vision",
+     "choice": "vision",
+     "probabilities": {
+      "chat": 0.02,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0.98,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 456.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-29": {
+     "id": "ci-29",
+     "label": "vision",
+     "choice": "vision",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 1,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 325.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001932,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-30": {
+     "id": "ci-30",
+     "label": "vision",
+     "choice": "vision",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 1,
+      "service": 0,
+      "models": 0
+     },
+     "latencyMs": 305.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-31": {
+     "id": "ci-31",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 1,
+      "models": 0
+     },
+     "latencyMs": 304.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019026,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-32": {
+     "id": "ci-32",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 1,
+      "models": 0
+     },
+     "latencyMs": 308,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019488,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-33": {
+     "id": "ci-33",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 1,
+      "models": 0
+     },
+     "latencyMs": 324.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-34": {
+     "id": "ci-34",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 1,
+      "models": 0
+     },
+     "latencyMs": 308.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019278,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-35": {
+     "id": "ci-35",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.01,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0.99,
+      "models": 0
+     },
+     "latencyMs": 314.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019068,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-36": {
+     "id": "ci-36",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0.01,
+      "vision": 0,
+      "service": 0.99,
+      "models": 0
+     },
+     "latencyMs": 333.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019446,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-37": {
+     "id": "ci-37",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 1
+     },
+     "latencyMs": 313.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019152,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-38": {
+     "id": "ci-38",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0.03,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 0.97
+     },
+     "latencyMs": 311.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-39": {
+     "id": "ci-39",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 1
+     },
+     "latencyMs": 309.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019488,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-40": {
+     "id": "ci-40",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 1
+     },
+     "latencyMs": 326,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019404,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-41": {
+     "id": "ci-41",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0,
+      "service": 0,
+      "models": 1
+     },
+     "latencyMs": 349,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ci-42": {
+     "id": "ci-42",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0.01,
+      "code": 0,
+      "image": 0,
+      "speech": 0,
+      "vision": 0.03,
+      "service": 0,
+      "models": 0.96
+     },
+     "latencyMs": 305.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019278,
+     "parsed": true,
+     "checkpoint": null
+    }
    }
   },
   "feedback-triage": {
@@ -14089,6 +15486,688 @@
      "parsed": true,
      "checkpoint": null
     }
+   },
+   "jev": {
+    "ft-01": {
+     "id": "ft-01",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 1,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 312,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019446,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-04": {
+     "id": "ft-04",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.99,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0.01,
+      "noise": 0
+     },
+     "latencyMs": 306.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-02": {
+     "id": "ft-02",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 1,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 345.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019572,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-03": {
+     "id": "ft-03",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 1,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 400.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019278,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-05": {
+     "id": "ft-05",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 1,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 311.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-06": {
+     "id": "ft-06",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 1,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 333.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-07": {
+     "id": "ft-07",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 1,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 365.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018942,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-08": {
+     "id": "ft-08",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 1,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 350.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019152,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-09": {
+     "id": "ft-09",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 1,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 341.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001911,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-10": {
+     "id": "ft-10",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0.94,
+      "ui_ux": 0.06,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 304.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019194,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-12": {
+     "id": "ft-12",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 1,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 301.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001911,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-11": {
+     "id": "ft-11",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 1,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 386.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-13": {
+     "id": "ft-13",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0.9,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0.1
+     },
+     "latencyMs": 305.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019068,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-15": {
+     "id": "ft-15",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 1,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 313.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019278,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-14": {
+     "id": "ft-14",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 1,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 408,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019152,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-16": {
+     "id": "ft-16",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 1,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 309.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-17": {
+     "id": "ft-17",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.26,
+      "feature_request": 0,
+      "ui_ux": 0.74,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 349.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019446,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-18": {
+     "id": "ft-18",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.03,
+      "feature_request": 0,
+      "ui_ux": 0.97,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 330.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-19": {
+     "id": "ft-19",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 1,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 311.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019152,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-20": {
+     "id": "ft-20",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.04,
+      "feature_request": 0,
+      "ui_ux": 0.96,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 316.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-21": {
+     "id": "ft-21",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 1,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 315.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019194,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-22": {
+     "id": "ft-22",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0.99,
+      "noise": 0.01
+     },
+     "latencyMs": 379.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001995,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-24": {
+     "id": "ft-24",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 1,
+      "noise": 0
+     },
+     "latencyMs": 331.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019194,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-23": {
+     "id": "ft-23",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 1,
+      "noise": 0
+     },
+     "latencyMs": 366.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019446,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-25": {
+     "id": "ft-25",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 1,
+      "noise": 0
+     },
+     "latencyMs": 304.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001974,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-28": {
+     "id": "ft-28",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 1,
+      "noise": 0
+     },
+     "latencyMs": 316.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001974,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-26": {
+     "id": "ft-26",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 1,
+      "noise": 0
+     },
+     "latencyMs": 374.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001953,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-27": {
+     "id": "ft-27",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.49,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0.51,
+      "noise": 0
+     },
+     "latencyMs": 373.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-29": {
+     "id": "ft-29",
+     "label": "noise",
+     "choice": "noise",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 1
+     },
+     "latencyMs": 311,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018564,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-30": {
+     "id": "ft-30",
+     "label": "noise",
+     "choice": "noise",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 1
+     },
+     "latencyMs": 302.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018564,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-32": {
+     "id": "ft-32",
+     "label": "noise",
+     "choice": "noise",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 1
+     },
+     "latencyMs": 302.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019152,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-31": {
+     "id": "ft-31",
+     "label": "noise",
+     "choice": "noise",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 1
+     },
+     "latencyMs": 368.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001869,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-33": {
+     "id": "ft-33",
+     "label": "noise",
+     "choice": "noise",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 1
+     },
+     "latencyMs": 303.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018648,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-34": {
+     "id": "ft-34",
+     "label": "noise",
+     "choice": "noise",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 1
+     },
+     "latencyMs": 321.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018816,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-35": {
+     "id": "ft-35",
+     "label": "bug",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.14,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0.83,
+      "noise": 0.03
+     },
+     "latencyMs": 319.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001911,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-36": {
+     "id": "ft-36",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.46,
+      "feature_request": 0.02,
+      "ui_ux": 0.51,
+      "content_correction": 0,
+      "noise": 0.01
+     },
+     "latencyMs": 305.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019068,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-37": {
+     "id": "ft-37",
+     "label": "noise",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.07000000000000002,
+      "feature_request": 0,
+      "ui_ux": 0.12000000000000001,
+      "content_correction": 0.7100000000000001,
+      "noise": 0.10000000000000002
+     },
+     "latencyMs": 336.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001911,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-38": {
+     "id": "ft-38",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0,
+      "feature_request": 1,
+      "ui_ux": 0,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 317.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-39": {
+     "id": "ft-39",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.98,
+      "feature_request": 0,
+      "ui_ux": 0,
+      "content_correction": 0.02,
+      "noise": 0
+     },
+     "latencyMs": 298.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "ft-40": {
+     "id": "ft-40",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.29,
+      "feature_request": 0,
+      "ui_ux": 0.71,
+      "content_correction": 0,
+      "noise": 0
+     },
+     "latencyMs": 318.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019404,
+     "parsed": true,
+     "checkpoint": null
+    }
    }
   },
   "moderation": {
@@ -17738,6 +19817,548 @@
      "latencyMs": 962,
      "modelLatencyMs": null,
      "costUsd": null,
+     "parsed": true,
+     "checkpoint": null
+    }
+   },
+   "jev": {
+    "mo-01": {
+     "id": "mo-01",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 1,
+      "review": 0,
+      "remove": 0
+     },
+     "latencyMs": 315.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017724,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-03": {
+     "id": "mo-03",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.99,
+      "review": 0.01,
+      "remove": 0
+     },
+     "latencyMs": 306.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017934,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-02": {
+     "id": "mo-02",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.99,
+      "review": 0.01,
+      "remove": 0
+     },
+     "latencyMs": 315.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017598,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-04": {
+     "id": "mo-04",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.95,
+      "review": 0.05,
+      "remove": 0
+     },
+     "latencyMs": 395.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017514,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-05": {
+     "id": "mo-05",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 1,
+      "review": 0,
+      "remove": 0
+     },
+     "latencyMs": 307.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001722,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-06": {
+     "id": "mo-06",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.71,
+      "review": 0.28,
+      "remove": 0.01
+     },
+     "latencyMs": 318.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017724,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-07": {
+     "id": "mo-07",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.95,
+      "review": 0.05,
+      "remove": 0
+     },
+     "latencyMs": 316.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017514,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-08": {
+     "id": "mo-08",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.98,
+      "review": 0.02,
+      "remove": 0
+     },
+     "latencyMs": 308,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018606,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-09": {
+     "id": "mo-09",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.89,
+      "review": 0.11,
+      "remove": 0
+     },
+     "latencyMs": 310.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001722,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-11": {
+     "id": "mo-11",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0,
+      "review": 0,
+      "remove": 1
+     },
+     "latencyMs": 298.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017724,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-10": {
+     "id": "mo-10",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0,
+      "review": 0,
+      "remove": 1
+     },
+     "latencyMs": 318.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001764,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-12": {
+     "id": "mo-12",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0,
+      "review": 0,
+      "remove": 1
+     },
+     "latencyMs": 303.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017388,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-13": {
+     "id": "mo-13",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0,
+      "review": 0,
+      "remove": 1
+     },
+     "latencyMs": 307.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017262,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-15": {
+     "id": "mo-15",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0,
+      "review": 0.01,
+      "remove": 0.99
+     },
+     "latencyMs": 301.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018228,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-14": {
+     "id": "mo-14",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0,
+      "review": 0,
+      "remove": 1
+     },
+     "latencyMs": 345.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017262,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-16": {
+     "id": "mo-16",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0,
+      "review": 0.02,
+      "remove": 0.98
+     },
+     "latencyMs": 329.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017472,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-17": {
+     "id": "mo-17",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0,
+      "review": 0,
+      "remove": 1
+     },
+     "latencyMs": 299.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017178,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-18": {
+     "id": "mo-18",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.02,
+      "review": 0.01,
+      "remove": 0.97
+     },
+     "latencyMs": 316.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017262,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-19": {
+     "id": "mo-19",
+     "label": "review",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.13,
+      "review": 0.87,
+      "remove": 0
+     },
+     "latencyMs": 337.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001743,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-20": {
+     "id": "mo-20",
+     "label": "review",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.05,
+      "review": 0.92,
+      "remove": 0.03
+     },
+     "latencyMs": 304.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017514,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-21": {
+     "id": "mo-21",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.48000000000000004,
+      "review": 0.44000000000000006,
+      "remove": 0.08000000000000002
+     },
+     "latencyMs": 322.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017556,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-22": {
+     "id": "mo-22",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.71,
+      "review": 0.25,
+      "remove": 0.04
+     },
+     "latencyMs": 305.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017346,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-23": {
+     "id": "mo-23",
+     "label": "review",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.050505050505050504,
+      "review": 0.5555555555555556,
+      "remove": 0.3939393939393939
+     },
+     "latencyMs": 328.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017304,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-24": {
+     "id": "mo-24",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0,
+      "review": 0.66,
+      "remove": 0.34
+     },
+     "latencyMs": 308.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017262,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-25": {
+     "id": "mo-25",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.74,
+      "review": 0.24,
+      "remove": 0.02
+     },
+     "latencyMs": 321.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017136,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-26": {
+     "id": "mo-26",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.85,
+      "review": 0.14,
+      "remove": 0.01
+     },
+     "latencyMs": 326.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017304,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-27": {
+     "id": "mo-27",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.68,
+      "review": 0.29,
+      "remove": 0.03
+     },
+     "latencyMs": 311.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017808,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-28": {
+     "id": "mo-28",
+     "label": "review",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.22,
+      "review": 0.54,
+      "remove": 0.24
+     },
+     "latencyMs": 304.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017346,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-29": {
+     "id": "mo-29",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0,
+      "review": 0,
+      "remove": 1
+     },
+     "latencyMs": 308.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018102,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-30": {
+     "id": "mo-30",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.95,
+      "review": 0.04,
+      "remove": 0.01
+     },
+     "latencyMs": 319.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017304,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-32": {
+     "id": "mo-32",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0,
+      "review": 0.11,
+      "remove": 0.89
+     },
+     "latencyMs": 289.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017766,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-31": {
+     "id": "mo-31",
+     "label": "allow",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.44,
+      "review": 0.49,
+      "remove": 0.07
+     },
+     "latencyMs": 311.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000016674,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-33": {
+     "id": "mo-33",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.89,
+      "review": 0.09,
+      "remove": 0.02
+     },
+     "latencyMs": 322,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017682,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-34": {
+     "id": "mo-34",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.97,
+      "review": 0.03,
+      "remove": 0
+     },
+     "latencyMs": 306.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001743,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-36": {
+     "id": "mo-36",
+     "label": "review",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.18,
+      "review": 0.8,
+      "remove": 0.02
+     },
+     "latencyMs": 320,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017472,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "mo-35": {
+     "id": "mo-35",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.17,
+      "review": 0.46,
+      "remove": 0.37
+     },
+     "latencyMs": 334.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017388,
      "parsed": true,
      "checkpoint": null
     }
@@ -21863,6 +24484,548 @@
      "parsed": true,
      "checkpoint": null
     }
+   },
+   "jev": {
+    "rr-03": {
+     "id": "rr-03",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 306.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.00002037,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-04": {
+     "id": "rr-04",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.01,
+      "medium": 0.66,
+      "low": 0.33
+     },
+     "latencyMs": 301.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001974,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-01": {
+     "id": "rr-01",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 351.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000020496,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-02": {
+     "id": "rr-02",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.26,
+      "medium": 0.72,
+      "low": 0.02
+     },
+     "latencyMs": 347.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.00002058,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-05": {
+     "id": "rr-05",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 318.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.00002016,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-06": {
+     "id": "rr-06",
+     "label": "medium",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.85,
+      "medium": 0.14,
+      "low": 0.01
+     },
+     "latencyMs": 335.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019992,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-07": {
+     "id": "rr-07",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.98,
+      "medium": 0.02,
+      "low": 0
+     },
+     "latencyMs": 331.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.00002079,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-08": {
+     "id": "rr-08",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.55,
+      "medium": 0.43,
+      "low": 0.02
+     },
+     "latencyMs": 408.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000020076,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-10": {
+     "id": "rr-10",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0.44,
+      "low": 0.56
+     },
+     "latencyMs": 292.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019404,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-11": {
+     "id": "rr-11",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.99,
+      "medium": 0.01,
+      "low": 0
+     },
+     "latencyMs": 319.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000020664,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-09": {
+     "id": "rr-09",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.06,
+      "medium": 0.63,
+      "low": 0.31
+     },
+     "latencyMs": 414.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019824,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-12": {
+     "id": "rr-12",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 0.61,
+      "low": 0.39
+     },
+     "latencyMs": 302.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000020118,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-13": {
+     "id": "rr-13",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.94,
+      "medium": 0.06,
+      "low": 0
+     },
+     "latencyMs": 309.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.00002037,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-14": {
+     "id": "rr-14",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 343.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000020118,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-16": {
+     "id": "rr-16",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.87,
+      "medium": 0.12,
+      "low": 0.01
+     },
+     "latencyMs": 293.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019446,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-15": {
+     "id": "rr-15",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0.24,
+      "low": 0.76
+     },
+     "latencyMs": 323,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018942,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-17": {
+     "id": "rr-17",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.04,
+      "medium": 0.86,
+      "low": 0.1
+     },
+     "latencyMs": 333.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-19": {
+     "id": "rr-19",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.98,
+      "medium": 0.02,
+      "low": 0
+     },
+     "latencyMs": 294.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019488,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-18": {
+     "id": "rr-18",
+     "label": "medium",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.82,
+      "medium": 0.17,
+      "low": 0.01
+     },
+     "latencyMs": 319.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-20": {
+     "id": "rr-20",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.01,
+      "medium": 0.73,
+      "low": 0.26
+     },
+     "latencyMs": 323,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019068,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-22": {
+     "id": "rr-22",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.29,
+      "medium": 0.68,
+      "low": 0.03
+     },
+     "latencyMs": 312.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019362,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-23": {
+     "id": "rr-23",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.98,
+      "medium": 0.02,
+      "low": 0
+     },
+     "latencyMs": 339.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000020076,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-24": {
+     "id": "rr-24",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.98,
+      "medium": 0.02,
+      "low": 0
+     },
+     "latencyMs": 331.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001953,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-21": {
+     "id": "rr-21",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.48,
+      "medium": 0.51,
+      "low": 0.01
+     },
+     "latencyMs": 553.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001953,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-25": {
+     "id": "rr-25",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.01,
+      "medium": 0.79,
+      "low": 0.2
+     },
+     "latencyMs": 337.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-26": {
+     "id": "rr-26",
+     "label": "medium",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.8,
+      "medium": 0.19,
+      "low": 0.01
+     },
+     "latencyMs": 321.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001953,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-27": {
+     "id": "rr-27",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 330.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001974,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-28": {
+     "id": "rr-28",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 385.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019488,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-29": {
+     "id": "rr-29",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0.01,
+      "medium": 0.42,
+      "low": 0.57
+     },
+     "latencyMs": 309.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019446,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-30": {
+     "id": "rr-30",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.49,
+      "medium": 0.5,
+      "low": 0.01
+     },
+     "latencyMs": 318.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000020034,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-31": {
+     "id": "rr-31",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 316.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019614,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-32": {
+     "id": "rr-32",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.98,
+      "medium": 0.02,
+      "low": 0
+     },
+     "latencyMs": 337.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019446,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-33": {
+     "id": "rr-33",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0.19,
+      "low": 0.81
+     },
+     "latencyMs": 346.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018984,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-34": {
+     "id": "rr-34",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.47,
+      "medium": 0.52,
+      "low": 0.01
+     },
+     "latencyMs": 330.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019404,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-35": {
+     "id": "rr-35",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0.17,
+      "medium": 0.3,
+      "low": 0.53
+     },
+     "latencyMs": 337.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "rr-36": {
+     "id": "rr-36",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 316,
+     "modelLatencyMs": null,
+     "costUsd": 0.000020034,
+     "parsed": true,
+     "checkpoint": null
+    }
    }
   },
   "router-escalation": {
@@ -25636,6 +28799,568 @@
      "latencyMs": 625,
      "modelLatencyMs": null,
      "costUsd": null,
+     "parsed": true,
+     "checkpoint": null
+    }
+   },
+   "jev": {
+    "re-03": {
+     "id": "re-03",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.99,
+      "cloud": 0.01
+     },
+     "latencyMs": 318.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018144,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-02": {
+     "id": "re-02",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 347.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018354,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-01": {
+     "id": "re-01",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 354.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018354,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-04": {
+     "id": "re-04",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 388.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017892,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-05": {
+     "id": "re-05",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 308.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018312,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-07": {
+     "id": "re-07",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 325,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001848,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-06": {
+     "id": "re-06",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 369.1,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017808,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-08": {
+     "id": "re-08",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.99,
+      "cloud": 0.01
+     },
+     "latencyMs": 316.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017976,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-10": {
+     "id": "re-10",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 323.2,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001827,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-09": {
+     "id": "re-09",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 395,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017934,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-12": {
+     "id": "re-12",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 311.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001869,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-11": {
+     "id": "re-11",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 344.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018522,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-13": {
+     "id": "re-13",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 319.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018732,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-14": {
+     "id": "re-14",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 330.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018186,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-16": {
+     "id": "re-16",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 312.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018228,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-15": {
+     "id": "re-15",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 332.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018606,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-18": {
+     "id": "re-18",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.1,
+      "cloud": 0.9
+     },
+     "latencyMs": 304.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019572,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-19": {
+     "id": "re-19",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.18,
+      "cloud": 0.82
+     },
+     "latencyMs": 309.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001911,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-17": {
+     "id": "re-17",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 392.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018102,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-20": {
+     "id": "re-20",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.01,
+      "cloud": 0.99
+     },
+     "latencyMs": 337.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018942,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-21": {
+     "id": "re-21",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.49,
+      "cloud": 0.51
+     },
+     "latencyMs": 330.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018396,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-22": {
+     "id": "re-22",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.16,
+      "cloud": 0.84
+     },
+     "latencyMs": 317.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019236,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-24": {
+     "id": "re-24",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.03,
+      "cloud": 0.97
+     },
+     "latencyMs": 299.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018564,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-23": {
+     "id": "re-23",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.02,
+      "cloud": 0.98
+     },
+     "latencyMs": 345,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018606,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-25": {
+     "id": "re-25",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.03,
+      "cloud": 0.97
+     },
+     "latencyMs": 343.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019068,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-27": {
+     "id": "re-27",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.01,
+      "cloud": 0.99
+     },
+     "latencyMs": 310.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018858,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-28": {
+     "id": "re-28",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.04,
+      "cloud": 0.96
+     },
+     "latencyMs": 298.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.0000189,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-26": {
+     "id": "re-26",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.03,
+      "cloud": 0.97
+     },
+     "latencyMs": 352.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018522,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-29": {
+     "id": "re-29",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.01,
+      "cloud": 0.99
+     },
+     "latencyMs": 315.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001869,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-30": {
+     "id": "re-30",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.93,
+      "cloud": 0.07
+     },
+     "latencyMs": 313.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018648,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-31": {
+     "id": "re-31",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6,
+      "cloud": 0.4
+     },
+     "latencyMs": 312.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018396,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-32": {
+     "id": "re-32",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 358.4,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018354,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-33": {
+     "id": "re-33",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 323.3,
+     "modelLatencyMs": null,
+     "costUsd": 0.000017892,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-34": {
+     "id": "re-34",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.99,
+      "cloud": 0.01
+     },
+     "latencyMs": 345.9,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001806,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-35": {
+     "id": "re-35",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 329.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.00001806,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-36": {
+     "id": "re-36",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.12,
+      "cloud": 0.88
+     },
+     "latencyMs": 347.7,
+     "modelLatencyMs": null,
+     "costUsd": 0.000019152,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-37": {
+     "id": "re-37",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.51,
+      "cloud": 0.49
+     },
+     "latencyMs": 345.5,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018984,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-38": {
+     "id": "re-38",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 307.8,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018396,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-39": {
+     "id": "re-39",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 1,
+      "cloud": 0
+     },
+     "latencyMs": 319.6,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018564,
+     "parsed": true,
+     "checkpoint": null
+    },
+    "re-40": {
+     "id": "re-40",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.25,
+      "cloud": 0.75
+     },
+     "latencyMs": 323,
+     "modelLatencyMs": null,
+     "costUsd": 0.000018942,
      "parsed": true,
      "checkpoint": null
     }
