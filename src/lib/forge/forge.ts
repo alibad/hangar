@@ -274,6 +274,12 @@ export type ForgeSettings = {
   mode?: "trending" | "stories";
   /** Shots per story film (5 s each). */
   storyShots?: number;
+  /**
+   * Services the owner asked to keep off while the window is open, stopped
+   * again if something starts them (2026-10-02: quote-forge's Qwen image
+   * server, which held 28-31 GB of RAM and starved every first frame).
+   */
+  keepOffInWindow?: string[];
 };
 
 export const DEFAULT_SETTINGS: ForgeSettings = {
@@ -321,6 +327,8 @@ export type ForgeRuntime = {
   quietUntil?: string;
   /** Times vllm-small was paused again mid-window after something restarted it. */
   repauses?: number;
+  /** Last time a keep-off service was stopped again, per service. */
+  keptOffAt?: Record<string, string>;
   lastRepauseAt?: string;
 };
 
@@ -732,6 +740,7 @@ class Forge {
   private async windowTick(s: ForgeSettings, minutesLeft: number) {
     // A clip that is already in the video queue finishes whatever the clock says.
     this.fast = true;
+    await this.keepServicesOff(s);
     const inFlight = await itemsWithStatus("still", "rendering");
     for (const item of inFlight) await this.advance(item, s);
     if ((await itemsWithStatus("still", "rendering")).length) return;
@@ -817,6 +826,19 @@ class Forge {
 
     if (!(await this.holdCard(s, `a batch of ${pending.length} clip(s), ~${Math.ceil(pending.length * 2.7)} min`))) return;
     await this.advance(pending[0], s);
+  }
+
+  /** Stop again, at most every 2 minutes each, the services the owner asked to keep off during the window. */
+  private async keepServicesOff(s: ForgeSettings) {
+    for (const id of s.keepOffInWindow ?? []) {
+      const last = this.runtime.keptOffAt?.[id] ? Date.parse(this.runtime.keptOffAt[id]) : 0;
+      if (Date.now() - last < 2 * 60_000) continue;
+      const svc = await serviceStatus(id);
+      if (!svc || (svc.status !== "running" && svc.status !== "starting")) continue;
+      const err = await manager("stop", id);
+      this.runtime.keptOffAt = { ...(this.runtime.keptOffAt ?? {}), [id]: stamp() };
+      console.log(`[forge] ${id} was started during the window; ${err ? `stopping it failed: ${err}` : "stopped it again (the owner asked to keep it off)"}`);
+    }
   }
 
   /** Take the shared claim and pause vllm-small (the owner's standing OK for the window). */
