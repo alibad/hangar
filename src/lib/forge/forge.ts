@@ -222,8 +222,34 @@ export type ForgeItem = {
   check?: ClipCheck;
   /** A shot of a story film: which story, which shot, and the line said over it. */
   story?: { id: string; index: number; count: number; title: string; narration: string };
+  /**
+   * A bake-off shot: a finished story's shot, from the same first frame,
+   * animated by another stack — so films differ only in what is being tested.
+   */
+  variant?: { bakeoffId: string; key: string; label: string; storyId: string; index: number };
+  /** Per-shot render settings (bake-offs); otherwise the forge's own. */
+  render?: { videoModel: string; tier: "low" | "high"; seconds?: number };
+  /** When the shot's clip started waiting for memory (bake-offs give up on a model that never fits). */
+  waitingSince?: string;
   timeline: { at: string; what: string }[];
 };
+
+/** One screenplay, several stacks: the shots re-animated by each variant. */
+export type Bakeoff = {
+  id: string;
+  createdAt: string;
+  storyId: string;
+  title: string;
+  variants: { key: string; label: string; videoModel: string; tier: "low" | "high" }[];
+};
+
+/** The video models compared against the films' Wan 2.2 5B, lightest first (a model that does not fit is given up on). */
+export const DEFAULT_BAKEOFF_VARIANTS: Bakeoff["variants"] = [
+  { key: "hunyuan", label: "HunyuanVideo 1.5 (480p)", videoModel: "hunyuanvideo-1.5", tier: "low" },
+  { key: "ltx", label: "LTX-2.5 22B (with sound)", videoModel: "ltx-2.5", tier: "high" },
+  { key: "wan14b", label: "Wan 2.2 14B (4-step)", videoModel: "wan2.2-14b", tier: "high" },
+  { key: "h3", label: "MiniMax H3 33B (with sound)", videoModel: "minimax-h3", tier: "low" },
+];
 
 export type ForgeSettings = {
   enabled: boolean;
@@ -352,6 +378,7 @@ async function db() {
       await d.run(`CREATE TABLE IF NOT EXISTS forge_items (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, status TEXT NOT NULL, data TEXT NOT NULL)`);
       await d.run(`CREATE TABLE IF NOT EXISTS forge_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)`);
       await d.run(`CREATE TABLE IF NOT EXISTS forge_stories (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, data TEXT NOT NULL)`);
+      await d.run(`CREATE TABLE IF NOT EXISTS forge_bakeoffs (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, data TEXT NOT NULL)`);
     })().catch((e) => {
       ready = null;
       throw e;
@@ -405,6 +432,17 @@ async function itemsWithStatus(...status: ForgeStatus[]): Promise<ForgeItem[]> {
 async function saveStory(story: Story) {
   const d = await db();
   await serial(() => retrying(() => d.run(`INSERT OR REPLACE INTO forge_stories (id, created_at, data) VALUES (?, ?, ?)`, [story.id, story.createdAt, JSON.stringify(story)])));
+}
+
+async function saveBakeoff(b: Bakeoff) {
+  const d = await db();
+  await serial(() => retrying(() => d.run(`INSERT OR REPLACE INTO forge_bakeoffs (id, created_at, data) VALUES (?, ?, ?)`, [b.id, b.createdAt, JSON.stringify(b)])));
+}
+
+export async function listBakeoffs(limit = 20): Promise<Bakeoff[]> {
+  const d = await db();
+  const rows = await d.all<{ data: string }>(`SELECT data FROM forge_bakeoffs ORDER BY created_at DESC LIMIT ?`, [limit]);
+  return rows.map((r) => JSON.parse(r.data) as Bakeoff);
 }
 
 export async function listStories(limit = 40): Promise<Story[]> {
@@ -1063,22 +1101,25 @@ class Forge {
       await freeComfyIfIdle();
     }
     if ((item.status === "brief" || item.status === "still") && item.still) {
+      const vm = item.render?.videoModel ?? s.videoModel;
+      const tier = item.render?.tier ?? s.tier;
+      const secs = item.render?.seconds ?? s.seconds;
       const job = await videoQueue.add({
-        model: s.videoModel,
+        model: vm,
         mode: "i2v",
         prompt: item.motionPrompt,
-        seconds: s.seconds,
-        tier: s.tier,
+        seconds: secs,
+        tier,
         sourceImage: item.still.file,
         origin: "forge",
         // The still has no one in it, but the first night's airport clip walked
         // a traveller into the last second. Wan 5B samples with real CFG, so a
         // negative prompt steers it; the channel never shows people or text.
-        avoid: item.story ? STORY_AVOID : "people, person, human figure, pedestrians, crowd, face, hands, text, letters, words, watermark, logo",
+        avoid: item.story || item.variant ? STORY_AVOID : "people, person, human figure, pedestrians, crowd, face, hands, text, letters, words, watermark, logo",
       });
-      item.video = { jobId: job.id, model: s.videoModel, seconds: s.seconds, tier: s.tier };
+      item.video = { jobId: job.id, model: vm, seconds: secs, tier };
       item.status = "rendering";
-      note(item, `Queued the clip (${s.videoModel}, ${s.seconds} s, ${s.tier})`);
+      note(item, `Queued the clip (${vm}, ${secs} s, ${tier})`);
       await saveItem(item);
     }
     if (item.status === "rendering" && item.video) {
@@ -1124,6 +1165,26 @@ class Forge {
         item.error = `Video ${job.status}: ${job.error ?? ""}`.trim();
         note(item, item.error);
       } else {
+        if (item.variant && job.block) {
+          item.waitingSince ??= stamp();
+          if (Date.now() - Date.parse(item.waitingSince) > 12 * 60_000) {
+            await videoQueue.cancel(job.id);
+            const why = `${item.variant.label} did not get the memory it needs in 12 minutes (${job.block.message})`;
+            for (const other of await itemsWithStatus("brief", "still", "rendering")) {
+              if (other.variant?.bakeoffId !== item.variant.bakeoffId || other.variant.key !== item.variant.key) continue;
+              if (other.id !== item.id && other.status === "rendering" && other.video) await videoQueue.cancel(other.video.jobId);
+              other.status = "failed";
+              other.error = why;
+              note(other, why);
+              await saveItem(other);
+            }
+            this.runtime.now = why;
+            return;
+          }
+          await saveItem(item);
+        } else if (item.variant && item.waitingSince) {
+          item.waitingSince = undefined;
+        }
         const step = job.stepsTotal ? `, step ${job.stepsDone ?? 0}/${job.stepsTotal}` : "";
         const eta = job.etaSec != null ? `, ~${Math.max(1, Math.round(job.etaSec / 60))} min left` : "";
         const smallBack = !!job.block && this.runtime.pausedVllmSmall && (await smallModelUp());
@@ -1187,6 +1248,51 @@ class Forge {
     note(item, `${verdict === "approved" ? "Approved" : "Rejected"}${item.review.reason ? `: ${item.review.reason}` : ""}`);
     await saveItem(item);
     return item;
+  }
+
+  /**
+   * A bake-off: every shot of a finished story, from its own first frame,
+   * queued once per variant (variant after variant, so each model loads once).
+   * The window renders them before writing new stories.
+   */
+  async createBakeoff(storyId: string, variants: Bakeoff["variants"] = DEFAULT_BAKEOFF_VARIANTS): Promise<Bakeoff> {
+    const story = (await listStories(200)).find((st) => st.id === storyId);
+    if (!story) throw new Error("No such story");
+    const base = (await listItems(2000))
+      .filter((i) => i.story?.id === storyId && i.still && i.video?.output)
+      .sort((a, b) => a.story!.index - b.story!.index);
+    if (base.length < story.shots.length) throw new Error(`Only ${base.length} of ${story.shots.length} shots of "${story.title}" are finished`);
+    const b: Bakeoff = { id: `bake-${Date.now().toString(36)}`, createdAt: stamp(), storyId, title: story.title, variants };
+    await saveBakeoff(b);
+    let t = Date.now();
+    for (const v of variants) {
+      for (const shot of base) {
+        const i = shot.story!.index;
+        const item: ForgeItem = {
+          id: randomUUID().slice(0, 12),
+          createdAt: new Date(t++).toISOString(),
+          status: "brief",
+          channel: "bakeoff",
+          topic: `${story.title} — ${v.label} — shot ${i + 1}`,
+          whyNow: shot.story!.narration,
+          heard: `bake-off "${story.title}" (${v.key})`,
+          sources: [],
+          stillPrompt: shot.stillPrompt,
+          motionPrompt: shot.motionPrompt,
+          listen: { heardCount: 0, shortlisted: 0, dropped: [], problems: [] },
+          agent: shot.agent,
+          still: shot.still,
+          group: `${b.id}:${v.key}`,
+          shot: i + 1,
+          variant: { bakeoffId: b.id, key: v.key, label: v.label, storyId, index: i },
+          render: { videoModel: v.videoModel, tier: v.tier },
+          timeline: [{ at: stamp(), what: `Bake-off "${story.title}": shot ${i + 1}, the same first frame animated by ${v.label}` }],
+        };
+        await saveItem(item);
+      }
+    }
+    this.kick();
+    return b;
   }
 
   /** Make one finished shot again from a fresh first frame (keeps its place in the film). */

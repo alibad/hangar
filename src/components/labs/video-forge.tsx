@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { LabComponentProps } from "@/lib/labs";
-import type { ForgeItem, ForgeRuntime, ForgeSettings } from "@/lib/forge/forge";
+import type { Bakeoff, ForgeItem, ForgeRuntime, ForgeSettings } from "@/lib/forge/forge";
 import type { Story } from "@/lib/forge/story";
 import { ExperimentDoc } from "./lab-shell";
 
@@ -19,6 +19,7 @@ type ForgeState = {
   services: { search: boolean; smallModel: boolean };
   items: ForgeItem[];
   stories?: Story[];
+  bakeoffs?: Bakeoff[];
 };
 
 const MONTAGE = "http://localhost:8017";
@@ -77,9 +78,9 @@ export default function VideoForge({ lab }: LabComponentProps) {
 
   if (!state) return <div className="p-6 text-sm text-gray-400">{error ? `Could not load the forge: ${error}` : "Loading the forge…"}</div>;
 
-  const { settings, runtime, window: win, services, stories = [] } = state;
-  // A story's shots are shown with their story, not one by one.
-  const items = state.items.filter((i) => !i.story);
+  const { settings, runtime, window: win, services, stories = [], bakeoffs = [] } = state;
+  // A story's shots are shown with their story, a bake-off's with its bake-off, not one by one.
+  const items = state.items.filter((i) => !i.story && !i.variant);
   const review = items.filter((i) => i.status === "review");
   const tonight = items.filter((i) => i.status === "brief" || i.status === "still" || i.status === "rendering");
   // Clips live in the gallery; history is what made nothing (skipped, failed).
@@ -148,6 +149,9 @@ export default function VideoForge({ lab }: LabComponentProps) {
 
       {/* ── story films ── */}
       {stories.length > 0 && <Stories stories={stories} items={state.items} onRequeue={(id) => act(`requeue-${id}`, { action: "requeue", id })} busy={!!busy} />}
+
+      {/* ── stack bake-offs ── */}
+      {bakeoffs.length > 0 && <Bakeoffs bakeoffs={bakeoffs} items={state.items} />}
 
       {/* ── the gallery ── */}
       <Gallery
@@ -338,6 +342,101 @@ function Stories({ stories, items, onRequeue, busy }: { stories: Story[]; items:
           );
         })}
       </div>
+    </section>
+  );
+}
+
+/**
+ * Bake-offs: one finished screenplay re-animated from the same first frames
+ * by other video models — the numbers per model, and every clip. The films
+ * are cut and compared side by side in Montage.
+ */
+function Bakeoffs({ bakeoffs, items }: { bakeoffs: Bakeoff[]; items: ForgeItem[] }) {
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  return (
+    <section>
+      <h2 className="mb-2 text-sm font-medium text-gray-200">
+        Stack bake-offs <span className="text-gray-500">— the same screenplay and first frames, other video models; films compared in </span>
+        <a href={MONTAGE} target="_blank" rel="noreferrer" className="text-orange-300 hover:underline">
+          Montage ↗
+        </a>
+      </h2>
+      {bakeoffs.map((b) => {
+        const base = items.filter((i) => i.story?.id === b.storyId && i.video?.output).sort((x, y) => x.story!.index - y.story!.index);
+        const rows = [
+          { key: "base", label: "Wan 2.2 5B (the film)", model: base[0]?.video?.model ?? "wan2.2-ti2v-5b", shots: base },
+          ...b.variants.map((v) => ({ key: v.key, label: v.label, model: v.videoModel, shots: items.filter((i) => i.variant?.bakeoffId === b.id && i.variant.key === v.key).sort((x, y) => x.variant!.index - y.variant!.index) })),
+        ];
+        return (
+          <div key={b.id} className="rounded-xl border border-gray-800 bg-gray-900/40 p-4">
+            <p className="text-gray-100">
+              <span className="font-medium">{b.title}</span> <span className="text-xs text-gray-500">· {when(b.createdAt)} · {b.variants.length} stacks against the film</span>
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-xs">
+                <thead className="text-gray-500">
+                  <tr>
+                    <th className="py-1 pr-3 font-normal">Stack</th>
+                    <th className="py-1 pr-3 font-normal">Clips</th>
+                    <th className="py-1 pr-3 font-normal">Avg clip time</th>
+                    <th className="py-1 pr-3 font-normal">Peak VRAM</th>
+                    <th className="py-1 pr-3 font-normal">Beauty (vision)</th>
+                    <th className="py-1 pr-3 font-normal">Distortion</th>
+                    <th className="py-1 font-normal">Writing / logos</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-300">
+                  {rows.map((r) => {
+                    const done = r.shots.filter((i) => i.video?.output);
+                    const failed = r.shots.filter((i) => i.status === "failed");
+                    const t = avg(done.map((i) => i.video?.latencyMs ?? 0).filter(Boolean));
+                    const v = done.map((i) => i.video?.peakVramGb ?? 0).filter(Boolean);
+                    const beauty = avg(done.map((i) => i.check?.beauty ?? 0).filter(Boolean));
+                    const art = avg(done.filter((i) => i.check).map((i) => i.check!.artifacts));
+                    const flags = done.filter((i) => i.check?.text || i.check?.logo).length;
+                    return (
+                      <tr key={r.key} className="border-t border-gray-800/70 align-top">
+                        <td className="py-1.5 pr-3">
+                          <span className="text-gray-100">{r.label}</span>
+                          <span className="block text-[10px] text-gray-500">{r.model}</span>
+                          {failed[0]?.error && <span className="block max-w-xs text-[10px] text-red-300">{failed[0].error.slice(0, 160)}</span>}
+                        </td>
+                        <td className="py-1.5 pr-3">
+                          {done.length}/{r.key === "base" ? r.shots.length : r.shots.length}
+                          {failed.length ? <span className="text-red-300"> · {failed.length} failed</span> : null}
+                        </td>
+                        <td className="py-1.5 pr-3">{t ? `${Math.round(t / 1000)} s` : "—"}</td>
+                        <td className="py-1.5 pr-3">{v.length ? `${Math.max(...v).toFixed(1)} GB` : "—"}</td>
+                        <td className="py-1.5 pr-3">{beauty ? beauty.toFixed(1) : "—"}</td>
+                        <td className="py-1.5 pr-3">{art != null ? art.toFixed(2) : "—"}</td>
+                        <td className="py-1.5">{done.length ? flags : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 space-y-2">
+              {rows.map((r) => (
+                <div key={r.key} className="flex items-center gap-1 overflow-x-auto">
+                  <span className="w-24 shrink-0 truncate text-[10px] text-gray-500">{r.label}</span>
+                  {r.shots.map((i) => (
+                    <div key={i.id} className="relative aspect-video w-24 shrink-0 overflow-hidden rounded bg-black" title={`${i.topic} · ${i.status}${i.check ? ` · beauty ${i.check.beauty}, distortion ${i.check.artifacts}` : ""}`}>
+                      {i.video?.output ? (
+                        <video src={fileUrl(i.video.output)} poster={i.still ? fileUrl(i.still.file) : undefined} muted loop playsInline preload="none" className="h-full w-full object-cover" onMouseEnter={(e) => void e.currentTarget.play().catch(() => undefined)} onMouseLeave={(e) => e.currentTarget.pause()} />
+                      ) : i.still ? (
+                        <img src={fileUrl(i.still.file)} alt="" className="h-full w-full object-cover opacity-30" />
+                      ) : null}
+                      {i.status === "rendering" && <span className="absolute inset-x-0 bottom-0 h-0.5 animate-pulse bg-orange-400" />}
+                      {i.status === "failed" && <span className="absolute inset-0 grid place-items-center bg-black/60 text-[9px] text-red-300">failed</span>}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </section>
   );
 }

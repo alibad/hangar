@@ -5,6 +5,7 @@ import {
   getSettings,
   listItems,
   listStories,
+  listBakeoffs,
   nextWindowStart,
   openWindowMinutes,
   updateSettings,
@@ -24,10 +25,11 @@ async function up(url: string): Promise<boolean> {
 
 /** Everything the Forge page shows: settings, what it is doing, the items. */
 export async function GET() {
-  const [settings, items, stories, searchUp, smallUp] = await Promise.all([
+  const [settings, items, stories, bakeoffs, searchUp, smallUp] = await Promise.all([
     getSettings(),
-    listItems(400),
+    listItems(800),
     listStories(40),
+    listBakeoffs(20),
     up(`${SEARXNG_URL}/healthz`),
     up("http://127.0.0.1:8006/health"),
   ]);
@@ -39,6 +41,7 @@ export async function GET() {
     services: { search: searchUp, smallModel: smallUp },
     items,
     stories,
+    bakeoffs,
   });
 }
 
@@ -58,6 +61,11 @@ export async function POST(req: NextRequest) {
   };
   try {
     switch (body.action) {
+      case "bakeoff": {
+        const b = body as { storyId?: string; variants?: Parameters<typeof forge.createBakeoff>[1] };
+        if (!b.storyId) return NextResponse.json({ error: "Pass storyId" }, { status: 400 });
+        return NextResponse.json({ bakeoff: await forge.createBakeoff(b.storyId, b.variants) });
+      }
       case "redo":
         if (!body.id) return NextResponse.json({ error: "Pass id" }, { status: 400 });
         return NextResponse.json({ item: await forge.redoShot(body.id, body.reason ?? "asked for") });
