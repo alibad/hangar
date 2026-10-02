@@ -948,8 +948,9 @@ class Forge {
         this.runtime.now = `Waiting for ComfyUI before "${item.topic}": ${comfyProblem}`;
         return;
       }
+      // Noted once: a still waiting for memory comes back here every few seconds.
+      if (item.status !== "still") note(item, `Making the first frame with ${s.stillModel}`);
       item.status = "still";
-      note(item, `Making the first frame with ${s.stillModel}`);
       await saveItem(item);
       let savedPath: string | null = null;
       let res: Awaited<ReturnType<typeof generateAndSave>> | null = null;
@@ -995,6 +996,10 @@ class Forge {
         if (res?.body.resourceBlocked) {
           // Not a failure: something else holds the card. Stay in "still" and retry next tick.
           this.runtime.now = `First frame of "${item.topic}" is waiting for memory: ${why}`;
+          if (!item.timeline.some((t) => t.what.startsWith("Waiting for memory"))) {
+            note(item, `Waiting for memory: ${why}`);
+            await saveItem(item);
+          }
           return;
         }
         item.status = "failed";
