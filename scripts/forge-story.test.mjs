@@ -153,3 +153,13 @@ test("a child telling their own story gets a child's voice", () => {
   const st = pickStack({ format: "monologue", characters: [leo], shots: [{ speaker: "Leo" }] }, []);
   assert.equal(st.voices.Leo.voice, "af_sky");
 });
+
+test("a documentary's invented animal lives where it is set (no honeybee in the deep sea)", async () => {
+  const { inventSeed, INVENT } = await import("../src/lib/forge/story.ts");
+  for (let i = 0; i < 300; i++) {
+    const seed = inventSeed([], { nature: true });
+    const [, si, hi] = seed.id.slice(7).split("|").map(Number);
+    const where = INVENT.settings[si].habitat, lives = INVENT.heroes[hi].habitat;
+    assert.ok(where === "shore" || lives === "shore" || where === lives, `${INVENT.heroes[hi].text} in ${INVENT.settings[si].text}`);
+  }
+});
