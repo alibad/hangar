@@ -649,7 +649,14 @@ export function shapeStory(raw: unknown, want: number, format?: FormatId): Omit<
       look: clean(c.look, 300),
       ...(["human", "animal", "creature", "object"].includes(String(c.kind)) ? { kind: c.kind as StoryCharacter["kind"] } : {}),
       ...(["female", "male", "none"].includes(String(c.gender)) ? { gender: c.gender as StoryCharacter["gender"] } : {}),
-      ...(["child", "young", "adult", "old"].includes(String(c.age)) ? { age: c.age as StoryCharacter["age"] } : {}),
+      // The look wins over the age field: the writer called "a six year old boy" adult and "an elderly man" young.
+      ...(() => {
+        const look = String(c.look ?? "").toLowerCase();
+        if (String(c.kind) === "human" && /\b(boy|girl|child|kid|toddler|baby|[1-9]|1[0-2]|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)[- ]?(year[- ]old)?\b/.test(look) && /\b(boy|girl|child|kid|toddler|baby|year[- ]old)\b/.test(look) && !/\b(old man|old woman|elderly|grand(father|mother))\b/.test(look))
+          return { age: "child" as const };
+        if (/\b(elderly|old man|old woman|aged|grey-haired|white-haired|wrinkled)\b/.test(look)) return { age: "old" as const };
+        return ["child", "young", "adult", "old"].includes(String(c.age)) ? { age: c.age as StoryCharacter["age"] } : {};
+      })(),
     }))
     .filter((c) => c.name && c.look)
     .slice(0, 4);

@@ -105,7 +105,10 @@ export function pickStack(
   // The lead reads the narrator — or, in a first-person film, the one who speaks.
   const leadSpeaker = firstPerson ? (speakers.find((s) => s !== "Narrator") ?? "Narrator") : "Narrator";
   const leadGender = byName.get(leadSpeaker)?.gender;
-  const leadVoice = leadGender && leadGender !== "none" && leadGender !== lead.gender ? VOICE_OPTIONS.find((o) => o.key === lead.pair) ?? lead : lead;
+  const leadChar = byName.get(leadSpeaker);
+  // A child telling their own story gets a child's voice, whatever the rotation offered.
+  const childLead = leadChar?.age === "child" ? ({ key: `kokoro-${CHILD[0]}`, label: `Kokoro (${CHILD[0]})`, engine: "kokoro", voice: CHILD[0], gender: "female", pair: "" } as VoiceOption) : null;
+  const leadVoice = childLead ?? (leadGender && leadGender !== "none" && leadGender !== lead.gender ? VOICE_OPTIONS.find((o) => o.key === lead.pair) ?? lead : lead);
   voices[leadSpeaker] = asVoice(leadVoice);
   taken.add(leadVoice.voice);
   for (const sp of speakers) {

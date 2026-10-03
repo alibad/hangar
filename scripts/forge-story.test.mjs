@@ -138,3 +138,18 @@ test("a poem's line may end on a comma; any other line ends a sentence, never wi
   assert.equal(lines("verse"), "In the cold blue depth where currents spin,");
   assert.equal(lines("tale"), "In the cold blue depth where currents spin.");
 });
+
+test("a character's age follows their look when the writer's age field disagrees", () => {
+  const s = shapeStory(raw(Array.from({ length: 9 }, (_, i) => shot(`Line ${i}.`)), { characters: [
+    { name: "Leo", look: "a six year old boy with messy curly red hair", kind: "human", gender: "male", age: "adult" },
+    { name: "Elian", look: "an elderly man with a thin silver beard", kind: "human", gender: "male", age: "young" },
+    { name: "Mira", look: "a woman in her thirties with a green scarf", kind: "human", gender: "female", age: "adult" },
+  ] }), 9);
+  assert.deepEqual(s.characters.map((c) => c.age), ["child", "old", "adult"]);
+});
+
+test("a child telling their own story gets a child's voice", () => {
+  const leo = { name: "Leo", look: "a six year old boy", kind: "human", gender: "male", age: "child" };
+  const st = pickStack({ format: "monologue", characters: [leo], shots: [{ speaker: "Leo" }] }, []);
+  assert.equal(st.voices.Leo.voice, "af_sky");
+});
