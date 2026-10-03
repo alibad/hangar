@@ -507,50 +507,69 @@ function Filmstrip({ src, count = 8 }: { src: string; count?: number }) {
 
 // ── queue + "will it fit" ─────────────────────────────────────────────────────
 
-/** Finished clips the page itself lists; the whole history opens in a dialog. */
-const QUEUE_ON_PAGE = 5;
+/** Finished clips the page itself shows; the whole history opens in a dialog. */
+const QUEUE_ON_PAGE = 6;
 const FINISHED = new Set(["done", "failed", "cancelled"]);
 
+const ORIGIN: Record<string, string> = { forge: "Video Forge", lab: "Lab", mcp: "MCP", bench: "Bench", montage: "Montage" };
+
 function QueueAndFit({ jobs, fit, reload }: { jobs: VideoJob[]; fit: Fit | null; reload: () => void }) {
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<VideoJob | null>(null);
   const [all, setAll] = useState(false);
   // What is still to come, always; of what is finished, only the latest few.
   const pending = jobs.filter((j) => !FINISHED.has(j.status));
-  const recent = jobs.filter((j) => FINISHED.has(j.status)).slice(0, QUEUE_ON_PAGE);
-  const shown = [...pending, ...recent];
+  const finished = jobs.filter((j) => FINISHED.has(j.status));
+  const recent = finished.slice(0, QUEUE_ON_PAGE);
+  const made = finished.filter((j) => j.status === "done").length;
   const localModels = useMemo(() => fit?.models.filter((m) => m.spec.local && m.available) ?? [], [fit]);
+  const remove = async (j: VideoJob) => {
+    await fetch(`/api/video/jobs/${j.id}?remove=1`, { method: "DELETE" });
+    reload();
+  };
   return (
     <div className="grid gap-4 xl:grid-cols-[3fr_2fr]">
-      <section className="rounded-xl border border-gray-800 bg-gray-900/40">
-        <h2 className="border-b border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-200">Queue</h2>
+      <section className="min-w-0 rounded-2xl border border-gray-800 bg-gray-900/40 p-4">
+        <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="text-sm font-medium text-gray-200">Clips</h2>
+          <p className="text-[11px] text-gray-500">
+            {pending.length ? `${pending.length} in the queue · ` : ""}
+            {made} made{finished.length > made ? ` · ${finished.length - made} failed or cancelled` : ""}
+          </p>
+          {jobs.length > pending.length + recent.length && (
+            <button type="button" onClick={() => setAll(true)} className="ml-auto text-[11px] text-gray-400 underline-offset-4 hover:text-gray-200 hover:underline">
+              See all {finished.length} →
+            </button>
+          )}
+        </div>
         {jobs.length === 0 ? (
-          <p className="px-4 py-4 text-xs text-gray-500">Nothing queued. Every clip lands here and in Recent runs, and keeps running if you leave the page.</p>
+          <p className="py-6 text-center text-xs text-gray-500">Nothing queued yet. Every clip lands here and in Recent runs, and keeps running if you leave the page.</p>
         ) : (
-          <>
-            <ul className="divide-y divide-gray-800/70">
-              {shown.map((j) => (
-                <JobRow key={j.id} job={j} fit={fit} open={open === j.id} onToggle={() => setOpen(open === j.id ? null : j.id)} reload={reload} />
-              ))}
-            </ul>
-            {jobs.length > shown.length && (
-              <div className="border-t border-gray-800 px-4 py-3">
-                <button type="button" onClick={() => setAll(true)} className={buttonStyles.secondarySm}>
-                  Show all {jobs.length} clips
-                </button>
+          <div className="space-y-4">
+            {pending.map((j) => (
+              <ActiveCard key={j.id} job={j} fit={fit} reload={reload} />
+            ))}
+            {recent.length > 0 && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                {recent.map((j) => (
+                  <ClipCard key={j.id} job={j} onOpen={() => setOpen(j)} onRemove={() => void remove(j)} />
+                ))}
               </div>
             )}
-            <Dialog open={all} onClose={() => setAll(false)} title="Every clip" subtitle="The whole queue, newest first. Open one to see it, its settings and its timings." size="xl">
-              <ul className="divide-y divide-gray-800/70">
-                {jobs.map((j) => (
-                  <JobRow key={j.id} job={j} fit={fit} open={open === j.id} onToggle={() => setOpen(open === j.id ? null : j.id)} reload={reload} />
-                ))}
-              </ul>
-            </Dialog>
-          </>
+          </div>
         )}
+        <Dialog open={all} onClose={() => setAll(false)} title="Every clip" subtitle="Newest first. Hover to play, open one to see its settings and timings." size="xl">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {finished.map((j) => (
+              <ClipCard key={j.id} job={j} compact onOpen={() => setOpen(j)} onRemove={() => void remove(j)} />
+            ))}
+          </div>
+        </Dialog>
+        <Dialog open={!!open} onClose={() => setOpen(null)} title={open ? (getVideoModel(open.model)?.label ?? open.model) : ""} subtitle={open?.prompt} size="xl">
+          {open && <VideoResult job={open} />}
+        </Dialog>
       </section>
 
-      <section className="rounded-xl border border-gray-800 bg-gray-900/40">
+      <section className="rounded-2xl border border-gray-800 bg-gray-900/40">
         <h2 className="border-b border-gray-800 px-4 py-2.5 text-sm font-medium text-gray-200">
           Will it fit right now?
           {fit && (
@@ -599,91 +618,148 @@ function QueueAndFit({ jobs, fit, reload }: { jobs: VideoJob[]; fit: Fit | null;
   );
 }
 
-function JobRow({ job: j, fit, open, onToggle, reload }: { job: VideoJob; fit: Fit | null; open: boolean; onToggle: () => void; reload: () => void }) {
+/** A small round progress dial over the first frame. */
+function Dial({ pct }: { pct: number | null }) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="relative grid size-20 place-items-center">
+      <svg viewBox="0 0 64 64" className="absolute inset-0 -rotate-90" aria-hidden="true">
+        <circle cx="32" cy="32" r={r} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="4" />
+        {pct != null && <circle cx="32" cy="32" r={r} fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} className="transition-all duration-700" />}
+      </svg>
+      <span className="text-lg font-semibold tabular-nums text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.6)]">{pct != null ? `${pct}%` : "…"}</span>
+    </div>
+  );
+}
+
+/** A clip being made: its first frame, breathing, with the dial, the step and the time left — or why it waits. */
+function ActiveCard({ job: j, fit, reload }: { job: VideoJob; fit: Fit | null; reload: () => void }) {
   const spec = getVideoModel(j.model);
-  const active = ACTIVE.has(j.status);
   const pct = j.stepsTotal ? Math.round(((j.stepsDone ?? 0) / j.stepsTotal) * 100) : null;
-  const elapsed = useElapsed(j.startedAt && active ? j.startedAt : null);
+  const elapsed = useElapsed(j.startedAt ? j.startedAt : null);
   const fitFor = fit?.models.find((m) => m.spec.id === j.model)?.fit;
-  const color =
-    j.status === "done" ? "text-emerald-300" : j.status === "failed" ? "text-red-300" : j.status === "cancelled" ? "text-gray-500" : j.status === "waiting" ? "text-amber-300" : "text-sky-300";
-  const act = async (remove: boolean) => {
-    await fetch(`/api/video/jobs/${j.id}${remove ? "?remove=1" : ""}`, { method: "DELETE" });
+  const running = j.status === "running";
+  const cancel = async () => {
+    await fetch(`/api/video/jobs/${j.id}`, { method: "DELETE" });
     reload();
   };
   return (
-    <li className="px-4 py-2.5 text-xs">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <button type="button" onClick={onToggle} disabled={!j.output} className="min-w-0 flex-1 text-left disabled:cursor-default">
-          <span className={`mr-2 font-medium ${color}`}>{j.status === "waiting" ? "waiting" : j.status}</span>
-          <span className="text-gray-200">{spec?.label ?? j.model}</span>
-          <span className="ml-2 text-gray-500">
-            {j.mode === "i2v" ? "image→video" : "text→video"} · {j.seconds} s · {j.width}×{j.height}
-          </span>
-          <span className="block truncate text-[11px] text-gray-500">{j.prompt}</span>
-        </button>
-        <span className="text-[11px] tabular-nums text-gray-400">
-          {active
-            ? `${j.stage}${elapsed ? ` · ${elapsed}` : ""}`
-            : j.latencyMs
-              ? `${(j.latencyMs / 1000).toFixed(0)} s${j.costUsd != null ? ` · $${j.costUsd.toFixed(2)}` : ""}`
-              : ""}
-        </span>
-        {active ? (
-          <button type="button" onClick={() => void act(false)} className="text-[11px] text-gray-500 hover:text-gray-200">
-            Cancel
-          </button>
-        ) : (
-          <button type="button" onClick={() => void act(true)} className="text-[11px] text-gray-600 hover:text-gray-300" title="Forget this job (the file stays on disk)">
-            ✕
-          </button>
-        )}
-      </div>
-
-      {active && (
-        <div className="mt-1.5 space-y-1">
-          {pct != null && j.status === "running" && (
-            <div className="h-1.5 overflow-hidden rounded bg-gray-800" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
-              <div className="h-full bg-orange-500 transition-all" style={{ width: `${pct}%` }} />
-            </div>
+    <article className="overflow-hidden rounded-xl border border-gray-800 bg-black/20">
+      <div className="grid gap-0 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+        <div className="relative aspect-video overflow-hidden bg-gray-950">
+          {j.sourceImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fileUrl(j.sourceImage)} alt="" className={`h-full w-full object-cover ${running ? "animate-[pulse_3s_ease-in-out_infinite]" : "opacity-60 grayscale-[40%]"}`} />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-gray-800 to-gray-950" />
           )}
-          <p className="text-[11px] text-gray-500">
-            {j.stepsTotal ? `step ${j.stepsDone ?? 0} of ${j.stepsTotal} · ` : ""}
-            {j.etaSec != null ? (
-              <>
-                ~{fmtDuration(j.etaSec)} {j.status === "running" ? "left" : "once it starts"}
-                {j.etaBasis && <span className="text-gray-600"> — {j.etaBasis}</span>}
-              </>
-            ) : (
-              <span className="text-gray-600">{j.etaBasis ?? "no estimate yet"}</span>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-black/30" />
+          <div className="absolute inset-0 grid place-items-center">{running ? <Dial pct={pct} /> : <span className="rounded-full bg-black/55 px-3 py-1 text-xs font-medium text-amber-200 backdrop-blur">{j.status === "waiting" ? "Waiting for room" : "Queued"}</span>}</div>
+          <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white/90 backdrop-blur">{running ? "Rendering now" : j.status}</span>
+          {j.origin && <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2 py-0.5 text-[10px] text-white/80 backdrop-blur">{ORIGIN[j.origin] ?? j.origin}</span>}
+        </div>
+        <div className="flex min-w-0 flex-col gap-2 p-4">
+          <p className="text-sm font-medium text-gray-100">{spec?.label ?? j.model}</p>
+          <p className="line-clamp-3 text-xs leading-relaxed text-gray-400">{j.prompt}</p>
+          <div className="mt-auto space-y-2">
+            {running && pct != null && (
+              <div className="h-1.5 overflow-hidden rounded-full bg-gray-800" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-300 transition-all duration-700" style={{ width: `${pct}%` }} />
+              </div>
             )}
-          </p>
-          {j.block && (
-            <div className="rounded-md border border-amber-500/25 bg-amber-500/5 px-2.5 py-2">
-              <p className="text-[11px] text-amber-200">{j.block.message}</p>
-              {j.block.kind === "service-stopped" && j.block.serviceId ? (
-                <div className="mt-1.5">
-                  <ServiceControl id={j.block.serviceId} up={false} probe={async () => (await fetch("/api/video/models").then((r) => r.json())).comfyUp} showLogs={false} />
-                </div>
-              ) : j.block.kind === "capacity" && fitFor?.stop?.length ? (
-                <div className="mt-1.5 space-y-1">
-                  <p className="text-[11px] text-gray-400">To make room, stop:</p>
-                  <ReleaseButtons holders={fitFor.stop} onReleased={reload} />
-                </div>
-              ) : j.block.kind === "slot" ? (
-                <p className="mt-1 text-[11px] text-gray-500">Another GPU job is running; this one starts when it finishes.</p>
-              ) : null}
+            <div className="flex flex-wrap gap-1.5 text-[11px]">
+              <Chip>{j.seconds} s · {j.width}×{j.height}</Chip>
+              {j.stepsTotal ? <Chip>step {j.stepsDone ?? 0}/{j.stepsTotal}</Chip> : null}
+              {running && elapsed ? <Chip>{elapsed} in</Chip> : null}
+              {j.etaSec != null ? <Chip strong>~{fmtDuration(j.etaSec)} {running ? "left" : "once it starts"}</Chip> : null}
             </div>
-          )}
+            {j.block && (
+              <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-2.5 py-2">
+                <p className="text-[11px] text-amber-200">{j.block.message}</p>
+                {j.block.kind === "service-stopped" && j.block.serviceId ? (
+                  <div className="mt-1.5">
+                    <ServiceControl id={j.block.serviceId} up={false} probe={async () => (await fetch("/api/video/models").then((r) => r.json())).comfyUp} showLogs={false} />
+                  </div>
+                ) : j.block.kind === "capacity" && fitFor?.stop?.length ? (
+                  <div className="mt-1.5 space-y-1">
+                    <p className="text-[11px] text-gray-400">To make room, stop:</p>
+                    <ReleaseButtons holders={fitFor.stop} onReleased={reload} />
+                  </div>
+                ) : j.block.kind === "slot" ? (
+                  <p className="mt-1 text-[11px] text-gray-500">Another GPU job is running; this one starts when it finishes.</p>
+                ) : null}
+              </div>
+            )}
+            <button type="button" onClick={() => void cancel()} className="text-[11px] text-gray-500 hover:text-gray-200">
+              Cancel
+            </button>
+          </div>
         </div>
-      )}
-      {j.status === "failed" && j.error && <p className="mt-1 whitespace-pre-wrap text-[11px] text-red-300/90">{j.error}</p>}
-      {open && j.output && (
-        <div className="mt-3">
-          <VideoResult job={j} />
-        </div>
-      )}
-    </li>
+      </div>
+    </article>
+  );
+}
+
+function Chip({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
+  return <span className={`rounded-full border px-2 py-0.5 tabular-nums ${strong ? "border-orange-400/40 text-orange-200" : "border-gray-700 text-gray-400"}`}>{children}</span>;
+}
+
+/** A finished clip: it plays on hover, its first frame is the poster; a failed one shows why. */
+function ClipCard({ job: j, onOpen, onRemove, compact }: { job: VideoJob; onOpen: () => void; onRemove: () => void; compact?: boolean }) {
+  const spec = getVideoModel(j.model);
+  const ref = useRef<HTMLVideoElement>(null);
+  const ok = j.status === "done" && !!j.output;
+  const poster = j.sourceImage ? fileUrl(j.sourceImage) : undefined;
+  const ago = j.doneAt ? new Date(j.doneAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  return (
+    <article className="group relative overflow-hidden rounded-xl border border-gray-800 bg-black/20 transition hover:-translate-y-0.5 hover:border-gray-600 hover:shadow-[0_18px_40px_-20px_rgba(0,0,0,0.6)]">
+      <button
+        type="button"
+        onClick={ok ? onOpen : undefined}
+        onMouseEnter={() => void ref.current?.play().catch(() => undefined)}
+        onMouseLeave={() => ref.current?.pause()}
+        className={`relative block aspect-video w-full overflow-hidden bg-gray-950 text-left ${ok ? "cursor-pointer" : "cursor-default"}`}
+        aria-label={ok ? `Open the clip: ${j.prompt}` : undefined}
+      >
+        {ok ? (
+          <video ref={ref} src={fileUrl(j.output!)} poster={poster} muted loop playsInline preload="none" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" />
+        ) : poster ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={poster} alt="" className="h-full w-full object-cover opacity-50 grayscale" />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-gray-800 to-gray-950" />
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/25" />
+        <span
+          className={`absolute left-2.5 top-2.5 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider backdrop-blur ${
+            j.status === "done" ? "bg-emerald-500/25 text-emerald-100" : j.status === "failed" ? "bg-red-500/35 text-red-100" : "bg-black/50 text-white/70"
+          }`}
+        >
+          {j.status === "done" ? "made" : j.status}
+        </span>
+        <span className="absolute right-2.5 top-2.5 rounded-full bg-black/50 px-2 py-0.5 text-[10px] tabular-nums text-white/85 backdrop-blur">
+          {j.seconds} s{j.hasAudio ? " · ♪" : ""}
+        </span>
+        {ok && (
+          <span className="pointer-events-none absolute inset-0 grid place-items-center opacity-0 transition group-hover:opacity-100">
+            <span className="grid size-11 place-items-center rounded-full bg-white/85 text-black shadow-lg">▶</span>
+          </span>
+        )}
+        <p className={`absolute inset-x-2.5 bottom-2 text-white/95 [text-shadow:0_1px_4px_rgba(0,0,0,0.7)] ${compact ? "line-clamp-1 text-[11px]" : "line-clamp-2 text-xs leading-snug"}`}>
+          {j.status === "failed" && j.error ? j.error : j.prompt}
+        </p>
+      </button>
+      <div className="flex items-center gap-2 px-3 py-2 text-[11px]">
+        <span className="truncate text-gray-200">{spec?.label ?? j.model}</span>
+        {j.latencyMs ? <span className="shrink-0 tabular-nums text-gray-500">· {(j.latencyMs / 1000).toFixed(0)} s</span> : null}
+        {j.costUsd != null ? <span className="shrink-0 text-gray-500">· ${j.costUsd.toFixed(2)}</span> : null}
+        <span className="ml-auto shrink-0 text-gray-600">{j.origin ? `${ORIGIN[j.origin] ?? j.origin} · ` : ""}{ago}</span>
+        <button type="button" onClick={onRemove} className="shrink-0 text-gray-600 opacity-0 transition hover:text-gray-300 group-hover:opacity-100" title="Forget this clip (the file stays on disk)" aria-label="Forget this clip">
+          ✕
+        </button>
+      </div>
+    </article>
   );
 }
 
