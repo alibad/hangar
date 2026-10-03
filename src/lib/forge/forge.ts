@@ -60,7 +60,12 @@ async function readYieldRequest(): Promise<string | null> {
 const CLAIM_TAG = "Video Forge";
 const TICK_MS = 60_000;
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://127.0.0.1:11434";
-/** A small local vision model (Ollama, ~10 GB while loaded; unloaded after every look). */
+/**
+ * The local vision model that looks at every still and clip (Ollama, unloaded
+ * after every look). The `checkModel` setting overrides it — Gemma 4 31B, the
+ * writer, sees images too: a stronger judge of who is in a shot, at 19 GB a
+ * load instead of 6.
+ */
 const VISION_MODEL = process.env.FORGE_VISION_MODEL ?? "qwen3-vl:8b";
 
 /**
@@ -70,6 +75,7 @@ const VISION_MODEL = process.env.FORGE_VISION_MODEL ?? "qwen3-vl:8b";
 async function checkStill(
   file: string,
   expect?: { name: string; look: string }[],
+  model = VISION_MODEL,
 ): Promise<{ people: boolean; text: boolean; logo: boolean; notes: string; present?: boolean[] } | null> {
   try {
     const image = (await fs.readFile(file)).toString("base64");
@@ -78,7 +84,7 @@ async function checkStill(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: VISION_MODEL,
+        model,
         stream: false,
         think: false,
         keep_alive: 0,
@@ -125,7 +131,7 @@ export type ClipCheck = { people: boolean; text: boolean; logo: boolean; artifac
  * questions), so a clip graded here needs no second look there. Null when the
  * model or ffmpeg is unavailable.
  */
-async function checkClip(file: string, seconds: number): Promise<ClipCheck | null> {
+async function checkClip(file: string, seconds: number, model = VISION_MODEL): Promise<ClipCheck | null> {
   const { execFile } = await import("child_process");
   const { promisify } = await import("util");
   const os = await import("os");
@@ -142,7 +148,7 @@ async function checkClip(file: string, seconds: number): Promise<ClipCheck | nul
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: VISION_MODEL,
+        model,
         stream: false,
         think: false,
         keep_alive: 0,
@@ -188,7 +194,7 @@ async function checkClip(file: string, seconds: number): Promise<ClipCheck | nul
       artifacts: Math.max(0, Math.min(3, Number(j.artifacts) || 0)),
       beauty: Math.max(1, Math.min(5, Number(j.beauty) || 1)),
       notes: String(j.notes ?? "").slice(0, 200),
-      model: VISION_MODEL,
+      model,
       checkedAt: new Date().toISOString(),
     };
   } catch {
@@ -333,6 +339,8 @@ export type ForgeSettings = {
   storyStillModel?: string;
   /** Every Nth story is made at full quality (Wan 2.2 14B, 20 steps) when it fits; 0 = never. */
   storyQualityEvery?: number;
+  /** The vision model for still and clip checks (an Ollama tag); FORGE_VISION_MODEL / qwen3-vl:8b when unset. */
+  checkModel?: string;
   /**
    * Services the owner asked to keep off while the window is open, stopped
    * again if something starts them (2026-10-02: quote-forge's Qwen image
@@ -1198,7 +1206,7 @@ class Forge {
         // Look first, and draw again rather than spend ~2.5 min animating it.
         await freeComfyIfIdle();
         this.runtime.now = `Checking the first frame of "${item.topic}" with the vision model…`;
-        const look = await checkStill(savedPath, item.story ? cast : undefined);
+        const look = await checkStill(savedPath, item.story ? cast : undefined, s.checkModel || VISION_MODEL);
         if (!look) {
           note(item, "Vision check unavailable; the still was not checked");
           break;
@@ -1324,7 +1332,7 @@ class Forge {
         // after the whole batch had given the card back (~25 min later).
         if (s.stillCheck && job.output) {
           await freeComfyIfIdle();
-          const check = await checkClip(path.join(videoRoot(), ...job.output.split("/")), item.video.seconds ?? s.seconds);
+          const check = await checkClip(path.join(videoRoot(), ...job.output.split("/")), item.video.seconds ?? s.seconds, s.checkModel || VISION_MODEL);
           if (check) {
             item.check = check;
             note(item, `Vision check: ${[check.people && !item.story && "people", check.text && "writing", check.logo && "a logo", check.artifacts > 1 && "artifacts"].filter(Boolean).join(", ") || "clean"}, beauty ${check.beauty}/5`);
