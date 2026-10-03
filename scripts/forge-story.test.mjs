@@ -119,3 +119,10 @@ test("each part of the stack goes to the option used least lately", () => {
   assert.equal(st.video.key, "hunyuan");
   assert.notEqual(st.score.key, "brief");
 });
+
+test("the quality slot makes the film with Wan 2.2 14B at its full 20 steps", () => {
+  const st = pickStack({ format: "tale", characters: [], shots: [{}] }, [], { quality: true });
+  assert.equal(st.video.key, "wan14b-full");
+  assert.equal(st.video.videoModel, "wan2.2-14b");
+  assert.equal(st.video.steps, 20);
+});

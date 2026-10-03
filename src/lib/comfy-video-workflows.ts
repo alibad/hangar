@@ -139,21 +139,27 @@ function wan14b(spec: VideoModelSpec, p: VideoGraphParams): ComfyGraph {
   const loraVer = kind === "i2v" ? "v1" : "v1.1";
   const steps = p.steps ?? spec.steps;
   const split = Math.max(1, Math.round(steps / 2));
+  // 12+ steps is the template's full-quality path ("Enable 4steps LoRA" off):
+  // no lightx2v LoRA, real CFG 3.5, shift 8 — ~10× the sampling work of 4 steps.
+  const full = steps >= 12;
+  const cfg = full ? 3.5 : 1;
   const clip = add("CLIPLoader", { clip_name: "umt5_xxl_fp8_e4m3fn_scaled.safetensors", type: "wan", device: "default" });
   const vae = add("VAELoader", { vae_name: "wan_2.1_vae.safetensors" });
   const expert = (noise: "high" | "low") => {
     const unet = add("UNETLoader", { unet_name: `wan2.2_${kind}_${noise}_noise_14B_fp8_scaled.safetensors`, weight_dtype: "default" });
-    const lora = add("LoraLoaderModelOnly", {
-      model: ref(unet),
-      lora_name: `wan2.2_${kind}_lightx2v_4steps_lora_${loraVer}_${noise}_noise.safetensors`,
-      strength_model: 1,
-    });
-    return add("ModelSamplingSD3", { model: ref(lora), shift: 5 });
+    const lora = full
+      ? unet
+      : add("LoraLoaderModelOnly", {
+          model: ref(unet),
+          lora_name: `wan2.2_${kind}_lightx2v_4steps_lora_${loraVer}_${noise}_noise.safetensors`,
+          strength_model: 1,
+        });
+    return add("ModelSamplingSD3", { model: ref(lora), shift: full ? 8 : 5 });
   };
   const high = expert("high");
   const low = expert("low");
   const pos = add("CLIPTextEncode", { text: p.prompt, clip: ref(clip) });
-  const neg = add("CLIPTextEncode", { text: WAN_NEGATIVE, clip: ref(clip) });
+  const neg = add("CLIPTextEncode", { text: full && p.avoid ? `${WAN_NEGATIVE}, ${p.avoid}` : WAN_NEGATIVE, clip: ref(clip) });
   let positive: Ref = ref(pos);
   let negative: Ref = ref(neg);
   let latent: Ref;
@@ -179,7 +185,7 @@ function wan14b(spec: VideoModelSpec, p: VideoGraphParams): ComfyGraph {
     add_noise: "enable",
     noise_seed: p.seed,
     steps,
-    cfg: 1,
+    cfg,
     sampler_name: "euler",
     scheduler: "simple",
     positive,
@@ -194,7 +200,7 @@ function wan14b(spec: VideoModelSpec, p: VideoGraphParams): ComfyGraph {
     add_noise: "disable",
     noise_seed: 0,
     steps,
-    cfg: 1,
+    cfg,
     sampler_name: "euler",
     scheduler: "simple",
     positive,

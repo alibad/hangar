@@ -8,7 +8,8 @@ import { listenAll, SEARXNG_URL, type SignalSource } from "./sources";
 import { writeBrief, writeSecondShot, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
 import { nextWindowStart, shortlist, STILL_SUFFIX, windowMinutesLeft } from "./rules";
 import { FORMATS, pickFormat, pickLook, pickSeed, shotStillPrompt, storyHasHumans, STORY_AVOID, STORY_MODEL, STORY_STILL_SUFFIX, writeStory, type Story } from "./story";
-import { pickStack, VIDEO_OPTIONS } from "./stack";
+import { pickStack, QUALITY_VIDEO, VIDEO_OPTIONS } from "./stack";
+import { generateWithReferences, isHostedImageModel } from "@/lib/image-refs";
 import { recordLabRun } from "../lab-runs";
 
 export { nextWindowStart, windowMinutesLeft } from "./rules";
@@ -243,7 +244,7 @@ export type ForgeItem = {
     title: string;
     narration: string;
     /** Who must be in the picture (continuity), and whether the story has any person in it. */
-    cast?: { name: string; look: string }[];
+    cast?: { name: string; look: string; sheet?: string }[];
     humans?: boolean;
   };
   /**
@@ -252,7 +253,7 @@ export type ForgeItem = {
    */
   variant?: { bakeoffId: string; key: string; label: string; storyId: string; index: number };
   /** Per-shot render settings (bake-offs); otherwise the forge's own. */
-  render?: { videoModel: string; tier: "low" | "high"; seconds?: number };
+  render?: { videoModel: string; tier: "low" | "high"; seconds?: number; steps?: number };
   /** When the shot's clip started waiting for memory (bake-offs give up on a model that never fits). */
   waitingSince?: string;
   timeline: { at: string; what: string }[];
@@ -326,6 +327,10 @@ export type ForgeSettings = {
   storyShots?: number;
   /** Video models stories rotate through (keys from stack.ts); all of them when unset. */
   storyVideoModels?: string[];
+  /** The model that draws stories' first frames and character sheets (a router alias: hosted, through the console); stillModel when unset. */
+  storyStillModel?: string;
+  /** Every Nth story is made at full quality (Wan 2.2 14B, 20 steps) when it fits; 0 = never. */
+  storyQualityEvery?: number;
   /**
    * Services the owner asked to keep off while the window is open, stopped
    * again if something starts them (2026-10-02: quote-forge's Qwen image
@@ -1021,8 +1026,17 @@ class Forge {
     // Only the video models that fit right now (the writer has unloaded by now).
     const room = await videoModelsThatFit();
     const allowed = s.storyVideoModels?.length ? room.keys.filter((k) => s.storyVideoModels!.includes(k)) : room.keys;
-    story.stack = pickStack(story, recent.map((r) => r.stack).filter((x): x is NonNullable<Story["stack"]> => !!x), { video: allowed.length ? allowed : ["wan5b"] });
+    const stacks = recent.map((r) => r.stack).filter((x): x is NonNullable<Story["stack"]> => !!x);
+    const every = s.storyQualityEvery ?? 3;
+    const qualityDue = every > 0 && !stacks.slice(0, every - 1).some((st) => st.video.key === QUALITY_VIDEO.key) && room.keys.includes("wan14b");
+    story.stack = pickStack(story, stacks, { video: allowed.length ? allowed : ["wan5b"], quality: qualityDue });
     if (room.skipped.length) story.notes.push(`Not tried for this film, no room right now: ${room.skipped.join("; ")}`);
+    if (every > 0 && !qualityDue && !room.keys.includes("wan14b") && !stacks.slice(0, every - 1).some((st) => st.video.key === QUALITY_VIDEO.key))
+      story.notes.push("The full-quality slot (Wan 2.2 14B, 20 steps) is due but it does not fit right now; it waits for a film when it does");
+    const pictures = s.storyStillModel || s.stillModel;
+    story.stack.pictures = pictures;
+    // Characters drawn once, so every shot can be drawn from them (hosted models take references).
+    if (isHostedImageModel(pictures) && story.characters.length) await this.drawCharacterSheets(story, pictures);
     await saveStory(story);
     void recordLabRun({
       lab: "forge",
@@ -1038,6 +1052,7 @@ class Forge {
     const base = Date.now();
     const humans = storyHasHumans(story.characters);
     const lookOf = new Map(story.characters.map((c) => [c.name, c.look]));
+    const sheetOf = new Map(story.characters.filter((c) => c.sheet).map((c) => [c.name, c.sheet!]));
     for (const [i, shot] of story.shots.entries()) {
       const item: ForgeItem = {
         id: randomUUID().slice(0, 12),
@@ -1060,10 +1075,10 @@ class Forge {
           count: story.shots.length,
           title: story.title,
           narration: shot.narration,
-          cast: (shot.cast ?? []).filter((n) => lookOf.has(n)).map((n) => ({ name: n, look: lookOf.get(n)! })),
+          cast: (shot.cast ?? []).filter((n) => lookOf.has(n)).map((n) => ({ name: n, look: lookOf.get(n)!, ...(sheetOf.has(n) ? { sheet: sheetOf.get(n) } : {}) })),
           humans,
         },
-        render: { videoModel: story.stack.video.videoModel, tier: story.stack.video.tier },
+        render: { videoModel: story.stack.video.videoModel, tier: story.stack.video.tier, ...(story.stack.video.steps ? { steps: story.stack.video.steps } : {}) },
         timeline: [
           {
             at: stamp(),
@@ -1076,6 +1091,45 @@ class Forge {
     this.runtime.quietUntil = undefined;
     this.runtime.now = `Wrote "${story.title}" — ${FORMATS[format].label.toLowerCase()}, ${story.shots.length} shots, motion by ${story.stack.video.label} — in ${Math.round((Date.now() - t0) / 1000)} s; rendering its shots now.`;
     return true;
+  }
+
+  /**
+   * Each character drawn once, full figure on a plain ground in the film's look:
+   * the reference every shot they are in is drawn from. Saved under the video
+   * root (sources/), recorded as lab runs; a sheet that fails leaves that
+   * character to be drawn from text, as before.
+   */
+  private async drawCharacterSheets(story: Story, model: string) {
+    const dir = path.join(videoRoot(), "sources");
+    await fs.mkdir(dir, { recursive: true });
+    const look = story.look.replace(/\.$/, "");
+    const made: string[] = [];
+    for (const c of story.characters.slice(0, 4)) {
+      this.runtime.now = `Drawing ${c.name} for "${story.title}" with ${model}…`;
+      const prompt = `Character reference for an animated film: ${c.look}. One full figure, standing, three-quarter view, centred, the whole body visible, on a plain softly lit neutral background; nothing else in the picture. In this exact visual style: ${look}. No text, no labels, no multiple views.`;
+      const r = await generateWithReferences({ model, prompt, width: 1024, height: 1024, folder: "forge", source: "console/forge-sheet" });
+      void recordLabRun({
+        lab: "forge",
+        capability: "image",
+        model,
+        local: false,
+        inputSummary: `Character sheet: ${c.name} for "${story.title}"`,
+        params: { storyId: story.id, character: c.name, width: 1024, height: 1024 },
+        status: r.ok ? "ok" : "error",
+        latencyMs: r.ok ? r.latency : 0,
+        ...(r.ok ? { outputPath: r.savedPath ?? undefined, outputSummary: `${c.name}: ${c.look}`.slice(0, 300) } : { error: r.error.slice(0, 1000) }),
+      });
+      if (!r.ok || !r.savedPath) {
+        story.notes.push(`No character sheet for ${c.name}: ${r.ok ? "nothing saved" : r.error.slice(0, 160)}`);
+        continue;
+      }
+      const file = `sheet-${story.id}-${c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}${path.extname(r.savedPath) || ".png"}`;
+      await fs.copyFile(r.savedPath, path.join(dir, file));
+      c.sheet = `sources/${file}`;
+      made.push(`${c.name} (${Math.round(r.latency / 1000)} s)`);
+    }
+    if (made.length) story.notes.push(`Character sheets by ${model}: ${made.join(", ")} — every shot they are in is drawn from them`);
+    await saveStory(story);
   }
 
   private async expectedRenderMin(s: ForgeSettings): Promise<number> {
@@ -1103,14 +1157,36 @@ class Forge {
       // and for a person in a story that has none (the first scorpion film drew
       // "two figures" as two people). The best of three tries is kept.
       const cast = item.story?.cast ?? [];
-      let best: { score: number; res: Awaited<ReturnType<typeof generateAndSave>>; path: string; why: string } | null = null;
+      let best: { score: number; res: Awaited<ReturnType<typeof generateAndSave>>; path: string; why: string; model: string } | null = null;
       let castNote = "";
+      let usedModel = s.stillModel;
+      let usedLocal = false;
       for (let attempt = 1; attempt <= 3; attempt++) {
         this.runtime.now = `Making the first frame of "${item.topic}"${attempt > 1 ? ` (try ${attempt})` : ""}…`;
         // After a try that lost someone, their looks lead the prompt.
         const lead = attempt > 1 && castNote ? `${cast.map((c) => c.look).join(" and ")}, clearly visible. ` : "";
         const noPeople = item.story && item.story.humans === false ? " No people, no humans." : "";
-        res = await generateAndSave({ prompt: `${lead}${item.stillPrompt}${noPeople} ${item.story ? STORY_STILL_SUFFIX : STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
+        const hosted = item.story && s.storyStillModel && isHostedImageModel(s.storyStillModel) && !usedLocal ? s.storyStillModel : null;
+        if (hosted) {
+          const refs = cast.filter((c) => c.sheet).map((c) => path.join(videoRoot(), ...c.sheet!.split("/")));
+          const keep = refs.length ? " Keep every character exactly as in the reference images — the same face, build, hair, clothing and colours — but draw them into this scene." : "";
+          const prompt = `${lead}${item.stillPrompt}${noPeople}${keep} One single wide cinematic film frame, to be cropped to 16:9: keep the subjects in the middle band; no borders, no panels, no character-sheet layout. ${STORY_STILL_SUFFIX}`;
+          const r = await generateWithReferences({ model: hosted, prompt, width: 1536, height: 1024, references: refs, folder: "forge", source: "console/forge" });
+          if (r.ok) {
+            res = { ok: true, target: "ai-router", body: { savedPath: r.savedPath, latency: r.latency, model: hosted, references: refs.length } };
+            usedModel = hosted;
+            if (attempt === 1 && refs.length) note(item, `Drawing with ${hosted} from ${refs.length} character sheet${refs.length > 1 ? "s" : ""}`);
+          } else {
+            // OpenAI down, out of quota or refusing: this shot is drawn locally instead.
+            note(item, `${hosted} failed (${r.error.slice(0, 160)}); drawing this shot with ${s.stillModel}`);
+            usedLocal = true;
+            usedModel = s.stillModel;
+            res = await generateAndSave({ prompt: `${lead}${item.stillPrompt}${noPeople} ${STORY_STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
+          }
+        } else {
+          usedModel = s.stillModel;
+          res = await generateAndSave({ prompt: `${lead}${item.stillPrompt}${noPeople} ${item.story ? STORY_STILL_SUFFIX : STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
+        }
         savedPath = res.ok ? (res.body.savedPath as string | null) : null;
         if (!res.ok || !savedPath) break;
         if (!s.stillCheck) break;
@@ -1137,12 +1213,13 @@ class Forge {
         const why = [bad && `showed ${bad}`, castNote].filter(Boolean).join(", ");
         // Writing or a logo is never kept; a missing character or a stray person is, if nothing better comes.
         const score = (look.text || look.logo ? -10 : 0) + (look.present?.filter(Boolean).length ?? 0) - (strayPeople ? 2 : 0);
-        if (!look.text && !look.logo && (!best || score > best.score)) best = { score, res: res!, path: savedPath, why };
+        if (!look.text && !look.logo && (!best || score > best.score)) best = { score, res: res!, path: savedPath, why, model: usedModel };
         note(item, `First frame ${attempt} ${why} (${look.notes}); ${attempt < 3 ? "drawing again" : best ? "keeping the closest one" : "giving up"}`);
         if (attempt === 3) {
           if (best) {
             res = best.res;
             savedPath = best.path;
+            usedModel = best.model;
             note(item, `Continuity: no clean first frame in three tries; animating the closest (${best.why})`);
             break;
           }
@@ -1192,12 +1269,12 @@ class Forge {
       await fs.mkdir(dir, { recursive: true });
       const file = `forge-${item.id}${path.extname(savedPath) || ".png"}`;
       await fs.copyFile(savedPath, path.join(dir, file));
-      item.still = { file: `sources/${file}`, latencyMs: Number(res.body.latency ?? 0), model: s.stillModel };
+      item.still = { file: `sources/${file}`, latencyMs: Number(res.body.latency ?? 0), model: usedModel };
       void recordLabRun({
         lab: "forge",
         capability: "image",
-        model: s.stillModel,
-        local: true,
+        model: usedModel,
+        local: !isHostedImageModel(usedModel),
         inputSummary: item.stillPrompt.slice(0, 300),
         params: { width: 1280, height: 720, itemId: item.id, ...(item.story ? { storyId: item.story.id, shot: item.story.index + 1 } : {}) },
         status: "ok",
@@ -1217,6 +1294,7 @@ class Forge {
         prompt: item.motionPrompt,
         seconds: secs,
         tier,
+        ...(item.render?.steps ? { steps: item.render.steps } : {}),
         sourceImage: item.still.file,
         origin: "forge",
         // The still has no one in it, but the first night's airport clip walked
@@ -1226,7 +1304,7 @@ class Forge {
       });
       item.video = { jobId: job.id, model: vm, seconds: secs, tier };
       item.status = "rendering";
-      note(item, `Queued the clip (${vm}, ${secs} s, ${tier})`);
+      note(item, `Queued the clip (${vm}${item.render?.steps ? `, ${item.render.steps} steps` : ""}, ${secs} s, ${tier})`);
       await saveItem(item);
     }
     if (item.status === "rendering" && item.video) {

@@ -12,12 +12,19 @@ import type { FormatId, StoryCharacter, StoryShot, StoryStack } from "./story";
 type Option = { key: string; label: string; weight?: number };
 
 /** Measured on the first bake-off night (2 Oct): all four fit beside the night's services, H3 did not. */
-export const VIDEO_OPTIONS: (Option & { videoModel: string; tier: "low" | "high" })[] = [
+export const VIDEO_OPTIONS: (Option & { videoModel: string; tier: "low" | "high"; steps?: number })[] = [
   { key: "wan5b", label: "Wan 2.2 5B", videoModel: "wan2.2-ti2v-5b", tier: "high" },
   { key: "wan14b", label: "Wan 2.2 14B", videoModel: "wan2.2-14b", tier: "high" },
   { key: "ltx", label: "LTX-2.5", videoModel: "ltx-2.5", tier: "high" },
   { key: "hunyuan", label: "HunyuanVideo 1.5", videoModel: "hunyuanvideo-1.5", tier: "low" },
 ];
+
+/**
+ * The quality slot (the owner's choice, 3 Oct): about one film in three made
+ * with Wan 2.2 14B at its full 20 steps and real CFG, without the 4-step
+ * lightx2v LoRA — sharper motion and faces, ~4× slower (~9 min a clip).
+ */
+export const QUALITY_VIDEO = { key: "wan14b-full", label: "Wan 2.2 14B (full, 20 steps)", videoModel: "wan2.2-14b", tier: "high" as const, steps: 20 };
 
 export type VoiceOption = Option & { engine: "chatterbox" | "kokoro"; voice: string; gender: "female" | "male"; pair: string };
 
@@ -68,17 +75,17 @@ function leastUsed<T extends Option>(options: T[], used: (string | undefined)[],
 export function pickStack(
   story: { format?: FormatId; characters: StoryCharacter[]; shots: Pick<StoryShot, "speaker">[] },
   recent: StoryStack[],
-  opts: { video?: string[] } = {},
+  opts: { video?: string[]; quality?: boolean } = {},
   rand = Math.random,
 ): StoryStack {
   const window = recent.slice(0, 16);
   const videos = opts.video?.length ? VIDEO_OPTIONS.filter((v) => opts.video!.includes(v.key)) : VIDEO_OPTIONS;
-  const video = leastUsed(videos.length ? videos : VIDEO_OPTIONS, window.map((s) => s.video.key), rand);
+  const video = opts.quality ? QUALITY_VIDEO : leastUsed(videos.length ? videos : VIDEO_OPTIONS, window.map((s) => s.video.key), rand);
   const score = leastUsed(SCORE_OPTIONS, window.map((s) => s.score.key), rand);
   const finish = leastUsed(FINISH_OPTIONS, window.map((s) => s.finish.key), rand);
   const stack: StoryStack = {
     pickedAt: new Date().toISOString(),
-    video: { key: video.key, label: video.label, videoModel: video.videoModel, tier: video.tier },
+    video: { key: video.key, label: video.label, videoModel: video.videoModel, tier: video.tier, ...(video.steps ? { steps: video.steps } : {}) },
     score: { key: score.key, label: score.label, ...(score.style ? { style: score.style } : {}) },
     finish: { key: finish.key, label: finish.label },
   };

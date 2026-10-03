@@ -390,12 +390,16 @@ export type StoryCharacter = {
   kind?: "human" | "animal" | "creature" | "object";
   gender?: "female" | "male" | "none";
   age?: "child" | "young" | "adult" | "old";
+  /** The character drawn once (file under the video root), referenced by every shot they are in. */
+  sheet?: string;
 };
 
 /** The technology a film is made with — chosen per film, credited at its end. See stack.ts. */
 export type StoryStack = {
   pickedAt: string;
-  video: { key: string; label: string; videoModel: string; tier: "low" | "high" };
+  video: { key: string; label: string; videoModel: string; tier: "low" | "high"; steps?: number };
+  /** The model that draws the first frames (and the character sheets). */
+  pictures?: string;
   /** Who reads each speaker's lines ("Narrator" and characters); none for a silent film. */
   voices?: Record<string, { key: string; engine: "chatterbox" | "kokoro"; voice: string; label: string }>;
   /** The lead voice: the option this film tries. */
