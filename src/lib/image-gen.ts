@@ -14,6 +14,7 @@ import { getImageModel, hostedImageSize, isImageModelId, type ImageModelId } fro
 import { getCatalogue, routerUrl } from "@/lib/providers";
 import { mirrorImageHistory } from "@/lib/image-history";
 import { ResourceLeaseError, withResourceLease, workloadForImageModel } from "@/lib/resource-manager";
+import { runCloudImage } from "@/lib/cloud-image-run";
 
 /**
  * Which backend served (or would have served) the call.
@@ -140,6 +141,40 @@ export async function generateAndSave(
 
   const folder = safeFolder(raw.folder == null ? "" : String(raw.folder));
   if (folder === null) return { ok: false, target, status: 400, body: { error: "Invalid destination gallery" } };
+
+  // A hosted model takes its own parameter set (quality, background, format,
+  // n, …), validated against src/lib/cloud-image-models.ts and saved image by
+  // image — see cloud-image-run.ts. Local aliases served THROUGH the router
+  // (local-qwen-image) keep the diffusion path below.
+  if (viaRouter) {
+    let entry: { local: boolean; target: string } | undefined;
+    try {
+      entry = (await getCatalogue()).models.find((m) => m.id === requested);
+    } catch { /* unknown: treat as hosted, as generateViaRouter always has */ }
+    if (!entry?.local) {
+      try {
+        const r = await runCloudImage({
+          kind: "generate",
+          alias: requested,
+          target: entry?.target,
+          prompt: payload.prompt,
+          cloud: raw.cloud as Record<string, unknown> | undefined,
+          width: raw.width,
+          height: raw.height,
+          folder,
+          seed,
+          source: raw.source,
+          signal,
+          baseUrl: routerUrl(),
+        });
+        return r.ok ? { ok: true, target, body: r.body } : { ok: false, target, status: r.status, body: r.body };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { ok: false, target, status: 502, body: { error: message, cause: err instanceof Error && err.cause ? String(err.cause) : "" } };
+      }
+    }
+  }
+
   try {
     const generate = async () => {
       if (viaRouter) return generateViaRouter(requested, payload);

@@ -46,6 +46,7 @@ export function middleware(req: NextRequest) {
     pathname === "/api/qwen/edit" ||
     pathname === "/api/image/generate" ||
     pathname === "/api/image/edit" ||
+    pathname === "/api/image/cloud-edit" ||
     (req.method === "GET" && DASHBOARD_POLLS.has(pathname));
   if (!skip) {
     const ip =
