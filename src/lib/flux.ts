@@ -1,32 +1,13 @@
-// FLUX.1-schnell generation via ComfyUI's HTTP API.
+// Image generation via ComfyUI's HTTP API, for every model the console runs
+// there (src/lib/comfy-image-workflows.ts builds the graphs).
 //
-// Lifted out of the old /api/creative route so the result can go through
-// saveImage() like every other image the box produces — that route returned a
-// ComfyUI filename and proxied /view to display it, which is why nothing from
-// the Creative tab ever reached the gallery, the DuckDB index, or the Activity
-// feed. This returns the PNG bytes instead, so the caller can persist it.
+// Returns the PNG bytes rather than a ComfyUI filename, so the caller can put
+// the result through saveImage() like every other image the box produces. The
+// file keeps its old name: it began as FLUX.1-schnell's path, and schnell was
+// retired on 28 Sept 2026 (docs/image-model-experiment-2026-09-26.md).
 
 import { getServiceUrl } from "@/lib/services";
 import { buildComfyImageWorkflow, type ComfyGraph } from "./comfy-image-workflows";
-
-/** ComfyUI graph for text→image on FLUX.1-schnell. Node ids are arbitrary but
- *  must match the wiring references below. */
-function buildFluxWorkflow(prompt: string, width: number, height: number, seed: number, steps: number) {
-  return {
-    "1": { class_type: "DualCLIPLoader", inputs: { clip_name1: "clip_l.safetensors", clip_name2: "t5xxl_fp16.safetensors", type: "flux" } },
-    "2": { class_type: "CLIPTextEncode", inputs: { text: prompt, clip: ["1", 0] } },
-    "3": { class_type: "EmptySD3LatentImage", inputs: { width, height, batch_size: 1 } },
-    "4": { class_type: "UNETLoader", inputs: { unet_name: "flux1-schnell.safetensors", weight_dtype: "default" } },
-    "5": { class_type: "BasicGuider", inputs: { model: ["4", 0], conditioning: ["2", 0] } },
-    "6": { class_type: "RandomNoise", inputs: { noise_seed: seed } },
-    "7": { class_type: "BasicScheduler", inputs: { model: ["4", 0], scheduler: "simple", steps, denoise: 1.0 } },
-    "8": { class_type: "SamplerCustomAdvanced", inputs: { noise: ["6", 0], guider: ["5", 0], sampler: ["9", 0], sigmas: ["7", 0], latent_image: ["3", 0] } },
-    "9": { class_type: "KSamplerSelect", inputs: { sampler_name: "euler" } },
-    "10": { class_type: "VAELoader", inputs: { vae_name: "ae.safetensors" } },
-    "11": { class_type: "VAEDecode", inputs: { samples: ["8", 0], vae: ["10", 0] } },
-    "12": { class_type: "SaveImage", inputs: { filename_prefix: "betenshi", images: ["11", 0] } },
-  };
-}
 
 export type FluxParams = {
   prompt: string;
@@ -44,20 +25,12 @@ function detail(err: unknown): string {
 }
 
 /**
- * Queue a FLUX generation and return the finished PNG. Throws on error/timeout.
+ * Queue a ComfyUI generation (or, with references, an edit) and return the
+ * finished PNG. Throws on error/timeout.
  *
  * `signal` cancels before queue admission. Once ComfyUI accepts a prompt, finish
  * collecting it so a disconnected browser cannot orphan its image or GPU lease.
  */
-export async function generateFlux(
-  params: FluxParams,
-  timeoutMs = 180_000,
-  signal?: AbortSignal,
-): Promise<Buffer> {
-  const workflow = buildFluxWorkflow(params.prompt, params.width, params.height, params.seed, params.steps);
-  return runComfyWorkflow(workflow, timeoutMs, signal);
-}
-
 export async function generateComfyImage(model: string, params: FluxParams, signal?: AbortSignal, references: string[] = []): Promise<Buffer> {
   const filenames: string[] = [];
   for (const reference of references) {

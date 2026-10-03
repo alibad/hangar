@@ -15,7 +15,7 @@ There is no single winner. Pick by job:
 | Native 2K with HiDream's own look (English prompts) | **HiDream-O1 Dev** | 16–23 s at 2048². About twice a Lanczos upscale's fine detail, but half of Klein rendered directly at 2K, and airbrushed at 1:1. For detail per second, ask **Klein for 2048² directly** (13–25 s). |
 | Counting past four; strict multi-constraint prompts; best-effort Arabic | **gpt-image-2** via the router | Passed every objective check it was given, including the two no local model passed (five apples; keffiyeh). ~$0.024 per image and ~26 s. |
 | Teaching a consistent style or subject (LoRA) | **FLUX.2 Klein 4B**, trained on `FLUX.2-klein-base-4B` | Apache-2.0 base built for training. Published need is 12–24 GB. About an hour; the LoRA runs on the installed 4-step model. Researched, not trained. |
-| — | Retire **FLUX.1 schnell** | The coordinator refused every attempt (31.6 GB VRAM + 27.9 GB RAM declared). Klein supersedes it. |
+| — | **FLUX.1 schnell: retired** (28 Sept) | The coordinator refused every attempt (31.6 GB VRAM + 27.9 GB RAM declared), and Klein does its job faster. It is gone from the Studio, the router's workloads, the host profile and the MCP tool; `/api/creative` now runs Klein. Its 22.7 GB weights file is still in ComfyUI's `models/diffusion_models` for you to delete. |
 
 **Qwen-Image was not measured.** Its generation was refused because the
 user's quote-forge app keeps `vllm-small` resident (13 GB), and
@@ -23,9 +23,10 @@ user's quote-forge app keeps `vllm-small` resident (13 GB), and
 own two local models can never run together. See
 [Qwen-Image](#qwen-image-not-measured-and-why-that-is-itself-the-finding).
 
-**Newer models.**
-- **Qwen-Image-2.1** (20 Sep) is #1 among open weights on both Artificial Analysis boards and fits 32 GB. But it is **non-commercial** (Qwen Research Licence), so install it only for personal or research use.
-- The cheapest real upgrade is **HiDream-O1-Image full** (MIT): the same 7.7 GB fp8 size as the Dev model here, and 101 Elo higher. Nothing was installed.
+**Newer models: installed 28 Sept, not measured yet.**
+- **Qwen-Image-2.1** (20 Sep) is #1 among open weights on both Artificial Analysis boards and fits 32 GB. It is **non-commercial** (Qwen Research Licence), which you accepted for personal use; the picker and the MCP tool say so. One 7B model does both generation and editing.
+- **HiDream-O1-Image full** (MIT): the same 7.7 GB fp8 size as the Dev model, 101 Elo higher, native 2K, and it edits from reference images.
+- Both are downloaded (SHA-256 checked against the hub) and wired into the Studio's Generate, Edit and Compare. Their footprints in the picker are estimates until measured. Qwen-Image-2.1's nodes need ComfyUI v0.37.4 (installed: 36da3ff7), so it cannot run until ComfyUI is updated. See [What's newer](#whats-newer-than-12-september).
 
 **The biggest speed win is not a model.** The console unloads ComfyUI's
 weights after every job, so every local image pays a cold load. Keeping
@@ -33,8 +34,10 @@ Klein resident would make it a ~2-second model (see Follow-ups).
 
 ## How to look at the results
 
-- **Image Lab** (`#lab-image`, also Ctrl K → "Image Lab"). The top half runs one prompt on a local model with an optional cloud model beside it. Every run is recorded in `lab_runs`. The bottom half is the evaluation suite: every model side by side, per prompt and seed.
-- **Image Studio → Eval** shows the same suite view.
+Everything image lives in **Image Studio**. A separate Image Lab tab existed
+for a day and was folded in on 28 Sept, so there is one place for images:
+- **Compare** runs one prompt on several local and cloud models at the same seed. Each tile is measured (latency, card-wide VRAM peak, cloud cost) and recorded in `lab_runs` under one compare group.
+- **Eval** is the evaluation suite: every model side by side, per prompt and seed, with this doc under "What we learned".
 - ✓/✗ records **your** verdict on each objective check; ★ records your taste pick. Verdicts are saved to `experiments/image-eval/verdicts/<run>.json`, so they can be committed with the run.
 - **The suite:** `experiments/image-eval/suite.json`. It has 12 prompts × 2 seeds, three edits, a cloud subset and a 2K subset. Each prompt is split into objective checks and taste.
 - **The runner** is `scripts/experiment-image-suite.mjs`, with modes `generate`, `cloud`, `edits`, `resolution`, `warm`, `footprint`, `coresidency` and `sheets`. It is resumable. It writes `experiments/image-eval/runs/<run>.json` and waits out the resource coordinator rather than failing. It takes `AI/logs/gpu-claim.txt` first (the protocol the parallel exploration sessions agreed on) and waits for another session's claim to clear.
@@ -292,7 +295,7 @@ caveats. `src/lib/image-models.ts` now says:
 - Klein: "fastest · generate + edit".
 - Z-Image: "best local text & Arabic".
 - HiDream: "English prompts only".
-- FLUX schnell: "needs the whole card · superseded by Klein".
+- FLUX schnell: "needs the whole card · superseded by Klein" (since retired).
 
 The MCP `generate_image` tool's model parameter now tells an agent which to
 pick and when not to (`scripts/mcp-betenshi.mjs`).
@@ -392,8 +395,19 @@ Also checked:
   20B's 28 GB.
 - **HiDream-O1-Image full** is the no-strings upgrade to try first.
 
-Nothing was installed. Both are a single ComfyUI checkpoint download to
-`D:\AI Models\comfyui`.
+**Installed 28 Sept** in `D:\AI Models\comfyui`, each file checked against
+the hub's SHA-256:
+- HiDream-O1 full: `checkpoints/hidream_o1_image_fp8_scaled.safetensors` (8.07 GB).
+- Qwen-Image-2.1: `diffusion_models/qwen_image_2.1_int8_convrot.safetensors`
+  (7.26 GB), `text_encoders/qwen3vl_8b_int8_convrot.safetensors` (9.35 GB) and
+  `vae/qwen_image_2.1_vae_bf16.safetensors` (0.68 GB).
+
+Wired as `hidream-o1` and `qwen-image-2.1` (`src/lib/comfy-image-workflows.ts`),
+with their own coordinator workloads. HiDream-O1 full's graph validates against
+the running ComfyUI. Qwen-Image-2.1's `TextEncodeQwenImage21` and
+`QwenImage21Cache` nodes arrive in ComfyUI v0.37.4, so that update comes first.
+Neither has been measured: both need a GPU window, and the manager must restart
+to load their workloads.
 
 ## Verified versus assumed
 
@@ -401,7 +415,7 @@ Nothing was installed. Both are a single ComfyUI checkpoint download to
 - Every latency, refusal and cost figure above, in `experiments/image-eval/runs/2026-09-26.json`:
   - the coordinator's refusals are verbatim under `denials` and `coresidency`;
   - cloud costs are from the AI Router's traffic log.
-- The Image Lab end to end, on both paths:
+- The Image Lab end to end, on both paths, before it was folded into the Studio's Compare (which now calls the same run route):
   - Cloud run: 14.0 s, saved to the "Image Lab" gallery, recorded in `lab_runs`.
   - Local run, Klein with gpt-image-2 in the comparison column: 12.0 s, peak 21.5 GB (+13.3 over baseline), 4 steps. Both images rendered in the Lab, and both runs were recorded.
   - The refusal path: with the card full, the Lab showed the coordinator's reason verbatim and recorded the attempt.
@@ -431,9 +445,6 @@ regenerated.
 - **Pass through the cloud call's real cost.** LiteLLM computes it (it is in
   the traffic log), but `generateViaRouter()` drops the response headers. The
   Lab shows "—" for gpt-image-2, whose price varies by quality.
-- **The Lab shell preselects the first model alphabetically.** For images that
-  is FLUX schnell, the one model that never fits. Either the shell should prefer
-  the capability's routed model, or schnell should be retired from the picker.
 - **Stale health ports.** The manager's "music" (:8012) and "bonsai" (:8011)
   health checks were answered by another project's SAM servers
   (`C:\Users\Admin\Code\db`), so both showed as "running" when they weren't.
@@ -442,5 +453,7 @@ regenerated.
   21.3 GiB against a 16 GB declaration. Either split the workload by size
   (`flux2-klein-generate-2k`) or let the coordinator scale a declared peak by
   pixel count.
-- **Migrate the Image Studio's Compare mode onto the Lab** once the Lab has
-  proved itself; they overlap.
+- **Measure the new models.** Update ComfyUI to v0.37.4, restart the manager,
+  then run `generate`, `edits`, `resolution`, `footprint` and `warm` with
+  `--models qwen-image-2.1,hidream-o1`, and replace their estimated footprints
+  in `config/model-meta.json`.

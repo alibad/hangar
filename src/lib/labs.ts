@@ -72,32 +72,6 @@ export type LabDefinition = {
 
 export const LABS: LabDefinition[] = [
   {
-    id: "image",
-    label: "Image Lab",
-    hint: "One prompt across local and cloud image models, plus the fixed evaluation suite side by side",
-    keywords: "image picture generate diffusion flux klein hidream z-image qwen gpt-image compare eval suite",
-    capability: "image",
-    input: "prompt",
-    output: "image",
-    cloudComparison: true,
-    doc: "docs/image-model-experiment-2026-09-26.md",
-    load: () => import("@/components/labs/image-lab"),
-  },
-  {
-    id: "process",
-    label: "Process Lab",
-    hint: "A pretend relocation agency: send in made-up clients, watch written rules and AI handle their cases, and step in when it asks you",
-    keywords: "process bpmn dmn workflow business rules operaton camunda simulation case inbox human task relocation visa agency",
-    capability: "process",
-    input: "structured",
-    output: "json",
-    // Each AI step in the lab already runs local first and records its own
-    // cloud fallback; there is no separate cloud column to compare.
-    cloudComparison: false,
-    doc: "docs/process-lab-2026-09-27.md",
-    load: () => import("@/components/labs/process-lab"),
-  },
-  {
     id: "decide",
     label: "Decision Lab",
     hint: "A typed question, calibrated probabilities — Laya beside an LLM",
@@ -123,6 +97,20 @@ export const LABS: LabDefinition[] = [
     cloudComparison: false,
     doc: "docs/music-model-experiment-2026-09-27.md",
     load: () => import("@/components/labs/music-lab"),
+  },
+  {
+    id: "process",
+    label: "Process Lab",
+    hint: "A pretend relocation agency: send in made-up clients, watch written rules and AI handle their cases, and step in when it asks you",
+    keywords: "process bpmn dmn workflow business rules operaton camunda simulation case inbox human task relocation visa agency",
+    capability: "process",
+    input: "structured",
+    output: "json",
+    // Each AI step in the lab already runs local first and records its own
+    // cloud fallback; there is no separate cloud column to compare.
+    cloudComparison: false,
+    doc: "docs/process-lab-2026-09-27.md",
+    load: () => import("@/components/labs/process-lab"),
   },
   {
     id: "3d",

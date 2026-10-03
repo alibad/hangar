@@ -44,6 +44,21 @@ model_list:
     model_info:
       mode: chat
 
+  # PrismML's ternary 27B model is served by its patched llama.cpp CUDA runtime,
+  # not the stock binary: the PQ2_0 file needs Bonsai 2's Hadamard activation
+  # transform. It is loopback-only, just like the AI Router itself.
+  - model_name: local-bonsai-2
+    litellm_params:
+      model: openai/bonsai-2-27b
+      api_base: http://127.0.0.1:8011/v1
+      api_key: none
+      timeout: 600
+      num_retries: 0
+      extra_headers:
+        x-betenshi-hop: ai-router
+    model_info:
+      mode: chat
+
   # ── text + vision · local, served by Ollama ───────────────────────────────
   # A SECOND local runtime, beside the two vLLM containers. Not redundancy:
   #

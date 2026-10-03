@@ -74,21 +74,38 @@
       "basis": "VRAM measured: 20.3 GB peak mid-generation, ~0.1 GB idle. It does NOT hold the card — enable_model_cpu_offload() keeps the ~28 GB of fp8 weights in host RAM and streams them per stage. Note idleRamGb == ramGb and that is the point: the VRAM cost is transient but the HOST RAM cost is permanent for as long as the service is loaded (measured 21.7 GB resident while generating, 2026-08-01). That standing 28 GB is what collides with a FLUX run on a 63 GB box."
     }
   },
-  "local-flux-schnell": {
-    "checkpoint": "black-forest-labs/FLUX.1-schnell",
-    "license": "Apache-2.0",
-    "params": "12B rectified-flow transformer, 4-step distilled",
-    "released": "2024-08",
-    "docs": "https://hf.co/black-forest-labs/FLUX.1-schnell",
-    "note": "Served through ComfyUI (:8188), not a router alias — the console builds the graph itself. Fast-draft tier beside Qwen-Image.",
+  "local-hidream-o1": {
+    "checkpoint": "Comfy-Org/HiDream-O1-Image · hidream_o1_image_fp8_scaled (full, non-distilled)",
+    "license": "MIT",
+    "params": "8B unified · FP8 full",
+    "released": "2026-05",
+    "docs": "https://huggingface.co/HiDream-ai/HiDream-O1-Image",
+    "note": "The full HiDream-O1 beside the Dev model: 40 steps at CFG 5 with seam smoothing (Comfy-Org template image_hidream_o1), and reference-image editing. Artificial Analysis open-weights text-to-image #13 (Elo 979) against Dev's #27 (878), checked 27 Sept 2026.",
     "service": "comfyui",
     "footprint": {
-      "vramGb": 31.7,
-      "ramGb": 28,
-      "idleVramGb": 0.06,
+      "vramGb": 12,
+      "ramGb": 9,
       "idleRamGb": 0.13,
-      "kind": "peak",
-      "basis": "VRAM measured 2026-07-30: card went to 31.72 GiB of 31.84 GiB during a 512x512 4-step run (35s cold). Weights on disk total 31.81 GiB — flux1-schnell 22.15, t5xxl_fp16 9.12, clip_l 0.23, ae 0.31 — so it effectively fills the card and nothing meaningful fits beside it. ComfyUI streams via cudaMallocAsync + comfy-aimdo DynamicVRAM, so torch_vram_total reads ~0.44 GiB and per-process attribution is NOT available: this figure is whole-card usage minus the 0.1 GiB Qwen-Image held idle at the time. IDLE measured 2026-08-01 with the service running but no workflow executed: torch_vram_total 64 MB, process resident 0.13 GB — ComfyUI loads checkpoints lazily on first execution and evicts after, so STARTING it costs nothing. ramGb is the host-RAM cost of an actual run, estimated from the weight total; that is what collides with Qwen-Image's standing 28 GB."
+      "idleVramGb": 0.1,
+      "kind": "estimate",
+      "basis": "Admission estimate before measurement: the same 7.7 GB FP8 checkpoint as HiDream-O1 Dev, which measured +8.6 GiB VRAM / 8.2 GiB RAM at 2048x2048, plus headroom because CFG 5 runs a negative pass Dev skips. Replace with the footprint study's figure."
+    }
+  },
+  "local-qwen-image-2.1": {
+    "checkpoint": "Comfy-Org/Qwen-Image-2.1 · qwen_image_2.1_int8_convrot + qwen3vl_8b_int8_convrot + qwen_image_2.1_vae_bf16",
+    "license": "Qwen Research License (non-commercial only)",
+    "params": "7B DiT + Qwen3-VL-8B text encoder (int8)",
+    "released": "2026-09",
+    "docs": "https://huggingface.co/Qwen/Qwen-Image-2.1",
+    "note": "One model for generation and editing (up to 16 reference images), native in ComfyUI v0.37+. #1 open-weights on Artificial Analysis for both text-to-image (Elo 1035) and editing (1071), checked 27 Sept 2026. NON-COMMERCIAL: the Qwen Research Licence allows non-commercial use only, under Chinese law with Hangzhou courts, and derived models must say 'Built with Qwen'.",
+    "service": "comfyui",
+    "footprint": {
+      "vramGb": 18,
+      "ramGb": 18,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "estimate",
+      "basis": "Admission estimate before measurement: 6.9 GB int8 DiT + 8.9 GB int8 Qwen3-VL-8B encoder + 0.6 GB VAE on disk, plus activation headroom. Replace with the footprint study's figure."
     }
   },
   "local-coder": {
@@ -119,6 +136,21 @@
       "ramGb": 1,
       "kind": "reserved",
       "basis": "Read off the OpenRA tool-enabled container launch flags: --gpu-memory-utilization 0.55 of a 31.8 GB card, with KV cache for 16k context."
+    }
+  },
+  "local-bonsai-2": {
+    "vision": true,
+    "checkpoint": "prism-ml/Ternary-Bonsai-2-27B-gguf · PQ2_0 + Q8_0 vision projector",
+    "params": "27.36B · ternary 2.13 bpw (PQ2_0)",
+    "released": "2026-09",
+    "docs": "https://docs.prismml.com/",
+    "note": "PrismML Bonsai 2 on its CUDA llama.cpp fork. Full model/tool-use capability in a 7.21 GB PQ2_0 language pack; the optional 0.63 GB vision projector is loaded for image input. Initial service context is 32K; change it only with the corresponding VRAM admission budget.",
+    "service": "bonsai",
+    "footprint": {
+      "vramGb": 14,
+      "ramGb": 2,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-21 after warm loading the configured 32K-context CUDA service: nvidia-smi reported 13,767 MiB total GPU use (the box was otherwise idle apart from display/system overhead). 14 GB is the rounded admission reservation; it covers the 7.21 GB PQ2_0 language weights, 0.63 GB Q8 vision projector, 32K KV cache, and runtime overhead."
     }
   },
   "local-laya": {

@@ -576,8 +576,8 @@ export default function QwenStudio() {
     prevModelRef.current = imageModel;
     setSteps(activeModel.steps[0]);
     setCfg(activeModel.defaultCfg);
-    setWidth(imageModel === "hidream-o1-dev" ? 2048 : 1024);
-    setHeight(imageModel === "hidream-o1-dev" ? 2048 : 1024);
+    setWidth(imageModel.startsWith("hidream-o1") ? 2048 : 1024);
+    setHeight(imageModel.startsWith("hidream-o1") ? 2048 : 1024);
   }, [imageModel, activeModel.steps, activeModel.defaultCfg]);
 
   useEffect(() => {
@@ -2012,7 +2012,7 @@ export default function QwenStudio() {
         </div>
         <p className="image-mode-hint">
           {mode === "edit"
-            ? activeModel.serviceId === "qwen" ? "Edit loads the separate Qwen-Image-Edit checkpoint on first run." : "FLUX.2 Klein uses the same checkpoint for generation and reference-image editing."
+            ? activeModel.serviceId === "qwen" ? "Edit loads the separate Qwen-Image-Edit checkpoint on first run." : `${activeModel.name} edits with the same checkpoint it generates with, from reference images.`
             : mode === "compare"
               ? "Run one prompt across several local and cloud models."
               : mode === "eval"

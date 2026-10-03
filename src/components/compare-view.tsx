@@ -7,6 +7,8 @@ import { projectHostRam } from "@/lib/ram-budget";
 import { useLocalFootprints } from "@/lib/use-local-footprints";
 import ModelFootprint, { type Footprint } from "./model-footprint";
 import { useVoiceInput, appendTranscript } from "./voice-input";
+import type { LabRunResult } from "@/lib/lab-types";
+import type { ImageLabOutput } from "@/app/api/labs/image/run/route";
 
 /**
  * One prompt, several models, side by side.
@@ -19,9 +21,15 @@ import { useVoiceInput, appendTranscript } from "./voice-input";
  * The fan-out happens HERE rather than in one server call. /api/image/compare
  * awaited every model in a Promise.all, so the UI could say nothing but
  * "running" until the slowest one landed — and on a cold local model that's
- * minutes of dead screen. Firing one standard /api/image/generate per model
- * means each tile reports its own state, results appear as they finish, and a
- * single model can be cancelled without losing the rest.
+ * minutes of dead screen. Firing one standard call per model means each tile
+ * reports its own state, results appear as they finish, and a single model can
+ * be cancelled without losing the rest.
+ *
+ * That call is the Labs run route (/api/labs/image/run): the Studio's own
+ * generateAndSave() plus a measured VRAM peak and a row in the runs record,
+ * every tile of one comparison sharing a compare group. This is the console's
+ * one image comparison surface — the separate Image Lab tab was folded into
+ * the Studio (Compare here, Eval beside it) so there is one place for images.
  */
 
 type CatalogModel = {
@@ -53,7 +61,15 @@ type Run = {
   image?: string;
   savedPath?: string;
   error?: string;
+  /** Card-wide VRAM peak during this run, and the reading just before it (local only). */
+  peakVramGb?: number;
+  baselineVramGb?: number;
 };
+
+/** HiDream-O1 is trained at 2K; every other model runs at the size picked. */
+function nativeSize(model: string, picked: number): number {
+  return model.startsWith("hidream-o1") ? 2048 : picked;
+}
 
 /**
  * How long to keep re-asking a model that says it's still loading.
@@ -74,7 +90,7 @@ const SIZES = [
 ];
 
 function fmtCost(c: number | undefined, local: boolean): string {
-  if (local) return "free · local";
+  if (local) return "local · not metered";
   if (c == null) return "metered";
   return `~$${c.toFixed(3)}`;
 }
@@ -112,6 +128,8 @@ export default function CompareView() {
   const abortRef = useRef<Map<string, AbortController>>(new Map());
   /** Set when the whole run is cancelled, so the local chain stops advancing. */
   const cancelledAllRef = useRef(false);
+  /** One id per comparison, so its tiles stay grouped in the runs record. */
+  const groupRef = useRef("");
   const { footprints, liveMb, hostFreeGb } = useLocalFootprints();
 
   const running = runs.some((r) => r.state === "queued" || r.state === "running");
@@ -202,13 +220,17 @@ export default function CompareView() {
         // in 0.1s while FLUX took a minute and succeeded.
         const warmDeadline = Date.now() + WARMUP_BUDGET_MS;
         let res: Response;
-        let j: { error?: string; load?: { eta_s?: number }; image?: string; savedPath?: string };
+        let j: LabRunResult<ImageLabOutput> & { load?: { eta_s?: number } };
 
         for (;;) {
-          res = await fetch("/api/image/generate", {
+          // The Labs run route: the same generateAndSave() as the Studio, plus
+          // a measured latency and card-wide VRAM peak, and a row in the runs
+          // record grouped by this comparison — so a comparison is still there
+          // to look at after the page is closed.
+          res = await fetch("/api/labs/image/run", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model, prompt, width: model === "hidream-o1-dev" ? 2048 : size.w, height: model === "hidream-o1-dev" ? 2048 : size.h, seed: runSeed }),
+            body: JSON.stringify({ model, prompt, size: nativeSize(model, size.w), seed: runSeed, compareGroup: groupRef.current }),
             signal: ac.signal,
           });
           j = await res.json();
@@ -223,15 +245,18 @@ export default function CompareView() {
           if (ac.signal.aborted) throw new DOMException("Aborted", "AbortError");
         }
 
-        if (!res.ok || j.error) {
+        if (!res.ok || !j.ok || !j.output) {
           patch(model, { state: "failed", ms: Date.now() - startedAt, note: undefined, error: String(j.error ?? `HTTP ${res.status}`) });
         } else {
           patch(model, {
             state: "done",
             ms: Date.now() - startedAt,
             note: undefined,
-            image: j.image,
-            savedPath: j.savedPath ?? undefined,
+            image: j.output.url,
+            savedPath: j.output.savedPath,
+            peakVramGb: j.peakVramGb ?? undefined,
+            baselineVramGb: j.baselineVramGb ?? undefined,
+            ...(j.costUsd != null ? { costUsd: j.costUsd } : {}),
           });
         }
       } catch (e) {
@@ -253,6 +278,7 @@ export default function CompareView() {
     // Same seed across every model, or the comparison measures luck, not quality.
     const runSeed = Math.floor(Math.random() * 2_147_483_647);
     setSeed(runSeed);
+    groupRef.current = `studio-compare-${Date.now().toString(36)}-${runSeed.toString(36)}`;
 
     const chosen = options.filter((o) => picked.includes(o.id));
     setRuns(
@@ -496,6 +522,15 @@ export default function CompareView() {
                       <span className={r.local ? "text-emerald-400/80" : "text-amber-400/80"}>
                         {fmtCost(r.costUsd, r.local)}
                       </span>
+                      {r.peakVramGb != null && (
+                        <>
+                          <span className="text-gray-700">·</span>
+                          <span title="Card-wide peak from nvidia-smi during this run; the + is what the run added over the reading just before it.">
+                            peak {r.peakVramGb.toFixed(1)} GB
+                            {r.baselineVramGb != null ? ` (+${Math.max(0, r.peakVramGb - r.baselineVramGb).toFixed(1)})` : ""}
+                          </span>
+                        </>
+                      )}
                     </div>
                     {r.savedPath && <p className="text-[10px] text-gray-600 font-mono break-all">{r.savedPath}</p>}
                   </div>

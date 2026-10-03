@@ -437,56 +437,6 @@ async function generateImage({ prompt, model, folder }) {
   );
 }
 
-// ── process lab ─────────────────────────────────────────────────────────────
-
-async function processLab({ action = "status", caseKey, run, scenarios, secondsPerDay, autoHuman }) {
-  const call = async (path, init) => {
-    const { error, res } = await consoleFetch(`/api/labs/process/${path}`, init, 120_000);
-    if (error) return { error };
-    const body = await res.json().catch(() => ({}));
-    return res.ok ? { body } : { error: body.error ?? `HTTP ${res.status}` };
-  };
-  if (action === "status") {
-    const { error, body } = await call("status");
-    if (error) return fail(error);
-    const lines = body.services.map((s) => `${s.up ? "up  " : "down"} ${s.id} — ${s.role}`);
-    return ok(`${lines.join("\n")}\nStart a stopped one with start_service(id); the lab needs process-engine and process-lab.`);
-  }
-  if (action === "cases") {
-    const { error, body } = await call(`api/cases?limit=40${run ? `&run=${encodeURIComponent(run)}` : ""}`);
-    if (error) return fail(error);
-    if (!body.length) return ok("No cases yet.");
-    return ok(body.map((c) => `${c.caseKey} ${c.clientName ?? ""} → ${c.destination ?? "?"} · ${c.service ?? "service unknown"} · ${c.state === "ACTIVE" ? `at ${c.current.join(", ")}` : c.outcome}${c.incidents ? " · INCIDENT" : ""}`).join("\n"));
-  }
-  if (action === "case") {
-    if (!caseKey) return fail("Pass caseKey (from action cases).");
-    const { error, body } = await call(`api/cases/${encodeURIComponent(caseKey)}`);
-    if (error) return fail(error);
-    const d = body.decisions.map((x) => `[${x.kind}] ${x.question} → ${x.decided}${x.confidence != null ? ` (${Number(x.confidence).toFixed(2)})` : ""}${x.model ? ` by ${x.model}` : ""}${x.provider === "cloud" ? " (cloud)" : ""}${x.escalated ? " → person" : ""}${x.overridden ? " OVERRIDDEN" : ""}`);
-    return ok(`${body.caseKey}: ${body.state === "ACTIVE" ? `at ${body.current.join(", ")}` : body.outcome}\n${d.join("\n")}`);
-  }
-  if (action === "simulate") {
-    const { error, body } = await call("api/sim", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ scenarios, secondsPerDay, autoHuman }),
-    });
-    if (error) return fail(error);
-    return ok(`Started ${body.id}: ${body.config.scenarios.length} synthetic cases at ${body.config.secondsPerDay} s per simulated day. Follow it with action "cases" (run ${body.id}) and "stats".`);
-  }
-  if (action === "stats") {
-    const { error, body } = await call(`api/stats${run ? `?run=${encodeURIComponent(run)}` : ""}`);
-    if (error) return fail(error);
-    const kinds = Object.entries(body.byKind).map(([k, v]) => `${k}: ${v.count}, median ${v.medianLatencyMs ?? "?"} ms${v.accuracy != null ? `, ${v.accuracy}% vs truth` : ""}${v.cloud ? `, ${v.cloud} on cloud` : ""}`);
-    return ok(
-      `${body.finished}/${body.cases} finished · outcomes ${JSON.stringify(body.outcomes)} · right ending ${body.pathAccuracy?.pct ?? "?"}% · ` +
-        `median cycle ${body.cycle.medianDays} simulated days · AI→person ${body.escalation.pct ?? "?"}% · person overrode AI ${body.overrides.pct ?? "?"}% · ` +
-        `cloud $${body.models.costUsd}\n${kinds.join("\n")}`,
-    );
-  }
-  return fail(`Unknown action "${action}".`);
-}
-
 async function generateMusic({ prompt, lyrics, seconds, seed, bpm, fade_out }) {
   if (!prompt?.trim()) return fail("Describe the music: genre, instruments, mood, tempo.");
   const dur = Math.round(Number(seconds) || 30);
@@ -543,6 +493,56 @@ async function decideTool({ question, choices, type, context, model }) {
     .filter(Boolean)
     .join(", ");
   return ok(`${body.choice} (${(body.confidence * 100).toFixed(1)}%). Distribution: ${dist}. [${how}]${body.parsed === false ? " Warning: the LLM did not return the requested JSON; the distribution is a fallback." : ""}`);
+}
+
+// ── process lab ─────────────────────────────────────────────────────────────
+
+async function processLab({ action = "status", caseKey, run, scenarios, secondsPerDay, autoHuman }) {
+  const call = async (path, init) => {
+    const { error, res } = await consoleFetch(`/api/labs/process/${path}`, init, 120_000);
+    if (error) return { error };
+    const body = await res.json().catch(() => ({}));
+    return res.ok ? { body } : { error: body.error ?? `HTTP ${res.status}` };
+  };
+  if (action === "status") {
+    const { error, body } = await call("status");
+    if (error) return fail(error);
+    const lines = body.services.map((s) => `${s.up ? "up  " : "down"} ${s.id} — ${s.role}`);
+    return ok(`${lines.join("\n")}\nStart a stopped one with start_service(id); the lab needs process-engine and process-lab.`);
+  }
+  if (action === "cases") {
+    const { error, body } = await call(`api/cases?limit=40${run ? `&run=${encodeURIComponent(run)}` : ""}`);
+    if (error) return fail(error);
+    if (!body.length) return ok("No cases yet.");
+    return ok(body.map((c) => `${c.caseKey} ${c.clientName ?? ""} → ${c.destination ?? "?"} · ${c.service ?? "service unknown"} · ${c.state === "ACTIVE" ? `at ${c.current.join(", ")}` : c.outcome}${c.incidents ? " · INCIDENT" : ""}`).join("\n"));
+  }
+  if (action === "case") {
+    if (!caseKey) return fail("Pass caseKey (from action cases).");
+    const { error, body } = await call(`api/cases/${encodeURIComponent(caseKey)}`);
+    if (error) return fail(error);
+    const d = body.decisions.map((x) => `[${x.kind}] ${x.question} → ${x.decided}${x.confidence != null ? ` (${Number(x.confidence).toFixed(2)})` : ""}${x.model ? ` by ${x.model}` : ""}${x.provider === "cloud" ? " (cloud)" : ""}${x.escalated ? " → person" : ""}${x.overridden ? " OVERRIDDEN" : ""}`);
+    return ok(`${body.caseKey}: ${body.state === "ACTIVE" ? `at ${body.current.join(", ")}` : body.outcome}\n${d.join("\n")}`);
+  }
+  if (action === "simulate") {
+    const { error, body } = await call("api/sim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scenarios, secondsPerDay, autoHuman }),
+    });
+    if (error) return fail(error);
+    return ok(`Started ${body.id}: ${body.config.scenarios.length} synthetic cases at ${body.config.secondsPerDay} s per simulated day. Follow it with action "cases" (run ${body.id}) and "stats".`);
+  }
+  if (action === "stats") {
+    const { error, body } = await call(`api/stats${run ? `?run=${encodeURIComponent(run)}` : ""}`);
+    if (error) return fail(error);
+    const kinds = Object.entries(body.byKind).map(([k, v]) => `${k}: ${v.count}, median ${v.medianLatencyMs ?? "?"} ms${v.accuracy != null ? `, ${v.accuracy}% vs truth` : ""}${v.cloud ? `, ${v.cloud} on cloud` : ""}`);
+    return ok(
+      `${body.finished}/${body.cases} finished · outcomes ${JSON.stringify(body.outcomes)} · right ending ${body.pathAccuracy?.pct ?? "?"}% · ` +
+        `median cycle ${body.cycle.medianDays} simulated days · AI→person ${body.escalation.pct ?? "?"}% · person overrode AI ${body.overrides.pct ?? "?"}% · ` +
+        `cloud $${body.models.costUsd}\n${kinds.join("\n")}`,
+    );
+  }
+  return fail(`Unknown action "${action}".`);
 }
 
 /**
@@ -780,7 +780,9 @@ const TOOLS = [
             '(~10 s) and good at layout; "z-image-turbo" (~14 s) is the one to use for rendered text, Arabic text or exact ' +
             'small counts; "hidream-o1-dev" is native 2K but English prompts only (it ignored an Arabic prompt). ' +
             'Omitting it means Qwen-Image, which needs ~28 GB of free host RAM and several minutes to load, and is often ' +
-            'refused while other models are resident. Do not use "flux-schnell": it needs the whole card.',
+            'refused while other models are resident. "qwen-image-2.1" and "hidream-o1" (full) were added on 28 Sept — see ' +
+            'the doc for how they compare. qwen-image-2.1 is licensed for NON-COMMERCIAL use only: do not use it for ' +
+            'anything commercial. FLUX.1 schnell was retired; "flux-schnell" is no longer a model.',
         },
         folder: { type: "string", description: "Gallery folder to save into." },
       },
@@ -813,30 +815,6 @@ const TOOLS = [
     run: generateMusic,
   },
   {
-    name: "process_lab",
-    description:
-      "The process lab: a SIMULATED relocation agency whose cases run on a BPMN engine (Operaton), with DMN rules " +
-      "and AI at the judgement steps. Actions: status (its services), cases (list, optionally for one simulation run), " +
-      "case (one case's full decision history: which kind of decision, what it decided, confidence, model, whether a " +
-      "person overrode it), simulate (start a run of synthetic clients), stats (cycle time, hand-offs, overrides, cost). " +
-      "Use it to study how rules, a decision model and an LLM share work in a process. Do NOT use it for real clients or " +
-      "real immigration advice — every case and document is synthetic — and do not start a simulation to answer a " +
-      "question the existing runs already answer: a run costs GPU time or cloud money.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        action: { type: "string", enum: ["status", "cases", "case", "simulate", "stats"] },
-        caseKey: { type: "string", description: "For action case." },
-        run: { type: "string", description: "A simulation run id, e.g. SIM2609271637 (cases, stats)." },
-        scenarios: { type: "array", items: { type: "string" }, description: "simulate: scenario ids; omit for all." },
-        secondsPerDay: { type: "number", description: "simulate: wall-clock seconds per simulated day (default 10)." },
-        autoHuman: { type: "boolean", description: "simulate: a simulated consultant works the inbox (default true)." },
-      },
-      required: ["action"],
-    },
-    run: processLab,
-  },
-  {
     name: "decide",
     description:
       "Answer one typed question about a piece of text with calibrated probabilities, using Laya, a local " +
@@ -863,6 +841,30 @@ const TOOLS = [
       required: ["question", "context"],
     },
     run: decideTool,
+  },
+  {
+    name: "process_lab",
+    description:
+      "The process lab: a SIMULATED relocation agency whose cases run on a BPMN engine (Operaton), with DMN rules " +
+      "and AI at the judgement steps. Actions: status (its services), cases (list, optionally for one simulation run), " +
+      "case (one case's full decision history: which kind of decision, what it decided, confidence, model, whether a " +
+      "person overrode it), simulate (start a run of synthetic clients), stats (cycle time, hand-offs, overrides, cost). " +
+      "Use it to study how rules, a decision model and an LLM share work in a process. Do NOT use it for real clients or " +
+      "real immigration advice — every case and document is synthetic — and do not start a simulation to answer a " +
+      "question the existing runs already answer: a run costs GPU time or cloud money.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["status", "cases", "case", "simulate", "stats"] },
+        caseKey: { type: "string", description: "For action case." },
+        run: { type: "string", description: "A simulation run id, e.g. SIM2609271637 (cases, stats)." },
+        scenarios: { type: "array", items: { type: "string" }, description: "simulate: scenario ids; omit for all." },
+        secondsPerDay: { type: "number", description: "simulate: wall-clock seconds per simulated day (default 10)." },
+        autoHuman: { type: "boolean", description: "simulate: a simulated consultant works the inbox (default true)." },
+      },
+      required: ["action"],
+    },
+    run: processLab,
   },
   {
     name: "generate_video",

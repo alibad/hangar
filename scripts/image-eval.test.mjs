@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { cellKey, PICK, summarize } from "../src/lib/image-eval.ts";
-import { isImageModelId, localImageModelFor } from "../src/lib/image-models.ts";
+import { hostedImageSize, isImageModelId, localImageModelFor } from "../src/lib/image-models.ts";
 
 const suite = JSON.parse(await readFile(new URL("../experiments/image-eval/suite.json", import.meta.url), "utf8"));
 
@@ -48,14 +48,24 @@ test("summarize counts only judged checks and keeps picks separate", () => {
 
 test("the Image Lab's model ids map to local models, and cloud aliases do not", () => {
   // ComfyUI's served names (host profile `serves`) are already local ids.
-  for (const id of ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev", "flux-schnell"]) assert.equal(localImageModelFor(id), id);
+  for (const id of ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev", "hidream-o1", "qwen-image-2.1"]) assert.equal(localImageModelFor(id), id);
   // The Qwen service is listed by its router alias.
   assert.equal(localImageModelFor("local-qwen-image"), "qwen-image");
   // A cloud alias must go to the router unchanged, never fall back to a local model.
-  for (const id of ["gpt-image-2", "gemini-image-fast", "local-something-else"]) assert.equal(localImageModelFor(id), null);
+  for (const id of ["gpt-image-2", "gemini-image-fast", "local-something-else", "flux-schnell"]) assert.equal(localImageModelFor(id), null);
 });
 
 test("cellKey distinguishes resolution variants of the same prompt and seed", () => {
   const base = { study: "resolution", model: "m", promptId: "p", seed: 1 };
   assert.notEqual(cellKey({ ...base, variant: "direct-2048" }), cellKey({ ...base, variant: "upscaled-1024-lanczos" }));
+});
+
+test("hosted models get a size every provider accepts, nearest in aspect", () => {
+  // Compare's 768² default was rejected by gpt-image-2 and gpt-image-1-mini with a 400.
+  assert.equal(hostedImageSize(768, 768), "1024x1024");
+  assert.equal(hostedImageSize(512, 512), "1024x1024");
+  assert.equal(hostedImageSize(2048, 2048), "1024x1024");
+  assert.equal(hostedImageSize(1536, 1024), "1536x1024");
+  assert.equal(hostedImageSize(1024, 1792), "1024x1536");
+  assert.equal(hostedImageSize(1100, 1000), "1024x1024");
 });

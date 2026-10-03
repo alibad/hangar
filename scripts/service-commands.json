@@ -11,6 +11,26 @@
     "docker": "vllm-small"
   },
 
+  "bonsai": {
+    "_doc": "PrismML Bonsai 2 needs PrismML's patched llama.cpp build: stock llama.cpp does not implement its ternary PQ2_0 Hadamard activation transform. We deliberately serve the faster PQ2_0 packing on Blackwell, cap the initial context at 32K, and bind loopback-only like the AI Router. Weights live on D: under the shared model-volume convention. llama-server diagnostics go to AI/logs/bonsai.log; routed calls are attributed by the AI Router's existing traffic callback.",
+    "cmd": "C:\\Users\\Admin\\Code\\AI\\bonsai-runtime\\bin\\cuda\\llama-server.exe",
+    "args": [
+      "-m", "D:\\AI Models\\prismml\\bonsai2-27b\\Ternary-Bonsai-2-27B-PQ2_0.gguf",
+      "--mmproj", "D:\\AI Models\\prismml\\bonsai2-27b\\Ternary-Bonsai-2-27B-mmproj-Q8_0.gguf",
+      "--host", "127.0.0.1",
+      "--port", "8011",
+      "-ngl", "99",
+      "-fa", "on",
+      "-c", "32768",
+      "--temp", "1.0",
+      "--top-p", "0.95",
+      "--top-k", "20",
+      "--jinja",
+      "--log-file", "C:\\Users\\Admin\\Code\\AI\\logs\\bonsai.log"
+    ],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\bonsai-runtime"
+  },
+
   "whisper": {
     "cmd": "C:\\Users\\Admin\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
     "args": ["-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"],
@@ -39,6 +59,19 @@
     "args": ["-m", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", "8040"],
     "cwd": "C:\\Users\\Admin\\Code\\AI\\laya",
     "env": { "HF_HOME": "D:\\AI Models\\huggingface", "USE_TF": "0", "HF_HUB_OFFLINE": "1", "LAYA_DEVICE": "cpu", "LAYA_PRELOAD": "english,multilingual" }
+  },
+
+  "process-engine": {
+    "_doc": "Operaton, the process lab's BPMN/DMN engine. The manager only docker-starts an existing container: create it once with `docker compose up -d` in C:\\Users\\Admin\\Code\\AI\\process-lab (compose also chowns the H2 volume for the image's uid 1000).",
+    "docker": "process-engine"
+  },
+
+  "process-lab": {
+    "_doc": "The process lab's workers, simulator and API (Node 24, no npm dependencies). WHEN_LOCAL_UNAVAILABLE=cloud: when the coordinator will not give the GPU, or another session holds logs/gpu-claim.txt, an AI step runs on the cloud model instead of waiting, and the case record says so with the cost. Set it to 'fail' to make cases wait for the local model instead.",
+    "cmd": "C:\\Program Files\\nodejs\\node.exe",
+    "args": ["--disable-warning=ExperimentalWarning", "src/server.mjs"],
+    "cwd": "C:\\Users\\Admin\\Code\\AI\\process-lab",
+    "env": { "WHEN_LOCAL_UNAVAILABLE": "cloud", "LEASE_WAIT_MS": "15000" }
   },
 
   "music": {
@@ -120,22 +153,9 @@
   },
 
   "_ollama-doc": "Second LLM runtime beside vLLM, for models vLLM 0.17.1 cannot load (Gemma 4 needs vLLM >= 0.19) and for on-demand vision. Normally already running from the Ollama tray app, which is fine: the manager adopts the external process and reports it as externally owned. OLLAMA_KEEP_ALIVE is short on purpose - one 31B model is ~20 GB of a 32 GB card, so an idle model left resident is what blocks the next image generation. OLLAMA_MAX_LOADED_MODELS=1 for the same reason: two of these do not coexist.",
-  "process-engine": {
-    "_doc": "Operaton, the process lab's BPMN/DMN engine. The manager only docker-starts an existing container: create it once with `docker compose up -d` in C:\\Users\\Admin\\Code\\AI\\process-lab (compose also chowns the H2 volume for the image's uid 1000).",
-    "docker": "process-engine"
-  },
-
   "searxng": {
     "_doc": "Free web search for local models (the Video Forge's search tool). The manager only docker-starts an existing container; it was created once with: docker run -d --name searxng --restart unless-stopped -p 127.0.0.1:8888:8080 -e SEARXNG_SECRET=<random hex> -e SEARXNG_BASE_URL=http://127.0.0.1:8888/ -v C:/Users/Admin/Code/AI/searxng:/etc/searxng searxng/searxng:latest. Loopback-only: never publish it on 0.0.0.0.",
     "docker": "searxng"
-  },
-
-  "process-lab": {
-    "_doc": "The process lab's workers, simulator and API (Node 24, no npm dependencies). WHEN_LOCAL_UNAVAILABLE=cloud: when the coordinator will not give the GPU, or another session holds logs/gpu-claim.txt, an AI step runs on the cloud model instead of waiting, and the case record says so with the cost. Set it to 'fail' to make cases wait for the local model instead.",
-    "cmd": "C:\\Program Files\\nodejs\\node.exe",
-    "args": ["--disable-warning=ExperimentalWarning", "src/server.mjs"],
-    "cwd": "C:\\Users\\Admin\\Code\\AI\\process-lab",
-    "env": { "WHEN_LOCAL_UNAVAILABLE": "cloud", "LEASE_WAIT_MS": "15000" }
   },
 
   "ollama": {

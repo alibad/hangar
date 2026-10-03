@@ -30,8 +30,8 @@ const SUITE = JSON.parse(await readFile(path.join(ROOT, "experiments/image-eval/
 const RUNS = path.join(ROOT, "experiments/image-eval/runs");
 const GEN = process.env.QWEN_OUTPUT_DIR || path.join(ROOT, "generated");
 const CLAIM ="C:\\Users\\Admin\\Code\\AI\\logs\\gpu-claim.txt";
-const LOCAL_DEFAULT = ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev", "qwen-image", "flux-schnell"];
-const STEPS = { "flux2-klein-4b": 4, "z-image-turbo": 8, "hidream-o1-dev": 28, "qwen-image": 28, "flux-schnell": 4 };
+const LOCAL_DEFAULT = ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev", "hidream-o1", "qwen-image-2.1", "qwen-image"];
+const STEPS = { "flux2-klein-4b": 4, "z-image-turbo": 8, "hidream-o1-dev": 28, "hidream-o1": 40, "qwen-image-2.1": 25, "qwen-image": 28 };
 
 const [mode = "generate", ...rest] = process.argv.slice(2);
 const opt = (name) => { const i = rest.indexOf(`--${name}`); return i >= 0 ? rest[i + 1] : undefined; };
@@ -234,7 +234,9 @@ async function toDataUrl(rel) {
 }
 
 async function studyEdits() {
-  const models = list("models", ["flux2-klein-4b", "qwen-image-edit"]);
+  // "qwen-image-edit" is the Qwen service's separate Edit-2509 checkpoint; the
+  // rest edit through ComfyUI reference images on /api/image/edit.
+  const models = list("models", ["flux2-klein-4b", "qwen-image-2.1", "hidream-o1", "qwen-image-edit"]);
   const sharp = (await import("sharp")).default;
   const gen = process.env.QWEN_OUTPUT_DIR || path.join(ROOT, "generated");
   const E = SUITE.edits;
@@ -255,9 +257,9 @@ async function studyEdits() {
           image = `data:image/png;base64,${buf.toString("base64")}`;
           width += (ins.outpaint.right ?? 0) + (ins.outpaint.left ?? 0);
         }
-        const { res, vram } = await measured(m, key(base), () => model === "flux2-klein-4b"
-          ? post("/api/image/edit", { model, prompt: ins.prompt, images: [image], width, height, seed: E.source.seed, folder, requestId: `eval-edit-${ins.id}` })
-          : post("/api/qwen/edit", { prompt: ins.prompt, images: [image], seed: E.source.seed, steps: 28, cfg: 4, folder, requestId: `eval-edit-${ins.id}` }));
+        const { res, vram } = await measured(m, key(base), () => model === "qwen-image-edit"
+          ? post("/api/qwen/edit", { prompt: ins.prompt, images: [image], seed: E.source.seed, steps: 28, cfg: 4, folder, requestId: `eval-edit-${ins.id}` })
+          : post("/api/image/edit", { model, prompt: ins.prompt, images: [image], width, height, seed: E.source.seed, folder, requestId: `eval-edit-${model}-${ins.id}` }));
         const cell = resultCell({ ...base, kind: ins.kind, source: src.savedPath, requested: `${width}x${height}` }, res, vram);
         upsert(m, cell); await save(m);
         console.log(`${cell.ok ? "ok " : "ERR"} ${model.padEnd(16)} ${ins.id.padEnd(16)} ${(cell.latencyMs / 1000).toFixed(1)}s peak ${cell.peakMiB} MiB${cell.ok ? "" : "  " + cell.error}`);
@@ -271,7 +273,7 @@ async function studyEdits() {
 // stay honest; that means no console request is ever truly warm. This measures
 // what warm WOULD be: the same graph queued twice with no /free between.
 async function studyWarm() {
-  const models = list("models", ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev"]);
+  const models = list("models", ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev", "hidream-o1", "qwen-image-2.1"]);
   const prompt = SUITE.prompts.find((p) => p.id === "illus-paper-fox").prompt;
   const out = [];
   await claim("image warm-vs-cold timing (direct ComfyUI)");
@@ -309,13 +311,13 @@ async function studyWarm() {
 // then one generation through the console, sampling VRAM and free host RAM.
 async function studyFootprint() {
   const os = await import("node:os");
-  const models = list("models", ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev"]);
+  const models = list("models", ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev", "hidream-o1", "qwen-image-2.1"]);
   const out = [];
   await claim("image footprint measurement (one cold run per model)");
   try {
     for (const model of models) {
       // 2K too where it is offered: Klein at 2048² used 21 GiB against a 15 GB declaration.
-      for (const size of model === "z-image-turbo" ? [1024] : [1024, 2048]) {
+      for (const size of model === "z-image-turbo" || model === "qwen-image-2.1" ? [1024] : [1024, 2048]) {
         await fetch(`${COMFY}/free`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unload_models: true, free_memory: true }) }).catch(() => {});
         // /free takes effect when ComfyUI next idles; wait for the card to settle.
         let prev = Infinity, settled = await gpuUsedMiB();
@@ -356,7 +358,7 @@ async function studyCoresidency() {
   const release = (lease) => lease && fetch(`${MANAGER}/resources/leases/${lease.id}/release`, { method: "POST" });
   const snap = await (await fetch(`${MANAGER}/resources`)).json();
   const services = snap.activeServices ?? [];
-  const pairs = [["flux2-klein-generate", "z-image-generate"], ["flux2-klein-generate", "hidream-o1-generate"], ["qwen-generate", "flux2-klein-generate"], ["flux2-klein-generate", "flux-generate"]];
+  const pairs = [["flux2-klein-generate", "z-image-generate"], ["flux2-klein-generate", "hidream-o1-generate"], ["qwen-generate", "flux2-klein-generate"], ["qwen-generate", "qwen-image-21-generate"]];
   const results = [];
   for (const [a, b] of pairs) {
     const first = await acquire(a);
@@ -368,7 +370,7 @@ async function studyCoresidency() {
   }
   // Separately: can each be admitted ALONE right now, given what is resident?
   const alone = [];
-  for (const w of ["flux2-klein-generate", "z-image-generate", "hidream-o1-generate", "qwen-generate", "flux-generate"]) {
+  for (const w of ["flux2-klein-generate", "z-image-generate", "hidream-o1-generate", "hidream-o1-full-generate", "qwen-image-21-generate", "qwen-generate"]) {
     const r = await acquire(w);
     alone.push({ workload: w, result: r.status === 201 ? "granted" : r.body });
     await release(r.body?.lease);
