@@ -202,7 +202,9 @@ async function migrateImages(db: Db) {
     for (const e of entries) {
       const rel = relDir ? `${relDir}/${e.name}` : e.name;
       if (e.isDirectory()) await walk(path.join(absDir, e.name), rel);
-      else if (e.name.toLowerCase().endsWith(".png")) pngs.push(rel);
+      // PNG, JPEG and WebP: the formats saveImage() writes (inlined, not
+      // imported, because save-image already imports this module).
+      else if (/\.(png|jpe?g|webp)$/i.test(e.name)) pngs.push(rel);
     }
   }
 
@@ -216,7 +218,7 @@ async function migrateImages(db: Db) {
       let meta: Record<string, unknown> = {};
       try {
         meta = JSON.parse(
-          await fs.readFile(path.join(outputDir, rel.replace(/\.png$/i, ".json")), "utf8"),
+          await fs.readFile(path.join(outputDir, rel.replace(/\.(png|jpe?g|webp)$/i, ".json")), "utf8"),
         );
       } catch {
         /* no sidecar */
