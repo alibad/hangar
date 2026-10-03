@@ -398,11 +398,19 @@ function StoryDetail({ st, items, onRequeue, busy }: { st: Story; items: ForgeIt
         </div>
       </div>
       {st.characters.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {st.characters.map((c) => (
-            <span key={c.name} className="max-w-full rounded-xl border border-gray-800 bg-gray-900/40 px-3 py-1.5 text-xs" title={c.look}>
-              <span className="text-gray-100">{c.name}</span> <span className="text-gray-500">— {c.look}</span>
-            </span>
+            <figure key={c.name} className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900/40" title={c.look}>
+              {c.sheet ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={fileUrl(c.sheet)} alt={} className="aspect-square w-full object-cover" loading="lazy" />
+              ) : null}
+              <figcaption className="px-2.5 py-2 text-xs">
+                <span className="text-gray-100">{c.name}</span>
+                {c.sheet ? <span className="ml-1 text-[10px] uppercase tracking-wider text-orange-300">sheet</span> : null}
+                <span className="mt-0.5 line-clamp-3 block text-[11px] text-gray-500">{c.look}</span>
+              </figcaption>
+            </figure>
           ))}
         </div>
       )}
