@@ -44,6 +44,9 @@ const SUPPORTING: Record<"female" | "male", string[]> = {
   male: ["bm_lewis", "am_fenrir", "am_puck", "am_michael", "bm_george"],
 };
 
+/** Light young voices for children. */
+const CHILD = ["af_sky", "bf_isabella", "af_nicole"];
+
 export const SCORE_OPTIONS: (Option & { style?: string })[] = [
   { key: "brief", label: "the writer's own brief" },
   { key: "piano", label: "solo piano", style: "intimate solo felt piano, sparse and slow, soft sustain pedal, a quiet motif that returns at the end" },
@@ -109,7 +112,10 @@ export function pickStack(
     if (voices[sp]) continue;
     const c = byName.get(sp);
     const gender: "female" | "male" = c?.gender === "female" || c?.gender === "male" ? c.gender : leadVoice.gender === "female" ? "male" : "female";
-    const pick = SUPPORTING[gender].find((v) => !taken.has(v)) ?? SUPPORTING[gender][0];
+    // Kokoro has no child voices; a light young voice reads a child of either
+    // gender (the first conversation gave a boy am_fenrir, a deep adult voice).
+    const pool = c?.age === "child" ? CHILD : SUPPORTING[gender];
+    const pick = pool.find((v) => !taken.has(v)) ?? pool[0];
     taken.add(pick);
     voices[sp] = { key: `kokoro-${pick}`, engine: "kokoro", voice: pick, label: `Kokoro (${pick})` };
   }

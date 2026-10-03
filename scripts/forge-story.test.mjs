@@ -126,3 +126,9 @@ test("the quality slot makes the film with Wan 2.2 14B at its full 20 steps", ()
   assert.equal(st.video.videoModel, "wan2.2-14b");
   assert.equal(st.video.steps, 20);
 });
+
+test("a child in a conversation gets a light young voice", () => {
+  const boy = { name: "Kael", look: "a young boy", kind: "human", gender: "male", age: "child" };
+  const st = pickStack({ format: "dialogue", characters: [boy], shots: [{ speaker: "Narrator" }, { speaker: "Kael" }] }, []);
+  assert.equal(st.voices.Kael.voice, "af_sky");
+});
