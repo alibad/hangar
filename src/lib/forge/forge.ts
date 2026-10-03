@@ -78,7 +78,7 @@ async function checkStill(
   file: string,
   expect?: { name: string; look: string }[],
   model = VISION_MODEL,
-): Promise<{ people: boolean; text: boolean; logo: boolean; notes: string; present?: boolean[] } | null> {
+): Promise<{ people: boolean; text: boolean; logo: boolean; border?: boolean; notes: string; present?: boolean[] } | null> {
   try {
     const image = (await fs.readFile(file)).toString("base64");
     const cast = expect?.length ? expect : null;
@@ -97,16 +97,17 @@ async function checkStill(
             people: { type: "boolean" },
             text: { type: "boolean" },
             logo: { type: "boolean" },
+            border: { type: "boolean" },
             notes: { type: "string" },
             ...(cast ? { present: { type: "array", items: { type: "boolean" } } } : {}),
           },
-          required: ["people", "text", "logo", "notes", ...(cast ? ["present"] : [])],
+          required: ["people", "text", "logo", "border", "notes", ...(cast ? ["present"] : [])],
         },
         messages: [
           {
             role: "user",
             content:
-              'This image is the first frame of a calm, cinematic video clip. Answer in JSON: "people": true if ANY person, face, hand, body or human silhouette is visible, even small or far away; "text": true if any letters, words, numbers or signage are visible (real or garbled); "logo": true if any brand logo or app icon is visible; "notes": what it shows, in a few words.' +
+              'This image is the first frame of a calm, cinematic video clip. Answer in JSON: "people": true if ANY person, face, hand, body or human silhouette is visible, even small or far away; "text": true if any letters, words, numbers or signage are visible (real or garbled); "logo": true if any brand logo or app icon is visible; "border": true if a decorative border, ornamental frame or plain margin is painted around the picture instead of the scene running to the edges; "notes": what it shows, in a few words.' +
               (cast
                 ? ` "present": one true/false per subject below, in order — true if that subject is clearly visible in the image (in the image's own style; a painted or paper frog still counts as a frog):\n${cast.map((c, i) => `${i + 1}. ${c.look}`).join("\n")}`
                 : ""),
@@ -118,9 +119,9 @@ async function checkStill(
     });
     if (!res.ok) return null;
     const body = (await res.json()) as { message?: { content?: string } };
-    const j = JSON.parse(body.message?.content ?? "{}") as { people?: boolean; text?: boolean; logo?: boolean; notes?: string; present?: unknown[] };
+    const j = JSON.parse(body.message?.content ?? "{}") as { people?: boolean; text?: boolean; logo?: boolean; border?: boolean; notes?: string; present?: unknown[] };
     const present = cast ? cast.map((_, i) => (Array.isArray(j.present) ? j.present[i] !== false : true)) : undefined;
-    return { people: !!j.people, text: !!j.text, logo: !!j.logo, notes: String(j.notes ?? "").slice(0, 120), ...(present ? { present } : {}) };
+    return { people: !!j.people, text: !!j.text, logo: !!j.logo, border: !!j.border, notes: String(j.notes ?? "").slice(0, 120), ...(present ? { present } : {}) };
   } catch {
     return null;
   }
@@ -1223,7 +1224,7 @@ class Forge {
         }
         // A story's characters are people on purpose, unless the story has none.
         const strayPeople = look.people && (!item.story || item.story.humans === false);
-        const bad = [strayPeople && "people", look.text && "writing", look.logo && "a logo"].filter(Boolean).join(", ");
+        const bad = [strayPeople && "people", look.text && "writing", look.logo && "a logo", look.border && "a painted border"].filter(Boolean).join(", ");
         const missing = cast.filter((_, i) => look.present && look.present[i] === false).map((c) => c.name);
         castNote = missing.length ? `no ${missing.join(" or ")}` : "";
         if (!bad && !castNote) {
@@ -1233,7 +1234,8 @@ class Forge {
         }
         const why = [bad && `showed ${bad}`, castNote].filter(Boolean).join(", ");
         // Writing or a logo is never kept; a missing character or a stray person is, if nothing better comes.
-        const score = (look.text || look.logo ? -10 : 0) + (look.present?.filter(Boolean).length ?? 0) - (strayPeople ? 2 : 0);
+        // A painted border would show as two strips beside the cinema frame: drawn again, kept only if nothing better comes.
+        const score = (look.text || look.logo ? -10 : 0) + (look.present?.filter(Boolean).length ?? 0) - (strayPeople ? 2 : 0) - (look.border ? 3 : 0);
         if (!look.text && !look.logo && (!best || score > best.score)) best = { score, res: res!, path: savedPath, why, model: usedModel };
         note(item, `First frame ${attempt} ${why} (${look.notes}); ${attempt < 3 ? "drawing again" : best ? "keeping the closest one" : "giving up"}`);
         if (attempt === 3) {
