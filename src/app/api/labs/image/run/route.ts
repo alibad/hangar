@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   const measured = await measureRun(
     async () => {
       const r = await generateAndSave(
-        { model: target, prompt, seed, width: size, height: size, folder: "Image Lab", requestId: `lab:image:${target}` },
+        { model: target, prompt, seed, width: size, height: size, folder: "Compare", requestId: `lab:image:${target}` },
         undefined,
         req.signal,
       );

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
+import { revealInExplorer } from "./reveal-in-explorer";
 
 export const STORAGE_STATE_DIR = path.join(
   process.env.LOCALAPPDATA || process.cwd(),
@@ -440,9 +441,11 @@ export async function searchStorage(query: string, root?: string) {
 export async function revealStoragePath(input: string) {
   const target = normalizeIndexedPath(input);
   const stats = await fsp.stat(target);
-  const args = stats.isDirectory() ? [target] : ["/select,", target];
-  execFile("explorer.exe", args, { windowsHide: false }, () => {});
-  return { path: target, selected: !stats.isDirectory() };
+  // In front of the browser, reusing an open window: a bare explorer.exe from
+  // this background process opened behind it and looked like a dead button.
+  const result = await revealInExplorer(target, { select: !stats.isDirectory() });
+  if (!result.ok) throw new Error(result.error || "Explorer did not open.");
+  return { path: target, selected: !stats.isDirectory(), focused: result.focused };
 }
 
 export async function startMove(source: string, destinationDirectory: string, conflict: "error" | "rename") {

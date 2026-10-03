@@ -449,6 +449,12 @@ export default function Home() {
         saved = "lab-3d";
         window.history.replaceState({ tab: hash }, "", "#lab-3d");
       }
+      // The Image Lab is the Image Studio's Compare and Eval tabs now.
+      if (hash === "lab-image" || (!hash && saved === "lab-image")) {
+        hash = "qwen";
+        saved = "qwen";
+        window.history.replaceState({ tab: hash }, "", "#qwen");
+      }
       const next: ConsoleTab = isConsoleTab(hash) ? hash : isConsoleTab(saved) ? saved : "stack";
       switchTab(next);
       setKept((k) => (k.length ? k : [next]));

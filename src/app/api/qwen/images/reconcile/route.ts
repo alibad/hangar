@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import path from "path";
 import fs from "fs/promises";
+import { isLabStorage } from "@/lib/gallery-folders";
 
 /**
  * Re-sync the images table with what is actually on disk.
@@ -32,6 +33,10 @@ export async function POST() {
     }
     for (const e of entries) {
       const rel = relDir ? `${relDir}/${e.name}` : e.name;
+      // Not into another lab's storage: the 3D Lab's source/cutout PNGs and the
+      // Video Lab's frames would import as gallery images, and every 3D job
+      // has a "source.png", which the basename relocation below would confuse.
+      if (e.isDirectory() && isLabStorage(rel)) continue;
       if (e.isDirectory()) await walk(path.join(dir, e.name), rel);
       else if (e.name.toLowerCase().endsWith(".png")) diskRels.push(rel);
     }

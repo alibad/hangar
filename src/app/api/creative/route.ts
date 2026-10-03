@@ -10,18 +10,23 @@ import { generateAndSave } from "@/lib/image-gen";
  * the Activity feed. The tab is now part of the Image studio and FLUX runs
  * through /api/image/generate, which persists like every other model.
  *
- * So this forwards, pinned to FLUX, and returns the shared response shape. The
- * old `{ image: { filename, subfolder, type } }` object is gone — an image is a
+ * So this forwards and returns the shared response shape. The old
+ * `{ image: { filename, subfolder, type } }` object is gone — an image is a
  * data URL here, and it's already saved on disk. New code should call
  * /api/image/generate directly.
+ *
+ * It was pinned to FLUX.1 schnell until that model was retired on 28 Sept 2026;
+ * it now forwards to its successor for the fast-draft job, FLUX.2 Klein 4B.
+ * Klein is a 4-step model like schnell, so the step count callers sent still
+ * fits, but it is overridden to Klein's own 4 regardless.
  */
 export const maxDuration = 800;
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const result = await generateAndSave(body, "flux-schnell");
+  const result = await generateAndSave({ ...body, steps: 4 }, "flux2-klein-4b");
   return NextResponse.json(
-    { ...result.body, deprecated: "Use /api/image/generate with model=flux-schnell." },
+    { ...result.body, deprecated: "Use /api/image/generate with model=flux2-klein-4b." },
     result.ok ? undefined : { status: result.status },
   );
 }

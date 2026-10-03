@@ -77,6 +77,8 @@
     "args": ["C:\\Users\\Admin\\Code\\hq\\quote-forge\\server\\qwen_image.py"],
     "env": {
       "QWEN_EDIT_ENABLED": "1",
+      "QWEN_IMAGE_MODEL": "Qwen/Qwen-Image-2512",
+      "QWEN_EDIT_MODEL": "Qwen/Qwen-Image-Edit-2511",
       "HF_HOME": "D:\\AI Models\\huggingface"
     }
   },

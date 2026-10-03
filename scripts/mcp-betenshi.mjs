@@ -779,8 +779,12 @@ const TOOLS = [
             'Local model. Measured on this box (docs/image-model-experiment-2026-09-26.md): "flux2-klein-4b" is fastest ' +
             '(~10 s) and good at layout; "z-image-turbo" (~14 s) is the one to use for rendered text, Arabic text or exact ' +
             'small counts; "hidream-o1-dev" is native 2K but English prompts only (it ignored an Arabic prompt). ' +
-            'Omitting it means Qwen-Image, which needs ~28 GB of free host RAM and several minutes to load, and is often ' +
-            'refused while other models are resident. Do not use "flux-schnell": it needs the whole card.',
+            'Omitting it means Qwen-Image (the 20B Qwen-Image-2512 since 3 Oct, Apache-2.0), which needs ~28 GB of free host ' +
+            'RAM and several minutes to load, and is often refused while other models are resident. Also local: ' +
+            '"qwen-image-2.1" (#1 open model), "hidream-o1" (full), "ideogram-4" (#2, typography) and "ming-image" (#6, ' +
+            'design layouts, MIT) — see the doc for how they compare. qwen-image-2.1 and ideogram-4 are licensed for ' +
+            'NON-COMMERCIAL use only: never use them for anything commercial. FLUX.1 schnell was retired; "flux-schnell" ' +
+            'is no longer a model.',
         },
         folder: { type: "string", description: "Gallery folder to save into." },
       },

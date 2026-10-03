@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } fro
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Star, Trash2, ChevronDown, ChevronUp, Mic, Square, X, ChevronRight, SlidersHorizontal, ServerCog } from "lucide-react";
 import { DIM_POOLS, type DimKey } from "@/lib/prompt-variations";
+import { folderRows, inFolder } from "@/lib/gallery-folders";
 import { IMAGE_MODELS, DEFAULT_IMAGE_MODEL, getImageModel, cloudImageModel, isImageModelId, modelsSupporting, type ImageModel, type ImageModelId } from "@/lib/image-models";
 import { useLocalFootprints } from "@/lib/use-local-footprints";
 import ModelFootprint from "./model-footprint";
@@ -237,6 +238,13 @@ export default function QwenStudio() {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [confirmFolderDelete, setConfirmFolderDelete] = useState<string | null>(null);
+  // Sidebar tree: which folders are open, whether empty ones show, and the
+  // folders made this session (kept visible while still empty).
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [showEmptyFolders, setShowEmptyFolders] = useState(false);
+  const [createdFolders, setCreatedFolders] = useState<Set<string>>(new Set());
+  /** Image files actually on disk per folder, indexed or not. */
+  const [folderDiskCounts, setFolderDiskCounts] = useState<Map<string, number>>(new Map());
   const [galleryBatchFilter, setGalleryBatchFilter] = useState<string | null>(null);
   const [confirmBulkCancelQueued, setConfirmBulkCancelQueued] = useState(false);
   const galleryRef = useRef<HTMLElement>(null);
@@ -413,6 +421,7 @@ export default function QwenStudio() {
       const data = await res.json();
       setGallery(Array.isArray(data.images) ? data.images : []);
       setFolders(Array.isArray(data.folders) ? data.folders : []);
+      setFolderDiskCounts(new Map(Object.entries(data.onDisk ?? {}).filter((e): e is [string, number] => typeof e[1] === "number")));
     } catch {
       /* keep prior list */
     }
@@ -576,8 +585,8 @@ export default function QwenStudio() {
     prevModelRef.current = imageModel;
     setSteps(activeModel.steps[0]);
     setCfg(activeModel.defaultCfg);
-    setWidth(imageModel === "hidream-o1-dev" ? 2048 : 1024);
-    setHeight(imageModel === "hidream-o1-dev" ? 2048 : 1024);
+    setWidth(imageModel.startsWith("hidream-o1") ? 2048 : 1024);
+    setHeight(imageModel.startsWith("hidream-o1") ? 2048 : 1024);
   }, [imageModel, activeModel.steps, activeModel.defaultCfg]);
 
   useEffect(() => {
@@ -1041,6 +1050,9 @@ export default function QwenStudio() {
       });
       const data = await res.json();
       if (data.ok) {
+        // Empty folders are hidden by default; a new one stays listed so it can
+        // be dragged onto.
+        setCreatedFolders((prev) => new Set(prev).add(data.path));
         await refreshGallery();
         setSelectedFolder(data.path);
       } else {
@@ -1191,15 +1203,20 @@ export default function QwenStudio() {
     else moveItem(dragRel, target);
   }
 
-  /** Open the folder in Windows Explorer — these are real directories on disk. */
+  /**
+   * Open the folder in Windows Explorer — these are real directories on disk.
+   * It opens on the machine running the console, brought in front of the
+   * browser (or an already-open window for it is).
+   */
   async function revealFolder(folder: string) {
     setFolderMenu(null);
     try {
-      await fetch("/api/qwen/folders", {
+      const r = await fetch("/api/qwen/folders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reveal", path: folder }),
-      });
+      }).then((x) => x.json());
+      if (!r.ok) setError(`Couldn't open the folder in Explorer${r.error ? `: ${r.error}` : "."}`);
     } catch {
       setError("Couldn't open the folder.");
     }
@@ -1255,7 +1272,9 @@ export default function QwenStudio() {
     if (galleryBatchFilter) return gallery.filter((g) => g.batchJobId === galleryBatchFilter);
     if (selectedFolder === null) return gallery;
     if (selectedFolder === FAV) return gallery.filter((g) => g.favorite);
-    return gallery.filter((g) => g.folder === selectedFolder);
+    // A folder shows its subfolders' images too, matching the count beside it.
+    // Unfiled ("") stays exact: only images at the root.
+    return gallery.filter((g) => inFolder(g.folder, selectedFolder));
   }, [gallery, selectedFolder, galleryBatchFilter]);
   // ── paging ────────────────────────────────────────────────────────────────
   const [pageSize, setPageSize] = useState(100);
@@ -1417,6 +1436,42 @@ export default function QwenStudio() {
     for (const g of gallery) m.set(g.folder, (m.get(g.folder) ?? 0) + 1);
     return m;
   }, [gallery]);
+
+  // The sidebar's rows: tree order, counts including subfolders, empty folders
+  // hidden unless asked for, collapsed unless opened. The selected folder and
+  // ones made this session always show, with their parents opened.
+  useEffect(() => {
+    try {
+      const open = JSON.parse(localStorage.getItem("qwen.expandedFolders") ?? "[]");
+      if (Array.isArray(open)) setExpandedFolders(new Set(open.filter((x) => typeof x === "string")));
+      setShowEmptyFolders(localStorage.getItem("qwen.showEmptyFolders") === "1");
+    } catch { /* defaults */ }
+  }, []);
+  const toggleFolderOpen = useCallback((f: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(f)) next.delete(f); else next.add(f);
+      try { localStorage.setItem("qwen.expandedFolders", JSON.stringify([...next])); } catch { /* per-browser nicety */ }
+      return next;
+    });
+  }, []);
+  const toggleShowEmptyFolders = useCallback(() => {
+    setShowEmptyFolders((v) => {
+      try { localStorage.setItem("qwen.showEmptyFolders", v ? "0" : "1"); } catch { /* per-browser nicety */ }
+      return !v;
+    });
+  }, []);
+  const folderTree = useMemo(
+    () => folderRows({
+      folders,
+      direct: folderCounts,
+      onDisk: folderDiskCounts,
+      expanded: expandedFolders,
+      showEmpty: showEmptyFolders,
+      keep: [...createdFolders, ...(selectedFolder && selectedFolder !== FAV ? [selectedFolder] : [])],
+    }),
+    [folders, folderCounts, folderDiskCounts, expandedFolders, showEmptyFolders, createdFolders, selectedFolder],
+  );
 
   // group the visible images by day, newest first
   const groups = useMemo(() => {
@@ -2012,7 +2067,7 @@ export default function QwenStudio() {
         </div>
         <p className="image-mode-hint">
           {mode === "edit"
-            ? activeModel.serviceId === "qwen" ? "Edit loads the separate Qwen-Image-Edit checkpoint on first run." : "FLUX.2 Klein uses the same checkpoint for generation and reference-image editing."
+            ? activeModel.serviceId === "qwen" ? "Edit loads the separate Qwen-Image-Edit checkpoint on first run." : `${activeModel.name} edits with the same checkpoint it generates with, from reference images.`
             : mode === "compare"
               ? "Run one prompt across several local and cloud models."
               : mode === "eval"
@@ -2908,24 +2963,40 @@ export default function QwenStudio() {
                 <span>Unfiled</span><span className="text-gray-600">{folderCounts.get("") ?? 0}</span>
               </button>
 
-              {folders.map((f) => {
-                const depth = f.split("/").length - 1;
-                const name = f.slice(f.lastIndexOf("/") + 1);
-                return (
-                  <div key={f} className="group/folder flex items-center"
-                    onContextMenu={(e) => { e.preventDefault(); setFolderMenu({ x: e.clientX, y: e.clientY, folder: f }); }}
-                    onDragOver={(e) => { e.preventDefault(); setDropTarget(f); }}
-                    onDragLeave={() => setDropTarget(null)}
-                    onDrop={(e) => { e.preventDefault(); dropToFolder(f); }}>
-                    <button onClick={() => { setSelectedFolder(f); setGalleryBatchFilter(null); }} style={{ paddingLeft: 8 + depth * 12 }}
-                      className={`flex-1 min-w-0 text-left text-xs pr-2 py-1.5 rounded-lg flex items-center justify-between transition ${selectedFolder === f ? "bg-pink-600/20 text-pink-300" : "text-gray-300 hover:bg-gray-800"} ${dropTarget === f ? "ring-1 ring-pink-500 bg-pink-500/10" : ""}`}>
-                      <span className="truncate">📁 {name}</span><span className="text-gray-600 ml-1 flex-shrink-0">{folderCounts.get(f) ?? 0}</span>
+              {folderTree.rows.map(({ path: f, name, depth, count, hasChildren, expanded, unindexed }) => (
+                <div key={f} className="group/folder flex items-center" style={{ paddingLeft: depth * 12 }}
+                  onContextMenu={(e) => { e.preventDefault(); setFolderMenu({ x: e.clientX, y: e.clientY, folder: f }); }}
+                  onDragOver={(e) => { e.preventDefault(); setDropTarget(f); }}
+                  onDragLeave={() => setDropTarget(null)}
+                  onDrop={(e) => { e.preventDefault(); dropToFolder(f); }}>
+                  {hasChildren ? (
+                    <button onClick={() => toggleFolderOpen(f)} aria-expanded={expanded}
+                      aria-label={`${expanded ? "Collapse" : "Expand"} ${name}`} title={expanded ? "Collapse" : "Expand"}
+                      className="w-4 h-6 flex-shrink-0 flex items-center justify-center text-gray-500 hover:text-gray-200">
+                      <ChevronRight className={`h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`} />
                     </button>
-                    <button onClick={() => setConfirmFolderDelete(f)} title="Delete folder"
-                      className="opacity-0 group-hover/folder:opacity-100 text-gray-600 hover:text-red-400 px-1 flex-shrink-0">×</button>
-                  </div>
-                );
-              })}
+                  ) : <span className="w-4 flex-shrink-0" />}
+                  <button onClick={() => { setSelectedFolder(f); setGalleryBatchFilter(null); }}
+                    title={[
+                      hasChildren ? `${count} images, including subfolders` : "",
+                      unindexed ? `${unindexed} more on disk that the gallery hasn't indexed. Rescan disk adds them.` : "",
+                    ].filter(Boolean).join("\n") || undefined}
+                    className={`flex-1 min-w-0 text-left text-xs pl-1 pr-2 py-1.5 rounded-lg flex items-center justify-between transition ${selectedFolder === f ? "bg-pink-600/20 text-pink-300" : "text-gray-300 hover:bg-gray-800"} ${dropTarget === f ? "ring-1 ring-pink-500 bg-pink-500/10" : ""}`}>
+                    <span className="truncate">📁 {name}</span>
+                    <span className="text-gray-600 ml-1 flex-shrink-0">
+                      {count}{unindexed ? <span className="text-amber-400/80"> +{unindexed}</span> : null}
+                    </span>
+                  </button>
+                  <button onClick={() => setConfirmFolderDelete(f)} title="Delete folder"
+                    className="opacity-0 group-hover/folder:opacity-100 text-gray-600 hover:text-red-400 px-1 flex-shrink-0">×</button>
+                </div>
+              ))}
+              {(folderTree.hiddenEmpty > 0 || showEmptyFolders) && (
+                <button onClick={toggleShowEmptyFolders}
+                  className="w-full text-left text-[10px] text-gray-600 hover:text-gray-300 px-2 pt-1">
+                  {showEmptyFolders ? "Hide empty folders" : `${folderTree.hiddenEmpty} empty folder${folderTree.hiddenEmpty === 1 ? "" : "s"} hidden · show`}
+                </button>
+              )}
               {folders.length === 0 && (
                 <p className="text-[10px] text-gray-700 px-2 pt-1 leading-relaxed">No folders yet. ＋ to add one, then drag images onto it (or right-click an image → Move).</p>
               )}

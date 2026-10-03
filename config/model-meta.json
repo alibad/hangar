@@ -57,13 +57,13 @@
     }
   },
   "local-qwen-image": {
-    "checkpoint": "Qwen/Qwen-Image",
+    "checkpoint": "Qwen/Qwen-Image-2512 · edits: Qwen/Qwen-Image-Edit-2511",
     "license": "Apache-2.0",
     "params": "20.4B denoiser · 28.8B loaded",
-    "released": "2025-08",
-    "docs": "https://hf.co/Qwen/Qwen-Image",
+    "released": "2025-12",
+    "docs": "https://hf.co/Qwen/Qwen-Image-2512",
     "paper": "https://arxiv.org/abs/2508.02324",
-    "note": "Newer sibling available: Qwen/Qwen-Image-2512 (Dec 2025), same 20.4B size.",
+    "note": "Since 3 Oct 2026 the service loads Qwen-Image-2512 (Artificial Analysis open-weights #5, Elo 999, against the Aug 2025 Qwen-Image's #24 at 889) and Qwen-Image-Edit-2511 (editing #3, 1021, against Edit-2509's #8 at 981): same 20.4B architecture and footprint, Apache-2.0, so commercial use stays allowed. Set by QWEN_IMAGE_MODEL / QWEN_EDIT_MODEL in scripts/service-commands.json.",
     "service": "qwen",
     "footprint": {
       "vramGb": 20.3,
@@ -74,21 +74,72 @@
       "basis": "VRAM measured: 20.3 GB peak mid-generation, ~0.1 GB idle. It does NOT hold the card — enable_model_cpu_offload() keeps the ~28 GB of fp8 weights in host RAM and streams them per stage. Note idleRamGb == ramGb and that is the point: the VRAM cost is transient but the HOST RAM cost is permanent for as long as the service is loaded (measured 21.7 GB resident while generating, 2026-08-01). That standing 28 GB is what collides with a FLUX run on a 63 GB box."
     }
   },
-  "local-flux-schnell": {
-    "checkpoint": "black-forest-labs/FLUX.1-schnell",
-    "license": "Apache-2.0",
-    "params": "12B rectified-flow transformer, 4-step distilled",
-    "released": "2024-08",
-    "docs": "https://hf.co/black-forest-labs/FLUX.1-schnell",
-    "note": "Served through ComfyUI (:8188), not a router alias — the console builds the graph itself. Fast-draft tier beside Qwen-Image.",
+  "local-hidream-o1": {
+    "checkpoint": "Comfy-Org/HiDream-O1-Image · hidream_o1_image_fp8_scaled (full, non-distilled)",
+    "license": "MIT",
+    "params": "8B unified · FP8 full",
+    "released": "2026-05",
+    "docs": "https://huggingface.co/HiDream-ai/HiDream-O1-Image",
+    "note": "The full HiDream-O1 beside the Dev model: 40 steps at CFG 5 with seam smoothing (Comfy-Org template image_hidream_o1), and reference-image editing. Artificial Analysis open-weights text-to-image #13 (Elo 979) against Dev's #27 (878), checked 27 Sept 2026.",
     "service": "comfyui",
     "footprint": {
-      "vramGb": 31.7,
-      "ramGb": 28,
-      "idleVramGb": 0.06,
+      "vramGb": 12,
+      "ramGb": 9,
       "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
       "kind": "peak",
-      "basis": "VRAM measured 2026-07-30: card went to 31.72 GiB of 31.84 GiB during a 512x512 4-step run (35s cold). Weights on disk total 31.81 GiB — flux1-schnell 22.15, t5xxl_fp16 9.12, clip_l 0.23, ae 0.31 — so it effectively fills the card and nothing meaningful fits beside it. ComfyUI streams via cudaMallocAsync + comfy-aimdo DynamicVRAM, so torch_vram_total reads ~0.44 GiB and per-process attribution is NOT available: this figure is whole-card usage minus the 0.1 GiB Qwen-Image held idle at the time. IDLE measured 2026-08-01 with the service running but no workflow executed: torch_vram_total 64 MB, process resident 0.13 GB — ComfyUI loads checkpoints lazily on first execution and evicts after, so STARTING it costs nothing. ramGb is the host-RAM cost of an actual run, estimated from the weight total; that is what collides with Qwen-Image's standing 28 GB."
+      "basis": "VRAM measured 3 Oct 2026: +9.11 GiB at 1024² (15.6 s) and +11.41 GiB at 2048² (45.6 s) over 2.8 GiB; declared at the 2K peak, its default size. Edits run on a ~4 MP canvas (see comfy-image-workflows.ts). Host RAM was not separable: ComfyUI keeps recently used weights cached in its own process between jobs (18.7 GB private after /free on 3 Oct), so the free-memory drop during a run read ~0 and the RAM figure stays an admission estimate."
+    }
+  },
+  "local-qwen-image-2.1": {
+    "checkpoint": "Comfy-Org/Qwen-Image-2.1 · qwen_image_2.1_int8_convrot + qwen3vl_8b_int8_convrot + qwen_image_2.1_vae_bf16",
+    "license": "Qwen Research License (non-commercial only)",
+    "params": "7B DiT + Qwen3-VL-8B text encoder (int8)",
+    "released": "2026-09",
+    "docs": "https://huggingface.co/Qwen/Qwen-Image-2.1",
+    "note": "One model for generation and editing (up to 16 reference images), native in ComfyUI v0.37+. #1 open-weights on Artificial Analysis for both text-to-image (Elo 1035) and editing (1071), checked 27 Sept 2026. NON-COMMERCIAL: the Qwen Research Licence allows non-commercial use only, under Chinese law with Hangzhou courts, and derived models must say 'Built with Qwen'.",
+    "service": "comfyui",
+    "footprint": {
+      "vramGb": 16,
+      "ramGb": 18,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "peak",
+      "basis": "VRAM measured 3 Oct 2026 (experiment-image-suite footprint): +15.37 GiB whole-card peak over a settled 2.8 GiB baseline, cold 1024² generation in 22.3 s; edits peak higher, +19.1 to +22.2 GiB (the 1536x1024 canvas extension highest): declared at the generation peak, the default job, as Klein is; an edit beside vllm-small can be squeezed. Host RAM was not separable: ComfyUI keeps recently used weights cached in its own process between jobs (18.7 GB private after /free on 3 Oct), so the free-memory drop during a run read ~0 and the RAM figure stays an admission estimate."
+    }
+  },
+  "local-ideogram-4": {
+    "checkpoint": "Comfy-Org/Ideogram-4 · ideogram4_fp8_scaled + ideogram4_unconditional_fp8_scaled + Comfy-Org/Qwen3-VL qwen3vl_8b_fp8_scaled + flux2-vae",
+    "license": "Ideogram 4 Non-Commercial",
+    "params": "9.3B DiT ×2 (conditional + unconditional) + Qwen3-VL-8B text encoder (fp8)",
+    "released": "2026-05",
+    "docs": "https://huggingface.co/ideogram-ai/ideogram-4-fp8",
+    "note": "Artificial Analysis open-weights text-to-image #2 (Elo 1011), checked 3 Oct 2026. Trained on structured JSON captions; the console passes the prompt as the caption's high_level_description with no LLM rewrite. NON-COMMERCIAL licence.",
+    "service": "comfyui",
+    "footprint": {
+      "vramGb": 26,
+      "ramGb": 20,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "peak",
+      "basis": "VRAM measured 3 Oct 2026: +25.91 GiB whole-card peak over 2.8 GiB at 1024² (28.3 s cold): both 9.3 GB transformers are sampled every step, plus the Qwen3-VL-8B encoder, which also writes the caption. It cannot run beside vllm-small. Host RAM was not separable: ComfyUI keeps recently used weights cached in its own process between jobs (18.7 GB private after /free on 3 Oct), so the free-memory drop during a run read ~0 and the RAM figure stays an admission estimate."
+    }
+  },
+  "local-ming-image": {
+    "checkpoint": "Comfy-Org/Ming-Image · ming_image_0.1_design_int8_convrot + ming_image_0.1_ling_mini_2.0_int8_convrot + ming_image_vae_bf16",
+    "license": "MIT",
+    "params": "Ming-Image 0.1 Design DiT (int8) + Ling-mini-2.0 16B MoE text encoder (int8)",
+    "released": "2026-09",
+    "docs": "https://huggingface.co/inclusionAI/Ming-Image-0.1-Design",
+    "note": "Artificial Analysis open-weights text-to-image #6 (Elo 998), checked 3 Oct 2026; aimed at text-heavy design. Native in ComfyUI v0.38+. Generation and reference-image editing.",
+    "service": "comfyui",
+    "footprint": {
+      "vramGb": 26,
+      "ramGb": 20,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "peak",
+      "basis": "VRAM measured 3 Oct 2026: +23.86 GiB whole-card peak over 2.8 GiB at 1024² (15.2 s cold) and +25.64 GiB for an edit, which is what is declared (it cannot share the card with vllm-small either way); the 19.5 GB int8 Ling-mini-2.0 encoder dominates. Declared RAM was 26 GB first and refused back-to-back Ming jobs for weights ComfyUI already held, so it is 20. Host RAM was not separable: ComfyUI keeps recently used weights cached in its own process between jobs (18.7 GB private after /free on 3 Oct), so the free-memory drop during a run read ~0 and the RAM figure stays an admission estimate."
     }
   },
   "local-coder": {

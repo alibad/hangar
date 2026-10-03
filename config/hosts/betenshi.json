@@ -163,7 +163,7 @@
       "publicUrl": "https://comfyui.betenshi.com",
       "healthPath": "/system_stats",
       "serves": {
-        "image": ["flux2-klein-4b", "z-image-turbo", "hidream-o1-dev", "flux-schnell"]
+        "image": ["flux2-klein-4b", "z-image-turbo", "qwen-image-2.1", "hidream-o1", "hidream-o1-dev", "ideogram-4", "ming-image"]
       },
       "category": "app",
       "authRequired": false,

@@ -1,40 +1,55 @@
-# Image model experiment — 26–27 September 2026
+# Image model experiment — 26 September – 3 October 2026
 
-_Continues [the 12 September smoke test](image-model-experiment-2026-09-12.md)._
+_Continues [the 12 September smoke test](image-model-experiment-2026-09-12.md).
+Updated 3 October with the four newer open models
+([measured here](#3-october-four-newer-models-measured))._
 
 ## Recommendation
 
-There is no single winner. Pick by job:
+There is no single winner, and the licence decides as much as quality does:
+the two best local models (Qwen-Image-2.1, Ideogram 4) are **non-commercial**.
+Pick by job:
 
-| Use case | Use | Why (measured here unless stated) |
-| --- | --- | --- |
-| Everyday drafts, layout, anything you iterate on | **FLUX.2 Klein 4B** | Fastest local model: 9.9 s median through the console, **1.3–1.6 s** when its weights stay resident. Most literal on the long compositional prompt. Fits beside quote-forge's resident `vllm-small`, which Qwen-Image does not. |
-| Editing: replace an object, relight, extend the canvas | **FLUX.2 Klein 4B** | All three edits landed and preserved the rest of the image. The canvas extension was seamless, 15–21 s each. Qwen-Image-Edit could not be run this round (below). |
-| Signs, posters, any rendered text; **Arabic** text; exact small counts | **Z-Image Turbo** | The only local model that spelled every sign and poster on both seeds, rendered مرحبا correctly, kept exactly three stars and exactly four people. 13.7 s median. |
-| Prompts written **in Arabic** | **Z-Image Turbo** locally; **gpt-image-2** when details matter | Z-Image followed the scene; only gpt-image-2 got the red keffiyeh. **HiDream-O1 Dev ignored the Arabic prompt entirely.** |
-| Native 2K with HiDream's own look (English prompts) | **HiDream-O1 Dev** | 16–23 s at 2048². About twice a Lanczos upscale's fine detail, but half of Klein rendered directly at 2K, and airbrushed at 1:1. For detail per second, ask **Klein for 2048² directly** (13–25 s). |
-| Counting past four; strict multi-constraint prompts; best-effort Arabic | **gpt-image-2** via the router | Passed every objective check it was given, including the two no local model passed (five apples; keffiyeh). ~$0.024 per image and ~26 s. |
-| Teaching a consistent style or subject (LoRA) | **FLUX.2 Klein 4B**, trained on `FLUX.2-klein-base-4B` | Apache-2.0 base built for training. Published need is 12–24 GB. About an hour; the LoRA runs on the installed 4-step model. Researched, not trained. |
-| — | Retire **FLUX.1 schnell** | The coordinator refused every attempt (31.6 GB VRAM + 27.9 GB RAM declared). Klein supersedes it. |
+| Use case | Personal use | Commercial use | Why (measured here unless stated) |
+| --- | --- | --- | --- |
+| The best image, all-round | **Qwen-Image-2.1** | **Qwen-Image 20B (2512)** or Klein | Qwen-Image-2.1 spelled every English sign and poster, followed the Arabic-language prompt down to the red keffiyeh, and made the cleanest edits. 22.6 s median, +15.4 GiB. #1 open model on both Artificial Analysis boards. |
+| Everyday drafts, layout, anything you iterate on | **FLUX.2 Klein 4B** | **FLUX.2 Klein 4B** | Fastest local model: 9.9 s median through the console, **1.3–1.6 s** when its weights stay resident. Most literal on the long compositional prompt. Fits beside quote-forge's resident `vllm-small`. Apache-2.0. |
+| Editing: replace an object, relight, extend the canvas | **Qwen-Image-2.1** | **FLUX.2 Klein 4B** | Qwen-Image-2.1: all three edits clean, and the only model that relit the scene without recolouring the tulips; 26–37 s. Klein: all three landed, 15–21 s, but recoloured the tulips when relighting. |
+| Signs, posters, rendered text; **Arabic** text | **Ideogram 4** or Z-Image Turbo | **Z-Image Turbo** | Ideogram 4 and Z-Image are the only local models to render مرحبا correctly on both seeds; both spelled the bakery sign. Z-Image: 13.7 s, Apache-2.0. Ideogram 4: 31.4 s and needs the whole card. |
+| Exact counts past four; strict multi-constraint prompts | **Ideogram 4** | **gpt-image-2** via the router | Ideogram 4 is the first local model to draw exactly five apples and two pears (both seeds). gpt-image-2 passed every check it was given, ~$0.024 per image. |
+| Prompts written **in Arabic** | **Qwen-Image-2.1** or **Ideogram 4** | Z-Image Turbo; **gpt-image-2** when details matter | Both got the scene and the red keffiyeh on both seeds. **HiDream-O1, Dev and full alike, ignores Arabic prompts** and draws an unrelated woman. |
+| Native 2K (English prompts) | **HiDream-O1 full** | **HiDream-O1 full** | Replaces Dev: 101 Elo higher, MIT, +11.4 GiB at 2048², and it edits (on a ~4 MP canvas). For detail per second, Klein asked for 2048² directly is still sharper (13–25 s). |
+| Teaching a consistent style or subject (LoRA) | **FLUX.2 Klein 4B** | **FLUX.2 Klein 4B** | Apache-2.0 base built for training (`FLUX.2-klein-base-4B`). Published need is 12–24 GB. Researched, not trained. |
+| — | **FLUX.1 schnell: retired** (28 Sept) | | The coordinator refused every attempt (31.6 GB VRAM + 27.9 GB RAM declared), and Klein does its job faster. Its 22.7 GB weights file is still in ComfyUI's `models/diffusion_models` for you to delete. |
 
-**Qwen-Image was not measured.** Its generation was refused because the
-user's quote-forge app keeps `vllm-small` resident (13 GB), and
-13 + 20.3 GB does not fit the card. That same arithmetic means quote-forge's
-own two local models can never run together. See
+**Ming-Image** (MIT, #6 on the board) has no use case of its own here: good
+posters and exact stars, but it over-counted fruit, garbled Arabic, and
+decorated Arabic-prompt images with invented calligraphy. Z-Image covers its
+ground faster.
+
+**The 20B Qwen service now loads Qwen-Image-2512 and Qwen-Image-Edit-2511**
+(Apache-2.0, #5 and editing #3) instead of the August 2025 checkpoints (#24,
+editing #8): the same size and footprint, and the local Qwen that is safe for
+commercial use, e.g. quote-forge. It is still the model `vllm-small` can never
+sit beside, and it stays off between uses, as you asked on 2 October. See
 [Qwen-Image](#qwen-image-not-measured-and-why-that-is-itself-the-finding).
 
-**Newer models.**
-- **Qwen-Image-2.1** (20 Sep) is #1 among open weights on both Artificial Analysis boards and fits 32 GB. But it is **non-commercial** (Qwen Research Licence), so install it only for personal or research use.
-- The cheapest real upgrade is **HiDream-O1-Image full** (MIT): the same 7.7 GB fp8 size as the Dev model here, and 101 Elo higher. Nothing was installed.
+**Ideogram 4 needs a caption-writing step.** It only draws from a structured
+JSON caption; given plain text it often renders a baked-in "Image blocked by
+safety filter" card. The console writes the caption with Ideogram's own text
+encoder first ([how](#ideogram-4s-caption)), so the prompt you type is all it
+needs.
 
-**The biggest speed win is not a model.** The console unloads ComfyUI's
-weights after every job, so every local image pays a cold load. Keeping
-Klein resident would make it a ~2-second model (see Follow-ups).
+**The biggest speed win is still not a model.** The console unloads
+ComfyUI's weights after every job, so every local image pays a cold load.
+Keeping Klein resident would make it a ~2-second model (see Follow-ups).
 
 ## How to look at the results
 
-- **Image Lab** (`#lab-image`, also Ctrl K → "Image Lab"). The top half runs one prompt on a local model with an optional cloud model beside it. Every run is recorded in `lab_runs`. The bottom half is the evaluation suite: every model side by side, per prompt and seed.
-- **Image Studio → Eval** shows the same suite view.
+Everything image lives in **Image Studio**. A separate Image Lab tab existed
+for a day and was folded in on 28 Sept, so there is one place for images:
+- **Compare** runs one prompt on several local and cloud models at the same seed. Each tile is measured (latency, card-wide VRAM peak, cloud cost) and recorded in `lab_runs` under one compare group.
+- **Eval** is the evaluation suite: every model side by side, per prompt and seed, with this doc under "What we learned".
 - ✓/✗ records **your** verdict on each objective check; ★ records your taste pick. Verdicts are saved to `experiments/image-eval/verdicts/<run>.json`, so they can be committed with the run.
 - **The suite:** `experiments/image-eval/suite.json`. It has 12 prompts × 2 seeds, three edits, a cloud subset and a 2K subset. Each prompt is split into objective checks and taste.
 - **The runner** is `scripts/experiment-image-suite.mjs`, with modes `generate`, `cloud`, `edits`, `resolution`, `warm`, `footprint`, `coresidency` and `sheets`. It is resumable. It writes `experiments/image-eval/runs/<run>.json` and waits out the resource coordinator rather than failing. It takes `AI/logs/gpu-claim.txt` first (the protocol the parallel exploration sessions agreed on) and waits for another session's claim to clear.
@@ -76,6 +91,118 @@ What that adds up to:
 - **HiDream-O1 Dev does not read Arabic prompts.** Both seeds produced an unrelated scene. Its text encoder is Qwen3-VL-based, so this is surprising, but it held on both seeds. It also pulls illustration prompts towards photographs, and embellishes scenes (seen on 12 September too).
 - **Klein is fast and strong at layout and editing, weak at counting and Arabic.** Its long-prompt layout was the most literal of the local models.
 - Everything handled the 3D spatial-relations prompt.
+
+## 3 October: four newer models, measured
+
+Same suite, same two seeds, same console path as the models above, on
+ComfyUI v0.38.2 (updated 3 Oct from a 14 Sept build; Qwen-Image-2.1 and
+Ming-Image need it) with `vllm-small` paused:
+
+```bash
+node scripts/experiment-image-suite.mjs generate --models qwen-image-2.1,ideogram-4,ming-image,hidream-o1
+```
+
+Readings are mine, from the contact sheets in `sheets/` (`suite-<prompt>.png`
+now has every model in a column), and wait for your ✓/✗ in the Eval tab like
+the rest. "2/2" is both seeds.
+
+| Prompt → check | Qwen-Image-2.1 | Ideogram 4 | Ming-Image | HiDream-O1 full |
+| --- | --- | --- | --- | --- |
+| Sign: both lines spelled exactly | **2/2** | **2/2** | 1/2 ("HARBOR STTAKERY") | **2/2** |
+| Poster: headline, digits, one circle | **2/2** | 1/2 (s1 adds a stray "Tswann") | **2/2** | 2/2, as a mock-up on a wall again |
+| Exactly 5 apples + 2 pears | 1/2 (4 + 2) | **2/2 — the first local model to pass** | 0/2 (6 + 2) | 0/2 (4 + 2) |
+| 5 spatial relations, no extra shapes | 2/2 | 0/2 (an extra cone; an extra cylinder and pyramid) | 2/2 | 2/2 |
+| Exactly four people | **2/2** | **2/2** | **2/2** | **2/2** |
+| Exactly three stars (cut-paper fox) | 1/2 (five) | 1/2 (four) | **2/2** | 0/2 (extra small stars) |
+| Watercolour: style held, two lemons | 2/2 | 2/2 | 2/2 | 0/2 — two lemons, but a photograph of the painting on a table, as Dev drifted to photos |
+| Bookshelf with exactly three shelves | 0/2 (four) | 0/2 | 1/2 | 0/2 (four; and two telescopes) |
+| Arabic-language prompt followed (keffiyeh right) | **2/2 — the first local model to get the keffiyeh** | **2/2** | 1/2, and invents calligraphy borders | **0/2 — ignored, as Dev did** |
+| Arabic text renders مرحبا | 0/2 (مرحيا: one letter's dots wrong) | **2/2** | 0/2 (pseudo-script) | 0/2 (pseudo-script) |
+
+What that adds up to:
+
+- **Qwen-Image-2.1 is the best all-round local model.** It is the only one
+  that spelled every English sign and poster *and* read the Arabic prompt
+  (market, lanterns, silver pot, red keffiyeh). It misses on counting past
+  four, and on Arabic lettering by one letter's dots. Non-commercial.
+- **Ideogram 4 is the most literal.** The only local model to pass all three
+  checks nothing else here passed: five apples and two pears, مرحبا, and the
+  Arabic prompt. It is also the slowest (31.4 s) and needs the whole card.
+  Non-commercial.
+- **Ming-Image** is a good poster and layout model (posters, stars, four
+  people), but over-counts fruit, garbles Arabic, and frames Arabic-prompt
+  images in invented calligraphy. MIT.
+- **HiDream-O1 full ignores Arabic prompts exactly as Dev did**, on both
+  seeds: it is the family, not the distillation. Its English text is clean.
+
+### Editing, the newer models
+
+Same source image and three instructions as [Editing](#editing).
+
+| Edit | Qwen-Image-2.1 | Ming-Image | HiDream-O1 full |
+| --- | --- | --- | --- |
+| Replace the mug with a potted cactus | **Clean**, rest unchanged. 27.0 s | Clean (a green pot). 22.8 s | Clean (on its 2048² edit canvas). 96.1 s |
+| Warm low sunset light | **Right, and the only model that kept the tulips yellow and the mug as it was.** 25.6 s | Light right; tulips recoloured orange, as Klein did. 22.8 s | Light right; tulips shifted orange. 93.6 s |
+| Extend the canvas, add a bowl of green apples | **Seamless.** 36.9 s | Seamless. 29.8 s | Seamless. 81.9 s |
+
+**HiDream-O1 edits need a canvas over ~1 MP.** The first run edited on the
+source's own 1024² canvas, and the replace and relight edits came back as pure
+noise; the 1536x1024 extension was fine. Probed directly, the same edit is
+clean at 1536² and 2048². The graph now sizes HiDream's edit canvas to ~4 MP
+at the source's aspect, as Comfy's template does, so a 1024² source comes back
+at 2048².
+
+### Ideogram 4's caption
+
+Ideogram 4 draws from a structured JSON caption (`high_level_description`,
+`compositional_deconstruction` with a background and boxed elements). Given
+plain text, or a caption with one key, it often renders a baked-in **"Image
+blocked by safety filter"** card instead of an image: measured on a bakery
+sign and a bowl of fruit, from plain text and from a one-key caption alike.
+The Comfy template leaves the caption to you: it builds the instructions
+("magic prompt") and expects you to paste them into an LLM.
+
+The console writes it instead, with the Qwen3-VL-8B that Ideogram already
+loads as its text encoder (the file keeps its LM head, so ComfyUI's
+`TextGenerate` can run it), following the template's MIT-licensed
+instructions (`config/ideogram4-caption-*.txt`). No extra model, download or
+service; seeded, so a seed reproduces its caption; about 5–8 s.
+
+The first suite run did this inside the image graph and **16 of 24 images
+came out as a picture on a painted transparency checkerboard**. The 8B writer
+declared `"background": "transparent background"` for ideas that never asked
+for one (a café, a piano, a paper fox): 8 times in 9 on the café prompt, with
+default, reasoning-on and low-temperature sampling alike. It also split its
+JSON into two objects. Three fixes, and the re-run above has no checkerboards:
+- The template's transparency rule is sent to the writer **only when the idea
+  asks for transparency** (`config/ideogram4-caption-transparent.txt`). With
+  it absent, 6 of 6 captions had a real background.
+- The caption is its own ComfyUI job, so the server reads it before drawing.
+- `repairIdeogramCaption()` merges split objects, sets the asked aspect ratio,
+  and replaces an unrequested transparent background; a caption with nothing
+  usable is written once more with the next seed.
+
+The first run's 24 cells are kept under `superseded` in the run manifest.
+
+### Speed and memory, the newer models
+
+Console path, 24 suite images each at 1024², request to saved PNG (cold, as
+everything here is), and clean cold footprints over a settled 2.8 GiB baseline
+with `vllm-small` paused:
+
+| Model | Median | p90 | VRAM over baseline | Fits beside `vllm-small` (13–17 GB)? |
+| --- | ---: | ---: | ---: | --- |
+| HiDream-O1 full (40 steps) | 15.5 s | 16.5 s | +9.1 GiB at 1024², **+11.4 GiB at 2048²** (45.6 s) | yes |
+| Ming-Image (12 steps) | 14.6 s | 20.0 s | +23.9 GiB; edits +25.6 | no |
+| Qwen-Image-2.1 (25 steps) | 22.6 s | 24.4 s | **+15.4 GiB**; edits +19.1 to +22.2 | generation only, just |
+| Ideogram 4 (20 steps + caption) | 31.4 s | 35.2 s | **+25.9 GiB** | no |
+
+These replace the estimates in `config/model-meta.json`. Host RAM could not be
+measured this way: ComfyUI keeps recently used weights cached in its own
+process between jobs (18.7 GB private after `/free`), so the free-memory drop
+during a run read ~0. One consequence showed up mid-run: Ming was declared at
+26 GB of RAM and back-to-back Ming jobs were refused for RAM that ComfyUI
+already held; it is declared at 20 GB now.
 
 ## Editing
 
@@ -249,6 +376,22 @@ node scripts/experiment-image-suite.mjs generate --models qwen-image
 
 For the 2K and edit studies, run `resolution` and `edits --models qwen-image-edit` as well.
 
+**3 October: the service now loads Qwen-Image-2512 and Qwen-Image-Edit-2511.**
+`QWEN_IMAGE_MODEL` / `QWEN_EDIT_MODEL` in `scripts/service-commands.json` point
+the same server (`hq/quote-forge/server/qwen_image.py`, unchanged) at the
+December 2025 checkpoints: Artificial Analysis #5 (Elo 999, against the
+original's #24 at 889) and editing #3 (1021, against Edit-2509's #8 at 981),
+same 20.4B architecture and footprint, Apache-2.0. Both are in the HF cache on
+D: (54 GB each). What was verified:
+- Same pipeline classes as before (`QwenImagePipeline`, `QwenImageEditPlusPipeline`),
+  and the installed diffusers 0.38 accepts every transformer config key,
+  including Edit-2511's new `zero_cond_t`.
+- **Not run live.** Starting the service was refused again: it is declared at
+  28 GB of host RAM plus the 4 GB margin, and with `vllm-small` paused and
+  ComfyUI restarted only 30.6 GB was free (the WSL VM kept memory after the
+  container stopped). The service stays off, as you asked on 2 October; the
+  new checkpoints load the next time anything starts it.
+
 What happened, in order (27 Sept, 17:05–17:16Z):
 
 1. **The service start was admitted.** 34.7 GB of RAM was free, against Qwen's declared 28 GB standing plus 4 GB margin.
@@ -292,7 +435,7 @@ caveats. `src/lib/image-models.ts` now says:
 - Klein: "fastest · generate + edit".
 - Z-Image: "best local text & Arabic".
 - HiDream: "English prompts only".
-- FLUX schnell: "needs the whole card · superseded by Klein".
+- FLUX schnell: "needs the whole card · superseded by Klein" (since retired).
 
 The MCP `generate_image` tool's model parameter now tells an agent which to
 pick and when not to (`scripts/mcp-betenshi.mjs`).
@@ -392,8 +535,45 @@ Also checked:
   20B's 28 GB.
 - **HiDream-O1-Image full** is the no-strings upgrade to try first.
 
-Nothing was installed. Both are a single ComfyUI checkpoint download to
-`D:\AI Models\comfyui`.
+**Installed 28 Sept** in `D:\AI Models\comfyui`, each file checked against
+the hub's SHA-256:
+- HiDream-O1 full: `checkpoints/hidream_o1_image_fp8_scaled.safetensors` (8.07 GB).
+- Qwen-Image-2.1: `diffusion_models/qwen_image_2.1_int8_convrot.safetensors`
+  (7.26 GB), `text_encoders/qwen3vl_8b_int8_convrot.safetensors` (9.35 GB) and
+  `vae/qwen_image_2.1_vae_bf16.safetensors` (0.68 GB).
+
+Wired as `hidream-o1` and `qwen-image-2.1` (`src/lib/comfy-image-workflows.ts`),
+with their own coordinator workloads. HiDream-O1 full's graph validates against
+the running ComfyUI. Qwen-Image-2.1's `TextEncodeQwenImage21` and
+`QwenImage21Cache` nodes arrive in ComfyUI v0.37.4, so that update comes first.
+Neither has been measured: both need a GPU window, and the manager must restart
+to load their workloads.
+
+### Checked again 3 October: the whole board, not just what is new
+
+The 27 September check only looked at releases after 12 September, so it
+missed older models that still rank well above the ones installed here. The
+board barely moved in that week; what it had missed:
+
+| Open-weights rank (text-to-image, 3 Oct) | Model | Licence | Fits 32 GB? | Status here |
+| --- | --- | --- | --- | --- |
+| #1 (1036); editing #1 (1073) | Qwen-Image-2.1 (Sep 2026) | Qwen Research (non-commercial) | yes: 7B int8 + 8B encoder | runnable since ComfyUI v0.38.2 (3 Oct) |
+| #2 (1011) | **Ideogram 4** (May 2026) | Ideogram 4 Non-Commercial | yes: 2 × 9.3 GB fp8 + 8B encoder | **installed 3 Oct** |
+| #4 (1000) | FLUX.2 [dev] (Nov 2025) | FLUX non-commercial | no: 35.5 GB fp8 transformer + 18 GB encoder | — |
+| #5 (999) | **Qwen-Image-2512** (Dec 2025) | Apache-2.0 | same 20B as the old Qwen-Image | **the 20B service's new checkpoint** |
+| #6 (998) | **Ming-Image-0.1-Design** (Sep 2026) | MIT | yes: 6.2 GB int8 + 19.5 GB int8 encoder | **installed 3 Oct** (needs ComfyUI v0.38) |
+| #8 (995) | HunyuanImage 3.0 Instruct | Tencent | no: 80B MoE | — |
+| #9–11 | NVIDIA Cosmos3-Super-Text2Image | NVIDIA | no: 65B | — |
+| #14 (982) | HiDream-O1 full | MIT | yes | installed 28 Sept |
+| editing #3 (1021) | **Qwen-Image-Edit-2511** (Dec 2025) | Apache-2.0 | same 20B as Edit-2509 | **the 20B service's new edit checkpoint** |
+| editing #4 (1013) | FLUX.2 [klein] 9B | FLUX non-commercial | yes | not installed: Qwen-Image-2.1 edits better and Klein 4B is already here |
+
+For scale, what ran here before: Z-Image Turbo #18, Qwen-Image (Aug 2025)
+#24, Klein 4B #32 (editing #11), Qwen-Image-Edit-2509 editing #8.
+
+Also out since: **Qwen-Image-2.1-PE** (a 9B prompt-rewriting model for 2.1,
+optional, same non-commercial licence) and a community 6-step turbo
+distillation of 2.1 (Viggle, updated 1 Oct). Neither was installed.
 
 ## Verified versus assumed
 
@@ -401,13 +581,20 @@ Nothing was installed. Both are a single ComfyUI checkpoint download to
 - Every latency, refusal and cost figure above, in `experiments/image-eval/runs/2026-09-26.json`:
   - the coordinator's refusals are verbatim under `denials` and `coresidency`;
   - cloud costs are from the AI Router's traffic log.
-- The Image Lab end to end, on both paths:
+- The Image Lab end to end, on both paths, before it was folded into the Studio's Compare (which now calls the same run route):
   - Cloud run: 14.0 s, saved to the "Image Lab" gallery, recorded in `lab_runs`.
   - Local run, Klein with gpt-image-2 in the comparison column: 12.0 s, peak 21.5 GB (+13.3 over baseline), 4 steps. Both images rendered in the Lab, and both runs were recorded.
   - The refusal path: with the card full, the Lab showed the coordinator's reason verbatim and recorded the attempt.
 - The Eval view in the browser: summary table, per-prompt rows, and the Resolution and Edit tabs.
 - Verdict save and clear, round-tripped through the API.
 - Licences, checked against each model card on the hub: Klein 4B, Z-Image Turbo, Qwen-Image, Qwen-Image-Edit-2509 and FLUX.1 schnell are Apache-2.0; HiDream-O1 is MIT.
+
+**Verified on this box, 3 October:**
+- ComfyUI v0.38.2 (fast-forward from 36da3ff7, local `app/logger.py` fix kept; frontend 1.53.6, templates 0.11.74, embedded-docs 0.5.12, comfy-kitchen 0.2.36, comfy-aimdo 0.5.5), restarted in 30 s; the graphs for Klein, Z-Image, HiDream (Dev and full), Qwen-Image-2.1, Ideogram 4 and Ming-Image all validate against its `/object_info` (`var/validate-graphs.mjs`).
+- Every 3 October figure, in the same run manifest: 96 suite images, 9 edits and 5 footprints, plus the Ideogram 4 re-run and HiDream-O1 edit re-run (the superseded first attempts are kept under `superseded`).
+- Studio Compare end to end on two cloud models (28 Sept, while recording the walkthrough), which caught and fixed the hosted-size bug: gpt-image-2 19.3 s and gpt-image-1-mini 31.5 s, saved to the Compare gallery, recorded in `lab_runs` under one compare group.
+- The 20B Qwen checkpoints' pipeline classes and transformer configs against the installed diffusers 0.38 (not run live: see [Qwen-Image](#qwen-image-not-measured-and-why-that-is-itself-the-finding)).
+- Licences: Qwen-Image-2512, Qwen-Image-Edit-2511 Apache-2.0; Ming-Image MIT; Qwen-Image-2.1 Qwen Research (non-commercial); Ideogram 4 "Ideogram 4 Non-Commercial" (the official repo asks for contact details; the Comfy-Org repack used here is not gated, the licence still applies).
 
 **Assumed or not established:**
 - **The objective readings in "Where each model wins"** are mine, from contact sheets. They are the starting point for your verdicts, not a substitute.
@@ -431,9 +618,6 @@ regenerated.
 - **Pass through the cloud call's real cost.** LiteLLM computes it (it is in
   the traffic log), but `generateViaRouter()` drops the response headers. The
   Lab shows "—" for gpt-image-2, whose price varies by quality.
-- **The Lab shell preselects the first model alphabetically.** For images that
-  is FLUX schnell, the one model that never fits. Either the shell should prefer
-  the capability's routed model, or schnell should be retired from the picker.
 - **Stale health ports.** The manager's "music" (:8012) and "bonsai" (:8011)
   health checks were answered by another project's SAM servers
   (`C:\Users\Admin\Code\db`), so both showed as "running" when they weren't.
@@ -442,5 +626,19 @@ regenerated.
   21.3 GiB against a 16 GB declaration. Either split the workload by size
   (`flux2-klein-generate-2k`) or let the coordinator scale a declared peak by
   pixel count.
-- **Migrate the Image Studio's Compare mode onto the Lab** once the Lab has
-  proved itself; they overlap.
+- **Run the 20B Qwen (2512 / Edit-2511) live.** It needs 32 GB of free host
+  RAM (28 declared + 4 margin), which this box did not have on 3 October even
+  with `vllm-small` paused. Either measure its real resident RAM with nothing
+  else up (the August note says 21.7 GB while generating) and declare that, or
+  run it in a night window when the WSL VM has given its memory back.
+- **Measure ComfyUI's host RAM properly.** ComfyUI keeps weights cached in its
+  own process between jobs, so the free-memory drop during a run reads ~0 and
+  every ComfyUI model's RAM figure is still an estimate. A cold measurement
+  needs a ComfyUI restart before each model.
+- **Ideogram 4's caption with a stronger writer.** The 8B writer is now
+  reliable on the suite, but Ideogram's own captions are richer (style,
+  palette, text elements with boxes). A larger local LLM, or Qwen-Image-2.1's
+  9B prompt enhancer, may lift its scores further.
+- **Ideogram 4 and Ming-Image beside `vllm-small`.** Neither can share the card
+  with it (+25.9 and +23.9 GiB), so in the daytime they are refused whenever
+  quote-forge's model is up.

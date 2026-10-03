@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cellKey, PICK, summarize, type EvalCell, type Verdicts } from "@/lib/image-eval";
 import { IMAGE_MODELS } from "@/lib/image-models";
+import Markdown from "@/components/markdown";
 
 /**
  * The image evaluation suite, laid out for a person to judge.
@@ -32,7 +33,7 @@ type Study = "suite" | "resolution" | "edit";
 const DOC = "docs/image-model-experiment-2026-09-26.md";
 
 function modelName(id: string): string {
-  return IMAGE_MODELS.find((m) => m.id === id)?.name ?? LOCAL_EDIT_MODELS[id] ?? id;
+  return IMAGE_MODELS.find((m) => m.id === id)?.name ?? LOCAL_EDIT_MODELS[id] ?? RETIRED_MODELS[id] ?? id;
 }
 function imgUrl(rel: string): string {
   return `/api/qwen/images/file?rel=${encodeURIComponent(rel)}`;
@@ -44,9 +45,17 @@ function gib(mib?: number | null): string {
   return mib == null ? "—" : `${(mib / 1024).toFixed(1)} GiB`;
 }
 /** The edit study names Qwen's edit checkpoint, which is not a generation model id. */
-const LOCAL_EDIT_MODELS: Record<string, string> = { "qwen-image-edit": "Qwen-Image-Edit-2509" };
+const LOCAL_EDIT_MODELS: Record<string, string> = { "qwen-image-edit": "Qwen-Image-Edit (2511 since 3 Oct)" };
+/** Local models that are no longer offered but still appear in recorded runs. */
+const RETIRED_MODELS: Record<string, string> = { "flux-schnell": "FLUX.1 schnell (retired)" };
 function isLocal(id: string): boolean {
-  return IMAGE_MODELS.some((m) => m.id === id) || id in LOCAL_EDIT_MODELS;
+  return IMAGE_MODELS.some((m) => m.id === id) || id in LOCAL_EDIT_MODELS || id in RETIRED_MODELS;
+}
+/** The first sentence of a failure, for the cell; the full text stays one click away. */
+function shortReason(error: string): string {
+  if (/\b429\b|quota/i.test(error)) return "Provider quota exhausted (HTTP 429).";
+  const first = error.split(/(?<=[.;])\s|\n/)[0];
+  return first.length > 140 ? `${first.slice(0, 137)}…` : first;
 }
 /** Local runs are not metered — shown as such, never as "$0". */
 function usd(c: number | null | undefined, local: boolean): string {
@@ -124,6 +133,7 @@ export default function ImageEvalView() {
 
   return (
     <div className="space-y-4">
+      <WhatWeLearned path={DOC} />
       <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <label className="flex items-center gap-2 text-gray-400">
@@ -226,7 +236,7 @@ export default function ImageEvalView() {
                 <p className="text-[11px] text-gray-500">{study === "resolution" ? row : `seed ${row}`}</p>
                 {/* One row per seed, every model in it; scrolls sideways rather than wrapping, so a column is always one model. */}
                 <div className="overflow-x-auto pb-1">
-                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(models.length, 1)}, minmax(170px, 1fr))` }}>
+                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(models.length, 1)}, minmax(170px, 360px))` }}>
                   {models.map((m) => {
                     const cell = cells.find((c) => c.study === study && c.model === m && c.promptId === p.id && rowOf(c) === row);
                     return <CellCard key={m} model={m} cell={cell} checks={p.objective} verdict={cell ? verdicts[cellKey(cell)] ?? {} : {}} onJudge={judge} onZoom={setZoom} />;
@@ -264,6 +274,31 @@ export default function ImageEvalView() {
   );
 }
 
+/** The experiment write-up, loaded on open — what was learned, not only what ran. */
+function WhatWeLearned({ path }: { path: string }) {
+  const [md, setMd] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <details
+      className="rounded-xl border border-gray-800 bg-gray-900/40"
+      onToggle={(e) => {
+        if (!(e.currentTarget as HTMLDetailsElement).open || md || err) return;
+        fetch(`/api/labs/doc?path=${encodeURIComponent(path)}`)
+          .then((r) => r.json())
+          .then((j) => (j.markdown ? setMd(j.markdown) : setErr(j.error ?? "Could not load.")))
+          .catch((e) => setErr(String(e)));
+      }}
+    >
+      <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-gray-200">
+        What we learned <span className="ml-1 text-[11px] font-normal text-gray-500">{path}</span>
+      </summary>
+      <div className="max-h-[32rem] overflow-y-auto border-t border-gray-800 px-4 py-3">
+        {err ? <p className="text-xs text-red-300">{err}</p> : md ? <Markdown>{md}</Markdown> : <p className="text-xs text-gray-500">Loading…</p>}
+      </div>
+    </details>
+  );
+}
+
 function CellCard({ model, cell, checks, verdict, onJudge, onZoom }: {
   model: string;
   cell?: EvalCell;
@@ -278,8 +313,16 @@ function CellCard({ model, cell, checks, verdict, onJudge, onZoom }: {
     return (
       <div className="rounded-lg border border-red-900/60 bg-red-950/20 p-3 text-xs text-red-300 space-y-1">
         <p className="font-medium">{label}</p>
-        <p className="break-words">{cell.error ?? "failed"}</p>
-        {cell.coordinator ? <p className="text-red-400/80 break-words">Coordinator: {typeof cell.coordinator === "string" ? cell.coordinator : JSON.stringify(cell.coordinator)}</p> : null}
+        <p className="break-words">{shortReason(cell.error ?? "failed")}</p>
+        {cell.error || cell.coordinator ? (
+          <details className="text-red-400/80">
+            <summary className="cursor-pointer text-red-400/70">details</summary>
+            <p className="mt-1 max-h-40 overflow-y-auto break-words">
+              {cell.error}
+              {cell.coordinator ? ` Coordinator: ${typeof cell.coordinator === "string" ? cell.coordinator : JSON.stringify(cell.coordinator)}` : null}
+            </p>
+          </details>
+        ) : null}
       </div>
     );
   }

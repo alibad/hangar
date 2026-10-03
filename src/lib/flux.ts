@@ -1,32 +1,15 @@
-// FLUX.1-schnell generation via ComfyUI's HTTP API.
+// Image generation via ComfyUI's HTTP API, for every model the console runs
+// there (src/lib/comfy-image-workflows.ts builds the graphs).
 //
-// Lifted out of the old /api/creative route so the result can go through
-// saveImage() like every other image the box produces — that route returned a
-// ComfyUI filename and proxied /view to display it, which is why nothing from
-// the Creative tab ever reached the gallery, the DuckDB index, or the Activity
-// feed. This returns the PNG bytes instead, so the caller can persist it.
+// Returns the PNG bytes rather than a ComfyUI filename, so the caller can put
+// the result through saveImage() like every other image the box produces. The
+// file keeps its old name: it began as FLUX.1-schnell's path, and schnell was
+// retired on 28 Sept 2026 (docs/image-model-experiment-2026-09-26.md).
 
+import { readFile } from "fs/promises";
+import path from "path";
 import { getServiceUrl } from "@/lib/services";
-import { buildComfyImageWorkflow, type ComfyGraph } from "./comfy-image-workflows";
-
-/** ComfyUI graph for text→image on FLUX.1-schnell. Node ids are arbitrary but
- *  must match the wiring references below. */
-function buildFluxWorkflow(prompt: string, width: number, height: number, seed: number, steps: number) {
-  return {
-    "1": { class_type: "DualCLIPLoader", inputs: { clip_name1: "clip_l.safetensors", clip_name2: "t5xxl_fp16.safetensors", type: "flux" } },
-    "2": { class_type: "CLIPTextEncode", inputs: { text: prompt, clip: ["1", 0] } },
-    "3": { class_type: "EmptySD3LatentImage", inputs: { width, height, batch_size: 1 } },
-    "4": { class_type: "UNETLoader", inputs: { unet_name: "flux1-schnell.safetensors", weight_dtype: "default" } },
-    "5": { class_type: "BasicGuider", inputs: { model: ["4", 0], conditioning: ["2", 0] } },
-    "6": { class_type: "RandomNoise", inputs: { noise_seed: seed } },
-    "7": { class_type: "BasicScheduler", inputs: { model: ["4", 0], scheduler: "simple", steps, denoise: 1.0 } },
-    "8": { class_type: "SamplerCustomAdvanced", inputs: { noise: ["6", 0], guider: ["5", 0], sampler: ["9", 0], sigmas: ["7", 0], latent_image: ["3", 0] } },
-    "9": { class_type: "KSamplerSelect", inputs: { sampler_name: "euler" } },
-    "10": { class_type: "VAELoader", inputs: { vae_name: "ae.safetensors" } },
-    "11": { class_type: "VAEDecode", inputs: { samples: ["8", 0], vae: ["10", 0] } },
-    "12": { class_type: "SaveImage", inputs: { filename_prefix: "betenshi", images: ["11", 0] } },
-  };
-}
+import { buildComfyImageWorkflow, buildIdeogramCaptionGraph, repairIdeogramCaption, type ComfyGraph, type IdeogramCaptionInstructions } from "./comfy-image-workflows";
 
 export type FluxParams = {
   prompt: string;
@@ -44,20 +27,12 @@ function detail(err: unknown): string {
 }
 
 /**
- * Queue a FLUX generation and return the finished PNG. Throws on error/timeout.
+ * Queue a ComfyUI generation (or, with references, an edit) and return the
+ * finished PNG. Throws on error/timeout.
  *
  * `signal` cancels before queue admission. Once ComfyUI accepts a prompt, finish
  * collecting it so a disconnected browser cannot orphan its image or GPU lease.
  */
-export async function generateFlux(
-  params: FluxParams,
-  timeoutMs = 180_000,
-  signal?: AbortSignal,
-): Promise<Buffer> {
-  const workflow = buildFluxWorkflow(params.prompt, params.width, params.height, params.seed, params.steps);
-  return runComfyWorkflow(workflow, timeoutMs, signal);
-}
-
 export async function generateComfyImage(model: string, params: FluxParams, signal?: AbortSignal, references: string[] = []): Promise<Buffer> {
   const filenames: string[] = [];
   for (const reference of references) {
@@ -70,12 +45,38 @@ export async function generateComfyImage(model: string, params: FluxParams, sign
     const file = await upload.json();
     filenames.push(file.subfolder ? `${file.subfolder}/${file.name}` : file.name);
   }
-  return runComfyWorkflow(buildComfyImageWorkflow(model, params, filenames), 900_000, signal);
+  const caption = model === "ideogram-4" ? await writeIdeogramCaption(params, signal) : undefined;
+  return runComfyWorkflow(buildComfyImageWorkflow(model, { ...params, caption }, filenames), 900_000, signal);
 }
 
-async function runComfyWorkflow(workflow: ComfyGraph, timeoutMs: number, signal?: AbortSignal): Promise<Buffer> {
-  const base = getServiceUrl("comfyui");
+let ideogramInstructions: Promise<IdeogramCaptionInstructions> | null = null;
+/** Ideogram 4's caption-writer instructions (see comfy-image-workflows.ts), read once. */
+function ideogramCaptionInstructions() {
+  ideogramInstructions ??= Promise.all(
+    ["system", "user", "transparent"].map((part) => readFile(path.join(process.cwd(), "config", `ideogram4-caption-${part}.txt`), "utf8")),
+  ).then(([system, user, transparent]) => ({ system: system.trim(), user: user.trim(), transparent: transparent.trim() }));
+  return ideogramInstructions;
+}
 
+/**
+ * Ideogram 4's structured caption: written by its own encoder as a separate
+ * ComfyUI job, then repaired (repairIdeogramCaption). A caption with nothing
+ * usable is written once more with the next seed before giving up, because
+ * the image model given a bad caption draws a "blocked" card, not an image.
+ */
+async function writeIdeogramCaption(params: FluxParams, signal?: AbortSignal): Promise<string> {
+  const instructions = await ideogramCaptionInstructions();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const raw = await runComfyText(buildIdeogramCaptionGraph({ ...params, seed: params.seed + attempt }, instructions), 300_000, signal);
+    const { ok, caption, repairs } = repairIdeogramCaption(raw, params.prompt, params.width, params.height);
+    if (repairs.length) console.log(`[ideogram-4] caption repaired: ${repairs.join("; ")}`);
+    if (ok) return caption;
+  }
+  throw new Error("Ideogram 4's caption writer returned no usable caption twice");
+}
+
+/** Queue a ComfyUI job and wait for its history entry; throws on error or timeout. */
+async function awaitComfy(base: string, workflow: ComfyGraph, timeoutMs: number, signal?: AbortSignal) {
   const queueRes = await fetch(`${base}/prompt`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -101,7 +102,7 @@ async function runComfyWorkflow(workflow: ComfyGraph, timeoutMs: number, signal?
   while (Date.now() < deadline) {
     await new Promise(r => setTimeout(r, 1000));
 
-    let history: Record<string, { status?: { status_str?: string; messages?: [string, Record<string, string>][] }; outputs?: Record<string, { images?: { filename: string; subfolder?: string; type?: string }[] }> }>;
+    let history: Record<string, ComfyHistoryEntry>;
     try {
       history = await fetch(`${base}/history/${promptId}`, { signal }).then(r => r.json());
       pollFailures = 0;
@@ -114,54 +115,66 @@ async function runComfyWorkflow(workflow: ComfyGraph, timeoutMs: number, signal?
 
     const entry = history[promptId];
     if (!entry) continue;
-
     const status = entry.status?.status_str;
-
     if (status === "error") {
       const msgs: [string, Record<string, string>][] = entry.status?.messages || [];
       const err = msgs.find(m => m[0] === "execution_error");
       throw new Error(err?.[1]?.exception_message || "ComfyUI generation failed");
     }
+    if (status === "success") return entry;
+  }
+  throw new Error(`ComfyUI generation timed out after ${Math.round(timeoutMs / 1000)}s`);
+}
 
-    if (status !== "success") continue;
+type ComfyHistoryEntry = {
+  status?: { status_str?: string; messages?: [string, Record<string, string>][] };
+  outputs?: Record<string, { images?: { filename: string; subfolder?: string; type?: string }[]; text?: string[] }>;
+};
 
-    const outputs = entry.outputs ?? {};
-    for (const nodeId of Object.keys(outputs)) {
-      const images = outputs[nodeId].images;
-      if (!images?.length) continue;
-      const img = images[0];
-      const q = new URLSearchParams({
-        filename: img.filename,
-        subfolder: img.subfolder || "",
-        type: img.type || "output",
-      });
-      // Worth one retry for the same reason polling is: the bytes exist, and
-      // losing them to a single dropped socket wastes the whole generation.
-      for (let attempt = 0; ; attempt++) {
+/** A text-only ComfyUI job (a PreviewAny output): the first text it produced. */
+async function runComfyText(workflow: ComfyGraph, timeoutMs: number, signal?: AbortSignal): Promise<string> {
+  const entry = await awaitComfy(getServiceUrl("comfyui"), workflow, timeoutMs, signal);
+  for (const out of Object.values(entry.outputs ?? {})) if (out.text?.length) return out.text.join("");
+  throw new Error("ComfyUI finished with no text output");
+}
+
+async function runComfyWorkflow(workflow: ComfyGraph, timeoutMs: number, signal?: AbortSignal): Promise<Buffer> {
+  const base = getServiceUrl("comfyui");
+  const entry = await awaitComfy(base, workflow, timeoutMs, signal);
+  const outputs = entry.outputs ?? {};
+  for (const nodeId of Object.keys(outputs)) {
+    const images = outputs[nodeId].images;
+    if (!images?.length) continue;
+    const img = images[0];
+    const q = new URLSearchParams({
+      filename: img.filename,
+      subfolder: img.subfolder || "",
+      type: img.type || "output",
+    });
+    // Worth one retry for the same reason polling is: the bytes exist, and
+    // losing them to a single dropped socket wastes the whole generation.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const imgRes = await fetch(`${base}/view?${q}`);
+        if (!imgRes.ok) throw new Error(`HTTP ${imgRes.status}`);
+        const png = Buffer.from(await imgRes.arrayBuffer());
+        // Release cached weights before our lease ends. Otherwise the next
+        // model's admission counts both its estimate and our retained cache.
+        // Never interrupt another ComfyUI caller's queued/running work.
         try {
-          const imgRes = await fetch(`${base}/view?${q}`, { signal });
-          if (!imgRes.ok) throw new Error(`HTTP ${imgRes.status}`);
-          const png = Buffer.from(await imgRes.arrayBuffer());
-          // Release cached weights before our lease ends. Otherwise the next
-          // model's admission counts both its estimate and our retained cache.
-          // Never interrupt another ComfyUI caller's queued/running work.
-          try {
-            const queue = await fetch(`${base}/queue`).then(r => r.json());
-            if (!queue.queue_running?.length && !queue.queue_pending?.length) {
-              await fetch(`${base}/free`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unload_models: true, free_memory: true }) });
-            }
-          } catch { /* The image is already complete; cleanup cannot lose it. */ }
-          return png;
-        } catch (err) {
-          if (attempt >= 2) {
-            throw new Error(`ComfyUI produced an image but it could not be read back: ${detail(err)}`);
+          const queue = await fetch(`${base}/queue`).then(r => r.json());
+          if (!queue.queue_running?.length && !queue.queue_pending?.length) {
+            await fetch(`${base}/free`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unload_models: true, free_memory: true }) });
           }
-          await new Promise(r => setTimeout(r, 1000));
+        } catch { /* The image is already complete; cleanup cannot lose it. */ }
+        return png;
+      } catch (err) {
+        if (attempt >= 2) {
+          throw new Error(`ComfyUI produced an image but it could not be read back: ${detail(err)}`);
         }
+        await new Promise(r => setTimeout(r, 1000));
       }
     }
-    throw new Error("ComfyUI finished with no image output");
   }
-
-  throw new Error(`ComfyUI generation timed out after ${Math.round(timeoutMs / 1000)}s`);
+  throw new Error("ComfyUI finished with no image output");
 }

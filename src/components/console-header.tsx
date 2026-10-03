@@ -37,7 +37,7 @@ const workstreams = ([
   // Directly under Chat & Code: it answers the question that tab provokes —
   // "is this model the right one?" — rather than being a separate kind of work.
   { id: "arena", label: "Arena", hint: "Compare models on one prompt" },
-  { id: "qwen", label: "Image Studio", hint: "Generate and edit" },
+  { id: "qwen", label: "Image Studio", hint: "Generate, edit, compare and evaluate" },
   { id: "speech", label: "Speech", hint: "Transcribe and synthesize" },
   { id: "sam3", label: "Segment", hint: "Open-vocabulary masks" },
 ] as Array<{ id: ConsoleTab; label: string; hint: string }>).map((item) => ({

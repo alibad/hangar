@@ -9,8 +9,8 @@
 import { getServiceUrl, getServiceHeaders } from "@/lib/services";
 import { saveImage, safeFolder } from "@/lib/save-image";
 import { nodePost } from "@/lib/qwen-http";
-import { generateFlux, generateComfyImage } from "@/lib/flux";
-import { getImageModel, isImageModelId, type ImageModelId } from "@/lib/image-models";
+import { generateComfyImage } from "@/lib/flux";
+import { getImageModel, hostedImageSize, isImageModelId, type ImageModelId } from "@/lib/image-models";
 import { getCatalogue, routerUrl } from "@/lib/providers";
 import { mirrorImageHistory } from "@/lib/image-history";
 import { ResourceLeaseError, withResourceLease, workloadForImageModel } from "@/lib/resource-manager";
@@ -72,6 +72,14 @@ async function generateViaRouter(alias: string, p: GenPayload): Promise<Buffer> 
         seed: p.seed,
       }
     : {};
+  // Hosted APIs take a fixed set of sizes, and reject the rest with a 400
+  // (Compare's 768² default did). Written back to the payload so the saved
+  // record states the size that was actually made.
+  if (!isDiffusion) {
+    const [w, h] = hostedImageSize(p.width, p.height).split("x").map(Number);
+    p.width = w;
+    p.height = h;
+  }
   // nodePost, NOT fetch. undici caps headersTimeout at 300s regardless of any
   // AbortSignal you pass, and a routed local generation blows straight through
   // that — measured: a 308s run died with a bare "fetch failed" that looked like
@@ -135,16 +143,7 @@ export async function generateAndSave(
   try {
     const generate = async () => {
       if (viaRouter) return generateViaRouter(requested, payload);
-      if (model.serviceId === "comfyui" && model.id !== "flux-schnell") return generateComfyImage(model.id, payload, signal);
-      if (model.id === "flux-schnell") {
-        return generateFlux({
-          prompt: payload.prompt,
-          width: payload.width,
-          height: payload.height,
-          steps: payload.steps,
-          seed,
-        }, 900_000, signal);
-      }
+      if (model.serviceId === "comfyui") return generateComfyImage(model.id, payload, signal);
       const base = getServiceUrl("qwen");
       const headers = getServiceHeaders("qwen", { "Content-Type": "application/json", "X-Source": "console" });
       return nodePost(base + "/generate", JSON.stringify(payload), headers, signal);
