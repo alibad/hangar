@@ -67,6 +67,8 @@ const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://127.0.0.1:11434";
  * load instead of 6.
  */
 const VISION_MODEL = process.env.FORGE_VISION_MODEL ?? "qwen3-vl:8b";
+/** The local picture model a frame falls back to: fast, 11 GB, Apache-2.0. */
+const FALLBACK_STILL = "z-image-turbo";
 
 /**
  * Does this still show people, writing or a logo? Null when the vision model
@@ -1196,7 +1198,15 @@ class Forge {
           }
         } else {
           usedModel = s.stillModel;
-          res = await generateAndSave({ prompt: `${lead}${item.stillPrompt}${noPeople} ${item.story ? STORY_STILL_SUFFIX : STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
+          const prompt = `${lead}${item.stillPrompt}${noPeople} ${item.story ? STORY_STILL_SUFFIX : STILL_SUFFIX}`;
+          res = await generateAndSave({ prompt, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
+          // A bigger local model (Qwen-Image-2.1 wants ~15 GB) refused for room
+          // or failing: this frame is drawn by Z-Image instead of losing the shot.
+          if (!res.ok && s.stillModel !== FALLBACK_STILL) {
+            note(item, `${s.stillModel} could not draw (${String(res.body.error ?? res.status).slice(0, 160)}); this frame is drawn with ${FALLBACK_STILL}`);
+            usedModel = FALLBACK_STILL;
+            res = await generateAndSave({ prompt, model: FALLBACK_STILL, width: 1280, height: 720, folder: "forge" });
+          }
         }
         savedPath = res.ok ? (res.body.savedPath as string | null) : null;
         if (!res.ok || !savedPath) break;
