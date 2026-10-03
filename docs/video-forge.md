@@ -148,3 +148,25 @@ Asked how the films are made, the owner suspected a weak local image model. The 
 - **Full-quality slot**: every third story (`storyQualityEvery`) uses Wan 2.2 14B at its full 20 steps — no lightx2v 4-step LoRA, CFG 3.5, shift 8 (`comfy-video-workflows.ts`: 12+ steps switch the path) — about ten times the sampling of the 4-step path. Chosen only when Wan 14B fits.
 - **Fit**: a story's video model is chosen among those the Video Lab's fit check says would start now (`videoModelsThatFit`, after the writer has unloaded). On 3 Oct 37.8 GB of RAM was free and Wan 14B / LTX-2.5 need 38 GB + 4 GB safety (measured 35.3 GB in ComfyUI), so they sat out; Wan 5B and HunyuanVideo 1.5 rotated.
 - **The claim**: Montage's GPU turns inside the window now hand the claim straight back to the forge; an empty file between them let another session's TRELLIS job take the card at 05:21.
+
+### The first variety morning (2026-10-03, 04:30–12:30)
+
+Ten new films and one re-cut, each a different stack (Montage → "Which tech works"):
+
+| Film | Format | Pictures | Motion | Voice | Score | Upscale |
+|---|---|---|---|---|---|---|
+| The Weight of Light | silent | Z-Image Turbo | Wan 2.2 5B (14B fell back) | title cards | solo piano | Real-ESRGAN |
+| The Last Ripe Pear | conversation | Sunburst + 2 sheets | HunyuanVideo 1.5 | 3 Kokoro voices | acoustic folk | Lanczos |
+| The Last Beam | letter | Sunburst + 2 sheets | Wan 2.2 5B | Kokoro am_michael | string quartet | Lanczos |
+| The Indigo Frequency | poem | Sunburst + 2 sheets | Wan 2.2 5B | Kokoro bm_george | writer's brief | Lanczos |
+| The Driftwood Boat | very short | Sunburst + 1 sheet | HunyuanVideo 1.5 | Chatterbox built-in | ambient | Real-ESRGAN |
+| The Paper Captain | monologue | Sunburst + 3 sheets | Wan 2.2 5B | cloned voice + Kokoro | ambient | Lanczos |
+| The Red Apple | thought experiment | Sunburst + 1 sheet | HunyuanVideo 1.5 | Kokoro bf_emma | writer's brief | Lanczos |
+| The Gilded Descent | documentary | Sunburst + 2 sheets | Wan 2.2 5B | cloned voice | acoustic folk | Lanczos |
+| The Stone Feast | very short | Sunburst + 2 sheets | HunyuanVideo 1.5 | Kokoro bf_emma | solo piano | Lanczos |
+| The Silver Pebble | silent | Sunburst | Wan 2.2 5B | title cards | string quartet | Real-ESRGAN |
+
+- **Clip time**: HunyuanVideo 1.5 (480p) ~90 s a clip, Wan 2.2 5B (720p) ~162 s — Hunyuan is ~1.8× faster, and Qwen3-VL graded both at beauty 5.0, distortion ~0. The vision grade saturates; the owner's verdicts are the real comparison.
+- **Wan 2.2 14B / LTX-2.5 never ran**: 1.4–4.2 GB of RAM short all morning (other apps), so the full-quality slot waited.
+- **Sunburst + sheets** kept characters the same across shots in every film; the Qwen3-VL cast check passed nearly every first frame on the first try.
+- Fixed along the way: stained glass as a style (not a window), framing for the 2.39:1 strip, "spin,." in poems, a child's voice (age read from the look), animals kept to their habitat, the claim handed straight back to the forge after Montage's turn, and two other sessions' GPU use coordinated (RTS AI: Gemma at 04:37, TRELLIS at 05:21).
