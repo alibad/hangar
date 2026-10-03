@@ -65,6 +65,10 @@ def _post(event: dict) -> None:
 
 def _path_for(call_type: str) -> str:
     ct = (call_type or "").lower()
+    # Edits are a different endpoint (multipart, reference images); logging
+    # them as generations hid every hosted edit in Activity.
+    if "image_edit" in ct:
+        return "/v1/images/edits"
     if "image" in ct:
         return "/v1/images/generations"
     if "transcription" in ct:
@@ -248,9 +252,11 @@ def _emit(kwargs, response_obj, start_time, end_time, status: int) -> None:
             )
             if u is not None:
                 get = (lambda k: u.get(k)) if isinstance(u, dict) else (lambda k: getattr(u, k, None))
+                # Image responses (edits especially) report OpenAI's image
+                # usage shape — input_tokens/output_tokens — not the chat one.
                 usage = {
-                    "in": get("prompt_tokens"),
-                    "out": get("completion_tokens"),
+                    "in": get("prompt_tokens") or get("input_tokens"),
+                    "out": get("completion_tokens") or get("output_tokens"),
                 }
         except Exception:
             pass
