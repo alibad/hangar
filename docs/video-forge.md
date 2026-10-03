@@ -113,3 +113,28 @@ The owner asked to keep experimenting with other stacks, varying the video model
 | Solo piano | the score | Montage | a Montage turn |
 
 Every variant is cut with the same timing as the film, so they can be played side by side (Montage → Bake-offs, "Play all together"). The lab's bake-off table shows per model: clips made, average clip time, peak VRAM, the vision model's beauty and distortion grades, and clips with writing or logos. These are the first measurements of the heavy models on this box; their footprints in the console are still provisional. The first bake-off is on "The Weight of Wax" (Icarus in papercut), since its faces and flight are where the models differ most.
+
+### What the first bake-off measured (2026-10-02 night, "The Weight of Wax", 14 shots each)
+
+| Video model | Clips | Clip time (avg) | Peak VRAM | Beauty (Qwen3-VL, /5) | Distortion (0–3) |
+|---|---|---|---|---|---|
+| Wan 2.2 5B (the film itself, 108 story clips) | 108 | 169 s | 28.9 GB | 4.94 | 0.09 |
+| Wan 2.2 14B, 4-step | 14 | 132 s | 28.0 GB | 5.00 | 0.00 |
+| LTX-2.5 22B | 14 | 86 s | 28.4 GB | 5.00 | 0.14 |
+| HunyuanVideo 1.5 (480p) | 14 | 84 s | 30.1 GB | 4.93 | 0.21 |
+| MiniMax H3 33B | 0 | — | — | — | — |
+
+All three alternatives fit beside the night's services (qwen off, vllm-small paused); H3 asked for ~46 GB of RAM plus 4 GB of safety with 44.7 GB free and was given up on after 12 minutes. RIFE took 137 s for 14 clips; Real-ESRGAN ×2 took 1103 s (~80 s a clip).
+
+## Variety, a stack per film, and continuity (from 2026-10-03)
+
+The owner's direction after the bake-off: not the same film many ways, but **many different films**, each made with a slightly different stack, credited at its end, so the comparison builds up across real content. So every new story rotates, choosing what was used least lately:
+
+- **Format** (`FORMATS` in `story.ts`): tale · monologue (a character tells their own story) · letter (read aloud by its writer) · poem · conversation (narrator and characters, a voice each) · silent film (title cards, no narrator) · nature documentary · thought experiment (ends on a question) · very short story (7 shots). Never the same twice in a row.
+- **Source**: ~70 public-domain parables, fables, folktales (Nasreddin, Anansi, the crane wife, stone soup…), myths and thought experiments (the experience machine, Mary's room, the ring of Gyges…), or a premise **invented** from a theme × a place × a hero (20 × 24 × 24).
+- **Look**: 17 styles (ukiyo-e, linocut, stained glass, charcoal, Persian miniature, 1920s silent film, nature-documentary photography for documentaries only…), the format's own looks most of the time.
+- **Stack** (`stack.ts`), each part on its own: video model (Wan 2.2 5B / Wan 2.2 14B / LTX-2.5 / HunyuanVideo 1.5) · lead voice (Chatterbox built-in, the owner's cloned voice, four Kokoro voices; a first-person film gets its speaker's gender, a conversation's other speakers Kokoro voices of their own) · score style (the writer's brief, solo piano, string quartet, ambient, acoustic folk) · upscaler (Lanczos, or Real-ESRGAN one film in four). A story whose video model never gets memory moves to Wan 2.2 5B and says so (`stack.fallback`).
+
+Montage makes each film with its stack and names it in the end credits; its "Which tech works" section compares every option across films (clip grades, clip time, the owner's verdicts).
+
+**Continuity.** In the first scorpion film, shot 13 ("They both sank slowly…") was drawn from "the two figures drift downward" — two people, not a frog and a scorpion; the still check saw "two human-like figures" but people were allowed in stories. Now: the writer names every character in frame as `{Name}` and the code pastes in their full look (`castPicture`); a vague stand-in with nobody named gets the characters the line is about; a second pass by the same model reads the whole shot list as a continuity supervisor and fixes pictures that lose who is in them (noted on the story and in its lab run); each first frame is checked for its cast (and for a person in a story that has none), the closest of three tries kept; and a clip that grows a person is made again once.
