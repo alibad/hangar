@@ -50,3 +50,72 @@ test("seeds are not repeated while unused ones remain, and told tales alternate 
   for (let i = 0; i < 20; i++) assert.equal(pickSeed([], "parable").kind, "original");
   for (let i = 0; i < 20; i++) assert.notEqual(pickSeed([], "original").kind, "original");
 });
+
+// ── continuity, variety and stacks ──
+import { applyContinuity, castPicture, FORMATS, LOOKS, pickFormat, pickLook } from "../src/lib/forge/story.ts";
+import { pickStack } from "../src/lib/forge/stack.ts";
+
+const frog = { name: "Frog", look: "a small plump emerald green frog with large golden eyes", kind: "animal", gender: "male", age: "adult" };
+const scorpion = { name: "Scorpion", look: "a slender obsidian black scorpion with a curved stinger", kind: "animal", gender: "none", age: "adult" };
+
+test("a {Name} in a picture becomes the character's full look, the second mention a short one", () => {
+  const r = castPicture("{Frog} carries {Scorpion} across the river; {Frog} looks back", [], [frog, scorpion], { narration: "x" });
+  assert.equal(r.picture, `${frog.look} carries ${scorpion.look} across the river; the frog looks back`);
+  assert.deepEqual(r.cast.sort(), ["Frog", "Scorpion"]);
+});
+
+test("'the two figures' with nobody named gets the characters the line is about (the scorpion film's shot 13)", () => {
+  const r = castPicture("Wide shot from underwater looking up as the two figures drift downward.", [], [frog, scorpion], { narration: "They both sank slowly into the depths of the river." });
+  assert.ok(r.picture.startsWith(`${frog.look} and ${scorpion.look}. Wide shot`), r.picture);
+  const one = castPicture("A lone figure on the bank at dusk.", [], [frog, scorpion], { narration: "He waited.", previousCast: ["Scorpion"] });
+  assert.ok(one.picture.startsWith(scorpion.look), one.picture);
+});
+
+test("a cast member the picture leaves out is put in front of it", () => {
+  const r = castPicture("Close-up of a ripple on dark water at night.", ["Frog"], [frog, scorpion], { narration: "x" });
+  assert.equal(r.picture, `${frog.look}. Close-up of a ripple on dark water at night.`);
+});
+
+test("the continuity pass replaces pictures only when it returns one per shot", () => {
+  const rawStory = { shots: [{ picture: "two figures sink" }, { picture: "{Frog} on a stone at dawn by the river bank" }] };
+  const ok = applyContinuity(rawStory, { shots: [{ picture: "{Frog} and {Scorpion} sink into the dark green river at dusk", cast: ["Frog", "Scorpion"], fix: "named the two figures" }, { picture: "{Frog} on a stone at dawn by the river bank", cast: ["Frog"], fix: "" }] });
+  assert.equal(ok.raw.shots[0].picture, "{Frog} and {Scorpion} sink into the dark green river at dusk");
+  assert.deepEqual(ok.fixes, ["shot 1: named the two figures"]);
+  assert.equal(applyContinuity(rawStory, { shots: [{ picture: "x", cast: [], fix: "" }] }).raw, rawStory);
+});
+
+test("formats rotate: never the same twice in a row, and every one comes up", () => {
+  const seen = [];
+  for (let i = 0; i < 27; i++) {
+    const f = pickFormat(seen.slice().reverse());
+    assert.notEqual(f, seen[seen.length - 1]);
+    seen.push(f);
+  }
+  for (const id of Object.keys(FORMATS)) assert.ok(seen.includes(id), id);
+});
+
+test("a format's own look: the documentary look only for documentaries", () => {
+  for (let i = 0; i < 10; i++) assert.equal(pickLook([], "documentary", () => 0.1), LOOKS[16]);
+  for (let i = 0; i < 40; i++) assert.notEqual(pickLook([], "tale"), LOOKS[16]);
+});
+
+test("a stack: silent films have no voice, a first-person film gets its speaker's gender, a conversation distinct voices", () => {
+  const silent = pickStack({ format: "silent", characters: [], shots: [{}] }, []);
+  assert.equal(silent.voices, undefined);
+  assert.ok(silent.video.videoModel && silent.score.key && silent.finish.key);
+  const woman = { name: "Mira", look: "an old woman", kind: "human", gender: "female", age: "old" };
+  for (let i = 0; i < 12; i++) {
+    const mono = pickStack({ format: "monologue", characters: [woman], shots: [{ speaker: "Mira" }] }, []);
+    assert.ok(["default", "af_heart", "bf_emma"].includes(mono.voices.Mira.voice), mono.voices.Mira.voice);
+  }
+  const talk = pickStack({ format: "dialogue", characters: [frog, woman], shots: [{ speaker: "Narrator" }, { speaker: "Frog" }, { speaker: "Mira" }] }, []);
+  const vs = Object.values(talk.voices).map((v) => v.voice);
+  assert.equal(new Set(vs).size, 3, vs.join(","));
+});
+
+test("each part of the stack goes to the option used least lately", () => {
+  const recent = ["wan5b", "wan14b", "ltx"].map((k) => ({ video: { key: k }, score: { key: "brief" }, finish: { key: "lanczos" }, voice: { key: "chatterbox" } }));
+  const st = pickStack({ format: "tale", characters: [], shots: [{}] }, recent);
+  assert.equal(st.video.key, "hunyuan");
+  assert.notEqual(st.score.key, "brief");
+});

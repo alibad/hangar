@@ -1,24 +1,141 @@
 /**
- * Stories: instead of what is trending, the forge makes short narrated films —
- * a parable, a fable, a philosophical tale or an original little movie scene,
- * each with one lesson. A local model expands a seed into a shot list: one
- * line of narration per shot, a picture for the still, a motion for the clip.
- * Montage turns the finished shots into the film (narration, music, titles).
+ * Stories: instead of what is trending, the forge makes short films — a
+ * parable, a fable, a thought experiment, a letter, a silent film — each with
+ * one lesson. A local model expands a seed into a shot list: one line per shot,
+ * a picture for the still, a motion for the clip. Montage turns the finished
+ * shots into the film (voices, music, titles).
+ *
+ * Variety is the point: every film rotates its format (how it is told), its
+ * source (a told tale, a thought experiment, or a premise invented from a
+ * theme, a place and a hero) and its look, choosing what was used least lately.
+ *
+ * Continuity: the image model sees one picture at a time and nothing else, so
+ * the writer names every character in frame as {Name} and the code pastes in
+ * their full look; a second pass by the same model reads the whole shot list as
+ * a continuity supervisor ("two figures sank" → {Frog} and {Scorpion} sank).
  *
  * The writer is a large local model through Ollama (gemma4 31B by default),
  * run inside the forge's GPU turn after vllm-small is paused — it needs ~18 GB
  * and writes far better scenes than the 7B that writes the trending briefs.
+ *
+ * Import-free (types only), so the tests load this exact file.
  */
 
 const OLLAMA_URL = process.env.OLLAMA_URL ?? "http://127.0.0.1:11434";
 export const STORY_MODEL = process.env.FORGE_STORY_MODEL ?? "gemma4:31b-it-qat";
 const STORY_FALLBACK_MODEL = process.env.FORGE_STORY_FALLBACK_MODEL ?? "qwen3-vl:8b";
 
-export type StorySeed = { id: string; kind: "parable" | "fable" | "myth" | "original"; premise: string };
+export type StoryKind = "parable" | "fable" | "myth" | "folktale" | "thought" | "original";
+export type StorySeed = { id: string; kind: StoryKind; premise: string };
+
+// ── formats: how a film is told ─────────────────────────────────────────────
+
+export type FormatId = "tale" | "monologue" | "letter" | "verse" | "dialogue" | "silent" | "documentary" | "thought" | "micro";
+
+export type StoryFormat = {
+  id: FormatId;
+  /** On the title card and in the lab: "A silent film". */
+  label: string;
+  shots: number;
+  /** False for a silent film: its lines are title cards, nobody speaks. */
+  voiced: boolean;
+  /** One line's rules, for the writer. */
+  line: string;
+  /** Looks that suit it, preferred most of the time. */
+  looks?: number[];
+};
+
+export const FORMATS: Record<FormatId, StoryFormat> = {
+  tale: {
+    id: "tale",
+    label: "A tale",
+    shots: 14,
+    voiced: true,
+    line: 'ONE sentence the narrator says over this 5-second shot, 6 to 14 words. Warm, simple, literary; past tense like a told tale. Together the lines tell the whole story; the last two land the lesson gently, without preaching. No quotation marks inside lines — report speech instead (He told them the sky was only as wide as the well). "speaker" is always "Narrator".',
+  },
+  monologue: {
+    id: "monologue",
+    label: "A monologue",
+    shots: 12,
+    voiced: true,
+    line: 'ONE sentence, 6 to 14 words, spoken by the main character about their own life, in the first person ("I"), looking back. Their own voice and way of seeing: an old ferryman speaks plainly, a fox slyly, a lighthouse slowly and patiently. "speaker" is always that character\'s name.',
+    looks: [0, 1, 4, 8],
+  },
+  letter: {
+    id: "letter",
+    label: "A letter",
+    shots: 12,
+    voiced: true,
+    line: 'ONE sentence of a letter, 6 to 14 words, written by one character to another and read aloud by its writer: first person, addressed to "you" (a mother to a son at sea, a keeper to the next keeper, a tree to the child who planted it). The last line closes the letter. The pictures show the world the letter speaks of — the writer, the one it is for, the distance between them. "speaker" is always the letter\'s writer.',
+    looks: [0, 1, 13, 2],
+  },
+  verse: {
+    id: "verse",
+    label: "A poem",
+    shots: 12,
+    voiced: true,
+    line: 'ONE line of a poem, 6 to 12 words, with a steady, speakable rhythm. Rhyme the lines in pairs (1 with 2, 3 with 4…) only where it comes naturally — never force a rhyme. Together the lines are one poem that tells the whole story. "speaker" is always "Narrator".',
+    looks: [1, 6, 12, 3],
+  },
+  dialogue: {
+    id: "dialogue",
+    label: "A conversation",
+    shots: 14,
+    voiced: true,
+    line: 'ONE sentence, 5 to 14 words. Two or three voices tell the story between them: a narrator and one or two characters, taking turns. A character\'s line is what they say aloud, in their own voice (no quotation marks, no "she said"); the narrator\'s lines tell what happens. At least five lines are spoken by characters. "speaker" is "Narrator" or the speaking character\'s exact name.',
+  },
+  silent: {
+    id: "silent",
+    label: "A silent film",
+    shots: 12,
+    voiced: false,
+    line: 'A title card, 3 to 10 words, as in a 1920s silent film: a short line of story (Winter came early that year.) or a character\'s words after a dash (— You will never reach the moon.). Nobody speaks aloud; the pictures carry the story and the cards only bridge it. "speaker" is always "Narrator".',
+    looks: [7, 15],
+  },
+  documentary: {
+    id: "documentary",
+    label: "A nature documentary",
+    shots: 12,
+    voiced: true,
+    line: 'ONE sentence, 6 to 16 words, in the voice of a nature documentary narrator: present tense, calm wonder, precise natural detail, observing as if it were real. The creatures behave like themselves; the lesson lives in what they do, never in a moral. "speaker" is always "Narrator".',
+    looks: [16],
+  },
+  thought: {
+    id: "thought",
+    label: "A thought experiment",
+    shots: 12,
+    voiced: true,
+    line: 'ONE sentence, 6 to 16 words. The narrator walks the viewer through a thought experiment, speaking to them as "you" (Imagine you wake in a room where…). Concrete and visual: build the puzzle step by step, show its twist, and end on an open question to the viewer, not an answer. "speaker" is always "Narrator". The "lesson" is that question.',
+    looks: [11, 10, 14, 3],
+  },
+  micro: {
+    id: "micro",
+    label: "A very short story",
+    shots: 7,
+    voiced: true,
+    line: 'ONE sentence, 5 to 12 words: a koan-like micro-story in seven shots — still, simple images, and one turn in the last two shots that changes how everything before it looks. Past tense. "speaker" is always "Narrator".',
+    looks: [3, 11, 5],
+  },
+};
+
+const FORMAT_IDS = Object.keys(FORMATS) as FormatId[];
+
+/** The format used least among recent films (never the last one twice), ties at random. */
+export function pickFormat(recentFormats: string[], rand = Math.random): FormatId {
+  const window = recentFormats.slice(0, FORMAT_IDS.length * 2);
+  const count = (f: FormatId) => window.filter((x) => x === f).length;
+  const pool = FORMAT_IDS.filter((f) => f !== recentFormats[0]);
+  const least = Math.min(...pool.map(count));
+  const best = pool.filter((f) => count(f) === least);
+  return best[Math.floor(rand() * best.length)];
+}
+
+// ── sources: what a film is about ───────────────────────────────────────────
 
 /**
- * Public-domain parables, fables and myths, and original premises. The model
- * retells or invents; the seed only fixes what the story is about.
+ * Public-domain parables, fables, folktales, myths and thought experiments,
+ * and original premises. The model retells or invents; the seed only fixes
+ * what the story is about.
  */
 export const STORY_SEEDS: StorySeed[] = [
   { id: "farmer-maybe", kind: "parable", premise: "The Taoist farmer whose horse runs away. Neighbours say 'bad luck', he says 'maybe'. The horse returns with wild horses, his son breaks a leg taming one, soldiers pass by and cannot take a lame son. Lesson: we rarely know what is good or bad fortune." },
@@ -48,6 +165,33 @@ export const STORY_SEEDS: StorySeed[] = [
   { id: "sand-stone", kind: "parable", premise: "Two friends cross a desert; they quarrel and one strikes the other, who writes in the sand: 'Today my friend hurt me.' Later he is saved from drowning in an oasis and carves into stone: 'Today my friend saved my life.' Lesson: write hurts in sand, kindness in stone." },
   { id: "scorpion-frog", kind: "fable", premise: "A scorpion asks a frog to carry it across a river; the frog fears being stung, but the scorpion says it would drown too. Midway it stings the frog. 'Why?' 'It is my nature.' Lesson: know the nature of what you trust." },
   { id: "diogenes", kind: "parable", premise: "Diogenes walks through the market in broad daylight holding a lit lantern, peering into faces. Asked why: 'I am looking for an honest person.' Lesson: honesty is rarer than light at noon — and begins with ourselves." },
+  { id: "north-wind-sun", kind: "fable", premise: "The North Wind and the Sun argue over who is stronger and test it on a traveller in a cloak. The Wind blows harder and harder and the traveller only clutches the cloak tighter; the Sun shines gently and warmly, and the traveller takes it off. Lesson: gentleness persuades where force fails." },
+  { id: "lion-mouse", kind: "fable", premise: "A lion catches a tiny mouse and, amused by its promise to repay him one day, lets it go. Later the lion is caught in a hunter's net; the mouse gnaws through the ropes one by one. Lesson: no kindness is wasted, and the small can save the great." },
+  { id: "crow-pitcher", kind: "fable", premise: "A thirsty crow finds a pitcher with a little water at the bottom, too low for its beak. It drops in pebbles, one by one, until the water rises to the brim. Lesson: patience and ingenuity beat strength." },
+  { id: "belling-cat", kind: "fable", premise: "The mice hold a council about the cat. A young mouse proposes tying a bell around its neck, and everyone cheers — until an old mouse asks who will put the bell on the cat. Lesson: it is easy to propose what is hard to do." },
+  { id: "strawberry", kind: "parable", premise: "A man chased by a tiger climbs down a cliff on a vine; below him waits another tiger, and two mice begin to gnaw the vine. Beside him grows one wild strawberry. He picks it. How sweet it tastes. Lesson: the present moment is all we ever have." },
+  { id: "nasreddin-coat", kind: "folktale", premise: "Nasreddin comes to a feast in his old work clothes and is seated by the door and ignored. He goes home, puts on a splendid fur coat, returns, and is given the best seat. He begins feeding soup to his coat: 'Eat, coat — it was you they invited.' Lesson: honour the person, not the clothes." },
+  { id: "anansi-wisdom", kind: "folktale", premise: "Anansi the spider gathers all the wisdom of the world into a clay pot and tries to hide it at the top of a tall tree, but the pot tied to his front keeps him from climbing. His small son suggests tying it to his back. Furious that he did not have all the wisdom after all, Anansi drops the pot and wisdom scatters across the world. Lesson: no one holds all the wisdom." },
+  { id: "crane-wife", kind: "folktale", premise: "A poor man frees a wounded crane from a trap. Soon a gentle woman comes to his door and becomes his wife; she weaves cloth of wondrous beauty in a closed room, asking him never to look. He grows greedy for more cloth and peeks: a crane is pulling out her own feathers to weave. She flies away. Lesson: love asks for trust, not for more." },
+  { id: "old-mother-mountain", kind: "folktale", premise: "A cruel lord orders all old people sent away to the mountains. A son carries his mother up the slope, and she breaks twigs along the path so he will not lose his way home. He cannot leave her and hides her at home. When the lord sets impossible riddles, her wisdom answers them, and the law is undone. Lesson: the old carry what the young have not yet learned." },
+  { id: "empty-pot", kind: "folktale", premise: "An old emperor gives every child a seed: whoever grows the most beautiful flower will rule after him. A boy tends his seed with care but nothing grows; the other children come with magnificent flowers. He brings his empty pot. The emperor had cooked the seeds: only he was honest. Lesson: honesty takes courage, and it is seen." },
+  { id: "hummingbird", kind: "folktale", premise: "A great fire sweeps through the forest; all the animals flee and watch. A tiny hummingbird flies again and again to the river and drops a single bead of water on the flames. The big animals laugh: what can you do? 'I am doing what I can.' Lesson: do your part, however small." },
+  { id: "useless-tree", kind: "parable", premise: "A carpenter passes an enormous old oak by a shrine and scorns it: its wood is twisted and knotted, good for nothing. That night the tree speaks in his dream: because I was useless, no one cut me down, and I grew this great and gave this much shade. Lesson: the usefulness of being useless; not everything must serve." },
+  { id: "tailor-coat", kind: "folktale", premise: "A poor tailor wears his coat until it is worn out, then makes it into a jacket; when that wears out, a vest; then a cap; then a button; and when the button is lost, he has a story to tell about it all. Lesson: something can always be made from what is left." },
+  { id: "canute-tide", kind: "parable", premise: "Flattering courtiers tell the king that even the sea obeys him. He has his throne carried to the shore and commands the rising tide to stop. The waves wash over his feet and his robe. 'Let all know how empty the power of kings is.' Lesson: humility before what no one commands." },
+  { id: "stone-soup", kind: "folktale", premise: "Hungry travellers come to a village where no one will share. They set a pot of water to boil with a single stone, saying stone soup is delicious but better with a carrot; curious villagers each add something, and soon the whole village eats together. Lesson: shared, a little becomes plenty." },
+  { id: "bamboo-fern", kind: "parable", premise: "A man ready to quit asks the forest why he should go on. He is shown a fern and a bamboo planted on the same day: the fern covered the ground at once, while for five years the bamboo showed nothing — growing roots. In the sixth year it rose a hundred feet. Lesson: growth begins underground, out of sight." },
+  { id: "fisherman", kind: "parable", premise: "A visitor finds a fisherman dozing in his boat after a small morning catch and urges him to fish all day, buy more boats, build a fleet and grow rich — so that one day he can retire to a quiet village, fish a little in the morning, and doze in the sun. 'That,' says the fisherman, 'is what I am doing now.' Lesson: know what you are working for." },
+  { id: "experience-machine", kind: "thought", premise: "The experience machine: imagine a machine that can give you any life you want — love, triumph, discovery — so perfectly that, once inside, you would never know it was not real. Would you plug in for the rest of your life? Why does something in us say no?" },
+  { id: "veil-of-ignorance", kind: "thought", premise: "The veil of ignorance: imagine you must design the rules of a whole society before you know who you will be in it — rich or poor, strong or frail, which country, which body. Behind that veil, what rules would you choose?" },
+  { id: "buridan", kind: "thought", premise: "Buridan's donkey: a hungry donkey stands exactly halfway between two identical bales of hay and, having no reason to prefer either, cannot choose — and stands there, starving, between plenty. What is a reason to choose, and when is any choice better than none?" },
+  { id: "marys-room", kind: "thought", premise: "Mary's room: Mary has spent her whole life in a black-and-white room and knows every fact about colour — the wavelengths, the eyes, the brain. One day she opens the door and sees a red apple for the first time. Does she learn something new? What can knowledge not hold?" },
+  { id: "eternal-return", kind: "thought", premise: "The eternal return: imagine that one evening a voice tells you that you will live this exact life again, and again, forever — every joy and every pain, in the same order. Would you despair, or would you love your life enough to want it again?" },
+  { id: "gyges-ring", kind: "thought", premise: "The ring of Gyges: a shepherd finds a ring in a cave that makes him invisible when he turns it. No one would ever know what he did. If you could never be caught, would you still be good? What is goodness for, if not for being seen?" },
+  { id: "stopped-clock", kind: "thought", premise: "The stopped clock: you glance at a clock in a quiet station, it says two o'clock, and it is two o'clock — but the clock stopped exactly twelve hours ago. You were right, and you were lucky. Did you know the time? What is the difference between being right and knowing?" },
+  { id: "teleporter", kind: "thought", premise: "The teleporter: a machine scans you, dissolves you here, and builds you again, atom for atom, on Mars, with every memory intact. The person who steps out feels exactly like you. Is it you who arrives? And if the machine forgot to dissolve the original?" },
+  { id: "sorites-heap", kind: "thought", premise: "The heap: a heap of sand on a beach. Take away one grain: still a heap. Take away another; one grain never turns a heap into no heap — and yet, grain by grain, the heap is gone. When did it stop being a heap? And when does a person change?" },
+  { id: "beetle-box", kind: "thought", premise: "The beetle in a box: everyone in a village has a small box with something inside they call a 'beetle'. No one can ever look into anyone else's box. Everyone talks about their beetle. Could every box hold something different — or nothing — and would anyone ever know? Is your 'pain' the same as mine?" },
   { id: "lighthouse", kind: "original", premise: "An original story: the last keeper of a lighthouse that ships no longer need keeps lighting the lamp every night. One stormy night a small fishing boat with no instruments finds its way home by his light. Lesson: keep your light on even when no one seems to need it." },
   { id: "paper-boat", kind: "original", premise: "An original story: a child folds a paper boat and sets it on a rain gutter. It travels through puddles, a stream, a river, past cities and forests, and finally reaches the sea at sunrise. Lesson: small beginnings can carry us farther than we imagine." },
   { id: "clockmaker", kind: "original", premise: "An original story: an old clockmaker builds a clock that runs backwards, hoping to win back time with his late wife. The clock ticks backwards but the seasons outside keep turning. He finally sets it running forward and opens the shop door to spring. Lesson: time only moves one way; love what is in front of you." },
@@ -61,36 +205,132 @@ export const STORY_SEEDS: StorySeed[] = [
   { id: "whale-song", kind: "original", premise: "An original story: a whale sings at a frequency no other whale can hear and travels the oceans alone for years. One day, far away, another voice answers in the same strange note. Lesson: keep singing your own song; someone is listening." },
 ];
 
-export type StoryShot = {
-  /** Said over this shot by the narrator: one sentence, 6 to 16 words. */
-  narration: string;
-  /** What the still shows: subject, setting, light, framing; character looks repeated in full. */
-  picture: string;
-  /** What moves during the 5-second clip, and how the camera moves. */
-  motion: string;
+/** Thought experiments; the cave, the ship and the butterfly dream work as one too. */
+const THOUGHT_SEEDS = new Set(["cave", "theseus-ship", "butterfly-dream", ...STORY_SEEDS.filter((s) => s.kind === "thought").map((s) => s.id)]);
+
+/** An original premise from a theme, a place and a hero (the writer invents the plot). */
+export const INVENT = {
+  themes: [
+    "patience: some things cannot be hurried",
+    "letting go of an old grudge",
+    "the courage to begin again after failing",
+    "a small kindness to a stranger that returns in an unexpected way",
+    "attention: wonder hides in ordinary things",
+    "pride before a fall",
+    "envy: the far bank of the river only looks greener",
+    "knowing when you have enough",
+    "impermanence: nothing lasts, and that is why it is precious",
+    "honesty when a lie would be easier",
+    "listening as a kind of love",
+    "the strength it takes to ask for help",
+    "home is the people, not the place",
+    "curiosity opens doors that fear keeps shut",
+    "a promise kept across many years",
+    "what we give away, we keep",
+    "fear is smaller up close",
+    "the long way round shows you more",
+    "forgiving yourself",
+    "failure as a teacher",
+  ],
+  settings: [
+    { text: "a night train crossing a snowy steppe" },
+    { text: "a lighthouse on a rocky northern island", nature: true },
+    { text: "a floating market on a misty river at dawn" },
+    { text: "a desert observatory under a sky full of stars", nature: true },
+    { text: "a snowbound mountain monastery" },
+    { text: "a coral reef in shallow turquoise water", nature: true },
+    { text: "a city of canals and small stone bridges" },
+    { text: "a greenhouse on the Moon" },
+    { text: "an old cinema in a small seaside town" },
+    { text: "a beekeeper's hillside of wildflowers", nature: true },
+    { text: "a vast white salt flat after rain", nature: true },
+    { text: "a tiny post office high in the mountains" },
+    { text: "the deep sea, where lantern fish glow", nature: true },
+    { text: "a library that orbits a quiet planet" },
+    { text: "a bamboo forest in summer rain", nature: true },
+    { text: "an autumn orchard at harvest", nature: true },
+    { text: "a fishing village on stilts" },
+    { text: "a frozen lake at dusk", nature: true },
+    { text: "a clock tower above a sleeping town" },
+    { text: "a caravan route across red sand dunes", nature: true },
+    { text: "a rooftop garden in a crowded city" },
+    { text: "a tiny island with a single tree", nature: true },
+    { text: "a puppet theatre after closing time" },
+    { text: "a tidal marsh where herons wade", nature: true },
+  ],
+  heroes: [
+    { text: "an old ferryman" },
+    { text: "a young mapmaker" },
+    { text: "a red fox", animal: true },
+    { text: "a small lamplighter robot" },
+    { text: "a girl who collects echoes in jars" },
+    { text: "an old tortoise", animal: true },
+    { text: "a retired astronaut" },
+    { text: "a crow who collects buttons", animal: true },
+    { text: "a glassblower" },
+    { text: "a paper crane that has come to life" },
+    { text: "a night watchman" },
+    { text: "a snow leopard cub", animal: true },
+    { text: "a baker who wakes before dawn" },
+    { text: "a hermit crab looking for a bigger shell", animal: true },
+    { text: "a clockmaker's apprentice" },
+    { text: "an elderly gardener" },
+    { text: "a whale calf", animal: true },
+    { text: "a wandering musician" },
+    { text: "a grey heron", animal: true },
+    { text: "a boy who is afraid of the dark" },
+    { text: "a honeybee who gets lost", animal: true },
+    { text: "a postwoman on a bicycle" },
+    { text: "a young octopus", animal: true },
+    { text: "a pair of old swans", animal: true },
+  ],
 };
 
-export type Story = {
-  id: string;
-  createdAt: string;
-  seed: string;
-  kind: StorySeed["kind"];
-  title: string;
-  logline: string;
-  lesson: string;
-  /** One visual style shared by every shot. */
-  look: string;
-  /** A music brief for the score. */
-  score: string;
-  characters: { name: string; look: string }[];
-  shots: StoryShot[];
-  model: string;
-  latencyMs: number;
-  /** The writer's own problems, fixed or noted. */
-  notes: string[];
-};
+/** A premise invented from a theme, a place and a hero not used in recent invented seeds. */
+export function inventSeed(recentSeeds: string[], opts: { nature?: boolean } = {}, rand = Math.random): StorySeed {
+  const recent = recentSeeds.filter((s) => s.startsWith("invent:")).map((s) => s.slice(7).split("|").map(Number));
+  const fresh = <T>(list: T[], slot: number, ok: (x: T) => boolean = () => true) => {
+    const idx = list.map((x, i) => i).filter((i) => ok(list[i]) && !recent.some((r) => r[slot] === i));
+    const from = idx.length ? idx : list.map((x, i) => i).filter((i) => ok(list[i]));
+    return from[Math.floor(rand() * from.length)];
+  };
+  const t = fresh(INVENT.themes, 0);
+  const s = fresh(INVENT.settings, 1, (x) => !opts.nature || !!x.nature);
+  const h = fresh(INVENT.heroes, 2, (x) => !opts.nature || !!x.animal);
+  return {
+    id: `invent:${t}|${s}|${h}`,
+    kind: "original",
+    premise: `An original story about ${INVENT.heroes[h].text}, set in ${INVENT.settings[s].text}. Its heart: ${INVENT.themes[t]}. Invent the plot yourself — a want, an obstacle, a turn, and an ending that earns the lesson without stating it.`,
+  };
+}
 
-/** Visual styles the writer picks from; one per story keeps the shots of one film consistent. */
+/**
+ * Pick a seed not used lately. A thought experiment for that format; animals
+ * in nature for a documentary; otherwise told tales alternate with originals,
+ * and an original is invented from a theme, a place and a hero half the time.
+ */
+export function pickSeed(recentSeeds: string[], lastKind?: StoryKind, format?: FormatId, rand = Math.random): StorySeed {
+  const used = new Set(recentSeeds);
+  const fromPool = (pool: StorySeed[]) => {
+    const fresh = pool.filter((s) => !used.has(s.id));
+    const from = fresh.length ? fresh : pool.filter((s) => s.id !== recentSeeds[0]);
+    return from[Math.floor(rand() * from.length)];
+  };
+  if (format === "thought") return fromPool(STORY_SEEDS.filter((s) => THOUGHT_SEEDS.has(s.id)));
+  if (format === "documentary") return rand() < 0.7 ? inventSeed(recentSeeds, { nature: true }, rand) : fromPool(STORY_SEEDS.filter((s) => s.kind === "fable"));
+  const general = STORY_SEEDS.filter((s) => s.kind !== "thought");
+  const wantOriginal = lastKind && lastKind !== "original";
+  if (wantOriginal) {
+    const hand = general.filter((s) => s.kind === "original" && !used.has(s.id));
+    return !hand.length || rand() < 0.5 ? inventSeed(recentSeeds, {}, rand) : hand[Math.floor(rand() * hand.length)];
+  }
+  const told = general.filter((s) => s.kind !== "original");
+  return fromPool(lastKind ? told : general);
+}
+
+// ── looks ───────────────────────────────────────────────────────────────────
+
+/** Visual styles; one per story keeps the shots of one film consistent. */
 export const LOOKS = [
   "cinematic 35mm film still, anamorphic lens, soft natural light, gentle film grain, muted earthy colors, shallow depth of field",
   "hand-painted animated film background style, soft watercolor textures, warm golden light, painterly clouds, storybook atmosphere",
@@ -98,9 +338,95 @@ export const LOOKS = [
   "Chinese ink wash painting style with subtle color, misty mountains, soft paper texture, calm and spacious composition",
   "stop-motion miniature film, handcrafted felt and clay figures, tiny practical sets, warm tungsten light, tilt-shift depth of field",
   "papercut shadow-puppet animation, layered paper silhouettes, warm backlight glowing through, delicate cut-paper textures",
+  "Japanese ukiyo-e woodblock print come to life, flat bold colors, fine black outlines, patterned waves and clouds, washi paper texture",
+  "1920s silent film, black and white, orthochromatic film grain, soft vignette, flickering projector light, theatrical staging",
+  "hand-drawn Japanese animated film, soft cel shading, lush painted backgrounds, warm afternoon light, gentle wind in the grass",
+  "stained glass window come to life, jewel-toned glass panes, dark lead lines, sunlight streaming through the colors",
+  "linocut print in two inks, deep indigo and warm vermilion on cream paper, bold carved lines, hand-printed texture",
+  "charcoal and white chalk drawing on toned grey paper, smudged soft edges, expressive strokes, quiet and contemplative",
+  "Persian miniature painting, intricate patterned borders, flat perspective, lapis blue and gold leaf, delicate detail",
+  "gouache children's picture book illustration, soft pastel colors, rounded shapes, cozy hand-painted textures",
+  "low-poly 3D diorama, soft studio lighting, matte pastel materials, a miniature world under glass",
+  "moody film noir, high-contrast black and white, hard shadows, rain-slick streets, light through venetian blinds",
+  "nature documentary cinematography, telephoto lens, golden hour backlight, crisp natural detail, shallow depth of field",
 ];
-// No photoreal "cinematic photograph" look: Wan 5B keeps painted, inked and
-// clay characters steady, while photoreal faces are where it morphs.
+// No photoreal "cinematic photograph" of people: Wan 5B keeps painted, inked
+// and clay characters steady, while photoreal faces are where it morphs. The
+// documentary look is for animals and landscapes only (its format's own).
+
+/** Looks kept for their own formats. */
+const LOOK_ONLY: Record<number, FormatId[]> = { 7: ["silent"], 15: ["silent", "thought"], 16: ["documentary"] };
+
+/** The format's own looks most of the time, else the look used least lately. */
+export function pickLook(recentLooks: string[], format: FormatId, rand = Math.random): string {
+  const allowed = LOOKS.map((l, i) => i).filter((i) => !LOOK_ONLY[i] || LOOK_ONLY[i].includes(format));
+  const own = FORMATS[format].looks?.filter((i) => allowed.includes(i));
+  const pool = own?.length && (rand() < 0.65 || LOOK_ONLY[own[0]]) ? own : allowed;
+  const window = recentLooks.slice(0, 12);
+  const count = (i: number) => window.filter((l) => l.toLowerCase().startsWith(LOOKS[i].toLowerCase().slice(0, 24))).length;
+  const least = Math.min(...pool.map(count));
+  const best = pool.filter((i) => count(i) === least);
+  return LOOKS[best[Math.floor(rand() * best.length)]];
+}
+
+// ── the screenplay ──────────────────────────────────────────────────────────
+
+export type StoryShot = {
+  /** Heard (or, in a silent film, shown) over this shot: one sentence. */
+  narration: string;
+  /** Who says it: "Narrator" or a character's name. */
+  speaker?: string;
+  /** What the still shows, with every character in frame written out in full. */
+  picture: string;
+  /** What moves during the 5-second clip, and how the camera moves. */
+  motion: string;
+  /** The characters in frame (their names). */
+  cast?: string[];
+};
+
+export type StoryCharacter = {
+  name: string;
+  look: string;
+  kind?: "human" | "animal" | "creature" | "object";
+  gender?: "female" | "male" | "none";
+  age?: "child" | "young" | "adult" | "old";
+};
+
+/** The technology a film is made with — chosen per film, credited at its end. See stack.ts. */
+export type StoryStack = {
+  pickedAt: string;
+  video: { key: string; label: string; videoModel: string; tier: "low" | "high" };
+  /** Who reads each speaker's lines ("Narrator" and characters); none for a silent film. */
+  voices?: Record<string, { key: string; engine: "chatterbox" | "kokoro"; voice: string; label: string }>;
+  /** The lead voice: the option this film tries. */
+  voice?: { key: string; label: string };
+  score: { key: string; label: string; style?: string };
+  finish: { key: "lanczos" | "esrgan"; label: string };
+  /** Set when the video model could not get memory and the film moved to another. */
+  fallback?: string;
+};
+
+export type Story = {
+  id: string;
+  createdAt: string;
+  seed: string;
+  kind: StoryKind;
+  format?: FormatId;
+  title: string;
+  logline: string;
+  lesson: string;
+  /** One visual style shared by every shot. */
+  look: string;
+  /** A music brief for the score. */
+  score: string;
+  characters: StoryCharacter[];
+  shots: StoryShot[];
+  model: string;
+  latencyMs: number;
+  /** The writer's own problems, fixed or noted, and the continuity pass's fixes. */
+  notes: string[];
+  stack?: StoryStack;
+};
 
 const SCHEMA = {
   type: "object",
@@ -110,13 +436,32 @@ const SCHEMA = {
     lesson: { type: "string" },
     look: { type: "string" },
     score: { type: "string" },
-    characters: { type: "array", items: { type: "object", properties: { name: { type: "string" }, look: { type: "string" } }, required: ["name", "look"] } },
+    characters: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          look: { type: "string" },
+          kind: { type: "string", enum: ["human", "animal", "creature", "object"] },
+          gender: { type: "string", enum: ["female", "male", "none"] },
+          age: { type: "string", enum: ["child", "young", "adult", "old"] },
+        },
+        required: ["name", "look", "kind", "gender", "age"],
+      },
+    },
     shots: {
       type: "array",
       items: {
         type: "object",
-        properties: { narration: { type: "string" }, picture: { type: "string" }, motion: { type: "string" } },
-        required: ["narration", "picture", "motion"],
+        properties: {
+          narration: { type: "string" },
+          speaker: { type: "string" },
+          picture: { type: "string" },
+          motion: { type: "string" },
+          cast: { type: "array", items: { type: "string" } },
+        },
+        required: ["narration", "speaker", "picture", "motion", "cast"],
       },
     },
   },
@@ -125,51 +470,93 @@ const SCHEMA = {
 
 export const words = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
-/** Pick a seed not used in the stories made lately, alternating told and original tales. */
-export function pickSeed(recentSeeds: string[], lastKind?: StorySeed["kind"]): StorySeed {
-  const used = new Set(recentSeeds);
-  let pool = STORY_SEEDS.filter((s) => !used.has(s.id));
-  if (!pool.length) pool = STORY_SEEDS.filter((s) => s.id !== recentSeeds[0]);
-  const wantOriginal = lastKind && lastKind !== "original";
-  const preferred = pool.filter((s) => (wantOriginal ? s.kind === "original" : s.kind !== "original"));
-  const from = preferred.length ? preferred : pool;
-  return from[Math.floor(Math.random() * from.length)];
-}
+const PICTURE_RULES = [
+  "- \"picture\": the still image, written as an image-generation prompt of 30 to 60 words: the subject, the setting, the light, the time of day, and the framing (wide establishing shot, medium shot, close-up of hands or an object, over-the-shoulder, silhouette against the sky…).",
+  "  The model drawing it sees ONLY this one picture — not the story, not the other shots. So every character in the frame is written as their name in curly braces, {Mira} or {Frog}, and the system pastes in their full look. Never write a character any other way in a picture: not 'two figures', not 'they', not 'the pair', not 'a person', not 'silhouettes' — {Frog} and {Scorpion} sink into the dark water. Name the place and the time of day again in every picture.",
+  "- \"cast\": the names of the characters visible in this shot, exactly as in \"characters\" ([] if none).",
+  "- \"motion\": what moves during the clip and how the camera moves, 10 to 25 words (e.g. \"slow push-in; wind ripples the grass, the old man's robe stirs, clouds drift\"). Motion should be gentle and physical — wind, water, light, a slow turn of the head, walking away, a hand opening. No fast action, no fighting, no crowds running.",
+];
 
-function prompt(seed: StorySeed, shots: number, look: string): string {
+function prompt(seed: StorySeed, format: StoryFormat, shots: number, look: string): string {
+  const minutes = Math.round(((shots * 5.6) / 60) * 4) / 4;
   return [
-    "You are the writer and director of a short narrated film — about a minute and a quarter long — made entirely by AI: each shot is first drawn as a still image, then animated into a 5-second clip, and a calm narrator reads one line over each shot. Think like a filmmaker: a real story with a beginning, a turn and an ending, told with images.",
+    `You are the writer and director of a short film — about ${minutes} minute${minutes === 1 ? "" : "s"} long — made entirely by AI: each shot is first drawn as a still image, then animated into a 5-second clip. ${format.voiced ? "One line is heard over each shot." : "Nobody speaks: each line is shown on screen as a title card."} Think like a filmmaker: a real story with a beginning, a turn and an ending, told with images.`,
+    "",
+    `The form: ${format.label.toLowerCase()}. Every line follows it.`,
     "",
     `The story: ${seed.premise}`,
-    seed.kind === "original" ? "Make it your own: invent the details, the setting and the small moments that make it feel like a real film." : "Retell it in your own words, with vivid concrete details; you may set it in any fitting time and place.",
+    seed.kind === "original"
+      ? "Make it your own: invent the details, the setting and the small moments that make it feel like a real film."
+      : seed.kind === "thought"
+        ? "Make the idea visible: one concrete situation the viewer can picture, shot by shot."
+        : "Retell it in your own words, with vivid concrete details; you may set it in any fitting time and place.",
     "",
     `Write exactly ${shots} shots. For each shot:`,
-    '- "narration": ONE sentence the narrator says over this 5-second shot, 6 to 14 words. Warm, simple, literary; past tense like a told tale. Together the lines tell the whole story; the last two lines land the lesson gently, without preaching. No quotation marks inside lines — report speech instead (He told them the sky was only as wide as the well).',
-    '- "picture": the still image, written as an image-generation prompt of 30 to 60 words: the subject, the setting, the light, the time of day, and the framing (wide establishing shot, medium shot, close-up of hands or an object, over-the-shoulder, silhouette against the sky…). The model drawing it knows nothing about the other shots, so whenever a character appears, repeat their FULL look every time (age, build, hair, clothing and colours, one distinctive object) exactly as in "characters". Never use names in a picture — describe.',
-    '- "motion": what moves during the clip and how the camera moves, 10 to 25 words (e.g. "slow push-in; wind ripples the grass, the old man\'s robe stirs, clouds drift"). Motion should be gentle and physical — wind, water, light, a slow turn of the head, walking away, a hand opening. No fast action, no fighting, no crowds running.',
+    `- "narration": ${format.line}`,
+    '- "speaker": who says the line (see above).',
+    ...PICTURE_RULES,
     "",
-    "How to write it — like a master storyteller at a fireside, not a summary:",
+    "How to write it — like a master storyteller, not a summary:",
     "- Concrete, sensory images (the cold of the river, the smell of cedar smoke, the weight of a stone) and varied rhythm: some lines short, some longer.",
-    "- One small surprising detail the listener will remember, and a turn where something changes.",
-    "- The last line should resonate quietly, like the end of a poem; never state the moral outright in the narration (the lesson card does that).",
+    "- One small surprising detail the viewer will remember, and a turn where something changes.",
+    "- The last line should resonate quietly, like the end of a poem; never state the moral outright in a line (the lesson card does that).",
     "- Never use these tired words: tapestry, testament, whisper(ed) of, heart of, journey, embrace, profound, realm, delve, symphony, dance of, vibrant, beacon.",
     "",
     "Rules that make the film look good:",
     "- Vary the framing like a real film: open wide, then move closer; mix landscapes, medium shots, details (hands, objects, eyes, footprints) and silhouettes. At most a third of shots are close-ups of faces.",
     "- Keep each character visually simple and distinctive so they can be drawn the same way every time; animals and silhouettes animate beautifully.",
+    "- A character who is not a person must never become one: a frog stays a frog in every shot, even when it talks.",
     "- No text, letters, signs, books with readable pages, logos or screens in any picture.",
     "- Nothing gory, violent or frightening; it is a gentle film for all ages.",
     "",
     `"look": the visual style for every shot. Use this one, adapting the wording to the story if it helps: "${look}".`,
     '"score": a music brief for the soundtrack, 10 to 20 words, instruments and mood (e.g. "solo cello and soft piano, slow, tender, a gentle swell at the end"). Instrumental only.',
     '"title": the film\'s title, 1 to 5 words, evocative, no colon. "logline": one sentence that makes someone want to watch it. "lesson": the lesson in one short sentence (max 14 words).',
-    '"characters": each character\'s name and FULL visual description (the exact words to repeat in every picture). An empty list if the story has none.',
+    '"characters": every character who appears or speaks: "name" (one word, as used in {braces}), "look" — their FULL visual description, the exact words pasted into every picture they are in (species or age, build, hair or fur, clothing and colours, one distinctive object) — "kind" (human, animal, creature or object), "gender" (female, male or none) and "age". An empty list if the story has none.',
     "",
     "Reply with JSON only.",
   ].join("\n");
 }
 
-async function askOllama(model: string, text: string, timeoutMs: number): Promise<string> {
+/** The second read: a continuity supervisor checks every picture against the story. */
+function continuityPrompt(raw: Record<string, unknown>, format: StoryFormat): string {
+  const chars = (Array.isArray(raw.characters) ? raw.characters : []) as Record<string, unknown>[];
+  const shots = (Array.isArray(raw.shots) ? raw.shots : []) as Record<string, unknown>[];
+  return [
+    `You are the continuity supervisor of a short AI film (${format.label.toLowerCase()}). Each shot's picture is drawn by an image model that sees ONLY that picture's text — nothing about the story, the characters or the other shots. A picture that says "the two figures drift down" gets two people, even if the story is about a frog and a scorpion.`,
+    "",
+    "The characters (written in pictures as {Name}; the system pastes in the look):",
+    ...chars.map((c) => `- {${String(c.name)}} (${String(c.kind ?? "?")}): ${String(c.look)}`),
+    "",
+    "The shots:",
+    ...shots.map((s, i) => `${i + 1}. line: ${String(s.narration)}\n   picture: ${String(s.picture)}`),
+    "",
+    "Check every shot and fix its picture where needed:",
+    "- Every character the line is about, or who would be seen in this moment, is in the picture as {Name}. Replace every vague stand-in — figures, they, both, the pair, the two, someone, a person, a shape, silhouettes — with the {Name}s it means.",
+    "- No person appears unless a human character is meant to be there; animals and objects stay what they are.",
+    "- The place, the time of day, the weather and the season follow from the shots around it, and are named in the picture, since the model knows nothing else.",
+    "- Keep the framing, the light and the style of the picture; change only what continuity needs. A picture that is already right is returned unchanged.",
+    "",
+    'Reply with JSON: "shots", one entry per shot in order, each with "picture" (the corrected picture, or the same one), "cast" (the names in frame) and "fix" (what you changed, in a few words, or "" if nothing).',
+  ].join("\n");
+}
+
+const CONTINUITY_SCHEMA = {
+  type: "object",
+  properties: {
+    shots: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { picture: { type: "string" }, cast: { type: "array", items: { type: "string" } }, fix: { type: "string" } },
+        required: ["picture", "cast", "fix"],
+      },
+    },
+  },
+  required: ["shots"],
+};
+
+async function askOllama(model: string, text: string, timeoutMs: number, format: object = SCHEMA): Promise<string> {
   const res = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -179,8 +566,8 @@ async function askOllama(model: string, text: string, timeoutMs: number): Promis
       think: false,
       // Unload right after: the card is needed for the stills and clips.
       keep_alive: 0,
-      format: SCHEMA,
-      options: { temperature: 0.85, top_p: 0.95, num_ctx: 8192, num_predict: 4000 },
+      format,
+      options: { temperature: format === SCHEMA ? 0.85 : 0.2, top_p: 0.95, num_ctx: 8192, num_predict: 4000 },
       messages: [{ role: "user", content: text }],
     }),
     signal: AbortSignal.timeout(timeoutMs),
@@ -197,17 +584,77 @@ const clean = (s: unknown, max = 600) =>
     .trim()
     .slice(0, max);
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Words that stand in for characters without saying who they are. */
+const VAGUE = /\b(figures?|the pair|the two|both of them|someone|a person|two shapes|silhouettes of (two|the))\b/i;
+const PLURAL = /\b(they|both|together|the two|each other|their)\b/i;
+
+/**
+ * Write every character in frame out in full: {Name} becomes their look (the
+ * first time; "the frog" after), a bare capitalised name does too, a cast
+ * member the picture leaves out is put in front, and a vague stand-in with no
+ * one named ("the two figures sank") gets the characters the line is about.
+ */
+export function castPicture(picture: string, cast: string[], characters: StoryCharacter[], context: { narration: string; previousCast?: string[] }): { picture: string; cast: string[] } {
+  const byName = new Map(characters.map((c) => [c.name.toLowerCase(), c]));
+  const inFrame = new Set<string>();
+  for (const n of cast) if (byName.has(n.toLowerCase())) inFrame.add(byName.get(n.toLowerCase())!.name);
+  const short = (c: StoryCharacter) => (c.look.toLowerCase().includes(c.name.toLowerCase()) ? `the ${c.name.toLowerCase()}` : c.look.split(/\s+/).slice(0, 6).join(" "));
+  const pasted = new Set<string>();
+  let out = picture.replace(/\{([^{}]+)\}/g, (_, raw: string) => {
+    const c = byName.get(raw.trim().toLowerCase());
+    if (!c) return raw.trim();
+    inFrame.add(c.name);
+    if (pasted.has(c.name)) return short(c);
+    pasted.add(c.name);
+    return c.look;
+  });
+  // A writer sometimes names a character instead of describing them; a name
+  // means nothing to the image model. Only a capitalised name is replaced, and
+  // only when the look is not already there ("Frog" vs "a green frog").
+  for (const c of characters) {
+    if (out.toLowerCase().includes(c.look.toLowerCase().slice(0, 30))) {
+      inFrame.add(c.name);
+      continue;
+    }
+    const re = new RegExp(`\\b${escapeRe(c.name)}\\b`);
+    if (re.test(out)) {
+      out = out.replace(re, c.look);
+      inFrame.add(c.name);
+    }
+  }
+  // "They both sank slowly" over "the two figures drift downward": nobody named.
+  if (VAGUE.test(out) && ![...inFrame].length && characters.length) {
+    const said = characters.filter((c) => new RegExp(`\\b${escapeRe(c.name)}\\b`, "i").test(context.narration)).map((c) => c.name);
+    const guess = said.length ? said : PLURAL.test(context.narration) && characters.length <= 3 ? characters.map((c) => c.name) : (context.previousCast ?? []);
+    for (const n of guess) inFrame.add(n);
+  }
+  const missing = [...inFrame].map((n) => byName.get(n.toLowerCase())!).filter((c) => c && !out.toLowerCase().includes(c.look.toLowerCase().slice(0, 30)));
+  if (missing.length) out = `${missing.map((c) => c.look).join(" and ")}. ${out}`;
+  return { picture: out, cast: [...inFrame] };
+}
+
 /** Check and tidy what the writer returned; throws when it is not a usable film. */
 export function shapeStory(raw: unknown, want: number): Omit<Story, "id" | "createdAt" | "seed" | "kind" | "model" | "latencyMs"> {
   const j = (raw ?? {}) as Record<string, unknown>;
   const notes: string[] = [];
+  const characters: StoryCharacter[] = (Array.isArray(j.characters) ? (j.characters as Record<string, unknown>[]) : [])
+    .map((c) => ({
+      name: clean(c.name, 40).replace(/[{}]/g, ""),
+      look: clean(c.look, 300),
+      ...(["human", "animal", "creature", "object"].includes(String(c.kind)) ? { kind: c.kind as StoryCharacter["kind"] } : {}),
+      ...(["female", "male", "none"].includes(String(c.gender)) ? { gender: c.gender as StoryCharacter["gender"] } : {}),
+      ...(["child", "young", "adult", "old"].includes(String(c.age)) ? { age: c.age as StoryCharacter["age"] } : {}),
+    }))
+    .filter((c) => c.name && c.look)
+    .slice(0, 4);
   const shotsIn = Array.isArray(j.shots) ? (j.shots as Record<string, unknown>[]) : [];
   const shots: StoryShot[] = [];
   for (const s of shotsIn) {
     let narration = clean(s.narration, 240).replace(/\s*\.\.\.$/, ".");
-    const picture = clean(s.picture, 700);
+    const draft = clean(s.picture, 700);
     const motion = clean(s.motion, 300);
-    if (!narration || !picture) continue;
+    if (!narration || !draft) continue;
     if (words(narration) > 20) {
       // A line longer than the shot spills into the next one; cut it at a clause.
       const cut = narration.split(/(?<=[,;:—])\s+/);
@@ -217,29 +664,20 @@ export function shapeStory(raw: unknown, want: number): Omit<Story, "id" | "crea
       notes.push(`shortened a long narration line to "${narration}"`);
     }
     if (!/[.!?]$/.test(narration)) narration += ".";
-    shots.push({ narration, picture, motion: motion || "slow cinematic push-in, gentle natural movement" });
+    const speakerIn = clean(s.speaker, 40).replace(/[{}]/g, "");
+    const speaker = characters.find((c) => c.name.toLowerCase() === speakerIn.toLowerCase())?.name ?? "Narrator";
+    const cast = Array.isArray(s.cast) ? (s.cast as unknown[]).map((x) => clean(x, 40).replace(/[{}]/g, "")) : [];
+    const placed = castPicture(draft, cast, characters, { narration, previousCast: shots[shots.length - 1]?.cast });
+    if (VAGUE.test(draft) && !/\{/.test(draft) && placed.cast.length) notes.push(`shot ${shots.length + 1}: "${draft.match(VAGUE)![0]}" written out as ${placed.cast.join(" and ")}`);
+    shots.push({ narration, speaker, picture: placed.picture, motion: motion || "slow cinematic push-in, gentle natural movement", cast: placed.cast });
   }
-  if (shots.length < Math.min(8, want)) throw new Error(`the writer gave ${shots.length} usable shots, need at least ${Math.min(8, want)}`);
+  if (shots.length < Math.min(7, want)) throw new Error(`the writer gave ${shots.length} usable shots, need at least ${Math.min(7, want)}`);
   const title = clean(j.title, 60).replace(/[.:]$/, "");
   if (!title) throw new Error("the writer gave no title");
-  const characters = (Array.isArray(j.characters) ? (j.characters as Record<string, unknown>[]) : [])
-    .map((c) => ({ name: clean(c.name, 40), look: clean(c.look, 300) }))
-    .filter((c) => c.name && c.look)
-    .slice(0, 4);
-  // A writer sometimes names a character instead of describing them; a name
-  // means nothing to the image model. Only a capitalised name is replaced, and
-  // only when the look is not already there ("Frog" vs "a green frog").
-  for (const shot of shots) {
-    for (const c of characters) {
-      if (shot.picture.toLowerCase().includes(c.look.toLowerCase().slice(0, 30))) continue;
-      const re = new RegExp(`\\b${c.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
-      if (re.test(shot.picture)) shot.picture = shot.picture.replace(re, c.look);
-    }
-  }
   return {
     title,
     logline: clean(j.logline, 240),
-    lesson: clean(j.lesson, 140).replace(/\.$/, "") + ".",
+    lesson: clean(j.lesson, 140).replace(/\.$/, "") + (/\?$/.test(clean(j.lesson, 140)) ? "" : "."),
     look: clean(j.look, 300),
     score: clean(j.score, 200) || "solo piano and soft strings, slow, tender, cinematic",
     characters,
@@ -248,10 +686,32 @@ export function shapeStory(raw: unknown, want: number): Omit<Story, "id" | "crea
   };
 }
 
-/** Write one story. Tries the large writer, then the small one. */
-export async function writeStory(opts: { seed: StorySeed; shots: number; look?: string }): Promise<Story> {
+/**
+ * The continuity pass over the writer's raw reply: the same model reads the
+ * whole shot list and fixes pictures that lose who is in them. Returns the
+ * raw reply with the pictures replaced, and what it changed.
+ */
+export function applyContinuity(raw: Record<string, unknown>, reply: unknown): { raw: Record<string, unknown>; fixes: string[] } {
+  const shots = Array.isArray(raw.shots) ? (raw.shots as Record<string, unknown>[]) : [];
+  const fixed = (reply as { shots?: { picture?: unknown; cast?: unknown; fix?: unknown }[] })?.shots;
+  if (!Array.isArray(fixed) || fixed.length !== shots.length) return { raw, fixes: [] };
+  const fixes: string[] = [];
+  const next = shots.map((s, i) => {
+    const f = fixed[i];
+    const picture = clean(f?.picture, 700);
+    if (!picture || words(picture) < 8) return s;
+    const fix = clean(f?.fix, 160);
+    if (fix && picture !== clean(s.picture, 700)) fixes.push(`shot ${i + 1}: ${fix}`);
+    return { ...s, picture, cast: Array.isArray(f?.cast) ? f.cast : s.cast };
+  });
+  return { raw: { ...raw, shots: next }, fixes };
+}
+
+/** Write one story, then have it read for continuity. Tries the large writer, then the small one. */
+export async function writeStory(opts: { seed: StorySeed; shots: number; look?: string; format?: FormatId }): Promise<Story> {
+  const format = FORMATS[opts.format ?? "tale"];
   const look = opts.look ?? LOOKS[Math.floor(Math.random() * LOOKS.length)];
-  const text = prompt(opts.seed, opts.shots, look);
+  const text = prompt(opts.seed, format, opts.shots, look);
   const problems: string[] = [];
   for (const model of [STORY_MODEL, STORY_FALLBACK_MODEL]) {
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -260,17 +720,32 @@ export async function writeStory(opts: { seed: StorySeed; shots: number; look?: 
         const reply = await askOllama(model, text, 8 * 60_000);
         const m = /\{[\s\S]*\}/.exec(reply);
         if (!m) throw new Error("no JSON in the reply");
-        const shaped = shapeStory(JSON.parse(m[0]), opts.shots);
+        let raw = JSON.parse(m[0]) as Record<string, unknown>;
+        let shaped = shapeStory(raw, opts.shots);
+        const notes: string[] = [];
+        try {
+          const c0 = Date.now();
+          const fixReply = await askOllama(model, continuityPrompt(raw, format), 6 * 60_000, CONTINUITY_SCHEMA);
+          const cm = /\{[\s\S]*\}/.exec(fixReply);
+          const { raw: revised, fixes } = applyContinuity(raw, cm ? JSON.parse(cm[0]) : null);
+          const reshaped = shapeStory(revised, opts.shots);
+          raw = revised;
+          shaped = reshaped;
+          notes.push(fixes.length ? `Continuity pass (${Math.round((Date.now() - c0) / 1000)} s) fixed ${fixes.length} picture${fixes.length > 1 ? "s" : ""}: ${fixes.join("; ")}` : `Continuity pass (${Math.round((Date.now() - c0) / 1000)} s): every picture already right`);
+        } catch (err) {
+          notes.push(`Continuity pass skipped: ${err instanceof Error ? err.message : String(err)}`.slice(0, 200));
+        }
         return {
           id: `story-${Date.now().toString(36)}`,
           createdAt: new Date().toISOString(),
           seed: opts.seed.id,
           kind: opts.seed.kind,
+          format: format.id,
           ...shaped,
           look: shaped.look || look,
           model,
           latencyMs: Date.now() - t0,
-          notes: [...problems, ...shaped.notes],
+          notes: [...problems, ...shaped.notes, ...notes],
         };
       } catch (err) {
         problems.push(`${model} try ${attempt}: ${err instanceof Error ? err.message : String(err)}`.slice(0, 240));
@@ -281,7 +756,7 @@ export async function writeStory(opts: { seed: StorySeed; shots: number; look?: 
 }
 
 /** The still prompt for one shot: the picture plus the film's look. */
-export function shotStillPrompt(story: Pick<Story, "look">, shot: StoryShot): string {
+export function shotStillPrompt(story: Pick<Story, "look">, shot: Pick<StoryShot, "picture">): string {
   const look = story.look.replace(/\.$/, "");
   return shot.picture.toLowerCase().includes(look.toLowerCase().slice(0, 40)) ? shot.picture : `${shot.picture} ${look}.`;
 }
@@ -290,3 +765,6 @@ export const STORY_STILL_SUFFIX = "Cinematic composition, beautiful light, highl
 
 export const STORY_AVOID =
   "text, letters, words, subtitles, watermark, logo, deformed hands, extra fingers, distorted face, morphing, melting, flicker, jump cut, crowd running, blurry";
+
+/** Does the story have a person in it? Old stories (no kinds) are assumed to. */
+export const storyHasHumans = (characters: StoryCharacter[]) => !characters.length ? false : characters.some((c) => !c.kind || c.kind === "human");

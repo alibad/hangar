@@ -23,7 +23,18 @@ type ForgeState = {
 };
 
 const MONTAGE = "http://localhost:8017";
-const KIND: Record<string, string> = { parable: "A parable", fable: "A fable", myth: "A myth, retold", original: "An original story" };
+const KIND: Record<string, string> = { parable: "A parable", fable: "A fable", myth: "A myth, retold", folktale: "A folktale", thought: "A thought experiment", original: "An original story" };
+const FORMAT: Record<string, string> = {
+  tale: "Tale",
+  monologue: "Monologue",
+  letter: "Letter",
+  verse: "Poem",
+  dialogue: "Conversation",
+  silent: "Silent film",
+  documentary: "Documentary",
+  thought: "Thought experiment",
+  micro: "Very short",
+};
 
 const fileUrl = (rel: string) => `/api/video/file?path=${encodeURIComponent(rel)}`;
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -282,7 +293,10 @@ function Stories({ stories, items, onRequeue, busy }: { stories: Story[]; items:
               <summary className="cursor-pointer list-none px-4 py-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="text-gray-100">
-                    <span className="mr-2 text-[11px] uppercase tracking-wider text-orange-300">{KIND[st.kind] ?? st.kind}</span>
+                    <span className="mr-2 text-[11px] uppercase tracking-wider text-orange-300">
+                      {st.format ? `${FORMAT[st.format] ?? st.format} · ` : ""}
+                      {KIND[st.kind] ?? st.kind}
+                    </span>
                     <span className="font-medium">{st.title}</span>
                     <span className="ml-2 text-sm italic text-gray-400">{st.logline}</span>
                   </p>
@@ -290,6 +304,20 @@ function Stories({ stories, items, onRequeue, busy }: { stories: Story[]; items:
                     {done}/{st.shots.length} shots animated{failed ? ` · ${failed} failed` : ""} · {when(st.createdAt)}
                   </p>
                 </div>
+                {st.stack && (
+                  <div className="mt-1.5 flex flex-wrap gap-1 text-[11px]">
+                    {[
+                      `Motion: ${st.stack.video.label}${st.stack.fallback ? " → fell back" : ""}`,
+                      st.stack.voices ? `Voice: ${Object.entries(st.stack.voices).map(([who, v]) => (Object.keys(st.stack!.voices!).length > 1 ? `${who} – ${v.label}` : v.label)).join(", ")}` : "No voice (title cards)",
+                      `Score: ${st.stack.score.label}`,
+                      `Finish: ${st.stack.finish.label}`,
+                    ].map((t) => (
+                      <span key={t} className="rounded-full border border-gray-700 px-2 py-0.5 text-gray-400">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-2 flex gap-0.5">
                   {st.shots.map((_, idx) => {
                     const it = shots.find((x) => x.story!.index === idx);
@@ -306,6 +334,8 @@ function Stories({ stories, items, onRequeue, busy }: { stories: Story[]; items:
                   Written by {st.model} in {Math.round(st.latencyMs / 1000)} s from the seed “{st.seed}” · look: {st.look} · score brief: {st.score}
                   {st.characters.length ? ` · characters: ${st.characters.map((c) => `${c.name} (${c.look})`).join("; ")}` : ""}
                 </p>
+                {st.notes.some((n) => n.startsWith("Continuity")) && <p className="mt-1 text-xs text-gray-500">{st.notes.filter((n) => n.startsWith("Continuity")).join(" ")}</p>}
+                {st.stack?.fallback && <p className="mt-1 text-xs text-amber-300/80">{st.stack.fallback}</p>}
                 {failed > 0 && (
                   <button onClick={() => onRequeue(st.id)} disabled={busy} className="mt-2 rounded-md border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-40">
                     Make the {failed} failed shot{failed > 1 ? "s" : ""} again
@@ -325,7 +355,11 @@ function Stories({ stories, items, onRequeue, busy }: { stories: Story[]; items:
                           <span className="absolute left-1.5 top-1 text-[11px] font-medium text-white [text-shadow:0_1px_3px_black]">{idx + 1}</span>
                           {it && <span className="absolute bottom-1 right-1.5 text-[10px] text-white/80 [text-shadow:0_1px_3px_black]"><StatusWord status={it.status} /></span>}
                         </div>
-                        <p className="mt-1 italic text-gray-200">{shot.narration}</p>
+                        <p className="mt-1 italic text-gray-200">
+                          {shot.speaker && shot.speaker !== "Narrator" && <span className="not-italic text-gray-500">{shot.speaker}: </span>}
+                          {shot.narration}
+                        </p>
+                        {shot.cast && shot.cast.length > 0 && <p className="text-[10px] text-gray-600">In frame: {shot.cast.join(", ")}</p>}
                         <details className="mt-0.5 text-gray-500">
                           <summary className="cursor-pointer hover:text-gray-300">Prompts{it?.check ? ` · beauty ${it.check.beauty}/5` : ""}</summary>
                           <p className="mt-1">Picture: {it?.stillPrompt ?? shot.picture}</p>

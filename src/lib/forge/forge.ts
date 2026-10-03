@@ -7,7 +7,8 @@ import { freeComfyIfIdle, videoQueue, videoRoot } from "../video-jobs";
 import { listenAll, SEARXNG_URL, type SignalSource } from "./sources";
 import { writeBrief, writeSecondShot, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
 import { nextWindowStart, shortlist, STILL_SUFFIX, windowMinutesLeft } from "./rules";
-import { pickSeed, shotStillPrompt, STORY_AVOID, STORY_MODEL, STORY_STILL_SUFFIX, writeStory, type Story } from "./story";
+import { FORMATS, pickFormat, pickLook, pickSeed, shotStillPrompt, storyHasHumans, STORY_AVOID, STORY_MODEL, STORY_STILL_SUFFIX, writeStory, type Story } from "./story";
+import { pickStack } from "./stack";
 import { recordLabRun } from "../lab-runs";
 
 export { nextWindowStart, windowMinutesLeft } from "./rules";
@@ -65,9 +66,13 @@ const VISION_MODEL = process.env.FORGE_VISION_MODEL ?? "qwen3-vl:8b";
  * Does this still show people, writing or a logo? Null when the vision model
  * is not available — the check is skipped, never counted as a failure.
  */
-async function checkStill(file: string): Promise<{ people: boolean; text: boolean; logo: boolean; notes: string } | null> {
+async function checkStill(
+  file: string,
+  expect?: { name: string; look: string }[],
+): Promise<{ people: boolean; text: boolean; logo: boolean; notes: string; present?: boolean[] } | null> {
   try {
     const image = (await fs.readFile(file)).toString("base64");
+    const cast = expect?.length ? expect : null;
     const res = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -79,14 +84,23 @@ async function checkStill(file: string): Promise<{ people: boolean; text: boolea
         options: { temperature: 0 },
         format: {
           type: "object",
-          properties: { people: { type: "boolean" }, text: { type: "boolean" }, logo: { type: "boolean" }, notes: { type: "string" } },
-          required: ["people", "text", "logo", "notes"],
+          properties: {
+            people: { type: "boolean" },
+            text: { type: "boolean" },
+            logo: { type: "boolean" },
+            notes: { type: "string" },
+            ...(cast ? { present: { type: "array", items: { type: "boolean" } } } : {}),
+          },
+          required: ["people", "text", "logo", "notes", ...(cast ? ["present"] : [])],
         },
         messages: [
           {
             role: "user",
             content:
-              'This image is the first frame of a calm, cinematic video clip. Answer in JSON: "people": true if ANY person, face, hand, body or human silhouette is visible, even small or far away; "text": true if any letters, words, numbers or signage are visible (real or garbled); "logo": true if any brand logo or app icon is visible; "notes": what it shows, in a few words.',
+              'This image is the first frame of a calm, cinematic video clip. Answer in JSON: "people": true if ANY person, face, hand, body or human silhouette is visible, even small or far away; "text": true if any letters, words, numbers or signage are visible (real or garbled); "logo": true if any brand logo or app icon is visible; "notes": what it shows, in a few words.' +
+              (cast
+                ? ` "present": one true/false per subject below, in order — true if that subject is clearly visible in the image (in the image's own style; a painted or paper frog still counts as a frog):\n${cast.map((c, i) => `${i + 1}. ${c.look}`).join("\n")}`
+                : ""),
             images: [image],
           },
         ],
@@ -95,8 +109,9 @@ async function checkStill(file: string): Promise<{ people: boolean; text: boolea
     });
     if (!res.ok) return null;
     const body = (await res.json()) as { message?: { content?: string } };
-    const j = JSON.parse(body.message?.content ?? "{}") as { people?: boolean; text?: boolean; logo?: boolean; notes?: string };
-    return { people: !!j.people, text: !!j.text, logo: !!j.logo, notes: String(j.notes ?? "").slice(0, 120) };
+    const j = JSON.parse(body.message?.content ?? "{}") as { people?: boolean; text?: boolean; logo?: boolean; notes?: string; present?: unknown[] };
+    const present = cast ? cast.map((_, i) => (Array.isArray(j.present) ? j.present[i] !== false : true)) : undefined;
+    return { people: !!j.people, text: !!j.text, logo: !!j.logo, notes: String(j.notes ?? "").slice(0, 120), ...(present ? { present } : {}) };
   } catch {
     return null;
   }
@@ -221,7 +236,16 @@ export type ForgeItem = {
   /** The vision model's look at the finished clip (the same check Montage runs). */
   check?: ClipCheck;
   /** A shot of a story film: which story, which shot, and the line said over it. */
-  story?: { id: string; index: number; count: number; title: string; narration: string };
+  story?: {
+    id: string;
+    index: number;
+    count: number;
+    title: string;
+    narration: string;
+    /** Who must be in the picture (continuity), and whether the story has any person in it. */
+    cast?: { name: string; look: string }[];
+    humans?: boolean;
+  };
   /**
    * A bake-off shot: a finished story's shot, from the same first frame,
    * animated by another stack — so films differ only in what is being tested.
@@ -300,6 +324,8 @@ export type ForgeSettings = {
   mode?: "trending" | "stories";
   /** Shots per story film (5 s each). */
   storyShots?: number;
+  /** Video models stories rotate through (keys from stack.ts); all of them when unset. */
+  storyVideoModels?: string[];
   /**
    * Services the owner asked to keep off while the window is open, stopped
    * again if something starts them (2026-10-02: quote-forge's Qwen image
@@ -941,33 +967,39 @@ class Forge {
     if (!(await this.holdCard(s, "writing a story film, then rendering its shots"))) return false;
     await freeComfyIfIdle();
     const recent = await listStories(60);
-    const seed = pickSeed(recent.map((r) => r.seed), recent[0]?.kind);
-    this.runtime.now = `Writing the next film with ${STORY_MODEL} (from the seed "${seed.id}")…`;
+    const format = pickFormat(recent.map((r) => r.format ?? "tale"));
+    const seed = pickSeed(recent.map((r) => r.seed), recent[0]?.kind, format);
+    const look = pickLook(recent.map((r) => r.look), format);
+    const shots = Math.min(FORMATS[format].shots, s.storyShots ?? 14);
+    this.runtime.now = `Writing the next film with ${STORY_MODEL}: ${FORMATS[format].label.toLowerCase()} from "${seed.id}"…`;
     await writeState("runtime", this.runtime);
     const t0 = Date.now();
     let story: Story;
     try {
-      story = await writeStory({ seed, shots: s.storyShots ?? 14 });
+      story = await writeStory({ seed, shots, look, format });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.runtime.quietUntil = new Date(Date.now() + 5 * 60_000).toISOString();
       this.runtime.now = `The story writer failed: ${msg.slice(0, 300)}`;
-      void recordLabRun({ lab: "forge", capability: "text", model: STORY_MODEL, local: true, inputSummary: `Story film from the seed "${seed.id}"`, params: { seed: seed.id }, status: "error", error: msg.slice(0, 1000), latencyMs: Date.now() - t0 });
+      void recordLabRun({ lab: "forge", capability: "text", model: STORY_MODEL, local: true, inputSummary: `Story film from the seed "${seed.id}"`, params: { seed: seed.id, format }, status: "error", error: msg.slice(0, 1000), latencyMs: Date.now() - t0 });
       return false;
     }
+    story.stack = pickStack(story, recent.map((r) => r.stack).filter((x): x is NonNullable<Story["stack"]> => !!x), { video: s.storyVideoModels });
     await saveStory(story);
     void recordLabRun({
       lab: "forge",
       capability: "text",
       model: story.model,
       local: true,
-      inputSummary: `Story film from the seed "${seed.id}" (${seed.kind})`,
-      params: { seed: seed.id, shots: story.shots.length, look: story.look, storyId: story.id },
+      inputSummary: `${FORMATS[format].label} from the seed "${seed.id}" (${seed.kind})`,
+      params: { seed: seed.id, format, shots: story.shots.length, look: story.look, storyId: story.id, stack: story.stack, continuity: story.notes.filter((n) => n.startsWith("Continuity")) },
       status: "ok",
       latencyMs: story.latencyMs,
       outputSummary: `${story.title}: ${story.logline} Lesson: ${story.lesson}`,
     });
     const base = Date.now();
+    const humans = storyHasHumans(story.characters);
+    const lookOf = new Map(story.characters.map((c) => [c.name, c.look]));
     for (const [i, shot] of story.shots.entries()) {
       const item: ForgeItem = {
         id: randomUUID().slice(0, 12),
@@ -984,13 +1016,27 @@ class Forge {
         agent: { model: story.model, turns: 1, calls: [], latencyMs: story.latencyMs, promptTokens: 0, completionTokens: 0 },
         group: story.id,
         shot: i + 1,
-        story: { id: story.id, index: i, count: story.shots.length, title: story.title, narration: shot.narration },
-        timeline: [{ at: stamp(), what: `Shot ${i + 1} of ${story.shots.length} of the film "${story.title}", written by ${story.model} in ${Math.round(story.latencyMs / 1000)} s` }],
+        story: {
+          id: story.id,
+          index: i,
+          count: story.shots.length,
+          title: story.title,
+          narration: shot.narration,
+          cast: (shot.cast ?? []).filter((n) => lookOf.has(n)).map((n) => ({ name: n, look: lookOf.get(n)! })),
+          humans,
+        },
+        render: { videoModel: story.stack.video.videoModel, tier: story.stack.video.tier },
+        timeline: [
+          {
+            at: stamp(),
+            what: `Shot ${i + 1} of ${story.shots.length} of the film "${story.title}" (${FORMATS[format].label.toLowerCase()}), written by ${story.model} in ${Math.round(story.latencyMs / 1000)} s; motion by ${story.stack.video.label}`,
+          },
+        ],
       };
       await saveItem(item);
     }
     this.runtime.quietUntil = undefined;
-    this.runtime.now = `Wrote "${story.title}" (${story.shots.length} shots) in ${Math.round((Date.now() - t0) / 1000)} s; rendering its shots now.`;
+    this.runtime.now = `Wrote "${story.title}" — ${FORMATS[format].label.toLowerCase()}, ${story.shots.length} shots, motion by ${story.stack.video.label} — in ${Math.round((Date.now() - t0) / 1000)} s; rendering its shots now.`;
     return true;
   }
 
@@ -1015,9 +1061,18 @@ class Forge {
       await saveItem(item);
       let savedPath: string | null = null;
       let res: Awaited<ReturnType<typeof generateAndSave>> | null = null;
+      // Continuity: a story's still is checked for the characters its shot needs,
+      // and for a person in a story that has none (the first scorpion film drew
+      // "two figures" as two people). The best of three tries is kept.
+      const cast = item.story?.cast ?? [];
+      let best: { score: number; res: Awaited<ReturnType<typeof generateAndSave>>; path: string; why: string } | null = null;
+      let castNote = "";
       for (let attempt = 1; attempt <= 3; attempt++) {
         this.runtime.now = `Making the first frame of "${item.topic}"${attempt > 1 ? ` (try ${attempt})` : ""}…`;
-        res = await generateAndSave({ prompt: `${item.stillPrompt} ${item.story ? STORY_STILL_SUFFIX : STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
+        // After a try that lost someone, their looks lead the prompt.
+        const lead = attempt > 1 && castNote ? `${cast.map((c) => c.look).join(" and ")}, clearly visible. ` : "";
+        const noPeople = item.story && item.story.humans === false ? " No people, no humans." : "";
+        res = await generateAndSave({ prompt: `${lead}${item.stillPrompt}${noPeople} ${item.story ? STORY_STILL_SUFFIX : STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
         savedPath = res.ok ? (res.body.savedPath as string | null) : null;
         if (!res.ok || !savedPath) break;
         if (!s.stillCheck) break;
@@ -1026,19 +1081,33 @@ class Forge {
         // Look first, and draw again rather than spend ~2.5 min animating it.
         await freeComfyIfIdle();
         this.runtime.now = `Checking the first frame of "${item.topic}" with the vision model…`;
-        const look = await checkStill(savedPath);
+        const look = await checkStill(savedPath, item.story ? cast : undefined);
         if (!look) {
           note(item, "Vision check unavailable; the still was not checked");
           break;
         }
-        // A story's characters are people on purpose; only writing and logos fail its stills.
-        const bad = [look.people && !item.story && "people", look.text && "writing", look.logo && "a logo"].filter(Boolean).join(", ");
-        if (!bad) {
-          note(item, `First frame passed the vision check${attempt > 1 ? ` on try ${attempt}` : ""}`);
+        // A story's characters are people on purpose, unless the story has none.
+        const strayPeople = look.people && (!item.story || item.story.humans === false);
+        const bad = [strayPeople && "people", look.text && "writing", look.logo && "a logo"].filter(Boolean).join(", ");
+        const missing = cast.filter((_, i) => look.present && look.present[i] === false).map((c) => c.name);
+        castNote = missing.length ? `no ${missing.join(" or ")}` : "";
+        if (!bad && !castNote) {
+          note(item, `First frame passed the vision check${cast.length ? ` (${cast.map((c) => c.name).join(", ")} in frame)` : ""}${attempt > 1 ? ` on try ${attempt}` : ""}`);
+          best = null;
           break;
         }
-        note(item, `First frame ${attempt} showed ${bad} (${look.notes}); ${attempt < 3 ? "drawing again" : "giving up"}`);
+        const why = [bad && `showed ${bad}`, castNote].filter(Boolean).join(", ");
+        // Writing or a logo is never kept; a missing character or a stray person is, if nothing better comes.
+        const score = (look.text || look.logo ? -10 : 0) + (look.present?.filter(Boolean).length ?? 0) - (strayPeople ? 2 : 0);
+        if (!look.text && !look.logo && (!best || score > best.score)) best = { score, res: res!, path: savedPath, why };
+        note(item, `First frame ${attempt} ${why} (${look.notes}); ${attempt < 3 ? "drawing again" : best ? "keeping the closest one" : "giving up"}`);
         if (attempt === 3) {
+          if (best) {
+            res = best.res;
+            savedPath = best.path;
+            note(item, `Continuity: no clean first frame in three tries; animating the closest (${best.why})`);
+            break;
+          }
           item.status = "failed";
           item.error = `Three first frames in a row showed ${bad}; not animated`;
           await saveItem(item);
@@ -1143,12 +1212,13 @@ class Forge {
             // Writing or a logo can appear while a clean first frame is animated (a
             // king walked up to a television in the first story night); like a badly
             // distorted clip, a film cannot use it and cannot skip it: draw it again.
-            if (item.story && (check.artifacts >= 3 || check.text || check.logo) && (item.retries ?? 0) < 1) {
+            const stray = !!item.story && item.story.humans === false && check.people;
+            if (item.story && (check.artifacts >= 3 || check.text || check.logo || stray) && (item.retries ?? 0) < 1) {
               item.retries = (item.retries ?? 0) + 1;
               item.status = "brief";
               item.still = undefined;
               item.video = undefined;
-              note(item, `${check.artifacts >= 3 ? "Severely distorted" : "Writing or a logo appeared"} (${check.notes}); drawing and animating this shot once more`);
+              note(item, `${check.artifacts >= 3 ? "Severely distorted" : stray ? "A person appeared in a story that has none" : "Writing or a logo appeared"} (${check.notes}); drawing and animating this shot once more`);
             }
           }
         }
@@ -1165,7 +1235,33 @@ class Forge {
         item.error = `Video ${job.status}: ${job.error ?? ""}`.trim();
         note(item, item.error);
       } else {
-        if (item.variant && job.block) {
+        if (item.story && item.render && item.render.videoModel !== s.videoModel && job.block) {
+          item.waitingSince ??= stamp();
+          if (Date.now() - Date.parse(item.waitingSince) > 12 * 60_000) {
+            await videoQueue.cancel(job.id);
+            const why = `${item.render.videoModel} did not get the memory it needs in 12 minutes (${job.block.message}); the rest of "${item.story.title}" is animated by ${s.videoModel}`;
+            for (const other of await itemsWithStatus("brief", "still", "rendering")) {
+              if (other.story?.id !== item.story.id || !other.render) continue;
+              if (other.id !== item.id && other.status === "rendering" && other.video) await videoQueue.cancel(other.video.jobId);
+              other.render = undefined;
+              other.waitingSince = undefined;
+              if (other.status === "rendering") {
+                other.status = "still";
+                other.video = undefined;
+              }
+              note(other, why);
+              await saveItem(other);
+            }
+            const st = (await listStories(60)).find((x) => x.id === item.story!.id);
+            if (st?.stack) {
+              st.stack.fallback = why;
+              await saveStory(st);
+            }
+            this.runtime.now = why;
+            return;
+          }
+          await saveItem(item);
+        } else if (item.variant && job.block) {
           item.waitingSince ??= stamp();
           if (Date.now() - Date.parse(item.waitingSince) > 12 * 60_000) {
             await videoQueue.cancel(job.id);
@@ -1182,7 +1278,7 @@ class Forge {
             return;
           }
           await saveItem(item);
-        } else if (item.variant && item.waitingSince) {
+        } else if ((item.variant || item.story) && item.waitingSince) {
           item.waitingSince = undefined;
         }
         const step = job.stepsTotal ? `, step ${job.stepsDone ?? 0}/${job.stepsTotal}` : "";
