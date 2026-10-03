@@ -1180,11 +1180,12 @@ class Forge {
         // After a try that lost someone, their looks lead the prompt.
         const lead = attempt > 1 && castNote ? `${cast.map((c) => c.look).join(" and ")}, clearly visible. ` : "";
         const noPeople = item.story && item.story.humans === false ? " No people, no humans." : "";
+        const stillPrompt = item.stillPrompt.replace(/,?\s*intricate patterned borders/gi, "");
         const hosted = item.story?.pictures && isHostedImageModel(item.story.pictures) && !usedLocal ? item.story.pictures : null;
         if (hosted) {
           const refs = cast.filter((c) => c.sheet).map((c) => path.join(videoRoot(), ...c.sheet!.split("/")));
           const keep = refs.length ? " Keep every character exactly as in the reference images — the same face, build, hair, clothing and colours — but draw them into this scene." : "";
-          const prompt = `${lead}${item.stillPrompt}${noPeople}${keep} One single wide cinematic film frame. It will be cropped to a wide 2.39:1 cinema strip, so keep every face and head in the middle band with clear space above the heads, and nothing important near the top or bottom edge; no borders, no panels, no character-sheet layout. ${STORY_STILL_SUFFIX}`;
+          const prompt = `${lead}${stillPrompt}${noPeople}${keep} One single wide cinematic film frame. It will be cropped to a wide 2.39:1 cinema strip, so keep every face and head in the middle band with clear space above the heads, and nothing important near the top or bottom edge; no borders, no panels, no character-sheet layout. ${STORY_STILL_SUFFIX}`;
           const r = await generateWithReferences({ model: hosted, prompt, width: 1536, height: 1024, references: refs, folder: "forge", source: "console/forge" });
           if (r.ok) {
             res = { ok: true, target: "ai-router", body: { savedPath: r.savedPath, latency: r.latency, model: hosted, references: refs.length } };
@@ -1195,11 +1196,11 @@ class Forge {
             note(item, `${hosted} failed (${r.error.slice(0, 160)}); drawing this shot with ${s.stillModel}`);
             usedLocal = true;
             usedModel = s.stillModel;
-            res = await generateAndSave({ prompt: `${lead}${item.stillPrompt}${noPeople} ${STORY_STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
+            res = await generateAndSave({ prompt: `${lead}${stillPrompt}${noPeople} ${STORY_STILL_SUFFIX}`, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
           }
         } else {
           usedModel = s.stillModel;
-          const prompt = `${lead}${item.stillPrompt}${noPeople} ${item.story ? STORY_STILL_SUFFIX : STILL_SUFFIX}`;
+          const prompt = `${lead}${stillPrompt}${noPeople} ${item.story ? STORY_STILL_SUFFIX : STILL_SUFFIX}`;
           res = await generateAndSave({ prompt, model: s.stillModel, width: 1280, height: 720, folder: "forge" });
           // A bigger local model (Qwen-Image-2.1 wants ~15 GB) refused for room
           // or failing: this frame is drawn by Z-Image instead of losing the shot.

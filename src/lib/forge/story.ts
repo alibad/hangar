@@ -348,7 +348,8 @@ export const LOOKS = [
   "stained-glass art style: every shape, figure and sky built from jewel-toned glass pieces with dark lead lines, light glowing through the colours, the scene itself outdoors or wherever the story is",
   "linocut print in two inks, deep indigo and warm vermilion on cream paper, bold carved lines, hand-printed texture",
   "charcoal and white chalk drawing on toned grey paper, smudged soft edges, expressive strokes, quiet and contemplative",
-  "Persian miniature painting, intricate patterned borders, flat perspective, lapis blue and gold leaf, delicate detail",
+  // Not "patterned borders": Qwen-Image 2.1 painted the page's border round every frame.
+  "Persian miniature painting style, flat perspective, lapis blue and gold leaf, delicate patterned detail within the scene itself",
   "gouache children's picture book illustration, soft pastel colors, rounded shapes, cozy hand-painted textures",
   "low-poly 3D diorama, soft studio lighting, matte pastel materials, a miniature world under glass",
   "moody film noir, high-contrast black and white, hard shadows, rain-slick streets, light through venetian blinds",
