@@ -8,7 +8,7 @@ import { listenAll, SEARXNG_URL, type SignalSource } from "./sources";
 import { writeBrief, writeSecondShot, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
 import { nextWindowStart, shortlist, STILL_SUFFIX, windowMinutesLeft } from "./rules";
 import { FORMATS, pickFormat, pickLook, pickSeed, shotStillPrompt, storyHasHumans, STORY_AVOID, STORY_MODEL, STORY_STILL_SUFFIX, writeStory, type Story } from "./story";
-import { pickStack } from "./stack";
+import { pickStack, VIDEO_OPTIONS } from "./stack";
 import { recordLabRun } from "../lab-runs";
 
 export { nextWindowStart, windowMinutesLeft } from "./rules";
@@ -584,6 +584,40 @@ async function ensureComfy(): Promise<string | null> {
   return "ComfyUI was started but is not answering yet";
 }
 
+/**
+ * The stack keys of the video models that would fit right now (the Video Lab's
+ * own fit check: measured footprints against free memory). Wan 2.2 5B is always
+ * offered — it is the forge's own model and waits for room like any clip. On
+ * 3 Oct, 6 GB less RAM was free than on the bake-off night and Wan 2.2 14B
+ * (35 GB of RAM measured) could not start; a story would have waited 12 minutes
+ * before falling back. Now such a model is simply not chosen for that story.
+ */
+async function videoModelsThatFit(): Promise<{ keys: string[]; skipped: string[] }> {
+  const all = VIDEO_OPTIONS.map((o) => o.key);
+  // The writer was asked to unload (keep_alive 0); give it a moment to leave the card.
+  for (let i = 0; i < 10; i++) {
+    const ps = (await fetch(`${OLLAMA_URL}/api/ps`, { signal: AbortSignal.timeout(4000) }).then((r) => r.json(), () => null)) as { models?: unknown[] } | null;
+    if (!ps?.models?.length) break;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  try {
+    const res = await fetch(`http://127.0.0.1:${process.env.PORT ?? 8003}/api/video/models`, { signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) return { keys: all, skipped: [] };
+    const body = (await res.json()) as { models: { spec: { id: string }; available: boolean; installed: boolean | null; fit?: { ok: boolean; shortRamGb: number; shortVramGb: number } }[] };
+    const keys: string[] = [];
+    const skipped: string[] = [];
+    for (const o of VIDEO_OPTIONS) {
+      const m = body.models.find((x) => x.spec.id === o.videoModel);
+      const fits = !!m && m.available && m.installed !== false && (m.fit?.ok ?? true);
+      if (fits || o.key === "wan5b") keys.push(o.key);
+      else skipped.push(`${o.label}${m?.fit ? ` (short ${[m.fit.shortRamGb ? `${m.fit.shortRamGb} GB RAM` : "", m.fit.shortVramGb ? `${m.fit.shortVramGb} GB VRAM` : ""].filter(Boolean).join(", ") || "of room"})` : " (not available)"}`);
+    }
+    return { keys, skipped };
+  } catch {
+    return { keys: all, skipped: [] };
+  }
+}
+
 async function smallModelUp(): Promise<boolean> {
   try {
     const res = await fetch("http://127.0.0.1:8006/health", { signal: AbortSignal.timeout(4000) });
@@ -984,7 +1018,11 @@ class Forge {
       void recordLabRun({ lab: "forge", capability: "text", model: STORY_MODEL, local: true, inputSummary: `Story film from the seed "${seed.id}"`, params: { seed: seed.id, format }, status: "error", error: msg.slice(0, 1000), latencyMs: Date.now() - t0 });
       return false;
     }
-    story.stack = pickStack(story, recent.map((r) => r.stack).filter((x): x is NonNullable<Story["stack"]> => !!x), { video: s.storyVideoModels });
+    // Only the video models that fit right now (the writer has unloaded by now).
+    const room = await videoModelsThatFit();
+    const allowed = s.storyVideoModels?.length ? room.keys.filter((k) => s.storyVideoModels!.includes(k)) : room.keys;
+    story.stack = pickStack(story, recent.map((r) => r.stack).filter((x): x is NonNullable<Story["stack"]> => !!x), { video: allowed.length ? allowed : ["wan5b"] });
+    if (room.skipped.length) story.notes.push(`Not tried for this film, no room right now: ${room.skipped.join("; ")}`);
     await saveStory(story);
     void recordLabRun({
       lab: "forge",
