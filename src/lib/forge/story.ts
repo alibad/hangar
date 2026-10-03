@@ -667,7 +667,8 @@ export function shapeStory(raw: unknown, want: number, format?: FormatId): Omit<
   const shotsIn = Array.isArray(j.shots) ? (j.shots as Record<string, unknown>[]) : [];
   const shots: StoryShot[] = [];
   for (const s of shotsIn) {
-    let narration = clean(s.narration, 240).replace(/\s*\.\.\.$/, ".");
+    // {Name} tags are for the pictures only: a poem's line kept them, and they were subtitled.
+    let narration = clean(s.narration, 240).replace(/[{}]/g, "").replace(/\s*\.\.\.$/, ".");
     const draft = clean(s.picture, 700);
     const motion = clean(s.motion, 300);
     if (!narration || !draft) continue;
