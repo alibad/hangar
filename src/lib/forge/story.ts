@@ -341,7 +341,8 @@ export const LOOKS = [
   "Japanese ukiyo-e woodblock print come to life, flat bold colors, fine black outlines, patterned waves and clouds, washi paper texture",
   "1920s silent film, black and white, orthochromatic film grain, soft vignette, flickering projector light, theatrical staging",
   "hand-drawn Japanese animated film, soft cel shading, lush painted backgrounds, warm afternoon light, gentle wind in the grass",
-  "stained glass window come to life, jewel-toned glass panes, dark lead lines, sunlight streaming through the colors",
+  // The art style, not a window: "stained glass window come to life" put literal church windows into an orchard.
+  "stained-glass art style: every shape, figure and sky built from jewel-toned glass pieces with dark lead lines, light glowing through the colours, the scene itself outdoors or wherever the story is",
   "linocut print in two inks, deep indigo and warm vermilion on cream paper, bold carved lines, hand-printed texture",
   "charcoal and white chalk drawing on toned grey paper, smudged soft edges, expressive strokes, quiet and contemplative",
   "Persian miniature painting, intricate patterned borders, flat perspective, lapis blue and gold leaf, delicate detail",

@@ -1173,7 +1173,7 @@ class Forge {
         if (hosted) {
           const refs = cast.filter((c) => c.sheet).map((c) => path.join(videoRoot(), ...c.sheet!.split("/")));
           const keep = refs.length ? " Keep every character exactly as in the reference images — the same face, build, hair, clothing and colours — but draw them into this scene." : "";
-          const prompt = `${lead}${item.stillPrompt}${noPeople}${keep} One single wide cinematic film frame, to be cropped to 16:9: keep the subjects in the middle band; no borders, no panels, no character-sheet layout. ${STORY_STILL_SUFFIX}`;
+          const prompt = `${lead}${item.stillPrompt}${noPeople}${keep} One single wide cinematic film frame. It will be cropped to a wide 2.39:1 cinema strip, so keep every face and head in the middle band with clear space above the heads, and nothing important near the top or bottom edge; no borders, no panels, no character-sheet layout. ${STORY_STILL_SUFFIX}`;
           const r = await generateWithReferences({ model: hosted, prompt, width: 1536, height: 1024, references: refs, folder: "forge", source: "console/forge" });
           if (r.ok) {
             res = { ok: true, target: "ai-router", body: { savedPath: r.savedPath, latency: r.latency, model: hosted, references: refs.length } };
