@@ -132,3 +132,9 @@ test("a child in a conversation gets a light young voice", () => {
   const st = pickStack({ format: "dialogue", characters: [boy], shots: [{ speaker: "Narrator" }, { speaker: "Kael" }] }, []);
   assert.equal(st.voices.Kael.voice, "af_sky");
 });
+
+test("a poem's line may end on a comma; any other line ends a sentence, never with ',.'", () => {
+  const lines = (fmt) => shapeStory(raw([shot("In the cold blue depth where currents spin,"), ...Array.from({ length: 8 }, (_, i) => shot(`Line ${i}.`))]), 9, fmt).shots[0].narration;
+  assert.equal(lines("verse"), "In the cold blue depth where currents spin,");
+  assert.equal(lines("tale"), "In the cold blue depth where currents spin.");
+});

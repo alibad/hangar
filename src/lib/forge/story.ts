@@ -640,7 +640,7 @@ export function castPicture(picture: string, cast: string[], characters: StoryCh
 }
 
 /** Check and tidy what the writer returned; throws when it is not a usable film. */
-export function shapeStory(raw: unknown, want: number): Omit<Story, "id" | "createdAt" | "seed" | "kind" | "model" | "latencyMs"> {
+export function shapeStory(raw: unknown, want: number, format?: FormatId): Omit<Story, "id" | "createdAt" | "seed" | "kind" | "model" | "latencyMs"> {
   const j = (raw ?? {}) as Record<string, unknown>;
   const notes: string[] = [];
   const characters: StoryCharacter[] = (Array.isArray(j.characters) ? (j.characters as Record<string, unknown>[]) : [])
@@ -668,7 +668,10 @@ export function shapeStory(raw: unknown, want: number): Omit<Story, "id" | "crea
       narration = (out || narration.split(/\s+/).slice(0, 16).join(" ")).replace(/[,;:—]$/, ".");
       notes.push(`shortened a long narration line to "${narration}"`);
     }
-    if (!/[.!?]$/.test(narration)) narration += ".";
+    // A poem's line may end on a comma or a dash; anything else ends a sentence.
+    // ("spin," became "spin,." on screen in the first poem.)
+    if (/[,;:—–-]$/.test(narration)) narration = format === "verse" ? narration : narration.replace(/[\s,;:—–-]+$/, ".");
+    else if (!/[.!?…]$/.test(narration)) narration += ".";
     const speakerIn = clean(s.speaker, 40).replace(/[{}]/g, "");
     const speaker = characters.find((c) => c.name.toLowerCase() === speakerIn.toLowerCase())?.name ?? "Narrator";
     const cast = Array.isArray(s.cast) ? (s.cast as unknown[]).map((x) => clean(x, 40).replace(/[{}]/g, "")) : [];
@@ -726,14 +729,14 @@ export async function writeStory(opts: { seed: StorySeed; shots: number; look?: 
         const m = /\{[\s\S]*\}/.exec(reply);
         if (!m) throw new Error("no JSON in the reply");
         let raw = JSON.parse(m[0]) as Record<string, unknown>;
-        let shaped = shapeStory(raw, opts.shots);
+        let shaped = shapeStory(raw, opts.shots, format.id);
         const notes: string[] = [];
         try {
           const c0 = Date.now();
           const fixReply = await askOllama(model, continuityPrompt(raw, format), 6 * 60_000, CONTINUITY_SCHEMA);
           const cm = /\{[\s\S]*\}/.exec(fixReply);
           const { raw: revised, fixes } = applyContinuity(raw, cm ? JSON.parse(cm[0]) : null);
-          const reshaped = shapeStory(revised, opts.shots);
+          const reshaped = shapeStory(revised, opts.shots, format.id);
           raw = revised;
           shaped = reshaped;
           notes.push(fixes.length ? `Continuity pass (${Math.round((Date.now() - c0) / 1000)} s) fixed ${fixes.length} picture${fixes.length > 1 ? "s" : ""}: ${fixes.join("; ")}` : `Continuity pass (${Math.round((Date.now() - c0) / 1000)} s): every picture already right`);
