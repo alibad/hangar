@@ -356,3 +356,19 @@ try:
         _litellm.input_callback.append(betenshi_logger)
 except Exception:
     pass  # completion events still land; only the in-flight row is lost
+
+# Forward the GPT-image parameters LiteLLM 1.94.0 drops (background, moderation,
+# output_format, output_compression) — see router_image_params.py. Loaded by
+# file path, because this module is itself loaded by path from the yaml, and
+# guarded so a failure costs only the patch, never the logger.
+try:
+    import importlib.util as _ilu
+
+    _spec = _ilu.spec_from_file_location(
+        "betenshi_router_image_params",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "router_image_params.py"),
+    )
+    if _spec is not None and _spec.loader is not None:
+        _spec.loader.exec_module(_ilu.module_from_spec(_spec))
+except Exception as _exc:
+    print(f"[router_callback] image parameter patch not loaded: {_exc!r}")
