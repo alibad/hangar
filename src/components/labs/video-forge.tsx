@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Dialog from "@/components/dialog";
 import type { LabComponentProps } from "@/lib/labs";
 import type { Bakeoff, ForgeItem, ForgeRuntime, ForgeSettings } from "@/lib/forge/forge";
 import type { Story } from "@/lib/forge/story";
@@ -270,113 +271,187 @@ export default function VideoForge({ lab }: LabComponentProps) {
 }
 
 /**
- * Every story the forge has written: the screenplay, each shot's first frame or
- * clip as it is made, and the model behind every step. The finished film is cut
- * in Montage.
+ * Every story the forge has written, as a poster: a mosaic of its first frames
+ * (the newest clip plays on hover), its format, title, progress and stack.
+ * Opening one shows the screenplay shot by shot, as it is made. The finished
+ * film is cut in Montage.
  */
 function Stories({ stories, items, onRequeue, busy }: { stories: Story[]; items: ForgeItem[]; onRequeue: (id: string) => void; busy: boolean }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = stories.find((s) => s.id === openId) ?? null;
   return (
     <section>
-      <h2 className="mb-2 text-sm font-medium text-gray-200">
-        Story films <span className="text-gray-500">({stories.length}) — written here, cut into films in </span>
-        <a href={MONTAGE} target="_blank" rel="noreferrer" className="text-orange-300 hover:underline">
-          Montage ↗
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-medium text-gray-200">
+          Story films <span className="text-gray-500">({stories.length})</span>
+        </h2>
+        <a href={MONTAGE} target="_blank" rel="noreferrer" className="text-xs text-orange-300 hover:underline">
+          Watch the finished films in Montage ↗
         </a>
-      </h2>
-      <div className="flex flex-col gap-3">
-        {stories.map((st) => {
-          const shots = items.filter((i) => i.story?.id === st.id).sort((a, b) => a.story!.index - b.story!.index);
-          const done = shots.filter((i) => i.video?.output && (i.status === "review" || i.status === "approved")).length;
-          const failed = shots.filter((i) => i.status === "failed").length;
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {stories.map((st) => (
+          <StoryPoster key={st.id} st={st} shots={items.filter((i) => i.story?.id === st.id)} onOpen={() => setOpenId(st.id)} />
+        ))}
+      </div>
+      <Dialog open={!!open} onClose={() => setOpenId(null)} title={open?.title ?? ""} subtitle={open?.logline} size="xl">
+        {open && <StoryDetail st={open} items={items} onRequeue={onRequeue} busy={busy} />}
+      </Dialog>
+    </section>
+  );
+}
+
+function StoryPoster({ st, shots, onOpen }: { st: Story; shots: ForgeItem[]; onOpen: () => void }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const byIdx = (i: number) => shots.find((x) => x.story!.index === i);
+  const done = shots.filter((i) => i.video?.output && (i.status === "review" || i.status === "approved")).length;
+  const failed = shots.filter((i) => i.status === "failed").length;
+  const making = shots.some((i) => ["still", "rendering"].includes(i.status));
+  // Four frames from across the film, and the clip of the middle one for hover.
+  const picks = [0, 0.33, 0.66, 1].map((p) => Math.round(p * (st.shots.length - 1)));
+  const frames = picks.map((i) => byIdx(i)?.still?.file ?? null);
+  const hoverClip = shots.filter((i) => i.video?.output).sort((a, b) => a.story!.index - b.story!.index)[Math.floor(done / 2)]?.video?.output;
+  const label = `${st.format ? `${FORMAT[st.format] ?? st.format} · ` : ""}${KIND[st.kind] ?? st.kind}`;
+  const pct = Math.round((done / st.shots.length) * 100);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      onMouseEnter={() => void ref.current?.play().catch(() => undefined)}
+      onMouseLeave={() => ref.current?.pause()}
+      className="group relative overflow-hidden rounded-2xl border border-gray-800 bg-black text-left transition hover:-translate-y-0.5 hover:border-gray-600 hover:shadow-[0_24px_50px_-24px_rgba(0,0,0,0.7)]"
+    >
+      <div className="relative aspect-[4/3]">
+        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-black">
+          {frames.map((fr, i) =>
+            fr ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={i} src={fileUrl(fr)} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" />
+            ) : (
+              <div key={i} className="h-full w-full bg-gradient-to-br from-gray-800 to-gray-950" />
+            ),
+          )}
+        </div>
+        {hoverClip && <video ref={ref} src={fileUrl(hoverClip)} muted loop playsInline preload="none" className="absolute inset-0 h-full w-full object-cover opacity-0 transition duration-500 group-hover:opacity-100" />}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/10" />
+        <div className="absolute left-3 right-3 top-3 flex items-start justify-between gap-2">
+          <span className="rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-orange-200 backdrop-blur">{label}</span>
+          <span
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium backdrop-blur ${
+              done === st.shots.length ? "bg-emerald-500/30 text-emerald-100" : making ? "bg-orange-500/30 text-orange-100" : "bg-black/55 text-white/70"
+            }`}
+          >
+            {done === st.shots.length ? "All shots made" : making ? `Making · ${done}/${st.shots.length}` : `${done}/${st.shots.length}${failed ? ` · ${failed} failed` : ""}`}
+          </span>
+        </div>
+        <div className="absolute inset-x-4 bottom-3">
+          <p className="font-serif text-2xl leading-tight text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.7)]">{st.title}</p>
+          <p className="mt-1 line-clamp-2 text-xs italic leading-snug text-white/75">{st.logline}</p>
+          <div className="mt-2.5 flex gap-0.5" aria-label={`${pct}% of shots made`}>
+            {st.shots.map((_, idx) => {
+              const it = byIdx(idx);
+              const c = !it ? "bg-white/15" : it.video?.output ? "bg-orange-400" : it.status === "failed" ? "bg-red-500/80" : it.status === "rendering" || it.status === "still" ? "animate-pulse bg-orange-200/80" : "bg-white/20";
+              return <span key={idx} className={`h-1 flex-1 rounded-full ${c}`} />;
+            })}
+          </div>
+        </div>
+      </div>
+      {st.stack ? (
+        <div className="flex flex-wrap gap-1 border-t border-gray-800 bg-gray-950 px-3 py-2 text-[10.5px] text-gray-400">
+          <span className="rounded-full bg-gray-800/80 px-2 py-0.5">🎞 {st.stack.video.label}</span>
+          <span className="rounded-full bg-gray-800/80 px-2 py-0.5">🎙 {st.stack.voices ? [...new Set(Object.values(st.stack.voices).map((v) => v.label))].join(" + ") : "title cards"}</span>
+          <span className="rounded-full bg-gray-800/80 px-2 py-0.5">♪ {st.stack.score.label}</span>
+          {st.stack.finish.key !== "lanczos" && <span className="rounded-full bg-gray-800/80 px-2 py-0.5">✦ {st.stack.finish.label}</span>}
+        </div>
+      ) : (
+        <div className="border-t border-gray-800 bg-gray-950 px-3 py-2 text-[10.5px] text-gray-500">{when(st.createdAt)} · Wan 2.2 5B · Chatterbox</div>
+      )}
+    </button>
+  );
+}
+
+/** One story's screenplay, shot by shot, as it is made. */
+function StoryDetail({ st, items, onRequeue, busy }: { st: Story; items: ForgeItem[]; onRequeue: (id: string) => void; busy: boolean }) {
+  const shots = items.filter((i) => i.story?.id === st.id).sort((a, b) => a.story!.index - b.story!.index);
+  const failed = shots.filter((i) => i.status === "failed").length;
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 text-sm sm:grid-cols-[2fr_3fr]">
+        <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-3">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-orange-300">The lesson</p>
+          <p className="mt-1 font-serif text-lg leading-snug text-gray-100">{st.lesson}</p>
+        </div>
+        <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-3 text-xs text-gray-400">
+          <p>
+            {st.format ? `${FORMAT[st.format] ?? st.format} · ` : ""}
+            {KIND[st.kind] ?? st.kind} · written by {st.model} in {Math.round(st.latencyMs / 1000)} s from “{st.seed}” · {when(st.createdAt)}
+          </p>
+          <p className="mt-1">Look: {st.look}</p>
+          <p className="mt-1">Score brief: {st.stack?.score.style ?? st.score}</p>
+          {st.stack && (
+            <p className="mt-1">
+              Stack: {st.stack.video.label}
+              {st.stack.voices ? ` · ${Object.entries(st.stack.voices).map(([who, v]) => `${who}: ${v.label}`).join(", ")}` : " · title cards"} · {st.stack.score.label} · {st.stack.finish.label}
+            </p>
+          )}
+          {st.stack?.fallback && <p className="mt-1 text-amber-300/80">{st.stack.fallback}</p>}
+        </div>
+      </div>
+      {st.characters.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {st.characters.map((c) => (
+            <span key={c.name} className="max-w-full rounded-xl border border-gray-800 bg-gray-900/40 px-3 py-1.5 text-xs" title={c.look}>
+              <span className="text-gray-100">{c.name}</span> <span className="text-gray-500">— {c.look}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {st.notes.some((n) => n.startsWith("Continuity")) && <p className="text-xs text-gray-500">{st.notes.filter((n) => n.startsWith("Continuity")).join(" ")}</p>}
+      {failed > 0 && (
+        <button onClick={() => onRequeue(st.id)} disabled={busy} className="rounded-md border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-40">
+          Make the {failed} failed shot{failed > 1 ? "s" : ""} again
+        </button>
+      )}
+      <ol className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {st.shots.map((shot, idx) => {
+          const it = shots.find((x) => x.story!.index === idx);
           return (
-            <details key={st.id} className="rounded-xl border border-gray-800 bg-gray-900/40" open={shots.some((i) => ["still", "rendering"].includes(i.status))}>
-              <summary className="cursor-pointer list-none px-4 py-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-gray-100">
-                    <span className="mr-2 text-[11px] uppercase tracking-wider text-orange-300">
-                      {st.format ? `${FORMAT[st.format] ?? st.format} · ` : ""}
-                      {KIND[st.kind] ?? st.kind}
-                    </span>
-                    <span className="font-medium">{st.title}</span>
-                    <span className="ml-2 text-sm italic text-gray-400">{st.logline}</span>
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {done}/{st.shots.length} shots animated{failed ? ` · ${failed} failed` : ""} · {when(st.createdAt)}
-                  </p>
-                </div>
-                {st.stack && (
-                  <div className="mt-1.5 flex flex-wrap gap-1 text-[11px]">
-                    {[
-                      `Motion: ${st.stack.video.label}${st.stack.fallback ? " → fell back" : ""}`,
-                      st.stack.voices ? `Voice: ${Object.entries(st.stack.voices).map(([who, v]) => (Object.keys(st.stack!.voices!).length > 1 ? `${who} – ${v.label}` : v.label)).join(", ")}` : "No voice (title cards)",
-                      `Score: ${st.stack.score.label}`,
-                      `Finish: ${st.stack.finish.label}`,
-                    ].map((t) => (
-                      <span key={t} className="rounded-full border border-gray-700 px-2 py-0.5 text-gray-400">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
+            <li key={idx} className="text-xs">
+              <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
+                {it?.video?.output ? (
+                  <video src={fileUrl(it.video.output)} poster={it.still ? fileUrl(it.still.file) : undefined} muted loop playsInline preload="none" className="h-full w-full object-cover" onMouseEnter={(e) => void e.currentTarget.play().catch(() => undefined)} onMouseLeave={(e) => e.currentTarget.pause()} />
+                ) : it?.still ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={fileUrl(it.still.file)} alt="" className="h-full w-full object-cover opacity-70" />
+                ) : null}
+                <span className="absolute left-1.5 top-1 text-[11px] font-medium text-white [text-shadow:0_1px_3px_black]">{idx + 1}</span>
+                {it && (
+                  <span className="absolute bottom-1 right-1.5 text-[10px] text-white/80 [text-shadow:0_1px_3px_black]">
+                    <StatusWord status={it.status} />
+                  </span>
                 )}
-                <div className="mt-2 flex gap-0.5">
-                  {st.shots.map((_, idx) => {
-                    const it = shots.find((x) => x.story!.index === idx);
-                    const c = !it ? "bg-gray-800" : it.video?.output ? "bg-orange-400" : it.status === "failed" ? "bg-red-500/70" : it.status === "rendering" || it.status === "still" ? "animate-pulse bg-orange-200/70" : "bg-gray-700";
-                    return <span key={idx} className={`h-1 flex-1 rounded-full ${c}`} />;
-                  })}
-                </div>
-              </summary>
-              <div className="border-t border-gray-800 px-4 py-3">
-                <p className="text-sm text-gray-300">
-                  <span className="text-gray-500">Lesson:</span> {st.lesson}
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Written by {st.model} in {Math.round(st.latencyMs / 1000)} s from the seed “{st.seed}” · look: {st.look} · score brief: {st.score}
-                  {st.characters.length ? ` · characters: ${st.characters.map((c) => `${c.name} (${c.look})`).join("; ")}` : ""}
-                </p>
-                {st.notes.some((n) => n.startsWith("Continuity")) && <p className="mt-1 text-xs text-gray-500">{st.notes.filter((n) => n.startsWith("Continuity")).join(" ")}</p>}
-                {st.stack?.fallback && <p className="mt-1 text-xs text-amber-300/80">{st.stack.fallback}</p>}
-                {failed > 0 && (
-                  <button onClick={() => onRequeue(st.id)} disabled={busy} className="mt-2 rounded-md border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:bg-gray-800 disabled:opacity-40">
-                    Make the {failed} failed shot{failed > 1 ? "s" : ""} again
-                  </button>
-                )}
-                <ol className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                  {st.shots.map((shot, idx) => {
-                    const it = shots.find((x) => x.story!.index === idx);
-                    return (
-                      <li key={idx} className="text-xs">
-                        <div className="relative aspect-video overflow-hidden rounded-md bg-black">
-                          {it?.video?.output ? (
-                            <video src={fileUrl(it.video.output)} poster={it.still ? fileUrl(it.still.file) : undefined} muted loop playsInline preload="none" className="h-full w-full object-cover" onMouseEnter={(e) => void e.currentTarget.play().catch(() => undefined)} onMouseLeave={(e) => e.currentTarget.pause()} />
-                          ) : it?.still ? (
-                            <img src={fileUrl(it.still.file)} alt="" className="h-full w-full object-cover opacity-70" />
-                          ) : null}
-                          <span className="absolute left-1.5 top-1 text-[11px] font-medium text-white [text-shadow:0_1px_3px_black]">{idx + 1}</span>
-                          {it && <span className="absolute bottom-1 right-1.5 text-[10px] text-white/80 [text-shadow:0_1px_3px_black]"><StatusWord status={it.status} /></span>}
-                        </div>
-                        <p className="mt-1 italic text-gray-200">
-                          {shot.speaker && shot.speaker !== "Narrator" && <span className="not-italic text-gray-500">{shot.speaker}: </span>}
-                          {shot.narration}
-                        </p>
-                        {shot.cast && shot.cast.length > 0 && <p className="text-[10px] text-gray-600">In frame: {shot.cast.join(", ")}</p>}
-                        <details className="mt-0.5 text-gray-500">
-                          <summary className="cursor-pointer hover:text-gray-300">Prompts{it?.check ? ` · beauty ${it.check.beauty}/5` : ""}</summary>
-                          <p className="mt-1">Picture: {it?.stillPrompt ?? shot.picture}</p>
-                          <p className="mt-1">Motion: {shot.motion}</p>
-                          {it?.video?.latencyMs ? <p className="mt-1">Clip: {it.video.model} in {Math.round(it.video.latencyMs / 1000)} s</p> : null}
-                          {it?.error && <p className="mt-1 text-red-300">{it.error}</p>}
-                        </details>
-                      </li>
-                    );
-                  })}
-                </ol>
               </div>
-            </details>
+              <p className="mt-1 italic text-gray-200">
+                {shot.speaker && shot.speaker !== "Narrator" && <span className="not-italic text-gray-500">{shot.speaker}: </span>}
+                {shot.narration}
+              </p>
+              {shot.cast && shot.cast.length > 0 && <p className="text-[10px] text-gray-600">In frame: {shot.cast.join(", ")}</p>}
+              <details className="mt-0.5 text-gray-500">
+                <summary className="cursor-pointer hover:text-gray-300">Prompts{it?.check ? ` · beauty ${it.check.beauty}/5` : ""}</summary>
+                <p className="mt-1">Picture: {it?.stillPrompt ?? shot.picture}</p>
+                <p className="mt-1">Motion: {shot.motion}</p>
+                {it?.video?.latencyMs ? (
+                  <p className="mt-1">
+                    Clip: {it.video.model} in {Math.round(it.video.latencyMs / 1000)} s
+                  </p>
+                ) : null}
+                {it?.error && <p className="mt-1 text-red-300">{it.error}</p>}
+              </details>
+            </li>
           );
         })}
-      </div>
-    </section>
+      </ol>
+    </div>
   );
 }
 
