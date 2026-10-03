@@ -246,6 +246,8 @@ export type ForgeItem = {
     /** Who must be in the picture (continuity), and whether the story has any person in it. */
     cast?: { name: string; look: string; sheet?: string }[];
     humans?: boolean;
+    /** The model this story's first frames are drawn with (fixed when it was written, so one film keeps one look). */
+    pictures?: string;
   };
   /**
    * A bake-off shot: a finished story's shot, from the same first frame,
@@ -1077,6 +1079,7 @@ class Forge {
           narration: shot.narration,
           cast: (shot.cast ?? []).filter((n) => lookOf.has(n)).map((n) => ({ name: n, look: lookOf.get(n)!, ...(sheetOf.has(n) ? { sheet: sheetOf.get(n) } : {}) })),
           humans,
+          pictures: story.stack.pictures,
         },
         render: { videoModel: story.stack.video.videoModel, tier: story.stack.video.tier, ...(story.stack.video.steps ? { steps: story.stack.video.steps } : {}) },
         timeline: [
@@ -1166,7 +1169,7 @@ class Forge {
         // After a try that lost someone, their looks lead the prompt.
         const lead = attempt > 1 && castNote ? `${cast.map((c) => c.look).join(" and ")}, clearly visible. ` : "";
         const noPeople = item.story && item.story.humans === false ? " No people, no humans." : "";
-        const hosted = item.story && s.storyStillModel && isHostedImageModel(s.storyStillModel) && !usedLocal ? s.storyStillModel : null;
+        const hosted = item.story?.pictures && isHostedImageModel(item.story.pictures) && !usedLocal ? item.story.pictures : null;
         if (hosted) {
           const refs = cast.filter((c) => c.sheet).map((c) => path.join(videoRoot(), ...c.sheet!.split("/")));
           const keep = refs.length ? " Keep every character exactly as in the reference images — the same face, build, hair, clothing and colours — but draw them into this scene." : "";
