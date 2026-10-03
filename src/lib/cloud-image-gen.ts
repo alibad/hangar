@@ -276,7 +276,10 @@ export async function parseImageResponse(
     const needs = images.some((b) => sniffImageFormat(b) !== want.format);
     if (needs) {
       const sharp = (await import("sharp")).default;
-      const q = want.compression != null ? Math.max(1, Math.min(100, 100 - want.compression)) : undefined;
+      // OpenAI's output_compression behaves as a QUALITY level despite its name:
+      // measured 2026-10-03, the same webp prompt at 5 → 48 KB, at 95 → 310 KB
+      // (and the default is 100). So it maps straight onto sharp's quality.
+      const q = want.compression != null ? Math.max(1, Math.min(100, want.compression)) : undefined;
       images = await Promise.all(
         images.map(async (b): Promise<Buffer> => {
           if (sniffImageFormat(b) === want.format) return b;
