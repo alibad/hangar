@@ -403,7 +403,7 @@ function StoryDetail({ st, items, onRequeue, busy }: { st: Story; items: ForgeIt
             <figure key={c.name} className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900/40" title={c.look}>
               {c.sheet ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={fileUrl(c.sheet)} alt={} className="aspect-square w-full object-cover" loading="lazy" />
+                <img src={fileUrl(c.sheet)} alt={`Character sheet: ${c.name}`} className="aspect-square w-full object-cover" loading="lazy" />
               ) : null}
               <figcaption className="px-2.5 py-2 text-xs">
                 <span className="text-gray-100">{c.name}</span>
