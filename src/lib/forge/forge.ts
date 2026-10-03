@@ -1151,7 +1151,7 @@ class Forge {
         return;
       }
       // Noted once: a still waiting for memory comes back here every few seconds.
-      if (item.status !== "still") note(item, `Making the first frame with ${s.stillModel}`);
+      if (item.status !== "still") note(item, `Making the first frame with ${item.story?.pictures ?? s.stillModel}`);
       item.status = "still";
       await saveItem(item);
       let savedPath: string | null = null;
