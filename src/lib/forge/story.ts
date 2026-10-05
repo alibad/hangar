@@ -74,7 +74,7 @@ export const FORMATS: Record<FormatId, StoryFormat> = {
     label: "A poem",
     shots: 12,
     voiced: true,
-    line: 'ONE line of a poem, 6 to 12 words, with a steady, speakable rhythm. Rhyme the lines in pairs (1 with 2, 3 with 4…) only where it comes naturally — never force a rhyme. Together the lines are one poem that tells the whole story. "speaker" is always "Narrator".',
+    line: 'ONE line of a poem, 6 to 12 words, with a steady, speakable rhythm. Rhyme the lines in pairs (1 with 2, 3 with 4…) only where it comes naturally — never force a rhyme. Together the lines are one poem that tells the whole story in order, in plain words: it must make sense to someone who hears it once. "speaker" is always "Narrator".',
     looks: [1, 6, 12, 3],
   },
   dialogue: {
@@ -89,7 +89,7 @@ export const FORMATS: Record<FormatId, StoryFormat> = {
     label: "A silent film",
     shots: 12,
     voiced: false,
-    line: 'A title card, 3 to 10 words, as in a 1920s silent film: a short line of story (Winter came early that year.) or a character\'s words after a dash (— You will never reach the moon.). Nobody speaks aloud; the pictures carry the story and the cards only bridge it. "speaker" is always "Narrator".',
+    line: 'A title card, 3 to 10 words, as in a 1920s silent film: a short line of story (Winter came early that year.) or a character\'s words after a dash (— You will never reach the moon.). Nobody speaks aloud; the pictures carry the story and the cards bridge it — together they must name who it is about and what happens, so the story is clear without sound. "speaker" is always "Narrator".',
     looks: [7, 15],
   },
   documentary: {
@@ -113,7 +113,7 @@ export const FORMATS: Record<FormatId, StoryFormat> = {
     label: "A very short story",
     shots: 7,
     voiced: true,
-    line: 'ONE sentence, 5 to 12 words: a koan-like micro-story in seven shots — still, simple images, and one turn in the last two shots that changes how everything before it looks. Past tense. "speaker" is always "Narrator".',
+    line: 'ONE sentence, 5 to 12 words: a koan-like micro-story in seven shots — still, simple images, and one turn in the last two shots that changes how everything before it looks — a turn the viewer gets at once, not a riddle. Past tense. "speaker" is always "Narrator".',
     looks: [3, 11, 5],
   },
 };
@@ -435,6 +435,8 @@ export type Story = {
   /** The writer's own problems, fixed or noted, and the continuity pass's fixes. */
   notes: string[];
   stack?: StoryStack;
+  /** The viewer test: how clearly a first-time viewer follows the lines, before and after the editor. */
+  clarity?: { score: number; summary: string; before?: number; edits?: string[] };
 };
 
 const SCHEMA = {
@@ -505,10 +507,18 @@ function prompt(seed: StorySeed, format: StoryFormat, shots: number, look: strin
     '- "speaker": who says the line (see above).',
     ...PICTURE_RULES,
     "",
-    "How to write it — like a master storyteller, not a summary:",
+    "Clarity comes first. The viewer sees this film once, with no other context, and must be able to say afterwards who it was about, what they wanted, what happened and what it meant:",
+    "- Shot 1 names the main character and where they are; by shot 3 the viewer knows what they want or what is wrong.",
+    "- Every line follows from the one before (then, so, but, until). Say it when time passes or the place changes.",
+    "- One idea per line, in plain words a ten-year-old understands: concrete actions and objects, not abstractions. Use a metaphor only when its meaning is obvious.",
+    "- A small cast — one or two main characters, three at most — each called by the same name every time, and introduced before they matter.",
+    "- A turn the viewer can see, about two thirds of the way in, then the ending that comes from it.",
+    "- The last line makes the meaning clear in plain words, without preaching.",
+    "- Each picture shows exactly what its line says, so the eyes and the ears tell the same story.",
+    "",
+    "Then make it beautiful, like a master storyteller:",
     "- Concrete, sensory images (the cold of the river, the smell of cedar smoke, the weight of a stone) and varied rhythm: some lines short, some longer.",
-    "- One small surprising detail the viewer will remember, and a turn where something changes.",
-    "- The last line should resonate quietly, like the end of a poem; never state the moral outright in a line (the lesson card does that).",
+    "- One small surprising detail the viewer will remember.",
     "- Never use these tired words: tapestry, testament, whisper(ed) of, heart of, journey, embrace, profound, realm, delve, symphony, dance of, vibrant, beacon.",
     "",
     "Rules that make the film look good:",
@@ -525,6 +535,90 @@ function prompt(seed: StorySeed, format: StoryFormat, shots: number, look: strin
     "",
     "Reply with JSON only.",
   ].join("\n");
+}
+
+/**
+ * The viewer test: the writer reads the film as a first-time viewer would —
+ * only the lines, in order, nothing of the plan behind them — and says what
+ * it understood, how clearly, and where it stumbled. (The owner, 5 Oct: the
+ * films must be understandable to whoever watches them.)
+ */
+function viewerPrompt(raw: Record<string, unknown>, format: StoryFormat): string {
+  const shots = (Array.isArray(raw.shots) ? raw.shots : []) as Record<string, unknown>[];
+  return [
+    `You are watching a short film (${format.label.toLowerCase()}) for the first time, once, with no other information. ${format.voiced ? "You hear one line over each 5-second shot" : "One title card is shown over each 5-second shot"}, and the picture shows what the line says. These are all the lines, in order:`,
+    "",
+    `Title: ${String(raw.title ?? "")}`,
+    ...shots.map((x, i) => `${i + 1}. ${x.speaker && x.speaker !== "Narrator" ? `${String(x.speaker)}: ` : ""}${String(x.narration)}`),
+    "",
+    'Reply with JSON: "summary" — in two plain sentences, who it is about, what happens and what it means, as you understood it from the lines alone; "score" — 1 to 5, how easily a first-time viewer follows it (5: a child could retell it; 4: clear, one small doubt; 3: the gist, but some lines puzzle; 2: hard to follow; 1: lost); "confusing" — every line a first-time viewer would stumble on (a name never introduced, a jump in time or place, a metaphor whose meaning is unclear, a "he" or "it" with no clear owner, an event that comes from nowhere), each with "shot" (its number) and "why". An empty list if none.',
+  ].join("\n");
+}
+
+const VIEWER_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string" },
+    score: { type: "integer" },
+    confusing: { type: "array", items: { type: "object", properties: { shot: { type: "integer" }, why: { type: "string" } }, required: ["shot", "why"] } },
+  },
+  required: ["summary", "score", "confusing"],
+};
+
+export type ViewerTest = { summary: string; score: number; confusing: { shot: number; why: string }[] };
+
+/** A viewer test's reply, or null when it is unusable. */
+export function readViewerTest(reply: unknown, shots: number): ViewerTest | null {
+  const r = reply as { summary?: unknown; score?: unknown; confusing?: unknown } | null;
+  const score = Math.round(Number(r?.score));
+  if (!r || !Number.isFinite(score)) return null;
+  const confusing = (Array.isArray(r.confusing) ? r.confusing : [])
+    .map((c) => ({ shot: Math.round(Number((c as { shot?: unknown }).shot)), why: clean((c as { why?: unknown }).why, 200) }))
+    .filter((c) => c.shot >= 1 && c.shot <= shots && c.why);
+  return { summary: clean(r.summary, 400), score: Math.max(1, Math.min(5, score)), confusing };
+}
+
+/** The editor: rewrites the lines the viewer stumbled on, aiming at what the story means to say. */
+function editorPrompt(raw: Record<string, unknown>, format: StoryFormat, test: ViewerTest): string {
+  const shots = (Array.isArray(raw.shots) ? raw.shots : []) as Record<string, unknown>[];
+  return [
+    `You are the script editor of a short film (${format.label.toLowerCase()}). A first-time viewer, who heard only the lines, scored how clearly they could follow it ${test.score}/5 and understood: "${test.summary}"`,
+    "",
+    `What the film means to say: ${String(raw.logline ?? "")} The lesson: ${String(raw.lesson ?? "")}`,
+    "",
+    "Where the viewer stumbled:",
+    ...(test.confusing.length ? test.confusing.map((c) => `- line ${c.shot}: ${c.why}`) : ["- (no single line; the whole was hard to follow)"]),
+    "",
+    "The lines:",
+    ...shots.map((x, i) => `${i + 1}. [${String(x.speaker ?? "Narrator")}] ${String(x.narration)}`),
+    "",
+    `Rewrite the lines so a first-time viewer understands who it is about, what happens and what it means. Fix every line the viewer stumbled on, and any other line that needs it for the story to follow; leave clear lines exactly as they are. Keep the form — ${format.label.toLowerCase()}: ${format.line.split(".")[0]}. Keep each line's speaker, its shot (the picture shows that moment), about the same length, and the story's events and ending. Plain, concrete words; introduce a name before using it; no riddles.`,
+    "",
+    'Reply with JSON: "shots", one entry per line in order, each with "narration" (the new line, or the same one) and "fix" (what you changed, in a few words, or "").',
+  ].join("\n");
+}
+
+const EDITOR_SCHEMA = {
+  type: "object",
+  properties: {
+    shots: { type: "array", items: { type: "object", properties: { narration: { type: "string" }, fix: { type: "string" } }, required: ["narration", "fix"] } },
+  },
+  required: ["shots"],
+};
+
+/** The editor's lines over the writer's: only lines that came back usable replace the old ones. */
+export function applyEdits(raw: Record<string, unknown>, reply: unknown): { raw: Record<string, unknown>; fixes: string[] } {
+  const shots = Array.isArray(raw.shots) ? (raw.shots as Record<string, unknown>[]) : [];
+  const edited = (reply as { shots?: { narration?: unknown; fix?: unknown }[] })?.shots;
+  if (!Array.isArray(edited) || edited.length !== shots.length) return { raw, fixes: [] };
+  const fixes: string[] = [];
+  const next = shots.map((x, i) => {
+    const narration = clean(edited[i]?.narration, 240);
+    if (!narration || words(narration) < 2 || narration === clean(x.narration, 240)) return x;
+    fixes.push(`line ${i + 1}: ${clean(edited[i]?.fix, 120) || "clearer"}`);
+    return { ...x, narration };
+  });
+  return fixes.length ? { raw: { ...raw, shots: next }, fixes } : { raw, fixes };
 }
 
 /** The second read: a continuity supervisor checks every picture against the story. */
@@ -743,6 +837,38 @@ export async function writeStory(opts: { seed: StorySeed; shots: number; look?: 
         let raw = JSON.parse(m[0]) as Record<string, unknown>;
         let shaped = shapeStory(raw, opts.shots, format.id);
         const notes: string[] = [];
+        // The viewer test reads the shaped lines (what will be heard), and the editor's lines are shaped again.
+        let clarity: Story["clarity"];
+        try {
+          const v0 = Date.now();
+          const ask = async (r: Record<string, unknown>) => readViewerTest(JSON.parse(/\{[\s\S]*\}/.exec(await askOllama(model, viewerPrompt(r, format), 4 * 60_000, VIEWER_SCHEMA))?.[0] ?? "null"), opts.shots);
+          const asShaped = (r: Record<string, unknown>) => ({ ...r, shots: shapeStory(r, opts.shots, format.id).shots });
+          const first = await ask(asShaped(raw));
+          if (first) {
+            clarity = { score: first.score, summary: first.summary };
+            if (first.score < 5 || first.confusing.length) {
+              const reply = await askOllama(model, editorPrompt(asShaped(raw), format, first), 5 * 60_000, EDITOR_SCHEMA);
+              const em = /\{[\s\S]*\}/.exec(reply);
+              const { raw: edited, fixes } = applyEdits(asShaped(raw), em ? JSON.parse(em[0]) : null);
+              if (fixes.length) {
+                const again = await ask(edited);
+                // The editor's lines are kept unless the viewer follows them less well.
+                if (!again || again.score >= first.score) {
+                  raw = edited;
+                  shaped = shapeStory(raw, opts.shots, format.id);
+                  clarity = { score: again?.score ?? first.score, summary: again?.summary ?? first.summary, before: first.score, edits: fixes };
+                }
+              }
+            }
+            notes.push(
+              clarity?.edits
+                ? `Viewer test (${Math.round((Date.now() - v0) / 1000)} s): ${clarity.before}/5, so the editor rewrote ${clarity.edits.length} line${clarity.edits.length > 1 ? "s" : ""} (${clarity.edits.join("; ")}); now ${clarity.score}/5 — "${clarity.summary}"`
+                : `Viewer test (${Math.round((Date.now() - v0) / 1000)} s): ${first.score}/5 — "${first.summary}"${first.confusing.length ? `; still unclear: ${first.confusing.map((c) => `line ${c.shot} (${c.why})`).join("; ")}` : ""}`,
+            );
+          }
+        } catch (err) {
+          notes.push(`Viewer test skipped: ${err instanceof Error ? err.message : String(err)}`.slice(0, 200));
+        }
         try {
           const c0 = Date.now();
           const fixReply = await askOllama(model, continuityPrompt(raw, format), 6 * 60_000, CONTINUITY_SCHEMA);
@@ -766,6 +892,7 @@ export async function writeStory(opts: { seed: StorySeed; shots: number; look?: 
           model,
           latencyMs: Date.now() - t0,
           notes: [...problems, ...shaped.notes, ...notes],
+          ...(clarity ? { clarity } : {}),
         };
       } catch (err) {
         problems.push(`${model} try ${attempt}: ${err instanceof Error ? err.message : String(err)}`.slice(0, 240));

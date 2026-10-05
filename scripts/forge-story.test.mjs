@@ -163,3 +163,23 @@ test("a documentary's invented animal lives where it is set (no honeybee in the 
     assert.ok(where === "shore" || lives === "shore" || where === lives, `${INVENT.heroes[hi].text} in ${INVENT.settings[si].text}`);
   }
 });
+
+import { applyEdits, readViewerTest } from "../src/lib/forge/story.ts";
+
+test("the viewer test's reply is read safely: score clamped, stray shot numbers dropped", () => {
+  const t = readViewerTest({ summary: "A fox learns to share.", score: 7, confusing: [{ shot: 3, why: "who is Mira?" }, { shot: 40, why: "no such line" }, { shot: 2, why: "" }] }, 12);
+  assert.equal(t.score, 5);
+  assert.deepEqual(t.confusing, [{ shot: 3, why: "who is Mira?" }]);
+  assert.equal(readViewerTest({ summary: "x", score: "not a number", confusing: [] }, 12), null);
+  assert.equal(readViewerTest(null, 12), null);
+});
+
+test("the editor's lines replace only the lines it changed, and a wrong-length reply changes nothing", () => {
+  const story = { shots: [{ narration: "Mira the fox lived by the river.", speaker: "Narrator" }, { narration: "It glowed.", speaker: "Narrator" }] };
+  const out = applyEdits(story, { shots: [{ narration: "Mira the fox lived by the river.", fix: "" }, { narration: "Her lantern glowed on the dark water.", fix: "said what glowed" }] });
+  assert.equal(out.raw.shots[0], story.shots[0]);
+  assert.equal(out.raw.shots[1].narration, "Her lantern glowed on the dark water.");
+  assert.equal(out.raw.shots[1].speaker, "Narrator");
+  assert.deepEqual(out.fixes, ["line 2: said what glowed"]);
+  assert.equal(applyEdits(story, { shots: [{ narration: "Only one.", fix: "" }] }).raw, story);
+});
