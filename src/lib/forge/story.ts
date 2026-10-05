@@ -908,7 +908,9 @@ export function shotStillPrompt(story: Pick<Story, "look">, shot: Pick<StoryShot
   return shot.picture.toLowerCase().includes(look.toLowerCase().slice(0, 40)) ? shot.picture : `${shot.picture} ${look}.`;
 }
 
-export const STORY_STILL_SUFFIX = "Cinematic composition, beautiful light, highly detailed, no text, no lettering, no signs, no logos, no watermark. A full-bleed picture that fills the whole frame edge to edge: no border, no ornamental frame, no margin.";
+// The film shows a 2.39:1 strip of this 16:9 frame: a face near the top was cut at the eyes
+// (The Golden Hour Loop, The First Bloom), so heads sit in the middle band.
+export const STORY_STILL_SUFFIX = "Cinematic composition, beautiful light, highly detailed, no text, no lettering, no signs, no logos, no watermark. A full-bleed picture that fills the whole frame edge to edge: no border, no ornamental frame, no margin. Framed for a wide cinema strip: every face and head in the middle band of the frame with clear space above the heads, nothing important near the top or bottom edge.";
 
 export const STORY_AVOID =
   "text, letters, words, subtitles, watermark, logo, border, ornamental frame, deformed hands, extra fingers, distorted face, morphing, melting, flicker, jump cut, crowd running, blurry";
