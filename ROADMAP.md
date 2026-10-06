@@ -71,3 +71,43 @@ card:
   have frozen ComfyUI and restarted qwen mid-job by skipping this.
 - Before stopping something to make room, check what it actually holds.
 - Look at what a service produces, not only whether it is up.
+
+## 3D Lab track
+
+Started 2026-10-06 from a day-long run of about 1,200 models through the 3D
+Lab (`hq/hangar-models`: Red Alert 2 units and a model for every square of
+the Leela Quest boards), reviewed board by board from contact sheets.
+
+### Next
+
+- **Cutout of the whole scene.** `/api/labs/3d/cutout` keeps SAM 3's single
+  best match, so a picture of two figures, or a figure with a bird on its
+  knee, loses half of itself, and a seated figure loses its stool. Offer the
+  union of all masks for the concept, or let the run skip the cutout: on the
+  Lab's plain grey studio pictures, TRELLIS.2's own matting of the whole
+  picture keeps every part (hangar-models `scripts/remesh_whole.py`).
+- **Reject part-cutouts.** A box under about 8% of the picture is a part of
+  the object (one bird of a bowl of birds). Have the endpoint report the box
+  share and warn, as hangar-models' driver now does.
+- **Free the drawing model before admission.** ComfyUI keeps Z-Image
+  resident (about 10 GB), and admission still asks for the full 11.9 GB on top,
+  so the next drawing is refused. Unload ComfyUI (`POST :8188/free`) before
+  refusing a 3D source request.
+- **Retry transient mesh failures.** "failed to stage input image" came from
+  a briefly full C: drive and passed on a retry 90 s later.
+
+### Prompt lessons for `objectPrompt`
+
+The image model reads words literally and leans on defaults:
+
+- "monk" draws a Buddhist monk; name the tradition ("an Orthodox Christian
+  monk in a black hooded habit", "a white-robed Jain monk with a mouth cloth").
+- "a plane" draws an aircraft; "a syllable", "letters" or "a sign" draw
+  garbled Latin text; "a crossing point" drew a Christian cross.
+- An action by a hand ("a hand lifting…", "hands gathering…") sometimes
+  draws a real photographic arm reaching into the frame; say "a sculpted
+  hand rising from the base".
+- Name a deity or avatar and its look (Varaha drew a woman riding a pig until
+  it said "a four-armed god with a boar's head").
+- Keep scenes to one subject on its base: props beside the subject (a side
+  table, a cave) end up cut away or swallow the subject.
