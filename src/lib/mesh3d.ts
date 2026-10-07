@@ -78,6 +78,8 @@ export type JobMeta = {
   source?: Record<string, unknown>;
   cutout?: Record<string, unknown> | null;
   meshes?: Record<string, unknown>[];
+  /** The named set a script made it in — a run's compareGroup "<tool>:<set>" — for the library. */
+  group?: string | null;
 };
 
 export async function readJobMeta(job: MeshJob): Promise<JobMeta> {

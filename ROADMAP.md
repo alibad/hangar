@@ -96,6 +96,16 @@ the Leela Quest boards), reviewed board by board from contact sheets.
 - **Retry transient mesh failures.** "failed to stage input image" came from
   a briefly full C: drive and passed on a retry 90 s later.
 
+### Done
+
+- 2026-10-07: **Library.** The 3D Lab has a Make / Library switch. The library
+  lists every job (1,400+), with search over subjects and prompts, named sets
+  (`meta.group`, written by the run route from a `compareGroup` like
+  `hangar-models:leela-vedic`), Objects / People and a has-a-mesh filter. A
+  click opens the object in the orbit viewer with its prompt, picture, cutout
+  and meshes; arrow keys step through. Before, the Lab showed its last 24 jobs
+  and a click loaded one into the form, out of sight.
+
 ### Prompt lessons for `objectPrompt`
 
 The image model reads words literally and leans on defaults:

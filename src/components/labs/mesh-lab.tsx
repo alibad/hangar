@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, PersonStanding } from "lucide-react";
+import { Box, Hammer, Library, PersonStanding } from "lucide-react";
 import LabShell from "./lab-shell";
 import MeshViewer, { type MeshStats } from "./mesh-viewer";
+import MeshLibrary, { RecentJobs } from "./mesh-library";
 import { ServiceControl } from "@/components/service-control";
 import CapacityBlocker from "@/components/capacity-blocker";
 import { IMAGE_MODELS } from "@/lib/image-models";
@@ -34,6 +35,7 @@ type Job = Omit<MeshJobSummary, "cutoutUrl" | "cutoutNote"> & { cutoutUrl: strin
 type Output = MeshLabOutput | BodyLabOutput;
 
 const SUBJECT_KEY = SUBJECT_STORAGE_KEY;
+const VIEW_KEY = "bt-3d-view";
 
 function readSubject(): Subject3d {
   try {
@@ -79,7 +81,11 @@ export default function MeshLab({ lab }: LabComponentProps) {
   const [busy, setBusy] = useState<null | "source" | "cutout">(null);
   const [stepError, setStepError] = useState<{ message: string; blocked: boolean } | null>(null);
   const [sam3Up, setSam3Up] = useState<boolean | undefined>(undefined);
-  const [gallery, setGallery] = useState<MeshJobSummary[]>([]);
+  // Make a new one, or look through everything made so far.
+  const [view, setView] = useState<"make" | "library">("make");
+  const [libraryCount, setLibraryCount] = useState<number | null>(null);
+  // Bumped whenever a job changes, so the recent strip and the library re-read.
+  const [historyKey, setHistoryKey] = useState(0);
   const [dragging, setDragging] = useState(false);
   // The mesh the last Run made; it already has a full viewer under the form.
   const [fresh, setFresh] = useState<{ job: string; file: string } | null>(null);
@@ -95,7 +101,21 @@ export default function MeshLab({ lab }: LabComponentProps) {
     const s = readSubject();
     setSubject3d(s);
     if (s === "person") setSrcMode("upload");
+    try {
+      if (window.localStorage.getItem(VIEW_KEY) === "library") setView("library");
+    } catch {
+      /* a convenience only */
+    }
   }, []);
+
+  const showView = (v: "make" | "library") => {
+    setView(v);
+    try {
+      window.localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* a convenience only */
+    }
+  };
 
   const choose = (s: Subject3d) => {
     if (s === subject3d) return;
@@ -137,17 +157,15 @@ export default function MeshLab({ lab }: LabComponentProps) {
     return () => clearInterval(t);
   }, [probeSam3, sam3Up]);
 
-  const loadGallery = useCallback(async () => {
-    try {
-      const j = await fetch("/api/labs/3d/jobs?limit=24", { cache: "no-store" }).then((r) => r.json());
-      setGallery(Array.isArray(j?.jobs) ? j.jobs : []);
-    } catch {
-      /* the gallery is history; the Lab works without it */
-    }
-  }, []);
+  const loadGallery = useCallback(() => setHistoryKey((k) => k + 1), []);
   useEffect(() => {
-    void loadGallery();
-  }, [loadGallery]);
+    fetch("/api/labs/3d/jobs?limit=1", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setLibraryCount(typeof j?.all === "number" ? j.all : null))
+      .catch(() => {
+        /* the count is a label; the Lab works without it */
+      });
+  }, [historyKey]);
 
   const open = (j: MeshJobSummary) => {
     if (j.kind !== subject3d) {
@@ -170,9 +188,20 @@ export default function MeshLab({ lab }: LabComponentProps) {
     setStepError(null);
   };
 
+  /** From the library or the recent strip into the form, to cut again or mesh with another model. */
+  const openInLab = (j: MeshJobSummary) => {
+    open(j);
+    showView("make");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const newJob = (id: string, subjectText: string, sourceUrl: string, sourceNote: string): Job => ({
     id,
     subject: subjectText,
+    prompt: null,
+    createdAt: new Date().toISOString(),
+    group: null,
+    groupLabel: null,
     sourceUrl,
     sourceNote,
     cutoutUrl: null,
@@ -287,7 +316,32 @@ export default function MeshLab({ lab }: LabComponentProps) {
     "rounded-lg border border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-100 transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40";
   const segCls = (on: boolean) => `px-2.5 py-1 ${on ? "bg-gray-700 text-gray-100" : "text-gray-400 hover:bg-gray-800"}`;
 
-  const toolbar = (
+  const viewTabs = (
+    <div className="flex overflow-hidden rounded-lg border border-gray-800 text-sm" role="tablist" aria-label="Make or browse">
+      {(
+        [
+          { id: "make", icon: Hammer, label: "Make" },
+          { id: "library", icon: Library, label: libraryCount != null ? `Library · ${libraryCount.toLocaleString()}` : "Library" },
+        ] as const
+      ).map((t) => {
+        const Icon = t.icon;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={view === t.id}
+            onClick={() => showView(t.id)}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 ${view === t.id ? "bg-gray-700 text-gray-100" : "text-gray-400 hover:bg-gray-800"}`}
+          >
+            <Icon className="h-4 w-4" /> {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const subjectCards = (
     <section className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="What to turn into 3D">
       {(
         [
@@ -317,11 +371,20 @@ export default function MeshLab({ lab }: LabComponentProps) {
     </section>
   );
 
+  const toolbar = (
+    <div className="space-y-3">
+      {viewTabs}
+      {view === "make" && subjectCards}
+    </div>
+  );
+
   return (
     <LabShell<Output>
       key={subject3d}
       lab={shellLab}
       toolbar={toolbar}
+      browse={view === "library"}
+      below={view === "library" ? <MeshLibrary refreshKey={historyKey} onOpenInLab={openInLab} /> : undefined}
       canRun={!!job && (person || seedValid)}
       input={
         <div className="space-y-4">
@@ -506,7 +569,7 @@ export default function MeshLab({ lab }: LabComponentProps) {
             <Comparison key={job.id} meshes={job.meshes} title={copy.meshes} />
           )}
 
-          {gallery.length > 0 && <Gallery jobs={gallery} current={job?.id ?? null} onOpen={open} />}
+          <RecentJobs refreshKey={historyKey} current={job?.id ?? null} onOpenInLab={openInLab} onShowAll={() => showView("library")} />
         </div>
       }
       run={run}
@@ -687,44 +750,5 @@ function Comparison({ meshes, title }: { meshes: Mesh[]; title: string }) {
         </div>
       )}
     </div>
-  );
-}
-
-function Gallery({ jobs, current, onOpen }: { jobs: MeshJobSummary[]; current: string | null; onOpen: (j: MeshJobSummary) => void }) {
-  return (
-    <details className="rounded-lg border border-gray-800 p-3" open={!current}>
-      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-gray-400">Earlier objects and people ({jobs.length})</summary>
-      <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        {jobs.map((j) => (
-          <button
-            key={j.id}
-            type="button"
-            onClick={() => onOpen(j)}
-            title={j.subject}
-            className={`group relative min-w-0 rounded-lg border p-1.5 text-left transition hover:border-gray-500 ${j.id === current ? "border-emerald-600" : "border-gray-800"}`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={j.cutoutUrl ?? j.sourceUrl}
-              alt=""
-              loading="lazy"
-              className="aspect-square w-full rounded object-contain"
-              style={{ backgroundImage: "repeating-conic-gradient(#1f2937 0 25%, #111827 0 50%)", backgroundSize: "12px 12px" }}
-            />
-            {j.kind === "person" && (
-              <span className="absolute left-2.5 top-2.5 rounded bg-gray-950/80 px-1 py-0.5 text-[9px] uppercase tracking-wide text-orange-200">person</span>
-            )}
-            <span className="mt-1 block truncate text-[11px] text-gray-300">{j.subject}</span>
-            <span className="block text-[10px] text-gray-500">
-              {j.meshes.length
-                ? `${j.meshes.length} ${j.kind === "person" ? "bod" + (j.meshes.length > 1 ? "ies" : "y") : "mesh" + (j.meshes.length > 1 ? "es" : "")}`
-                : j.kind === "person"
-                  ? "no body yet"
-                  : "no mesh yet"}
-            </span>
-          </button>
-        ))}
-      </div>
-    </details>
   );
 }

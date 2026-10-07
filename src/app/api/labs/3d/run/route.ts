@@ -68,7 +68,12 @@ export async function POST(req: NextRequest) {
     saved = await saveArtifact(job, name, mesh.glb);
     await writeJobMeta(job, {
       meshes: [{ file: name, model, seed, resolution, latencyMs: m.latencyMs, serviceMs: mesh.serviceMs, bytes: mesh.glb.length, reported: mesh.reported, input: useCutout ? "cutout" : "source" }],
+      // A named set ("hangar-models:leela-vedic") files the job under it in the
+      // library; the Lab's own two-model comparisons use a bare UUID, not a set.
+      ...(compareGroup?.includes(":") ? { group: compareGroup } : {}),
     });
+    // The library's cached index (api/labs/3d/jobs) would show it without its mesh for a while.
+    (globalThis as { __mesh3dIndex?: unknown }).__mesh3dIndex = undefined;
   }
 
   const src = meta.source as { kind?: string; latencyMs?: number; model?: string } | undefined;

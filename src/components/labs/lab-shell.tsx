@@ -41,6 +41,7 @@ export default function LabShell<T>({
   renderOutput,
   toolbar,
   below,
+  browse = false,
 }: {
   lab: LabDefinition;
   /** The capability's own input controls. The Lab owns their state. */
@@ -60,6 +61,11 @@ export default function LabShell<T>({
    * runs outlive the request, like the Video Lab's queue.
    */
   below?: ReactNode;
+  /**
+   * Looking back instead of making: only the header, the toolbar and `below`
+   * show — the 3D Lab's library replaces the models, input and results.
+   */
+  browse?: boolean;
 }) {
   const [payload, setPayload] = useState<LabModelsPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -191,105 +197,109 @@ export default function LabShell<T>({
 
       {toolbar}
 
-      {/* ── models on this host ── */}
-      <section className="rounded-xl border border-gray-800 bg-gray-900/40">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-800 px-4 py-2.5">
-          <h2 className="text-sm font-medium text-gray-200">Local models on {hostName}</h2>
-          {payload && !payload.routerUp && locals.some((m) => m.source === "router") && (
-            <span className="flex items-center gap-2 text-[11px] text-amber-300">
-              AI Router is down — nothing can be called through it.
-              <ServiceControl id="ai-router" up={false} probe={async () => !!(await load())?.routerUp} showLogs={false} />
-            </span>
-          )}
-        </div>
-        {!payload ? (
-          <p className="px-4 py-6 text-xs text-gray-500">Loading…</p>
-        ) : locals.length === 0 ? (
-          <div className="space-y-3 px-4 py-4">
-            <p className="text-sm text-gray-300">
-              Nothing on {hostName} serves {capLabel}.
-            </p>
-            <p className="text-xs text-gray-500">
-              A service declares it with <code className="rounded bg-gray-800 px-1">serves: {`{ "${lab.capability}": "<model>" }`}</code> in{" "}
-              <code className="rounded bg-gray-800 px-1">config/hosts/{payload.host.id}.json</code>, with a start command in{" "}
-              <code className="rounded bg-gray-800 px-1">scripts/{getHost().commandsFile}</code>.
-            </p>
-            {/* What would fit here, per the model scout, with a verdict for this machine. */}
-            <ModelDiscovery
-              capability={lab.capability}
-              label={capLabel}
-              defaultOpen
-              empty={
-                <p className="text-xs text-gray-500">
-                  The model scout has no {capLabel} candidates yet, so there is no fit verdict to show. Candidates come from its
-                  weekly report, <code className="rounded bg-gray-800 px-1">config/model-scout.json</code> (rules in{" "}
-                  <code className="rounded bg-gray-800 px-1">docs/models.md</code>).
-                </p>
-              }
-            />
+      {!browse && (
+        <>
+        {/* ── models on this host ── */}
+        <section className="rounded-xl border border-gray-800 bg-gray-900/40">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-800 px-4 py-2.5">
+            <h2 className="text-sm font-medium text-gray-200">Local models on {hostName}</h2>
+            {payload && !payload.routerUp && locals.some((m) => m.source === "router") && (
+              <span className="flex items-center gap-2 text-[11px] text-amber-300">
+                AI Router is down — nothing can be called through it.
+                <ServiceControl id="ai-router" up={false} probe={async () => !!(await load())?.routerUp} showLogs={false} />
+              </span>
+            )}
           </div>
-        ) : (
-          <ul className="divide-y divide-gray-800/70">
-            {locals.map((m) => (
-              <ModelRow key={m.id} model={m} selected={m.id === localId} onSelect={() => setLocalId(m.id)} probe={load} />
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* ── input + run ── */}
-      <section className="space-y-3 rounded-xl border border-gray-800 bg-gray-900/40 p-4">
-        {input}
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={go}
-            disabled={running || !canRun || !!blockedReason}
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {running ? "Running…" : targets.length > 1 ? "Run both" : "Run"}
-          </button>
-          {running && (
-            <button type="button" onClick={() => abortRef.current?.abort()} className="text-xs text-gray-400 hover:text-gray-200">
-              Cancel
-            </button>
+          {!payload ? (
+            <p className="px-4 py-6 text-xs text-gray-500">Loading…</p>
+          ) : locals.length === 0 ? (
+            <div className="space-y-3 px-4 py-4">
+              <p className="text-sm text-gray-300">
+                Nothing on {hostName} serves {capLabel}.
+              </p>
+              <p className="text-xs text-gray-500">
+                A service declares it with <code className="rounded bg-gray-800 px-1">serves: {`{ "${lab.capability}": "<model>" }`}</code> in{" "}
+                <code className="rounded bg-gray-800 px-1">config/hosts/{payload.host.id}.json</code>, with a start command in{" "}
+                <code className="rounded bg-gray-800 px-1">scripts/{getHost().commandsFile}</code>.
+              </p>
+              {/* What would fit here, per the model scout, with a verdict for this machine. */}
+              <ModelDiscovery
+                capability={lab.capability}
+                label={capLabel}
+                defaultOpen
+                empty={
+                  <p className="text-xs text-gray-500">
+                    The model scout has no {capLabel} candidates yet, so there is no fit verdict to show. Candidates come from its
+                    weekly report, <code className="rounded bg-gray-800 px-1">config/model-scout.json</code> (rules in{" "}
+                    <code className="rounded bg-gray-800 px-1">docs/models.md</code>).
+                  </p>
+                }
+              />
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-800/70">
+              {locals.map((m) => (
+                <ModelRow key={m.id} model={m} selected={m.id === localId} onSelect={() => setLocalId(m.id)} probe={load} />
+              ))}
+            </ul>
           )}
-          {lab.cloudComparison && (
-            <label className="flex items-center gap-2 text-xs text-gray-400">
-              <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} className="accent-orange-500" />
-              {lab.compareCapability
-                ? `Same input on a ${CAPABILITY_LABELS[lab.compareCapability]} model`
-                : "Same input on a cloud model"}
-              {compare && (
-                <select
-                  value={cloudId}
-                  onChange={(e) => setCloudId(e.target.value)}
-                  className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200"
-                  aria-label="Cloud model to compare against"
-                >
-                  {clouds.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.id}
-                      {m.local ? " (local)" : ""}
-                      {m.status !== "ready" ? " (not ready)" : ""}
-                      {m.costPerMTokIn != null ? ` · $${m.costPerMTokIn.toFixed(2)}/$${(m.costPerMTokOut ?? 0).toFixed(2)} per Mtok` : ""}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </label>
-          )}
-          {blockedReason && canRun && <span className="text-xs text-amber-300">{blockedReason}</span>}
-        </div>
-      </section>
-
-      {/* ── results ── */}
-      {slots.length > 0 && (
-        <section className={`grid gap-4 ${slots.length > 1 ? "lg:grid-cols-2" : ""}`}>
-          {slots.map((s, i) => (
-            <ResultColumn key={`${s.model}-${i}`} slot={s} renderOutput={renderOutput} onReleased={load} />
-          ))}
         </section>
+
+        {/* ── input + run ── */}
+        <section className="space-y-3 rounded-xl border border-gray-800 bg-gray-900/40 p-4">
+          {input}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={go}
+              disabled={running || !canRun || !!blockedReason}
+              className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {running ? "Running…" : targets.length > 1 ? "Run both" : "Run"}
+            </button>
+            {running && (
+              <button type="button" onClick={() => abortRef.current?.abort()} className="text-xs text-gray-400 hover:text-gray-200">
+                Cancel
+              </button>
+            )}
+            {lab.cloudComparison && (
+              <label className="flex items-center gap-2 text-xs text-gray-400">
+                <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} className="accent-orange-500" />
+                {lab.compareCapability
+                  ? `Same input on a ${CAPABILITY_LABELS[lab.compareCapability]} model`
+                  : "Same input on a cloud model"}
+                {compare && (
+                  <select
+                    value={cloudId}
+                    onChange={(e) => setCloudId(e.target.value)}
+                    className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200"
+                    aria-label="Cloud model to compare against"
+                  >
+                    {clouds.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.id}
+                        {m.local ? " (local)" : ""}
+                        {m.status !== "ready" ? " (not ready)" : ""}
+                        {m.costPerMTokIn != null ? ` · $${m.costPerMTokIn.toFixed(2)}/$${(m.costPerMTokOut ?? 0).toFixed(2)} per Mtok` : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </label>
+            )}
+            {blockedReason && canRun && <span className="text-xs text-amber-300">{blockedReason}</span>}
+          </div>
+        </section>
+
+        {/* ── results ── */}
+        {slots.length > 0 && (
+          <section className={`grid gap-4 ${slots.length > 1 ? "lg:grid-cols-2" : ""}`}>
+            {slots.map((s, i) => (
+              <ResultColumn key={`${s.model}-${i}`} slot={s} renderOutput={renderOutput} onReleased={load} />
+            ))}
+          </section>
+        )}
+        </>
       )}
 
       {below}
