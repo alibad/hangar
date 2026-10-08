@@ -72,6 +72,43 @@ card:
 - Before stopping something to make room, check what it actually holds.
 - Look at what a service produces, not only whether it is up.
 
+## Repo and deploy track
+
+Started 2026-10-08. The production deploy of `master` had failed since
+9baf5ae (a route file exported a helper); the cloud image parameters work had
+sat uncommitted in master's checkout for five days while a copy of it waited
+on an unpushed branch; and GitHub's default branch turned out to be a
+different line of work.
+
+### Next
+
+- **One line of development.** GitHub's default branch is `main`, the public
+  Hangar line: the rename, hosted mode, Mac support, the pre-publication
+  cleanup (9651e71) and the weekly scout PRs. It split from `master` on
+  2026-09-18 (30 commits against 115). Vercel production builds `master`.
+  Decide which one is Hangar: merge `main` into `master` (182 files), or keep
+  the operator console somewhere private. Then make it the default branch and
+  point the scout routine (and PR #2) at it. Until then `master` still tracks
+  what 9651e71 took out (design-qa-artifacts/, scripts/service-commands.json),
+  in a public repo.
+- **Three finished worktrees to remove**, all clean and merged:
+  `../betenshi-console-video` (video-forge), `../betenshi-console-wt-cloudimg`
+  (feature/cloud-image-params) and `.claude/worktrees/vigilant-shtern-1ba9f3`.
+  Their only unique files are two test images and a regenerated routing file.
+- **A build check before a push.** Nothing ran the production build before
+  9baf5ae went out; a pre-push hook or CI job running it would have caught it.
+
+### Rules this taught
+
+- `next dev` skips the production type check. A route file may export only
+  its handlers and route config; anything else (`export function groupLabel`)
+  works in dev and fails on Vercel. Build before pushing:
+  `BETENSHI_DB_PATH=<a throwaway path>.db npx next build --webpack` (the live
+  console holds the real DuckDB file, and a build against it crashes).
+- The console serves master's working tree live, so uncommitted work there is
+  what is running. Commit it or move it to a branch; never both, and not for
+  days.
+
 ## 3D Lab track
 
 Started 2026-10-06 from a day-long run of about 1,200 models through the 3D
