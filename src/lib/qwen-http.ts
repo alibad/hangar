@@ -58,3 +58,57 @@ export function nodePost(
     req.end();
   });
 }
+
+export type NodeResponse = { status: number; headers: http.IncomingHttpHeaders; body: Buffer };
+
+/**
+ * nodePost's transport, but it hands back every response — status, headers and
+ * body — instead of rejecting on a non-200.
+ *
+ * Hosted image calls need both halves nodePost throws away: the router's
+ * `x-litellm-response-cost` header (the only per-call price there is), and the
+ * whole JSON error body (a safety refusal's `code` sits past the 300 characters
+ * nodePost keeps). Body may be a Buffer, for multipart uploads.
+ */
+export function nodePostFull(
+  url: string,
+  body: string | Buffer,
+  headers: Record<string, string>,
+  signal?: AbortSignal,
+  label = "AI Router",
+): Promise<NodeResponse> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new Error("Cancelled")); return; }
+
+    const u = new URL(url);
+    const lib = u.protocol === "https:" ? https : http;
+    const req = lib.request(
+      {
+        hostname: u.hostname,
+        port: u.port ? Number(u.port) : u.protocol === "https:" ? 443 : 80,
+        path: u.pathname + u.search,
+        method: "POST",
+        headers: { ...headers, "Content-Length": Buffer.byteLength(body) },
+      },
+      (res) => {
+        res.on("error", reject);
+        res.on("aborted", () => reject(new Error(`${label} response interrupted`)));
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body: Buffer.concat(chunks) }));
+      },
+    );
+    req.on("error", reject);
+
+    const abort = () => req.destroy(new Error("Cancelled"));
+    signal?.addEventListener("abort", abort, { once: true });
+    const timeout = setTimeout(() => req.destroy(new Error(`${label} timed out after 15 minutes`)), 900_000);
+    req.on("close", () => {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+    });
+
+    req.write(body);
+    req.end();
+  });
+}

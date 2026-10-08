@@ -111,11 +111,13 @@ export function modelsSupporting(capability: "supportsEdit" | "supportsBatch"): 
  * and batch support the cloud model does not have, and gating Generate on the
  * :8021 service being up when the router is what actually matters.
  *
- * Batch and edit are false on purpose rather than unimplemented: the batch queue
- * dispatches per-backend across the LOCAL services and has no cloud path, and
- * editing needs an endpoint only the Qwen service and FLUX.2 Klein expose.
+ * Batch is false on purpose rather than unimplemented: the batch queue
+ * dispatches per-backend across the LOCAL services and has no cloud path. Edit
+ * comes from the capability registry (src/lib/cloud-image-models.ts): hosted
+ * edits go to /api/image/cloud-edit with the model's own reference limit. The
+ * caller passes it in (this file stays import-free: tests load it bare).
  */
-export function cloudImageModel(alias: string, provider?: string): ImageModel {
+export function cloudImageModel(alias: string, provider?: string, opts: { supportsEdit?: boolean } = {}): ImageModel {
   return {
     id: alias,
     name: alias,
@@ -127,7 +129,7 @@ export function cloudImageModel(alias: string, provider?: string): ImageModel {
     // rejected — but offering knobs that do nothing is worse than hiding them.
     supportsNegative: false,
     supportsCfg: false,
-    supportsEdit: false,
+    supportsEdit: !!opts.supportsEdit,
     supportsBatch: false,
   };
 }

@@ -16,6 +16,8 @@ import ImageEvalView from "./image-eval-view";
 import CapacityBlocker from "./capacity-blocker";
 import { useTabActive } from "./tab-pane";
 import { qwenCheckpointState } from "@/lib/qwen-checkpoint";
+import CloudImageControls, { CHECKERBOARD, CloudParamsDetails, cloudFormErrors, fmtUsd } from "./cloud-image-controls";
+import { defaultCloudImageParams, resolveCloudImageSpec, type CloudImageParams, type CloudImageSpec } from "@/lib/cloud-image-models";
 
 // ── types ───────────────────────────────────────────────────────────────────
 type QwenHealth = {
@@ -200,7 +202,7 @@ export default function QwenStudio() {
    * top and the thing you generate with below — so it lives here now.
    */
   const [routerImages, setRouterImages] = useState<
-    { id: string; local: boolean; provider: string; serviceId?: string; status: string }[]
+    { id: string; local: boolean; provider: string; serviceId?: string; status: string; target?: string }[]
   >([]);
   const [routedImage, setRoutedImage] = useState<string | null>(null);
   const [routerUp, setRouterUp] = useState(true);
@@ -213,12 +215,39 @@ export default function QwenStudio() {
     [routerImages],
   );
 
+  /**
+   * What a hosted model accepts, from the capability registry — resolved through
+   * the catalogue's vendor id so a renamed router alias still finds its entry.
+   */
+  const cloudSpecFor = useCallback(
+    (id: string): CloudImageSpec => resolveCloudImageSpec(id, cloudModels.find((m) => m.id === id)?.target),
+    [cloudModels],
+  );
   const activeModel = useMemo(() => {
     const local = IMAGE_MODELS.find((m) => m.id === imageModel);
     if (local) return local;
     const cloud = cloudModels.find((m) => m.id === imageModel);
-    return cloudImageModel(imageModel, cloud?.provider);
-  }, [imageModel, cloudModels]);
+    return cloudImageModel(imageModel, cloud?.provider, { supportsEdit: !!cloudSpecFor(imageModel).edit });
+  }, [imageModel, cloudModels, cloudSpecFor]);
+  const activeSpec = useMemo(
+    () => (activeModel.serviceId === null ? cloudSpecFor(activeModel.id) : null),
+    [activeModel, cloudSpecFor],
+  );
+  /**
+   * The hosted-model form, one per model: quality, size, background and the
+   * rest are not transferable (xhigh exists only on 2.5, a custom 3840×2160 only
+   * on flexible-size models), so switching models must not carry them over.
+   */
+  const [cloudForms, setCloudForms] = useState<Record<string, CloudImageParams>>({});
+  const cloudFormFor = useCallback(
+    (id: string): CloudImageParams => cloudForms[id] ?? defaultCloudImageParams(cloudSpecFor(id)),
+    [cloudForms, cloudSpecFor],
+  );
+  const cloudForm = activeSpec ? cloudFormFor(activeModel.id) : null;
+  const setCloudForm = (next: CloudImageParams) => setCloudForms((prev) => ({ ...prev, [activeModel.id]: next }));
+  /** Optional edit mask (PNG, transparent where the edit goes) for hosted models that take one. */
+  const [editMask, setEditMask] = useState<string | null>(null);
+  const maskRef = useRef<HTMLInputElement>(null);
   /** ComfyUI's own health — only polled while FLUX is the selected model. */
   const [comfyHealth, setComfyHealth] = useState<{ up: boolean; error?: string } | null>(null);
   /** Memory cost per model, so the picker can say what each one holds. */
@@ -301,6 +330,11 @@ export default function QwenStudio() {
      */
     diffusion: boolean;
     prompt: string;
+    /** A hosted run with n > 1: the other images, each already saved. */
+    more?: string[];
+    /** Hosted runs: the router's price for the call, or the estimate when it sent none. */
+    costUsd?: number | null;
+    costSource?: string;
   };
   const [lastResult, setLastResult] = useState<StudioResult | null>(null);
   /**
@@ -341,6 +375,8 @@ export default function QwenStudio() {
   const [blockedBy, setBlockedBy] = useState<string | null>(null);
   const [freeingComfy, setFreeingComfy] = useState(false);
   const [editNotice, setEditNotice] = useState<string | null>(null);
+  /** Set by "Recreate with these settings"; cleared by the next run. */
+  const [recreateNotice, setRecreateNotice] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   // live denoising progress from the server (step X/Y)
   const [serverProgress, setServerProgress] = useState<{ running: boolean; phase?: string; step: number; total: number; elapsed?: number; started?: number } | null>(null);
@@ -350,6 +386,10 @@ export default function QwenStudio() {
 
   // edit inputs
   const [editImages, setEditImages] = useState<string[]>([]);
+  /** What the server would refuse in the hosted form, so Run can't send it. */
+  const cloudBlockers = activeSpec && cloudForm && (mode === "generate" || mode === "edit")
+    ? cloudFormErrors(activeSpec, cloudForm, { kind: mode, imageCount: mode === "edit" ? Math.max(1, editImages.length) : 0, hasMask: mode === "edit" && !!editMask })
+    : [];
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -848,9 +888,9 @@ export default function QwenStudio() {
   const rerunCandidates = useMemo<ImageModel[]>(() => {
     const cloud = cloudModels
       .filter((m) => m.status !== "no-key")
-      .map((m) => cloudImageModel(m.id, m.provider));
+      .map((m) => cloudImageModel(m.id, m.provider, { supportsEdit: !!cloudSpecFor(m.id).edit }));
     return [...IMAGE_MODELS, ...cloud].filter((m) => m.id !== lastResult?.modelId);
-  }, [cloudModels, lastResult?.modelId]);
+  }, [cloudModels, lastResult?.modelId, cloudSpecFor]);
 
   /**
    * Run a model that is not the currently selected one — see rerunOn().
@@ -897,13 +937,27 @@ export default function QwenStudio() {
     setError(null);
     setBlockedBy(null);
     setEditNotice(null);
+    setRecreateNotice(null);
     startTimer();
     try {
-      const res = await fetch(kind === "generate" ? "/api/image/generate" : target.serviceId === "comfyui" ? "/api/image/edit" : "/api/qwen/edit", {
+      const hosted = target.serviceId === null;
+      // A hosted model gets its own parameter set (validated again server-side).
+      // A rerun from another model holds the frame constant instead: its size is
+      // left out, so the server snaps the current width × height to the nearest
+      // size this model accepts.
+      const cloud = hosted
+        ? override ? { ...cloudFormFor(target.id), size: undefined } : cloudFormFor(target.id)
+        : undefined;
+      const endpoint = kind === "generate" ? "/api/image/generate"
+        : hosted ? "/api/image/cloud-edit"
+        : target.serviceId === "comfyui" ? "/api/image/edit" : "/api/qwen/edit";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: request.controller.signal,
         body: JSON.stringify({ model: target.id, prompt, images: kind === "edit" ? editImages : undefined,
+          mask: kind === "edit" && hosted && editMask ? editMask : undefined,
+          cloud,
           // The negative box is hidden for models that ignore negatives, so
           // whatever is still in state belongs to a DIFFERENT model — sending it
           // on is how a stale negative from Qwen reached gpt-image-2.
@@ -913,10 +967,14 @@ export default function QwenStudio() {
       const data = await res.json();
       if (res.ok && data.status === "success") {
         if (!lockSeed) setSeed(String(data.seed));
+        const all: string[] = Array.isArray(data.images) ? data.images.map((i: { image: string }) => i.image) : [];
         setLastResult({
           image: data.image, saved: data.saved, latency: data.latency, folder,
           modelId: target.id, modelName: target.name, steps: override?.steps ?? steps,
           diffusion: target.serviceId !== null, prompt,
+          more: all.slice(1),
+          costUsd: data.cloud?.costUsd ?? null,
+          costSource: data.cloud?.costSource,
         });
         setSelectedFolder(folder);
         setGalleryBatchFilter(null);
@@ -1021,6 +1079,32 @@ export default function QwenStudio() {
     } finally {
       setLoadingReference(false);
     }
+  }
+
+  /**
+   * "Recreate with these settings": the gallery image's model, prompt and full
+   * hosted parameter set, put back into the form. Selecting the model is the
+   * same act as choosing it from the dialog (pickModel), not a hidden switch.
+   * Edit references are not stored with results, so an edit comes back with
+   * its settings and a note to add the references again.
+   */
+  async function recreateFromGallery(meta: { model: string; prompt: string; kind: string; params: CloudImageParams; referenceCount?: number }) {
+    if (!meta.model || isImageModelId(meta.model)) return;
+    setLightbox(null);
+    setPrompt(meta.prompt);
+    setCloudForms((prev) => ({ ...prev, [meta.model]: { ...meta.params } }));
+    setModelTab("cloud");
+    await pickModel(meta.model, meta.model);
+    if (meta.kind === "edit") {
+      setMode("edit");
+      setEditImages([]);
+      setEditMask(null);
+      setRecreateNotice(`${meta.model} settings restored. Add the ${meta.referenceCount ? `${meta.referenceCount} ` : ""}reference image${meta.referenceCount === 1 ? "" : "s"} again — references aren't stored with results.`);
+    } else {
+      setMode("generate");
+      setRecreateNotice(`${meta.model} settings restored from the gallery — review them below, then Generate.`);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function doDelete(item: GalleryItem) {
@@ -1827,6 +1911,7 @@ export default function QwenStudio() {
                       <span className="block text-[10px] text-gray-500">
                         {m.provider}
                         {keyMissing ? " · needs an API key" : " · no VRAM, billed per image"}
+                        {(() => { const s = cloudSpecFor(m.id); return s.status && s.status !== "stable" ? ` · ${s.status}` : ""; })()}
                       </span>
                     </span>
                   </button>
@@ -2067,7 +2152,9 @@ export default function QwenStudio() {
         </div>
         <p className="image-mode-hint">
           {mode === "edit"
-            ? activeModel.serviceId === "qwen" ? "Edit loads the separate Qwen-Image-Edit checkpoint on first run." : `${activeModel.name} edits with the same checkpoint it generates with, from reference images.`
+            ? activeModel.serviceId === "qwen" ? "Edit loads the separate Qwen-Image-Edit checkpoint on first run."
+              : activeSpec?.edit ? `${activeModel.name} edits off-box from up to ${activeSpec.edit.maxImages} reference images.`
+              : `${activeModel.name} edits with the same checkpoint it generates with, from reference images.`
             : mode === "compare"
               ? "Run one prompt across several local and cloud models."
               : mode === "eval"
@@ -2086,11 +2173,24 @@ export default function QwenStudio() {
       {/* ── INPUT PANEL (generate / edit) ── */}
       {mode !== "batch" && mode !== "jobs" && mode !== "compare" && mode !== "eval" && (
       <section className="bg-gray-900 rounded-xl border border-gray-800 p-5 space-y-4">
+        {recreateNotice && (
+          <div role="status" className="flex items-start gap-3 text-xs px-3 py-2 rounded-lg bg-pink-500/10 text-pink-200 border border-pink-500/20">
+            <span className="flex-1">{recreateNotice}</span>
+            <button type="button" onClick={() => setRecreateNotice(null)} aria-label="Dismiss" className="text-pink-200/70 hover:text-pink-100">×</button>
+          </div>
+        )}
         {mode === "edit" && (
           <div>
             <label className="text-xs text-gray-500 mb-2 block">Input images (choose gallery images or upload references)</label>
             <button type="button" onClick={() => { setGalleryPicker(true); setPickerFolder("__all__"); setPickerSearch(""); }} className="mb-3 border border-purple-600 rounded-lg px-3 py-2 text-sm text-purple-300">Choose from gallery</button>
-            <p className="text-xs text-gray-500 mb-3">{activeModel.serviceId === "qwen" ? `Editing switches to ${health?.edit?.model || "Qwen-Image-Edit"} and unloads the generation model to make room.` : "Choose up to four reference images. Klein edits with its generation checkpoint; no second model is needed."}</p>
+            <p className="text-xs text-gray-500 mb-3">{activeModel.serviceId === "qwen"
+              ? `Editing switches to ${health?.edit?.model || "Qwen-Image-Edit"} and unloads the generation model to make room.`
+              : activeSpec?.edit
+                ? `Choose up to ${activeSpec.edit.maxImages} reference images (PNG, JPEG or WebP). ${activeModel.name} edits off-box through the AI Router.`
+                : "Choose up to four reference images. Klein edits with its generation checkpoint; no second model is needed."}</p>
+            {activeSpec?.edit && editImages.length > activeSpec.edit.maxImages && (
+              <p role="alert" className="text-xs text-red-400 mb-3">{activeModel.name} takes at most {activeSpec.edit.maxImages} references — remove {editImages.length - activeSpec.edit.maxImages}.</p>
+            )}
             <div
               className={`rounded-xl border-2 border-dashed transition p-4 text-center cursor-pointer ${
                 dragOver ? "border-pink-500 bg-pink-500/5" : "border-gray-700 hover:border-gray-500"
@@ -2123,6 +2223,32 @@ export default function QwenStudio() {
                 </div>
               )}
             </div>
+            {/* OpenAI's mask: a PNG the size of the FIRST reference, transparent
+                where the edit should land. Gemini has none — the prompt says where. */}
+            {activeSpec?.edit?.mask && (
+              <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
+                <input ref={maskRef} type="file" accept="image/png" className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!f) return;
+                    const r = new FileReader();
+                    r.onload = () => setEditMask(r.result as string);
+                    r.readAsDataURL(f);
+                  }} />
+                <span className="text-gray-500">Mask</span>
+                {editMask ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={editMask} alt="Edit mask" className="h-12 w-12 rounded border border-gray-700 object-cover" style={CHECKERBOARD} />
+                    <button type="button" onClick={() => setEditMask(null)} className="text-gray-500 underline hover:text-gray-300">remove</button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => maskRef.current?.click()} className="rounded-lg border border-gray-700 px-2.5 py-1.5 text-gray-300 hover:border-gray-500">Add mask (optional)</button>
+                )}
+                <span className="text-[11px] text-gray-500">PNG, same size as image 1, transparent where the edit goes. OpenAI treats it as guidance, not a hard boundary.</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -2140,8 +2266,22 @@ export default function QwenStudio() {
 
         {renderVoiceBanner()}
 
+        {/* A hosted model's own parameters replace the diffusion knobs below. */}
+        {activeSpec && cloudForm && (mode === "generate" || mode === "edit") && (
+          <CloudImageControls
+            spec={activeSpec}
+            kind={mode}
+            value={cloudForm}
+            onChange={setCloudForm}
+            imageCount={mode === "edit" ? editImages.length : 0}
+            promptChars={prompt.length}
+            hasMask={mode === "edit" && !!editMask}
+            disabled={busy}
+          />
+        )}
+
         <div className="flex items-center gap-4 flex-wrap text-xs">
-          {mode === "generate" && (
+          {mode === "generate" && !activeSpec && (
             <div className="flex items-center gap-2">
               <label className="text-gray-500">Size</label>
               <Select items={SIZE_ITEMS} value={`${width}x${height}`} onValueChange={(v) => { if (!v) return; const [w, h] = String(v).split("x").map(Number); setWidth(w); setHeight(h); }}>
@@ -2152,11 +2292,14 @@ export default function QwenStudio() {
               </Select>
             </div>
           )}
-          <div className="flex items-center gap-2">
-            <label className="text-gray-500">Steps</label>
-            <input type="number" min={1} max={50} value={steps} onChange={(e) => setSteps(Number(e.target.value))}
-              className="w-16 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-300 tabular-nums" />
-          </div>
+          {/* A hosted API has no denoising loop; it is never sent steps. */}
+          {!activeSpec && (
+            <div className="flex items-center gap-2">
+              <label className="text-gray-500">Steps</label>
+              <input type="number" min={1} max={50} value={steps} onChange={(e) => setSteps(Number(e.target.value))}
+                className="w-16 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-300 tabular-nums" />
+            </div>
+          )}
           {/* Distilled FLUX ignores guidance and negative conditioning, so the
               controls are hidden rather than left there doing nothing. */}
           {activeModel.supportsCfg && (
@@ -2177,12 +2320,15 @@ export default function QwenStudio() {
             disabled={
               busy || startingRuntime || !prompt.trim() ||
               (mode === "edit" && editImages.length === 0) ||
-              (activeModel.serviceId === null && !routerUp)
+              (activeModel.serviceId === null && !routerUp) ||
+              cloudBlockers.length > 0
             }
             title={
               activeModel.serviceId === null && !routerUp
                 ? "The AI Router is offline, so this cloud model can't be called."
-                : !modelUp
+                : cloudBlockers.length
+                  ? cloudBlockers.join(" ")
+                  : !modelUp
                   ? `${runtimeName} isn't running — this will start it first.`
                   : undefined
             }
@@ -2261,22 +2407,36 @@ export default function QwenStudio() {
                 key={`${r.modelId}-${i}-${r.image.slice(-24)}`}
                 className={pinnedResults.length ? `flex-shrink-0 w-56 rounded-lg border p-2 ${i === 0 ? "border-pink-500/50 bg-pink-500/5" : "border-gray-800 bg-gray-900/40"}` : ""}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={r.image}
-                  alt={`Result from ${r.modelName}`}
-                  className={pinnedResults.length ? "w-full rounded-md" : "max-h-80 rounded-lg"}
-                />
+                {/* The checkerboard shows only through transparent pixels, so an
+                    opaque image looks exactly as before. */}
+                <div className={!pinnedResults.length && r.more?.length ? "flex flex-wrap gap-2" : ""}>
+                  {[r.image, ...(pinnedResults.length ? [] : r.more ?? [])].map((src, k) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={k}
+                      src={src}
+                      alt={`Result ${k + 1} from ${r.modelName}`}
+                      style={CHECKERBOARD}
+                      className={pinnedResults.length ? "w-full rounded-md" : r.more?.length ? "max-h-56 rounded-lg" : "max-h-80 rounded-lg"}
+                    />
+                  ))}
+                </div>
                 <figcaption className="mt-1.5 flex items-baseline gap-1.5 text-[11px]">
                   <span className={i === 0 ? "font-medium text-gray-100" : "text-gray-400"}>{r.modelName}</span>
                   <span className="text-gray-500 tabular-nums">{(r.latency / 1000).toFixed(1)}s{r.diffusion ? ` · ${r.steps} steps` : " · cloud"}</span>
+                  {r.more?.length ? <span className="text-gray-500">· {r.more.length + 1} images</span> : null}
+                  {r.costUsd != null && (
+                    <span className="text-gray-400 tabular-nums" title={r.costSource === "router" ? "The router's own price for this call" : "Estimated — the router sent no price"}>
+                      · {fmtUsd(r.costUsd)}{r.costSource === "router" ? "" : " est."}
+                    </span>
+                  )}
                 </figcaption>
               </figure>
             ))}
           </div>
 
           {lastResult && <div className="flex items-center gap-4 flex-wrap">
-            <a href={lastResult.image} download="betenshi-image.png" className="text-xs underline">Download image</a>
+            <a href={lastResult.image} download={`betenshi-image.${/^data:image\/(webp|jpeg)/.exec(lastResult.image)?.[1]?.replace("jpeg", "jpg") ?? "png"}`} className="text-xs underline">Download image</a>
             <button onClick={() => { setEditImages([lastResult.image]); if (!activeModel.supportsEdit) setImageModel("flux2-klein-4b"); setMode("edit"); setPrompt(""); }} className="text-sm text-purple-300">Edit this image</button>
           </div>}
 
@@ -3157,7 +3317,9 @@ export default function QwenStudio() {
           <div className="max-w-6xl w-full max-h-full flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="flex-1 min-h-0 flex items-center justify-center relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={lightbox.url} alt={lightbox.prompt} className="max-h-[80vh] max-w-full object-contain rounded-lg" />
+              {/* Hosted images carry a parameters panel below, so they give up
+                  some height to keep it on screen. */}
+              <img src={lightbox.url} alt={lightbox.prompt} style={CHECKERBOARD} className={`${isImageModelId(lightbox.model) ? "max-h-[80vh]" : "max-h-[60vh]"} max-w-full object-contain rounded-lg`} />
               {visibleImages.length > 1 && (
                 <>
                   <button onClick={() => navLightbox(-1)} title="Previous (←)"
@@ -3178,7 +3340,7 @@ export default function QwenStudio() {
               <div className="flex items-center gap-3 flex-wrap text-[11px] text-gray-500 mt-2 tabular-nums">
                 <span className={`px-1.5 py-0.5 rounded ${lightbox.kind === "edit" ? "bg-purple-500/15 text-purple-300" : "bg-pink-500/15 text-pink-300"}`}>{lightbox.kind}</span>
                 {/* The gallery mixes models now, so a bare "28st · cfg4" is ambiguous. */}
-                <span className="text-gray-400">{lightbox.kind === "edit" ? lightbox.model : getImageModel(lightbox.model).name}</span>
+                <span className="text-gray-400">{lightbox.kind === "edit" || !isImageModelId(lightbox.model) ? lightbox.model : getImageModel(lightbox.model).name}</span>
                 {lightbox.width && lightbox.height && <span>{lightbox.width}×{lightbox.height}</span>}
                 {lightbox.seed != null && <span>seed {lightbox.seed}</span>}
                 {lightbox.steps != null && (
@@ -3206,6 +3368,8 @@ export default function QwenStudio() {
                 </label>
                 <button onClick={() => setConfirmDelete(lightbox)} className="text-red-400 hover:text-red-300 border border-red-700/40 rounded-md px-3 py-1.5">Delete</button>
               </div>
+              {/* Hosted images only: the full parameter set from the sidecar. */}
+              {!isImageModelId(lightbox.model) && <CloudParamsDetails rel={lightbox.rel} onRecreate={recreateFromGallery} />}
             </div>
           </div>
         </div>

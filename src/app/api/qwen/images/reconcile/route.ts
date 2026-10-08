@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { GALLERY_IMAGE_EXT, sidecarRelFor } from "@/lib/save-image";
 import path from "path";
 import fs from "fs/promises";
 import { isLabStorage } from "@/lib/gallery-folders";
@@ -38,7 +39,9 @@ export async function POST() {
       // has a "source.png", which the basename relocation below would confuse.
       if (e.isDirectory() && isLabStorage(rel)) continue;
       if (e.isDirectory()) await walk(path.join(dir, e.name), rel);
-      else if (e.name.toLowerCase().endsWith(".png")) diskRels.push(rel);
+      // Every format the gallery saves. Scanning .png alone made a reconcile
+      // read every WebP/JPEG row as "file gone" and delete it.
+      else if (GALLERY_IMAGE_EXT.test(e.name)) diskRels.push(rel);
     }
   }
   await walk(outputDir, "");
@@ -87,7 +90,7 @@ export async function POST() {
     let meta: Record<string, unknown> = {};
     try {
       meta = JSON.parse(
-        await fs.readFile(path.join(outputDir, rel.replace(/\.png$/i, ".json")), "utf8"),
+        await fs.readFile(path.join(outputDir, sidecarRelFor(rel)), "utf8"),
       );
     } catch {
       /* no sidecar — insert what we can */

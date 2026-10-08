@@ -65,6 +65,10 @@ def _post(event: dict) -> None:
 
 def _path_for(call_type: str) -> str:
     ct = (call_type or "").lower()
+    # Edits are a different endpoint (multipart, reference images); logging
+    # them as generations hid every hosted edit in Activity.
+    if "image_edit" in ct:
+        return "/v1/images/edits"
     if "image" in ct:
         return "/v1/images/generations"
     if "transcription" in ct:
@@ -248,9 +252,11 @@ def _emit(kwargs, response_obj, start_time, end_time, status: int) -> None:
             )
             if u is not None:
                 get = (lambda k: u.get(k)) if isinstance(u, dict) else (lambda k: getattr(u, k, None))
+                # Image responses (edits especially) report OpenAI's image
+                # usage shape — input_tokens/output_tokens — not the chat one.
                 usage = {
-                    "in": get("prompt_tokens"),
-                    "out": get("completion_tokens"),
+                    "in": get("prompt_tokens") or get("input_tokens"),
+                    "out": get("completion_tokens") or get("output_tokens"),
                 }
         except Exception:
             pass
@@ -356,3 +362,19 @@ try:
         _litellm.input_callback.append(betenshi_logger)
 except Exception:
     pass  # completion events still land; only the in-flight row is lost
+
+# Forward the GPT-image parameters LiteLLM 1.94.0 drops (background, moderation,
+# output_format, output_compression) — see router_image_params.py. Loaded by
+# file path, because this module is itself loaded by path from the yaml, and
+# guarded so a failure costs only the patch, never the logger.
+try:
+    import importlib.util as _ilu
+
+    _spec = _ilu.spec_from_file_location(
+        "betenshi_router_image_params",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "router_image_params.py"),
+    )
+    if _spec is not None and _spec.loader is not None:
+        _spec.loader.exec_module(_ilu.module_from_spec(_spec))
+except Exception as _exc:
+    print(f"[router_callback] image parameter patch not loaded: {_exc!r}")

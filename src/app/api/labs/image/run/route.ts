@@ -35,6 +35,12 @@ export type ImageLabOutput = {
  * router unchanged (localImageModelFor).
  */
 
+/** The router's own price for a hosted call (x-litellm-response-cost), when it sent one. */
+function routerCost(body: Record<string, unknown> | null): number | null {
+  const cloud = body?.cloud as { costUsd?: unknown; costSource?: unknown } | undefined;
+  return cloud?.costSource === "router" && typeof cloud.costUsd === "number" ? cloud.costUsd : null;
+}
+
 export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({}));
   const model = typeof b?.model === "string" ? b.model.trim() : "";
@@ -61,7 +67,12 @@ export async function POST(req: NextRequest) {
   const measured = await measureRun(
     async () => {
       const r = await generateAndSave(
-        { model: target, prompt, seed, width: size, height: size, folder: "Compare", requestId: `lab:image:${target}` },
+        {
+          model: target, prompt, seed, width: size, height: size, folder: "Compare", requestId: `lab:image:${target}`,
+          // Hosted models: the comparison's shared parameters (validated per
+          // model — Gemini drops quality), attributed to Compare in Activity.
+          ...(local ? {} : { cloud: b?.cloud && typeof b.cloud === "object" ? b.cloud : undefined, source: "console/compare" }),
+        },
         undefined,
         req.signal,
       );
@@ -97,7 +108,7 @@ export async function POST(req: NextRequest) {
     vramNote: m.vramNote,
     // The router's published per-image price where it has one. A missing price
     // stays null ("not metered here"), never 0.
-    costUsd: local ? null : costPerImage ?? null,
+    costUsd: local ? null : routerCost(body) ?? costPerImage ?? null,
     outputPath: abs,
     outputSummary: rel,
   });
@@ -116,7 +127,7 @@ export async function POST(req: NextRequest) {
     peakVramGb: m.peakVramGb,
     baselineVramGb: m.baselineVramGb,
     vramNote: m.vramNote,
-    costUsd: local ? null : costPerImage ?? null,
+    costUsd: local ? null : routerCost(body) ?? costPerImage ?? null,
   };
   return NextResponse.json(result);
 }

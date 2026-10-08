@@ -172,6 +172,21 @@
       "basis": "Read off the OpenRA tool-enabled container launch flags: --gpu-memory-utilization 0.55 of a 31.8 GB card, with KV cache for 16k context."
     }
   },
+  "local-bonsai-2": {
+    "vision": true,
+    "checkpoint": "prism-ml/Ternary-Bonsai-2-27B-gguf · PQ2_0 + Q8_0 vision projector",
+    "params": "27.36B · ternary 2.13 bpw (PQ2_0)",
+    "released": "2026-09",
+    "docs": "https://docs.prismml.com/",
+    "note": "PrismML Bonsai 2 on its CUDA llama.cpp fork. Full model/tool-use capability in a 7.21 GB PQ2_0 language pack; the optional 0.63 GB vision projector is loaded for image input. Initial service context is 32K; change it only with the corresponding VRAM admission budget.",
+    "service": "bonsai",
+    "footprint": {
+      "vramGb": 14,
+      "ramGb": 2,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-21 after warm loading the configured 32K-context CUDA service: nvidia-smi reported 13,767 MiB total GPU use (the box was otherwise idle apart from display/system overhead). 14 GB is the rounded admission reservation; it covers the 7.21 GB PQ2_0 language weights, 0.63 GB Q8 vision projector, 32K KV cache, and runtime overhead."
+    }
+  },
   "local-laya": {
     "checkpoint": "convaiinnovations/laya @ 55cf4c4 · English + multilingual + typed-decisions, routed per request",
     "params": "421M (ModernBERT-large) + 322M (mmBERT-base) + 421M",

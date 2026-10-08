@@ -122,6 +122,12 @@ export default function CompareView() {
   });
   const [picked, setPicked] = useState<string[]>([]);
   const [size, setSize] = useState(SIZES[1]);
+  /**
+   * Quality for every hosted model in the run. One shared value, from the set
+   * every GPT image model accepts; Gemini has no quality and drops it. "auto"
+   * is the API default — the model picks, and the price follows.
+   */
+  const [cloudQuality, setCloudQuality] = useState<"auto" | "low" | "medium" | "high">("auto");
   const [cloud, setCloud] = useState<CatalogModel[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [seed, setSeed] = useState<number | null>(null);
@@ -230,7 +236,7 @@ export default function CompareView() {
           res = await fetch("/api/labs/image/run", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ model, prompt, size: nativeSize(model, size.w), seed: runSeed, compareGroup: groupRef.current }),
+            body: JSON.stringify({ model, prompt, size: nativeSize(model, size.w), seed: runSeed, compareGroup: groupRef.current, cloud: { quality: cloudQuality } }),
             signal: ac.signal,
           });
           j = await res.json();
@@ -270,7 +276,7 @@ export default function CompareView() {
         abortRef.current.delete(model);
       }
     },
-    [patch, prompt, size],
+    [patch, prompt, size, cloudQuality],
   );
 
   const run = useCallback(async () => {
@@ -389,6 +395,26 @@ export default function CompareView() {
               </button>
             ))}
           </div>
+
+          {picked.some((id) => options.find((o) => o.id === id && !o.local)) && (
+            <div className="flex items-center gap-1.5" title="Sent to every hosted OpenAI model in this comparison; Gemini has no quality setting">
+              <span className="text-[11px] text-gray-500">cloud quality</span>
+              <div className="flex gap-1 rounded-lg bg-gray-800 p-0.5">
+                {(["auto", "low", "medium", "high"] as const).map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => setCloudQuality(q)}
+                    disabled={running}
+                    className={`rounded-md px-2 py-1 text-xs transition disabled:opacity-40 ${
+                      cloudQuality === q ? "bg-gray-100 text-gray-900" : "text-gray-400 hover:text-gray-100"
+                    }`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {running ? (
             <button

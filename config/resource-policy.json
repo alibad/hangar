@@ -7,6 +7,7 @@
   "services": {
     "vllm": { "model": "local-coder" },
     "vllm-small": { "model": "local-small" },
+    "bonsai": { "model": "local-bonsai-2" },
     "whisper": { "model": "local-whisper" },
     "tts": { "model": "local-kokoro" },
     "qwen": { "model": "local-qwen-image" },
