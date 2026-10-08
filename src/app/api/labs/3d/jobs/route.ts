@@ -183,7 +183,7 @@ const BOARDS: Record<string, string> = {
 const STYLES: Record<string, string> = { relic: "sculptures", room: "rooms", figure: "characters", talisman: "talismans", shrine: "shrines", toy: "toys" };
 
 /** "hangar-models:leela-tibetan-relic-s2" → "Leela · Tibetan sculptures (pass 2)". */
-export function groupLabel(id: string): string {
+function groupLabel(id: string): string {
   const [tool, set = ""] = id.includes(":") ? [id.slice(0, id.indexOf(":")), id.slice(id.indexOf(":") + 1)] : ["", id];
   if (set === "ra2") return "Red Alert 2 units";
   if (set === "philosophy") return "Philosophy";
