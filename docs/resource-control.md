@@ -49,3 +49,9 @@ Stack → Work scheduler.
 4. Preserve the existing Requests instrumentation and `X-Source` attribution;
    resource leases supplement those systems rather than replacing them.
 5. Add coordinator tests and run `npm test`, `npx tsc --noEmit`, and `npm run build`.
+
+The standalone RF-DETR/SAM 3.1 workers follow this control plane too. See
+[Local video analysis](video-analysis.md) for MCP actions, private aggregate
+request journals, measured admission profiles, and renewable versus legacy timed
+lease behavior. The external observation lease reserves only a slot for an
+already-loaded worker; it must never be used to admit new inference.

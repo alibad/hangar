@@ -658,7 +658,7 @@ const server = http.createServer(async (req, res) => {
     // GET /resources — live capacity, modeled usage, leases, and queue.
     if (req.method === "GET" && parts[0] === "resources" && !parts[1]) {
       await reconcileResourceState();
-      return respond(res, 200, await resourceCoordinator.snapshot());
+      return respond(res, 200, { ...await resourceCoordinator.snapshot(), capabilities: { leaseRenewal: true } });
     }
 
     // POST /resources/leases/acquire
@@ -683,6 +683,13 @@ const server = http.createServer(async (req, res) => {
         }
         throw error;
       }
+    }
+
+    // Heartbeats keep long standalone model jobs admitted without permanent locks.
+    if (req.method === "POST" && parts[0] === "resources" && parts[1] === "leases" && parts[3] === "renew") {
+      const body = await readBody(req);
+      const lease = resourceCoordinator.renew(parts[2], body.owner, body.ttlMs);
+      return respond(res, lease ? 200 : 404, lease ? { ok: true, lease } : { error: "Lease missing, expired or owner mismatch" });
     }
 
     // POST /resources/leases/:id/release

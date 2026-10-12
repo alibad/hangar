@@ -156,6 +156,11 @@ class ResourceCoordinator {
 
   async reserveServiceStart(serviceId, owner = "service-manager") {
     if (this.activeServices.has(serviceId)) return { ok: true, reservationId: null, alreadyActive: true };
+    const gpuHolder = [...this.leases.values()].find((lease) => lease.slot === "gpu-heavy");
+    if (gpuHolder && (this.profiles.services[serviceId]?.resident?.vramGb || 0) > 0) {
+      return { ok: false, error: `GPU work is active: ${gpuHolder.workload} (${gpuHolder.owner})`,
+        denial: { kind: "slot", holder: this._publicLease(gpuHolder) } };
+    }
     const duplicate = [...this.startReservations.values()].find((item) => item.serviceId === serviceId);
     if (duplicate) {
       const denial = {
@@ -339,6 +344,13 @@ class ResourceCoordinator {
       if (lease.expiresAt <= now && this.release(lease.id, "expired")) count += 1;
     }
     return count;
+  }
+
+  renew(leaseId, owner, ttlMs = 120000) {
+    const lease = this.leases.get(leaseId);
+    if (!lease || lease.owner !== owner || lease.expiresAt <= this.clock()) return null;
+    lease.expiresAt = this.clock() + Math.min(300000, Math.max(1000, Number(ttlMs) || 120000));
+    return this._publicLease(lease);
   }
 
   _publicLease(lease) {

@@ -5,6 +5,8 @@
     "vramSafetyGb": 0.02
   },
   "services": {
+    "football-video-sam31": { "model": "local-football-sam31-video" },
+    "football-video-rfdetr": { "model": "local-football-rfdetr-video" },
     "vllm": { "model": "local-coder" },
     "vllm-small": { "model": "local-small" },
     "bonsai": { "model": "local-bonsai-2" },
@@ -21,6 +23,9 @@
     "ollama": { "model": "local-ollama" }
   },
   "workloads": {
+    "football-video-sam31": { "service": "football-video-sam31", "model": "local-football-sam31-video", "slot": "gpu-heavy", "ttlMs": 120000 },
+    "football-video-rfdetr": { "service": "football-video-rfdetr", "model": "local-football-rfdetr-video", "slot": "gpu-heavy", "ttlMs": 120000 },
+    "football-video-observe": { "service": "football-video-existing", "slot": "gpu-heavy", "ttlMs": 120000 },
     "flux2-klein-generate": { "service": "comfyui", "model": "local-flux2-klein-4b", "slot": "gpu-heavy", "aliases": ["flux2-klein-4b"], "ttlMs": 900000 },
     "hidream-o1-generate": { "service": "comfyui", "model": "local-hidream-o1-dev", "slot": "gpu-heavy", "aliases": ["hidream-o1-dev"], "ttlMs": 900000 },
     "z-image-generate": { "service": "comfyui", "model": "local-z-image-turbo", "slot": "gpu-heavy", "aliases": ["z-image-turbo"], "ttlMs": 900000 },

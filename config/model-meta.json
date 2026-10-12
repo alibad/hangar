@@ -1,4 +1,28 @@
 {
+  "local-football-sam31-video": {
+    "checkpoint": "facebook/sam3.1/sam3.1_multiplex.pt",
+    "service": "football-video-sam31",
+    "footprint": {
+      "ramGb": 16,
+      "vramGb": 26,
+      "idleRamGb": 0,
+      "idleVramGb": 0,
+      "kind": "peak",
+      "basis": "Local RTX 5090, 2026-10-12: pilot allocated 21.66 GB/reserved 25.16 GB (decimal); resumed worker peak working set 9.86 GB decimal. Admission allowances are 26 GiB VRAM and 16 GiB RAM, with headroom. Official SAM3.1, two independent prompts, 30-sample windows, 75% CUDA allocation cap; not the existing image SAM service profile."
+    }
+  },
+  "local-football-rfdetr-video": {
+    "checkpoint": "rf-detr-medium.pth",
+    "service": "football-video-rfdetr",
+    "footprint": {
+      "ramGb": 16,
+      "vramGb": 2,
+      "idleRamGb": 0,
+      "idleVramGb": 0,
+      "kind": "peak",
+      "basis": "Full 1080p tiled recording, 2026-10-12: 0.48 GB allocated and 0.57 GB reserved decimal. Conservative 2 GiB VRAM / 16 GiB RAM admission allowances; RAM is an allowance, not a measured peak."
+    }
+  },
   "local-flux2-klein-4b": {
     "checkpoint": "black-forest-labs/FLUX.2-klein-4B",
     "license": "Apache-2.0",

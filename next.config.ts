@@ -25,6 +25,8 @@ function detectHostId(): string {
 }
 
 const nextConfig: NextConfig = {
+  // Verify a production build without replacing a live console preview cache.
+  distDir: process.env.HANGAR_BUILD_DIR || ".next",
   env: {
     NEXT_PUBLIC_HOST_ID: detectHostId(),
   },
