@@ -76,7 +76,7 @@ function leastUsed<T extends Option>(options: T[], used: (string | undefined)[],
  * conversation's other speakers get Kokoro voices of their own.
  */
 export function pickStack(
-  story: { format?: FormatId; characters: StoryCharacter[]; shots: Pick<StoryShot, "speaker">[] },
+  story: { format?: FormatId | "briefing"; characters: StoryCharacter[]; shots: Pick<StoryShot, "speaker">[] },
   recent: StoryStack[],
   opts: { video?: string[]; quality?: boolean } = {},
   rand = Math.random,
@@ -124,6 +124,45 @@ export function pickStack(
   }
   stack.voices = voices;
   return stack;
+}
+
+/**
+ * The stack for a commission (a ready-made screenplay from another project):
+ * the video model asked for — Wan 2.2 14B unless it says otherwise — when the
+ * Video Lab's fit check says it would start now, else Wan 2.2 5B, and the
+ * stack says why (`fallback`); the narrator asked for (a key above, or any
+ * "kokoro-<voice>"), Chatterbox's built-in voice by default (Montage checks it
+ * with Whisper and falls back to Kokoro); the commission's own music brief;
+ * Lanczos (no GPU finishing to wait for).
+ */
+export function commissionStack(
+  pref: { video?: string; narrator?: string; pictures?: string },
+  room: { keys: string[]; skipped: string[] },
+): StoryStack {
+  const options = [...VIDEO_OPTIONS, QUALITY_VIDEO];
+  const want = options.find((v) => v.key === (pref.video || "wan14b"));
+  if (!want) throw new Error(`Unknown video model "${pref.video}" (one of ${options.map((v) => v.key).join(", ")})`);
+  // The full-quality slot is Wan 2.2 14B too: it fits when that does.
+  const fits = room.keys.includes(want.key === QUALITY_VIDEO.key ? "wan14b" : want.key);
+  const video = fits ? want : VIDEO_OPTIONS.find((v) => v.key === "wan5b")!;
+  const short = room.skipped.find((x) => x.startsWith(VIDEO_OPTIONS.find((v) => v.videoModel === want.videoModel)?.label ?? want.label));
+  const fallback = fits ? undefined : `${want.label} was asked for but does not fit right now${short ? ` (${short.replace(/^[^(]*\(/, "").replace(/\)$/, "")})` : ""}; ${video.label} makes the clips`;
+  const kokoro = /^kokoro-([a-z]{2}_[a-z]+)$/.exec(pref.narrator ?? "");
+  const lead: VoiceOption | undefined = pref.narrator
+    ? VOICE_OPTIONS.find((o) => o.key === pref.narrator) ??
+      (kokoro ? { key: pref.narrator, label: `Kokoro (${kokoro[1]})`, engine: "kokoro", voice: kokoro[1], gender: /^.m_/.test(kokoro[1]) ? "male" : "female", pair: "" } : undefined)
+    : VOICE_OPTIONS.find((o) => o.key === "chatterbox");
+  if (!lead) throw new Error(`Unknown narrator "${pref.narrator}" (one of ${VOICE_OPTIONS.map((o) => o.key).join(", ")}, or kokoro-<voice>)`);
+  return {
+    pickedAt: new Date().toISOString(),
+    video: { key: video.key, label: video.label, videoModel: video.videoModel, tier: "high", ...("steps" in video && video.steps ? { steps: video.steps } : {}) },
+    ...(pref.pictures ? { pictures: pref.pictures } : {}),
+    voice: { key: lead.key, label: lead.label },
+    voices: { Narrator: { key: lead.key, engine: lead.engine, voice: lead.voice, label: lead.label } },
+    score: { key: "brief", label: "the commission's own brief" },
+    finish: { key: "lanczos", label: "Lanczos upscale" },
+    ...(fallback ? { fallback } : {}),
+  };
 }
 
 /** Every option of every part, for the lab and Montage's comparison. */

@@ -50,6 +50,9 @@ export async function GET() {
  * { action: "settings", patch }                 change settings
  * { action: "review", id, verdict, reason? }    approve / reject a finished clip
  * { action: "discard", id }                     remove an item (cancels its render)
+ * { action: "commission", story }               a ready-made screenplay from another project (see
+ *                                               CommissionRequest in lib/forge/story.ts); made as soon
+ *                                               as the GPU is free; returns the story
  */
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
@@ -61,6 +64,11 @@ export async function POST(req: NextRequest) {
   };
   try {
     switch (body.action) {
+      case "commission": {
+        const story = (body as { story?: unknown }).story;
+        if (!story || typeof story !== "object") return NextResponse.json({ error: "Pass story (title, externalId, shots…)" }, { status: 400 });
+        return NextResponse.json(await forge.commission(story));
+      }
       case "bakeoff": {
         const b = body as { storyId?: string; variants?: Parameters<typeof forge.createBakeoff>[1] };
         if (!b.storyId) return NextResponse.json({ error: "Pass storyId" }, { status: 400 });

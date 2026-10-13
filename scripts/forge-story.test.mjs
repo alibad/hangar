@@ -183,3 +183,63 @@ test("the editor's lines replace only the lines it changed, and a wrong-length r
   assert.deepEqual(out.fixes, ["line 2: said what glowed"]);
   assert.equal(applyEdits(story, { shots: [{ narration: "Only one.", fix: "" }] }).raw, story);
 });
+
+import { commissionClipSeconds, shapeCommission } from "../src/lib/forge/story.ts";
+import { commissionStack } from "../src/lib/forge/stack.ts";
+
+const briefing = {
+  title: "A Road Through the Silence",
+  eyebrow: "The Lifeline · Chapter 1",
+  externalId: "jizan-corridor",
+  source: "rtsai",
+  collection: "RTS AI · Lines of Hope",
+  format: "briefing",
+  music: "tense briefing underscore",
+  shots: [
+    { id: "dawn-radar", line: "Oh five forty. The Jizan coastal radar has gone silent.", picture: "Dawn over the Red Sea coast.", motion: "The camera pushes in slowly.", still: "D:/rtsai-ea-build/briefings/jizan-corridor/dawn-radar.png" },
+    { id: "port", line: "The convoy must arrive.", picture: "A Red Sea port at sunrise.", still: String.raw`D:\rtsai-ea-build\briefings\jizan-corridor\port.png` },
+  ],
+};
+
+test("a commission keeps the game's lines and frames, and every clip is long enough for its line", () => {
+  const c = shapeCommission(briefing);
+  assert.equal(c.format, "briefing");
+  assert.equal(c.shots[0].narration, briefing.shots[0].line);
+  assert.equal(c.shots[0].ref, "dawn-radar");
+  assert.equal(c.shots[1].still, briefing.shots[1].still);
+  assert.match(c.shots[1].motion, /push-in/i, "a missing motion becomes a slow push-in");
+  assert.equal(c.logline, briefing.shots[0].line, "no logline: the first line stands in");
+  // 10 words in two sentences at ~2.5 words/s, the breaths and the fade from black: 7 s; the last shot also holds the title card.
+  assert.equal(c.shots[0].seconds, 7);
+  assert.equal(c.shots[1].seconds, 8);
+  assert.equal(commissionClipSeconds("A destroyed enemy base is not the measure of success."), 6);
+  assert.equal(commissionClipSeconds("Commander."), 5, "never under Wan's 5 s");
+  assert.equal(commissionClipSeconds("word ".repeat(40)), 8, "never over 8 s; Montage stretches the rest smoothly");
+});
+
+test("a commission without a title, an externalId or lines, or with a relative still, is refused", () => {
+  assert.throws(() => shapeCommission({ ...briefing, title: "" }), /title/);
+  assert.throws(() => shapeCommission({ ...briefing, externalId: "../x" }), /externalId/);
+  assert.throws(() => shapeCommission({ ...briefing, shots: [] }), /1 to 30 shots/);
+  assert.throws(() => shapeCommission({ ...briefing, shots: [{ line: "", picture: "x" }] }), /no line/);
+  assert.throws(() => shapeCommission({ ...briefing, shots: [{ line: "x", picture: "y", still: "dawn.png" }] }), /absolute path/);
+  assert.throws(() => shapeCommission({ ...briefing, format: "tale" }), /format/);
+});
+
+test("a commission's stack: Wan 2.2 14B when it fits, else 5B and why; the narrator asked for", () => {
+  const fits = commissionStack({}, { keys: ["wan5b", "wan14b", "hunyuan"], skipped: [] });
+  assert.equal(fits.video.key, "wan14b");
+  assert.equal(fits.video.tier, "high");
+  assert.equal(fits.fallback, undefined);
+  assert.deepEqual(Object.keys(fits.voices), ["Narrator"]);
+  assert.equal(fits.voices.Narrator.engine, "chatterbox", "Chatterbox's built-in voice by default");
+  const tight = commissionStack({ narrator: "kokoro-am_michael", pictures: "qwen-image-2.1" }, { keys: ["wan5b"], skipped: ["Wan 2.2 14B (short 17.5 GB RAM)", "LTX-2.5 (short 17.5 GB RAM)"] });
+  assert.equal(tight.video.key, "wan5b");
+  assert.match(tight.fallback, /Wan 2.2 14B was asked for but does not fit right now \(short 17.5 GB RAM\); Wan 2.2 5B makes the clips/);
+  assert.equal(tight.voices.Narrator.voice, "am_michael");
+  assert.equal(tight.pictures, "qwen-image-2.1");
+  assert.equal(commissionStack({ narrator: "kokoro-bm_lewis" }, { keys: ["wan5b"], skipped: [] }).voices.Narrator.voice, "bm_lewis");
+  assert.equal(commissionStack({ video: "wan14b-full" }, { keys: ["wan5b", "wan14b"], skipped: [] }).video.steps, 20);
+  assert.throws(() => commissionStack({ video: "sora" }, { keys: [], skipped: [] }), /Unknown video model/);
+  assert.throws(() => commissionStack({ narrator: "someone" }, { keys: [], skipped: [] }), /Unknown narrator/);
+});

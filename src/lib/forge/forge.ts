@@ -7,8 +7,8 @@ import { freeComfyIfIdle, videoQueue, videoRoot } from "../video-jobs";
 import { listenAll, SEARXNG_URL, type SignalSource } from "./sources";
 import { writeBrief, writeSecondShot, type AgentTrace, type ChannelSpec, type ReviewMemory } from "./agent";
 import { nextWindowStart, shortlist, STILL_SUFFIX, windowMinutesLeft } from "./rules";
-import { FORMATS, pickFormat, pickLook, pickSeed, shotStillPrompt, storyHasHumans, STORY_AVOID, STORY_MODEL, STORY_STILL_SUFFIX, writeStory, type Story } from "./story";
-import { pickStack, QUALITY_VIDEO, VIDEO_OPTIONS } from "./stack";
+import { FORMATS, pickFormat, pickLook, pickSeed, shapeCommission, shotStillPrompt, storyHasHumans, STORY_AVOID, STORY_MODEL, STORY_STILL_SUFFIX, writeStory, type Story } from "./story";
+import { commissionStack, pickStack, QUALITY_VIDEO, VIDEO_OPTIONS } from "./stack";
 import { generateWithReferences, isHostedImageModel } from "@/lib/image-refs";
 import { recordLabRun } from "../lab-runs";
 
@@ -234,7 +234,14 @@ export type ForgeItem = {
   /** Candidates the listen started from, and what was filtered out before the model saw them. */
   listen: { heardCount: number; shortlisted: number; dropped: { title: string; why: string }[]; problems: string[] };
   agent: AgentTrace;
-  still?: { file: string; latencyMs: number; model: string };
+  /** `provided`: the commission's own first frame (its original path); never redrawn. */
+  still?: { file: string; latencyMs: number; model: string; provided?: string };
+  /**
+   * A commissioned shot: made as soon as the GPU is free, inside the window or
+   * not, and even while the automatic loop is paused (`enabled: false`) — it is
+   * an explicit order. FORGE_DISABLED still stops it.
+   */
+  commission?: boolean;
   video?: { jobId: string; model: string; seconds: number; tier: string; output?: string; latencyMs?: number; peakVramGb?: number };
   review?: { verdict: "approved" | "rejected"; reason?: string; at: string };
   error?: string;
@@ -400,6 +407,8 @@ export type ForgeRuntime = {
   /** Last time a keep-off service was stopped again, per service. */
   keptOffAt?: Record<string, string>;
   lastRepauseAt?: string;
+  /** Set when a commission outside the window started ComfyUI, so only it is stopped again after. Persisted. */
+  startedComfy?: boolean;
 };
 
 /** Minutes left in the nightly window or the one-off extra window, whichever is open. */
@@ -581,7 +590,7 @@ async function manager(action: "start" | "stop", id: string): Promise<string | n
  * story night it had been stopped, and every still failed with "fetch failed"
  * in a second. Start it through the manager (the coordinator still decides).
  */
-async function ensureComfy(): Promise<string | null> {
+async function ensureComfy(onStarted?: () => void): Promise<string | null> {
   const alive = async () => {
     try {
       return (await fetch("http://127.0.0.1:8188/system_stats", { signal: AbortSignal.timeout(4000) })).ok;
@@ -594,6 +603,7 @@ async function ensureComfy(): Promise<string | null> {
   if (!svc || svc.status !== "running") {
     const err = await manager("start", "comfyui");
     if (err) return `ComfyUI is stopped and could not be started: ${err}`;
+    onStarted?.();
   }
   for (let i = 0; i < 45; i++) {
     if (await alive()) return null;
@@ -667,7 +677,13 @@ class Forge {
   private stopped = false;
   private fast = false;
   private listeningNow = false;
+  /** A commission outside the window is being advanced (so ComfyUI started for it is stopped after). */
+  private commissioning = false;
   runtime: ForgeRuntime = {};
+
+  private noteComfyStarted = () => {
+    if (this.commissioning) this.runtime.startedComfy = true;
+  };
 
   constructor() {
     this.schedule(5_000);
@@ -708,7 +724,10 @@ class Forge {
         // Outside the window nothing new starts, but a clip already in the video
         // queue is followed to the end — and vllm-small is only started again
         // once it is, because the coordinator would refuse it mid-render anyway.
+        // Commissions are the exception: they are made as soon as the GPU is free.
+        const commissions = await this.pendingCommissions();
         for (const item of await itemsWithStatus("still", "rendering")) {
+          if (item.commission) continue; // followed by commissionTick, window or not
           if (item.status === "still") {
             item.status = "brief";
             note(item, "Window closed before the first frame was made; back to tonight's list");
@@ -729,12 +748,16 @@ class Forge {
           }
           await this.advance(item, s);
         }
-        if (!(await itemsWithStatus("rendering")).length) await this.leaveWindow("window closed");
-        if (s.enabled && s.mode === "stories") {
-          const next = new Date(nextWindowStart(s.window)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-          this.runtime.now = `Stories: the next film is written and made in the next window (${next}).`;
-        } else if (s.enabled) await this.maybeListen(s);
-        else this.runtime.now = "Paused — not listening or rendering.";
+        if (commissions.length) await this.commissionTick(s);
+        else {
+          if (this.runtime.startedComfy) await this.stopComfyWeStarted();
+          if (!(await itemsWithStatus("rendering")).length) await this.leaveWindow("window closed");
+          if (s.enabled && s.mode === "stories") {
+            const next = new Date(nextWindowStart(s.window)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            this.runtime.now = `Stories: the next film is written and made in the next window (${next}).`;
+          } else if (s.enabled) await this.maybeListen(s);
+          else this.runtime.now = "Paused — not listening or rendering.";
+        }
       }
     } catch (err) {
       this.runtime.now = `Error: ${err instanceof Error ? err.message : err}`;
@@ -856,6 +879,8 @@ class Forge {
   private async windowTick(s: ForgeSettings, minutesLeft: number) {
     // A clip that is already in the video queue finishes whatever the clock says.
     this.fast = true;
+    // In the window ComfyUI is the window's (left running, as always).
+    this.runtime.startedComfy = false;
     await this.keepServicesOff(s);
     const inFlight = await itemsWithStatus("still", "rendering");
     for (const item of inFlight) await this.advance(item, s);
@@ -920,8 +945,10 @@ class Forge {
       this.fast = !quiet;
       return;
     }
+    // A commission goes first, and is not bound to the window's end (it carries on after it).
+    pending.sort((a, b) => Number(!!b.commission) - Number(!!a.commission));
     const perClip = await this.expectedRenderMin(s);
-    if (minutesLeft < perClip + 5) {
+    if (minutesLeft < perClip + 5 && !pending[0].commission) {
       await this.leaveWindow("not enough time left for another clip");
       this.runtime.now = `${pending.length} brief(s) left for tomorrow night — a clip takes ~${Math.round(perClip)} min and the window closes in ${minutesLeft} min.`;
       return;
@@ -1018,7 +1045,8 @@ class Forge {
     }
     if (!(await this.holdCard(s, "writing a story film, then rendering its shots"))) return false;
     await freeComfyIfIdle();
-    const recent = await listStories(60);
+    // Commissions are not the forge's own films: they never steer its rotation.
+    const recent = (await listStories(60)).filter((r) => !r.commissioned);
     const format = pickFormat(recent.map((r) => r.format ?? "tale"));
     const seed = pickSeed(recent.map((r) => r.seed), recent[0]?.kind, format);
     const look = pickLook(recent.map((r) => r.look), format);
@@ -1156,7 +1184,7 @@ class Forge {
   /** Move one item one step: brief → still → rendering → review. */
   private async advance(item: ForgeItem, s: ForgeSettings) {
     if ((item.status === "brief" || item.status === "still") && !item.still) {
-      const comfyProblem = await ensureComfy();
+      const comfyProblem = await ensureComfy(this.noteComfyStarted);
       if (comfyProblem) {
         this.runtime.now = `Waiting for ComfyUI before "${item.topic}": ${comfyProblem}`;
         return;
@@ -1309,6 +1337,15 @@ class Forge {
       await freeComfyIfIdle();
     }
     if ((item.status === "brief" || item.status === "still") && item.still) {
+      // A commission's provided first frame skips the still step, where ComfyUI is
+      // otherwise started; the video queue only waits for it, never starts it.
+      if (item.commission) {
+        const comfyProblem = await ensureComfy(this.noteComfyStarted);
+        if (comfyProblem) {
+          this.runtime.now = `Waiting for ComfyUI before "${item.topic}": ${comfyProblem}`;
+          return;
+        }
+      }
       const vm = item.render?.videoModel ?? s.videoModel;
       const tier = item.render?.tier ?? s.tier;
       const secs = item.render?.seconds ?? s.seconds;
@@ -1353,12 +1390,16 @@ class Forge {
             // king walked up to a television in the first story night); like a badly
             // distorted clip, a film cannot use it and cannot skip it: draw it again.
             const stray = !!item.story && item.story.humans === false && check.people;
-            if (item.story && (check.artifacts >= 3 || check.text || check.logo || stray) && (item.retries ?? 0) < 1) {
+            // A commission is checked for artifacts only: its own frames may carry a
+            // map's or a drone feed's markings on purpose.
+            const redo = item.commission ? check.artifacts >= 3 : check.artifacts >= 3 || check.text || check.logo || stray;
+            if (item.story && redo && (item.retries ?? 0) < 1) {
               item.retries = (item.retries ?? 0) + 1;
               item.status = "brief";
-              item.still = undefined;
+              // A provided first frame is the commission's own: animated again, never redrawn.
+              if (!item.still?.provided) item.still = undefined;
               item.video = undefined;
-              note(item, `${check.artifacts >= 3 ? "Severely distorted" : stray ? "A person appeared in a story that has none" : "Writing or a logo appeared"} (${check.notes}); drawing and animating this shot once more`);
+              note(item, `${check.artifacts >= 3 ? "Severely distorted" : stray ? "A person appeared in a story that has none" : "Writing or a logo appeared"} (${check.notes}); ${item.still ? "animating this shot once more from the same first frame" : "drawing and animating this shot once more"}`);
             }
           }
         }
@@ -1383,7 +1424,8 @@ class Forge {
             for (const other of await itemsWithStatus("brief", "still", "rendering")) {
               if (other.story?.id !== item.story.id || !other.render) continue;
               if (other.id !== item.id && other.status === "rendering" && other.video) await videoQueue.cancel(other.video.jobId);
-              other.render = undefined;
+              // A commission keeps its clip lengths (each long enough for its line) and its 720p.
+              other.render = other.commission && other.render ? { videoModel: s.videoModel, tier: "high", ...(other.render.seconds ? { seconds: other.render.seconds } : {}) } : undefined;
               other.waitingSince = undefined;
               if (other.status === "rendering") {
                 other.status = "still";
@@ -1449,22 +1491,208 @@ class Forge {
     }
   }
 
+  /** Start vllm-small again if WE stopped it. False while it cannot be started yet (retried next tick). */
+  private async restartSmallModel(why: string): Promise<boolean> {
+    if (!this.runtime.pausedVllmSmall) return true;
+    this.runtime.now = `Starting vllm-small again (${why})…`;
+    const err = await manager("start", "vllm-small");
+    if (err) {
+      this.runtime.now = `Could not restart vllm-small: ${err} — will retry.`;
+      return false;
+    }
+    this.runtime.pausedVllmSmall = false;
+    await writeState("runtime", this.runtime);
+    return true;
+  }
+
   /** Give the box back: start vllm-small if WE stopped it, and drop our claim. */
   private async leaveWindow(why: string) {
-    if (this.runtime.pausedVllmSmall) {
-      this.runtime.now = `Starting vllm-small again (${why})…`;
-      const err = await manager("start", "vllm-small");
-      if (err) {
-        this.runtime.now = `Could not restart vllm-small: ${err} — will retry.`;
-        return;
-      }
-      this.runtime.pausedVllmSmall = false;
-      await writeState("runtime", this.runtime);
-    }
+    if (!(await this.restartSmallModel(why))) return;
     if (this.runtime.claimHeld || (await readClaim()).startsWith(CLAIM_TAG)) {
       await dropClaim();
       this.runtime.claimHeld = false;
     }
+  }
+
+  // ── commissions ──
+
+  private async pendingCommissions(): Promise<ForgeItem[]> {
+    return (await itemsWithStatus("brief", "still", "rendering")).filter((i) => i.commission);
+  }
+
+  /**
+   * Outside the window (or while the automatic loop is paused), make the
+   * commissioned shots as soon as the GPU is free: one clip at a time under
+   * the shared claim — written only into an empty file and re-read, never
+   * taken from another session — giving way between two clips to a short job
+   * that asks (gpu-yield.txt, as Montage does for its narration and score).
+   * Nothing is paused or stopped for it; ComfyUI, if it had to be started, is
+   * stopped again when the commissions are done. vllm-small, paused for the
+   * window, is started again as after any window.
+   */
+  private async commissionTick(s: ForgeSettings) {
+    this.fast = true;
+    if (this.runtime.pausedVllmSmall && !(await itemsWithStatus("rendering")).length) await this.restartSmallModel("window closed");
+    // A clip already in the video queue is followed (polling needs no claim; its grade runs inside the turn it started in).
+    for (const item of (await itemsWithStatus("rendering")).filter((i) => i.commission)) await this.advance(item, s);
+    if ((await itemsWithStatus("rendering")).some((i) => i.commission)) return;
+    const pending = (await itemsWithStatus("still", "brief")).filter((i) => i.commission);
+    const next = pending.find((i) => i.status === "still") ?? pending[0];
+    if (!next) return;
+    const title = next.story?.title ?? next.topic;
+    const yieldTo = await readYieldRequest();
+    if (yieldTo) {
+      if (this.runtime.claimHeld || (await readClaim()).startsWith(CLAIM_TAG)) {
+        await dropClaim();
+        this.runtime.claimHeld = false;
+      }
+      this.runtime.now = `Giving the GPU to ${yieldTo.slice(0, 80)} for a moment; the commission "${title}" continues after.`;
+      return;
+    }
+    const minutes = Math.ceil(pending.length * 4);
+    const claim = await takeClaim(`commission "${title}": ${pending.length} clip${pending.length > 1 ? "s" : ""} left, ~${minutes} min; nothing paused`);
+    if (!claim.ok) {
+      this.runtime.waitingFor = claim.holder;
+      this.runtime.now = `Commission "${title}" (${pending.length} clip${pending.length > 1 ? "s" : ""} left) is waiting for the GPU: another session holds it (${claim.holder.slice(0, 120)}).`;
+      this.fast = false;
+      return;
+    }
+    this.runtime.claimHeld = true;
+    this.runtime.waitingFor = undefined;
+    this.commissioning = true;
+    try {
+      await this.advance(next, s);
+    } finally {
+      this.commissioning = false;
+    }
+    if (next.status === "rendering") this.runtime.now = `Commission "${title}": rendering shot ${next.story ? next.story.index + 1 : "?"} of ${next.story?.count ?? "?"} (${pending.length - 1} more after it).`;
+  }
+
+  /**
+   * ComfyUI that a commission started is stopped once nothing is queued in it,
+   * and only while the card is ours or free: another session holding the
+   * claim may be using it.
+   */
+  private async stopComfyWeStarted() {
+    const holder = await readClaim();
+    if (holder && !holder.startsWith(CLAIM_TAG)) {
+      this.runtime.startedComfy = false;
+      return;
+    }
+    try {
+      const q = (await fetch("http://127.0.0.1:8188/queue", { signal: AbortSignal.timeout(4000) }).then((r) => r.json())) as { queue_running?: unknown[]; queue_pending?: unknown[] };
+      if (q.queue_running?.length || q.queue_pending?.length) return;
+    } catch {
+      // not answering: nothing to wait for
+    }
+    const err = await manager("stop", "comfyui");
+    console.log(`[forge] commissions done; ${err ? `stopping ComfyUI (started for them) failed: ${err}` : "stopped ComfyUI, which they had started"}`);
+    if (!err) this.runtime.startedComfy = false;
+  }
+
+  /**
+   * A commission: another project sends a ready-made screenplay (a game's
+   * mission briefing). No writer, no viewer test, no continuity pass; a
+   * provided first frame skips the still model (the clip check still runs).
+   * The video model is the one asked for (Wan 2.2 14B by default) if the fit
+   * check says it would start now, else Wan 2.2 5B. Its shots are made as soon
+   * as the GPU is free (commissionTick), and Montage cuts the film.
+   *
+   * Commissioning the same externalId again replaces the earlier story: its
+   * unfinished shots are dropped and it is marked superseded. Montage keeps its
+   * film, and marks it superseded once the new one is cut.
+   */
+  async commission(raw: unknown): Promise<{ story: Story; shots: number; superseded: string[] }> {
+    const c = shapeCommission(raw);
+    for (const [i, sh] of c.shots.entries()) {
+      if (sh.still && !(await fs.stat(sh.still).then((st) => st.isFile(), () => false))) throw new Error(`Shot ${i + 1}: no file at ${sh.still}`);
+    }
+    const s = await getSettings();
+    const room = await videoModelsThatFit();
+    const stack = commissionStack(c.stack, room);
+    const id = `story-${Date.now().toString(36)}`;
+    const at = stamp();
+    const stills = c.shots.filter((x) => x.still).length;
+    stack.pictures ??= stills === c.shots.length ? "provided" : s.stillModel;
+    const story: Story = {
+      id,
+      createdAt: at,
+      seed: `commission:${c.source ?? "unknown"}:${c.externalId}`,
+      kind: "original",
+      format: c.format,
+      title: c.title,
+      logline: c.logline,
+      lesson: "",
+      look: c.look,
+      score: c.music,
+      characters: [],
+      shots: c.shots,
+      model: "commissioned",
+      latencyMs: 0,
+      notes: [
+        `Commissioned${c.source ? ` by ${c.source}` : ""} (${c.externalId}): a ready-made screenplay of ${c.shots.length} shots — no writer, viewer test or continuity pass; ${stills ? `${stills} first frame${stills > 1 ? "s" : ""} provided` : "first frames drawn here"}`,
+        `Motion by ${stack.video.label}${stack.fallback ? ` — ${stack.fallback}` : ""}; clips of ${c.shots.map((x) => x.seconds).join(", ")} s, each long enough for its line`,
+      ],
+      stack,
+      commissioned: { at, stills },
+      ...(c.eyebrow ? { eyebrow: c.eyebrow } : {}),
+      ...(c.collection ? { collection: c.collection } : {}),
+      ...(c.source ? { source: c.source } : {}),
+      externalId: c.externalId,
+    };
+
+    const superseded: string[] = [];
+    for (const old of (await listStories(1000)).filter((x) => x.externalId === c.externalId && (x.source ?? "") === (c.source ?? "") && !x.supersededBy)) {
+      old.supersededBy = id;
+      old.supersededAt = at;
+      old.notes.push(`Superseded by ${id}: commissioned again`);
+      await saveStory(old);
+      // Its unfinished shots are dropped (a render in the queue is cancelled); finished ones stay with its film.
+      for (const it of await itemsWithStatus("brief", "still", "rendering")) if (it.story?.id === old.id) await this.discard(it.id);
+      superseded.push(old.id);
+    }
+
+    await saveStory(story);
+    const dir = path.join(videoRoot(), "sources");
+    await fs.mkdir(dir, { recursive: true });
+    const base = Date.now();
+    for (const [i, shot] of c.shots.entries()) {
+      let still: ForgeItem["still"];
+      if (shot.still) {
+        const file = `commission-${id}-${String(i + 1).padStart(2, "0")}${path.extname(shot.still).toLowerCase()}`;
+        await fs.copyFile(shot.still, path.join(dir, file));
+        still = { file: `sources/${file}`, latencyMs: 0, model: stack.pictures, provided: shot.still };
+      }
+      const item: ForgeItem = {
+        id: randomUUID().slice(0, 12),
+        createdAt: new Date(base + i).toISOString(),
+        status: "brief",
+        channel: "stories",
+        topic: `${story.title} — shot ${i + 1}`,
+        whyNow: shot.narration,
+        heard: `commission "${c.externalId}"${c.source ? ` from ${c.source}` : ""}`,
+        sources: [],
+        stillPrompt: shotStillPrompt(story, shot),
+        motionPrompt: shot.motion,
+        listen: { heardCount: 0, shortlisted: 0, dropped: [], problems: [] },
+        agent: { model: "commissioned", turns: 0, calls: [], latencyMs: 0, promptTokens: 0, completionTokens: 0 },
+        group: id,
+        shot: i + 1,
+        story: { id, index: i, count: c.shots.length, title: story.title, narration: shot.narration, cast: [], pictures: stack.pictures },
+        commission: true,
+        ...(still ? { still } : {}),
+        render: { videoModel: stack.video.videoModel, tier: "high", ...(shot.seconds ? { seconds: shot.seconds } : {}), ...(stack.video.steps ? { steps: stack.video.steps } : {}) },
+        timeline: [
+          {
+            at: stamp(),
+            what: `Shot ${i + 1} of ${c.shots.length} of the commission "${story.title}" (${c.externalId}); ${still ? "first frame provided" : "first frame to be drawn"}; a ${shot.seconds ?? s.seconds} s clip by ${stack.video.label}`,
+          },
+        ],
+      };
+      await saveItem(item);
+    }
+    this.kick();
+    return { story, shots: c.shots.length, superseded };
   }
 
   /** Forget "nothing fresh until …" and look again now — trends move, and a fix may have widened what passes. */
@@ -1531,13 +1759,14 @@ class Forge {
     return b;
   }
 
-  /** Make one finished shot again from a fresh first frame (keeps its place in the film). */
+  /** Make one finished shot again from a fresh first frame — a commission keeps its own (keeps its place in the film). */
   async redoShot(id: string, why: string): Promise<ForgeItem> {
     const item = await getItem(id);
     if (!item) throw new Error("No such item");
     if (["brief", "still", "rendering"].includes(item.status)) throw new Error("It is already being made");
     item.status = "brief";
-    item.still = undefined;
+    // A commission's provided first frame is kept: only the clip is made again.
+    if (!item.still?.provided) item.still = undefined;
     item.video = undefined;
     item.check = undefined;
     item.error = undefined;
@@ -1551,10 +1780,12 @@ class Forge {
   /** Put a story's failed shots back on the list (keeps their place in the film). */
   async requeueFailedShots(storyId?: string): Promise<number> {
     let n = 0;
+    // A superseded commission's shots stay as they are: a newer story replaced it.
+    const superseded = new Set((await listStories(1000)).filter((x) => x.supersededBy).map((x) => x.id));
     for (const item of await itemsWithStatus("failed")) {
-      if (!item.story || (storyId && item.story.id !== storyId)) continue;
+      if (!item.story || (storyId && item.story.id !== storyId) || superseded.has(item.story.id)) continue;
       item.status = "brief";
-      item.still = undefined;
+      if (!item.still?.provided) item.still = undefined;
       item.video = undefined;
       item.error = undefined;
       item.retries = 0;

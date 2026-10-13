@@ -35,7 +35,10 @@ const FORMAT: Record<string, string> = {
   documentary: "Documentary",
   thought: "Thought experiment",
   micro: "Very short",
+  briefing: "Briefing",
 };
+/** What a story is: a commission says who sent it, a written one its kind of tale. */
+const kindOf = (st: Story) => (st.commissioned ? `commissioned${st.source ? ` by ${st.source}` : ""}${st.externalId ? ` (${st.externalId})` : ""}${st.supersededBy ? " · superseded" : ""}` : KIND[st.kind] ?? st.kind);
 
 const fileUrl = (rel: string) => `/api/video/file?path=${encodeURIComponent(rel)}`;
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -311,7 +314,7 @@ function StoryPoster({ st, shots, onOpen }: { st: Story; shots: ForgeItem[]; onO
   const picks = [0, 0.33, 0.66, 1].map((p) => Math.round(p * (st.shots.length - 1)));
   const frames = picks.map((i) => byIdx(i)?.still?.file ?? null);
   const hoverClip = shots.filter((i) => i.video?.output).sort((a, b) => a.story!.index - b.story!.index)[Math.floor(done / 2)]?.video?.output;
-  const label = `${st.format ? `${FORMAT[st.format] ?? st.format} · ` : ""}${KIND[st.kind] ?? st.kind}`;
+  const label = `${st.format ? `${FORMAT[st.format] ?? st.format} · ` : ""}${kindOf(st)}`;
   const pct = Math.round((done / st.shots.length) * 100);
   return (
     <button
@@ -377,14 +380,16 @@ function StoryDetail({ st, items, onRequeue, busy }: { st: Story; items: ForgeIt
   return (
     <div className="space-y-4">
       <div className="grid gap-3 text-sm sm:grid-cols-[2fr_3fr]">
-        <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-3">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-orange-300">The lesson</p>
-          <p className="mt-1 font-serif text-lg leading-snug text-gray-100">{st.lesson}</p>
-        </div>
+        {st.lesson && (
+          <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-3">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-orange-300">The lesson</p>
+            <p className="mt-1 font-serif text-lg leading-snug text-gray-100">{st.lesson}</p>
+          </div>
+        )}
         <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-3 text-xs text-gray-400">
           <p>
             {st.format ? `${FORMAT[st.format] ?? st.format} · ` : ""}
-            {KIND[st.kind] ?? st.kind} · written by {st.model} in {Math.round(st.latencyMs / 1000)} s from “{st.seed}” · {when(st.createdAt)}
+            {kindOf(st)} · {st.commissioned ? "a ready-made screenplay" : <>written by {st.model} in {Math.round(st.latencyMs / 1000)} s from “{st.seed}”</>} · {when(st.createdAt)}
           </p>
           <p className="mt-1">Look: {st.look}</p>
           <p className="mt-1">Score brief: {st.stack?.score.style ?? st.score}</p>

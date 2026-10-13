@@ -387,6 +387,12 @@ export type StoryShot = {
   motion: string;
   /** The characters in frame (their names). */
   cast?: string[];
+  /** A commission's own name for the shot (the game's shot id). */
+  ref?: string;
+  /** A commission's first frame, provided as an absolute path (no still model). */
+  still?: string;
+  /** A commission's clip length, long enough for its line (written stories use the forge's 5 s). */
+  seconds?: number;
 };
 
 export type StoryCharacter = {
@@ -420,7 +426,8 @@ export type Story = {
   createdAt: string;
   seed: string;
   kind: StoryKind;
-  format?: FormatId;
+  /** How it is told; "briefing" is a commissioned game briefing, never written by the forge. */
+  format?: FormatId | "briefing";
   title: string;
   logline: string;
   lesson: string;
@@ -437,7 +444,131 @@ export type Story = {
   stack?: StoryStack;
   /** The viewer test: how clearly a first-time viewer follows the lines, before and after the editor. */
   clarity?: { score: number; summary: string; before?: number; edits?: string[] };
+  /**
+   * A commission: another project (a game) sent a ready-made screenplay. Not
+   * written, viewer-tested or continuity-read here; made as soon as the GPU is
+   * free (see forge.ts, commissionTick). Montage shelves it under `collection`.
+   */
+  commissioned?: { at: string; stills: number };
+  /** The small gold line above the title ("The Lifeline · Chapter 1"). */
+  eyebrow?: string;
+  /** The shelf it belongs to in Montage ("RTS AI · Lines of Hope"). */
+  collection?: string;
+  /** Who commissioned it ("rtsai"), and their id for it (a mission id). */
+  source?: string;
+  externalId?: string;
+  /** A later commission of the same externalId replaced this one. */
+  supersededBy?: string;
+  supersededAt?: string;
 };
+
+// ── commissions: a ready-made screenplay from another project ──────────────
+
+/** What another project sends: `POST /api/forge {action: "commission", story}`. */
+export type CommissionRequest = {
+  title: string;
+  logline?: string;
+  eyebrow?: string;
+  look?: string;
+  /** The music brief (a caption for ACE-Step). */
+  music?: string;
+  format?: "briefing";
+  collection?: string;
+  source?: string;
+  externalId: string;
+  /** Preferences: "wan14b" (default; used when it fits) or "wan5b"; a narrator key from stack.ts; the model that drew the provided stills. */
+  stack?: { video?: string; narrator?: string; pictures?: string };
+  shots: { id?: string; line: string; picture: string; motion?: string; still?: string }[];
+};
+
+/** Words a narrator reads per second, on average (Montage slows anything over 2.8). */
+const READ_WPS = 2.5;
+
+/**
+ * How long a commissioned shot's clip should be: its line read at a
+ * narrator's pace plus the breaths around it, so Montage need not slow the
+ * clip (a slowed clip repeats frames: judder). The last shot also carries the
+ * title card. Wan 2.2 is trained around 5 s, so 8 s is the most asked for;
+ * Montage stretches a clip that is still short by motion interpolation.
+ */
+export function commissionClipSeconds(line: string, opts: { first?: boolean; last?: boolean } = {}): number {
+  // A narrator pauses between sentences ("Oh five forty. The radar has gone silent.").
+  const sentences = line.split(/[.!?]+\s+/).filter(Boolean).length;
+  const speech = words(line) / READ_WPS + 0.3 * Math.max(0, sentences - 1);
+  // Montage's briefing cut: a breath before and after each line, the first one waits for the fade from black.
+  const need = speech + 2 + (opts.first ? 0.6 : 0) + (opts.last ? 4.5 : 0);
+  return Math.max(5, Math.min(8, Math.ceil(need)));
+}
+
+const SLUG = /^[a-z0-9][a-z0-9._-]{0,80}$/i;
+const IMAGE = /\.(png|jpe?g|webp)$/i;
+const ABSOLUTE = /^([a-z]:[\\/]|\/)/i;
+
+/**
+ * Check and tidy a commission; throws a readable error when it is not a
+ * usable screenplay. Lines are kept as written (they are the game's), only
+ * trimmed; a missing motion becomes a slow push-in.
+ */
+export type ShapedCommission = {
+  title: string;
+  externalId: string;
+  format: "briefing";
+  logline: string;
+  eyebrow?: string;
+  look: string;
+  music: string;
+  collection?: string;
+  source?: string;
+  stack: { video?: string; narrator?: string; pictures?: string };
+  shots: StoryShot[];
+};
+
+export function shapeCommission(raw: unknown): ShapedCommission {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const text = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+  const title = text(r.title, 80).replace(/[.:]$/, "");
+  if (!title) throw new Error("A commission needs a title");
+  const externalId = text(r.externalId, 81);
+  if (!SLUG.test(externalId)) throw new Error("A commission needs an externalId (letters, digits, '.', '_' or '-'), e.g. the mission id");
+  if (r.format != null && r.format !== "briefing") throw new Error(`Unknown commission format "${String(r.format)}" (only "briefing")`);
+  const format = "briefing" as const;
+  const shotsIn = Array.isArray(r.shots) ? (r.shots as Record<string, unknown>[]) : [];
+  if (!shotsIn.length || shotsIn.length > 30) throw new Error("A commission needs 1 to 30 shots");
+  const shots: StoryShot[] = shotsIn.map((s, i) => {
+    const narration = text(s?.line, 400).replace(/[{}]/g, "");
+    const picture = text(s?.picture, 1200);
+    if (!narration) throw new Error(`Shot ${i + 1} has no line`);
+    if (!picture) throw new Error(`Shot ${i + 1} has no picture`);
+    const still = s?.still == null || s.still === "" ? undefined : String(s.still);
+    if (still && (!ABSOLUTE.test(still) || !IMAGE.test(still))) throw new Error(`Shot ${i + 1}: "still" must be an absolute path to a .png, .jpg or .webp`);
+    const ref = text(s?.id, 60) || undefined;
+    return {
+      narration,
+      speaker: "Narrator",
+      picture,
+      motion: text(s?.motion, 600) || "Slow cinematic push-in, gentle natural movement.",
+      cast: [],
+      ...(ref ? { ref } : {}),
+      ...(still ? { still } : {}),
+      seconds: commissionClipSeconds(narration, { first: i === 0, last: i === shotsIn.length - 1 }),
+    };
+  });
+  const st = (r.stack ?? {}) as Record<string, unknown>;
+  const stack = { video: text(st.video, 40) || undefined, narrator: text(st.narrator, 60) || undefined, pictures: text(st.pictures, 60) || undefined };
+  return {
+    title,
+    externalId,
+    format,
+    logline: text(r.logline, 300) || shots[0].narration,
+    eyebrow: text(r.eyebrow, 80) || undefined,
+    look: text(r.look, 600),
+    music: text(r.music, 400) || "tense cinematic underscore, low strings and pulsing synth, slow build, instrumental",
+    collection: text(r.collection, 80) || undefined,
+    source: text(r.source, 40) || undefined,
+    stack,
+    shots,
+  };
+}
 
 const SCHEMA = {
   type: "object",

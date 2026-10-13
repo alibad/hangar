@@ -172,3 +172,29 @@ Ten new films and one re-cut, each a different stack (Montage → "Which tech wo
 - **Wan 2.2 14B / LTX-2.5 never ran**: 1.4–4.2 GB of RAM short all morning (other apps), so the full-quality slot waited.
 - **Sunburst + sheets** kept characters the same across shots in every film; the Qwen3-VL cast check passed nearly every first frame on the first try.
 - Fixed along the way: stained glass as a style (not a window), framing for the 2.39:1 strip, "spin,." in poems, a child's voice (age read from the look), animals kept to their habitat, the claim handed straight back to the forge after Montage's turn, and two other sessions' GPU use coordinated (RTS AI: Gemma at 04:37, TRELLIS at 05:21).
+
+## Commissions: a ready-made screenplay from another project (from 2026-10-13)
+
+The owner's RTS AI game wanted its mission briefings made here instead of by an ffmpeg zoompan (it flickered): the game sends a finished shot list with its own first frames, the forge animates them, Montage cuts the film, and the game exports it. The same films are previewed in Montage as a collection of their own.
+
+`POST /api/forge {action: "commission", story}` (`CommissionRequest` in `src/lib/forge/story.ts`):
+
+| Field | What |
+|---|---|
+| `title`, `logline`, `eyebrow` | the film's title, a sentence about it (the first line when absent), the small gold line above the end title ("The Lifeline · Chapter 1") |
+| `look`, `music` | the visual style (kept with each shot's picture) and the music brief for ACE-Step |
+| `format` | `"briefing"` (the only one so far): Montage cuts it for a game |
+| `collection`, `source`, `externalId` | Montage's shelf ("RTS AI · Lines of Hope"), who sent it ("rtsai"), their id for it (the mission id) |
+| `stack` | optional: `video` (`wan14b` default, `wan5b`, `wan14b-full`), `narrator` (a key from `stack.ts` or `kokoro-<voice>`; Chatterbox's built-in voice by default), `pictures` (the model that drew the stills, for the credits) |
+| `shots[]` | `line` (narration), `picture` (the image prompt), `motion` (what moves, how the camera moves: the clip's prompt), `still` (an absolute path to the first frame), `id` (their name for the shot) |
+
+What differs from a written story:
+
+- **No writer, viewer test or continuity pass.** The lines are the game's, kept as sent.
+- **Provided stills skip the still model.** Each is copied into the video root (`sources/commission-<story>-NN.png`). The clip check still runs, for artifacts only (a map's or a drone feed's markings are on purpose); a clip graded 3/3 is animated once more from the same frame, never redrawn.
+- **Clip length per line** (`commissionClipSeconds`): the line at ~2.5 words/s plus breaths, 5–8 s (the last shot also carries the title card). Montage stretches a clip that is still shorter by motion interpolation instead of slowing it (a slowed clip repeats frames: judder).
+- **The video model:** the one asked for, Wan 2.2 14B by default, if the Video Lab's fit check says it would start now; else Wan 2.2 5B, and `stack.fallback` says why (on 13 Oct: 14B was short 22.9 GB of RAM).
+- **Made as soon as the GPU is free, not only in the window.** The minimal flag is per shot: `item.commission`. Outside the window — and even while the automatic loop is paused (`enabled: false`), since a commission is an explicit order — `commissionTick` makes one clip at a time under the shared claim (written only into an empty file and re-read; another session's claim is waited out), gives way between two clips to a fresh request in `gpu-yield.txt` (read exactly as the window reads it), pauses nothing, and stops ComfyUI again only if it started it (`runtime.startedComfy`, and only while the card is free or its own). Inside the window commissions go first and are not cut off by the window's end. Written stories are untouched: same window, same rotation (commissions never count in it). `FORGE_DISABLED` still stops everything.
+- **Re-commissioning the same `externalId`** (and `source`) replaces the earlier story: `supersededBy` is set, its unfinished shots are dropped (a queued render is cancelled), `requeue` skips it, and Montage does not cut it. Montage keeps the old film and marks it superseded once the new film is cut, so the game always has one to use.
+
+The game's side (`hq/games/RTSAI-WebGame/tools/briefings/`): `commission.mjs <mission>` posts `<mission>.json` with the stills from `D:/rtsai-ea-build/briefings/<mission>/`, turning camera words (`push-in`, `pan-right`…) into a sentence for the video model; `from-montage.mjs <mission>` exports the newest current film for the game (web encode, VTT, webp poster) into `D:/rtsai-ea-build/play-cdn/campaign/<mission>/`.
