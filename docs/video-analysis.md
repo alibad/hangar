@@ -44,6 +44,11 @@ claim is present. `football-video-observe` reserves the shared slot with zero
 VRAM still includes it. This is an observation bridge, not fresh inference
 admission. Future jobs use their measured-profile workloads before model loading.
 
+Integration checks and smoke runs create with `purpose: "test"`. The tool then
+adds `X-Lab-Purpose: test`, the Lab stores `purpose: "test"` on the job, and its
+clip library hides the run unless asked to show test runs. `list` reports
+`test: true` for such runs. Any other purpose value is refused before a request.
+
 `X-Source: hangar-mcp` becomes a bounded job attribution value and the worker
 reports `football-ai-lab/hangar-mcp` as caller. Start/heartbeat/completion events
 share an attempt ID. Native partial output uses HTTP-style status 206; interruption

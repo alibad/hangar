@@ -158,3 +158,8 @@ The image model reads words literally and leans on defaults:
   it said "a four-armed god with a boar's head").
 - Keep scenes to one subject on its base: props beside the subject (a side
   table, a cave) end up cut away or swallow the subject.
+
+## Video analysis track
+
+- 2026-10-14: `video_analysis` create takes `purpose: "test"` (header `X-Lab-Purpose: test`), and `list` reports which runs are tests. The football Video Lab hides test runs from its clip library. Owner asked for it after the library filled up with check runs: 15 of 18 runs on the owner's match were automated checks, including Hangar's own two-second MCP integration pass (`lab-1791820257839-e0e9eeb9`, marked by hand in the Lab).
+- Rule: any check that runs a model on the owner's real footage says it is a test when it creates the run. Otherwise it looks like the owner's own work.

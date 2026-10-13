@@ -4,28 +4,32 @@ export function videoAnalysisTools(baseUrl = process.env.FOOTBALL_LAB_URL || 'ht
   if (url.protocol !== 'http:' || !['localhost','127.0.0.1','[::1]'].includes(url.hostname) || url.username || url.password)
     throw new Error('FOOTBALL_LAB_URL must be loopback HTTP');
   const validId = id => typeof id === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(id);
-  const call = async (path, body) => {
+  const call = async (path, body, extra = {}) => {
     const res = await fetcher(`${url.origin}${path}`, {method:body ? 'POST':'GET',
-      headers:{'Content-Type':'application/json','X-Source':'hangar-mcp'},
+      headers:{'Content-Type':'application/json','X-Source':'hangar-mcp',...extra},
       ...(body ? {body:JSON.stringify(body)} : {}),signal:AbortSignal.timeout(15000)});
     const result = await res.json();
     if (!res.ok) throw new Error(result.error || `Video Lab returned ${res.status}`);
     return result;
   };
   return [{name:'video_analysis',
-    description:'Inspect or run local football video experiments using RF-DETR + ByteTrack and official SAM 3.1. Actions list/status/report are read-only; create/cancel/retry change a specific authorized experiment. Create requires an already registered local source and explicit bounded config; no remote URLs, uploads or identity recognition. GPU admission, renewable shared leases and Requests traces are handled by the worker. Both models run sequentially. Results are provisional pixel observations, not full-game accuracy or calibrated speed. Requires the private local Video Lab on port 3100. Full recording continuation uses retry on its existing job, not a new duplicate run.',
+    description:'Inspect or run local football video experiments using RF-DETR + ByteTrack and official SAM 3.1. Actions list/status/report are read-only; create/cancel/retry change a specific authorized experiment. Create requires an already registered local source and explicit bounded config; no remote URLs, uploads or identity recognition. GPU admission, renewable shared leases and Requests traces are handled by the worker. Both models run sequentially. Results are provisional pixel observations, not full-game accuracy or calibrated speed. Requires the private local Video Lab on port 3100. Full recording continuation uses retry on its existing job, not a new duplicate run. For integration checks, smoke runs or anything else that is not a real review, create with purpose "test": the Lab then marks the run as a test and hides it from its clip library.',
     inputSchema:{type:'object',properties:{action:{type:'string',enum:['list','status','report','create','cancel','retry']},
-      id:{type:'string'},config:{type:'object',properties:{source:{type:'string'},offset_s:{type:'number'},duration_s:{type:'number'},sample_fps:{type:'number'},engines:{type:'array',items:{type:'string',enum:['rfdetr','sam31']}}},required:['source','offset_s','duration_s','sample_fps','engines']}},required:['action']},
+      id:{type:'string'},config:{type:'object',properties:{source:{type:'string'},offset_s:{type:'number'},duration_s:{type:'number'},sample_fps:{type:'number'},engines:{type:'array',items:{type:'string',enum:['rfdetr','sam31']}}},required:['source','offset_s','duration_s','sample_fps','engines']},
+      purpose:{type:'string',enum:['test'],description:'create only: "test" marks an integration check or smoke run, hidden from the Lab clip library'}},required:['action']},
     run:async args => {
       try {
         let result;
         if (args.action==='list') {
           const data=await call('/api/match/lab');
-          result={runs:data.runs.map(r=>({id:r.id,title:r.title,engines:r.engines})),sources:data.sources,
+          result={runs:data.runs.map(r=>({id:r.id,title:r.title,engines:r.engines,test:!!data.library?.[r.id]?.test})),sources:data.sources,
             jobs:(await call('/api/match/lab/jobs')).jobs};
         } else if (args.action==='create') {
           if (!args.config) throw new Error('Explicit bounded config required');
-          result=await call('/api/match/lab/jobs',{action:'create',config:args.config});
+          if (args.purpose!==undefined && args.purpose!=='test') throw new Error('purpose must be "test" when given');
+          // the Lab stores purpose "test" on the job (header x-lab-purpose) and keeps it out of its clip library
+          result=await call('/api/match/lab/jobs',{action:'create',config:args.config},
+            args.purpose==='test' ? {'X-Lab-Purpose':'test'} : {});
         } else {
           if (!validId(args.id)) throw new Error('Valid run/job id required');
           if (['cancel','retry'].includes(args.action)) result=await call('/api/match/lab/jobs',{action:args.action,id:args.id});
