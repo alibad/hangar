@@ -89,10 +89,13 @@ different line of work.
   builds exactly `main` (deploys of b93a7c8 and 71949c1 succeeded; both sites
   answer 200). The live console folder is on `main`. `scripts/service-commands.json`
   and design-qa-artifacts/ are no longer tracked; the real commands file stays
-  on disk (gitignored) and the template has every service. Still open: point
-  Vercel production at `main` and delete `master` (a project setting, and every
-  other worktree and session that commits to `master` must switch first); merge
-  or close the scout PR #2 and the two other unmerged scout branches.
+  on disk (gitignored) and the template has every service. The same day, at the
+  owner's word, Vercel's production branch became `main` and `master` was
+  deleted on GitHub and locally (it was identical to `main`). The switch was
+  refused until a Preview-only `PUBLIC_DOMAIN` scoped to `main` was removed: its
+  value was the same as Production's. Commit to `main`; a push to `main` is a
+  production deploy. Still open: merge or close the scout PR #2 and the two other
+  unmerged scout branches.
 - **Three finished worktrees to remove**, all clean and merged:
   `../betenshi-console-video` (video-forge), `../betenshi-console-wt-cloudimg`
   (feature/cloud-image-params) and `.claude/worktrees/vigilant-shtern-1ba9f3`.
