@@ -41,18 +41,23 @@ export { nextWindowStart, windowMinutesLeft } from "./rules";
 const MANAGER_URL = process.env.MANAGER_URL ?? "http://localhost:8099";
 const CLAIM_FILE = process.env.GPU_CLAIM_FILE ?? "C:\\Users\\Admin\\Code\\AI\\logs\\gpu-claim.txt";
 /**
- * A short job waiting on the forge's batch writes one line here (who, when);
- * the forge yields its claim between clips while it is fresh (< 10 min).
+ * A short job waiting on the forge's batch asks for the card here; the forge
+ * yields its claim between clips while a request is fresh (< 10 min). The file
+ * is shared by every session on this box: each appends its own line (who, when,
+ * what) and removes only its own, never the others'. A line without a time, or
+ * older than 10 minutes, is not a request.
  */
 const YIELD_FILE = process.env.GPU_YIELD_FILE ?? path.join(path.dirname(CLAIM_FILE), "gpu-yield.txt");
 
 async function readYieldRequest(): Promise<string | null> {
   try {
-    const text = (await fs.readFile(YIELD_FILE, "utf8")).trim();
-    if (!text) return null;
-    const at = /\d{4}-\d{2}-\d{2}T[\d:.]+Z/.exec(text)?.[0];
-    if (at && Date.now() - Date.parse(at) > 10 * 60_000) return null;
-    return text;
+    let newest: { at: number; line: string } | null = null;
+    for (const line of (await fs.readFile(YIELD_FILE, "utf8")).split(/\r?\n/)) {
+      const at = Date.parse(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/.exec(line)?.[0] ?? "");
+      if (!Number.isFinite(at) || Date.now() - at > 10 * 60_000) continue;
+      if (!newest || at > newest.at) newest = { at, line: line.trim() };
+    }
+    return newest?.line ?? null;
   } catch {
     return null;
   }
