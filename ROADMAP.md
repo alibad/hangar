@@ -82,15 +82,17 @@ different line of work.
 
 ### Next
 
-- **One line of development.** GitHub's default branch is `main`, the public
-  Hangar line: the rename, hosted mode, Mac support, the pre-publication
-  cleanup (9651e71) and the weekly scout PRs. It split from `master` on
-  2026-09-18 (30 commits against 115). Vercel production builds `master`.
-  Decide which one is Hangar: merge `main` into `master` (182 files), or keep
-  the operator console somewhere private. Then make it the default branch and
-  point the scout routine (and PR #2) at it. Until then `master` still tracks
-  what 9651e71 took out (design-qa-artifacts/, scripts/service-commands.json),
-  in a public repo.
+- **One line of development: done 2026-10-14.** The owner asked for one core
+  branch. `master` was merged into `main` (b93a7c8: 17 conflicts; the home page
+  keeps master's tab panes and Labs with main's hosted-mode notices and Video
+  Studio inside them), and `master` was moved to the same commit, so production
+  builds exactly `main` (deploys of b93a7c8 and 71949c1 succeeded; both sites
+  answer 200). The live console folder is on `main`. `scripts/service-commands.json`
+  and design-qa-artifacts/ are no longer tracked; the real commands file stays
+  on disk (gitignored) and the template has every service. Still open: point
+  Vercel production at `main` and delete `master` (a project setting, and every
+  other worktree and session that commits to `master` must switch first); merge
+  or close the scout PR #2 and the two other unmerged scout branches.
 - **Three finished worktrees to remove**, all clean and merged:
   `../betenshi-console-video` (video-forge), `../betenshi-console-wt-cloudimg`
   (feature/cloud-image-params) and `.claude/worktrees/vigilant-shtern-1ba9f3`.
@@ -105,9 +107,12 @@ different line of work.
   works in dev and fails on Vercel. Build before pushing:
   `BETENSHI_DB_PATH=<a throwaway path>.db npx next build --webpack` (the live
   console holds the real DuckDB file, and a build against it crashes).
-- The console serves master's working tree live, so uncommitted work there is
-  what is running. Commit it or move it to a branch; never both, and not for
-  days.
+- The console serves the working tree of its folder live (now `main`), so
+  uncommitted work there is what is running. Commit it or move it to a branch;
+  never both, and not for days.
+- Switching that folder between a branch that tracks a file and one that ignores
+  it deletes the file from disk. Back up `scripts/service-commands.json` before
+  such a switch and put it back after.
 
 ## 3D Lab track
 
