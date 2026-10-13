@@ -3,6 +3,10 @@ import { getDb } from "@/lib/db";
 import { readdir } from "fs/promises";
 import path from "path";
 import { outputDir } from "@/lib/save-image";
+import { isLabStorage } from "@/lib/gallery-folders";
+
+/** Every format the gallery saves (the same set as save-image's reconcile scan). */
+const IMAGE_FILE = /\.(png|jpe?g|webp)$/i;
 
 type DbImageRow = {
   id: string; rel: string; folder: string; filename: string; kind: string;
@@ -46,11 +50,21 @@ export async function GET() {
     if (img.folder) folderSet.add(img.folder);
   }
   // Empty galleries must remain selectable immediately after creating them.
+  // Other labs' working directories share this root but are not galleries
+  // (isLabStorage: the 3D Lab's jobs, the Video Lab's clips). Images a user
+  // filed under those names still list, through the rows above.
+  //
+  // onDisk counts the image files actually in each directory, so the sidebar
+  // can tell an empty folder from one whose images were written straight to
+  // disk and are not indexed yet (a rescan adds them).
+  const onDisk: Record<string, number> = {};
   async function collectFolders(dir: string, prefix = "") {
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of entries) {
+      if (entry.isFile() && IMAGE_FILE.test(entry.name)) onDisk[prefix] = (onDisk[prefix] ?? 0) + 1;
       if (!entry.isDirectory()) continue;
       const rel = prefix ? prefix + "/" + entry.name : entry.name;
+      if (isLabStorage(rel)) continue;
       folderSet.add(rel);
       await collectFolders(path.join(dir, entry.name), rel);
     }
@@ -58,5 +72,5 @@ export async function GET() {
   await collectFolders(outputDir());
   const folders = [...folderSet].sort();
 
-  return NextResponse.json({ images, folders, count: images.length });
+  return NextResponse.json({ images, folders, onDisk, count: images.length });
 }

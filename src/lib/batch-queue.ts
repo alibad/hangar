@@ -2,7 +2,6 @@ import { nodePost } from "@/lib/qwen-http";
 import { saveImage } from "@/lib/save-image";
 import { getServiceUrl } from "@/lib/services";
 import { getDb } from "@/lib/db";
-import { generateFlux } from "@/lib/flux";
 import { getImageModel, type ImageModelId } from "@/lib/image-models";
 import { withResourceLease, workloadForImageModel } from "@/lib/resource-manager";
 
@@ -412,30 +411,22 @@ class BatchQueue {
           // timeout only after admission, while this AbortController still lets
           // pause/cancel remove a queued request.
           timeoutId = setTimeout(() => { timedOut = true; ac.abort(); }, IMAGE_TIMEOUT_MS);
-          // FLUX is driven through ComfyUI's graph API, which has no equivalent of
-          // the Qwen server's single POST — generateFlux queues and polls instead.
-          return model.id === "flux-schnell"
-            ? generateFlux({
-                prompt: payload.prompt,
-                width: payload.width,
-                height: payload.height,
-                steps: payload.steps,
-                seed,
-              }, IMAGE_TIMEOUT_MS, ac.signal)
-            : nodePost(
-                `${base}/generate`,
-                JSON.stringify(payload),
-                {
-                  "Content-Type": "application/json",
-                  // Distinct from plain "console" (a single Studio generation),
-                  // because the volume is not comparable: one click here queues
-                  // hundreds of images. Batch ran untagged for months and became
-                  // the entire "misc" bucket — 1,589 images with no way to tell
-                  // what produced them.
-                  "X-Source": "console-batch",
-                },
-                ac.signal,
-              );
+          // Only Qwen-Image batches now: FLUX.1 schnell, the other batch model,
+          // was retired on 28 Sept 2026 (see image-models.ts).
+          return nodePost(
+            `${base}/generate`,
+            JSON.stringify(payload),
+            {
+              "Content-Type": "application/json",
+              // Distinct from plain "console" (a single Studio generation),
+              // because the volume is not comparable: one click here queues
+              // hundreds of images. Batch ran untagged for months and became
+              // the entire "misc" bucket — 1,589 images with no way to tell
+              // what produced them.
+              "X-Source": "console-batch",
+            },
+            ac.signal,
+          );
         };
         const workload = workloadForImageModel(model.id);
         const buf = workload

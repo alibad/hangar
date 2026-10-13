@@ -38,6 +38,60 @@ export function safeRelPng(rel: string | null | undefined): string | null {
   return norm;
 }
 
+// ── image formats ────────────────────────────────────────────────────────────
+//
+// The gallery was PNG-only because every backend returned PNG. Hosted models
+// don't: gpt-image takes output_format png|jpeg|webp, and writing webp bytes
+// into a .png file gives a file every viewer, the OS and `file(1)` disagree
+// about. The format is read from the bytes (not from what was asked for), so a
+// provider that ignores the request still gets an honest extension.
+
+export type ImageFormat = "png" | "jpeg" | "webp";
+
+const EXTENSION: Record<ImageFormat, string> = { png: ".png", jpeg: ".jpg", webp: ".webp" };
+const MIME: Record<ImageFormat, string> = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp" };
+
+/** Every extension the gallery serves, lists and reconciles. */
+export const GALLERY_IMAGE_EXT = /\.(png|jpe?g|webp)$/i;
+
+/** The format of an encoded image, from its magic bytes; null when unrecognised. */
+export function sniffImageFormat(buf: Uint8Array): ImageFormat | null {
+  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "png";
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpeg";
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 && // RIFF
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50 // WEBP
+  ) return "webp";
+  return null;
+}
+
+export function imageMime(format: ImageFormat): string {
+  return MIME[format];
+}
+
+/** Content-Type for a gallery path, by extension. */
+export function imageContentType(rel: string): string {
+  const ext = rel.slice(rel.lastIndexOf(".")).toLowerCase();
+  if (ext === ".webp") return MIME.webp;
+  if (ext === ".jpg" || ext === ".jpeg") return MIME.jpeg;
+  return MIME.png;
+}
+
+/** Validate a relative gallery image path (png, jpg/jpeg or webp; may be nested). */
+export function safeRelImage(rel: string | null | undefined): string | null {
+  if (rel == null) return null;
+  const norm = String(rel).replace(/\\/g, "/").replace(/^\/+/, "");
+  if (norm.includes("..")) return null;
+  if (!/^([A-Za-z0-9._ -]+\/)*[A-Za-z0-9._ -]+\.(png|jpe?g|webp)$/i.test(norm)) return null;
+  return norm;
+}
+
+/** The `.json` sidecar beside a gallery image, whatever its format. */
+export function sidecarRelFor(rel: string): string {
+  return rel.replace(GALLERY_IMAGE_EXT, ".json");
+}
+
 /** Turn a user-typed folder name into a filesystem-safe single segment. */
 export function cleanFolderName(name: string): string {
   return String(name).replace(/[^A-Za-z0-9._ -]+/g, "-").replace(/\s+/g, " ").replace(/^[-.\s]+|[-.\s]+$/g, "").slice(0, 60);
@@ -62,10 +116,15 @@ function slug(s: string): string {
 export type SavedImage = { file: string; dir: string; path: string };
 
 /**
- * Write a PNG to the output dir alongside a `.json` sidecar of its metadata,
+ * Write an image to the output dir alongside a `.json` sidecar of its metadata,
  * and insert a record into the DuckDB images table. Returns the gallery-relative filename
  * + absolute path. Never throws — a disk problem must not fail an otherwise-
  * successful generation; callers get `null` instead.
+ *
+ * The extension follows the bytes: PNG, JPEG or WebP, and anything unrecognised
+ * stays .png as before. Names never collide: the n images of one hosted call
+ * share a timestamp, seed and prompt, so a clash gets a -2, -3 suffix instead
+ * of silently overwriting its sibling.
  */
 export async function saveImage(
   buf: Buffer,
@@ -80,19 +139,33 @@ export async function saveImage(
     const base = [stamp(new Date()), meta.kind, meta.seed, slug(String(meta.prompt ?? ""))]
       .filter(Boolean)
       .join("-");
-    const file = `${base}.png`;
-    const full = path.join(dir, file);
+    const format = sniffImageFormat(buf) ?? "png";
+    let stem = base;
+    let file = `${stem}${EXTENSION[format]}`;
+    let full = path.join(dir, file);
+    for (let i = 2; ; i++) {
+      try {
+        await writeFile(full, buf, { flag: "wx" });
+        break;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "EEXIST" || i > 50) throw err;
+        stem = `${base}-${i}`;
+        file = `${stem}${EXTENSION[format]}`;
+        full = path.join(dir, file);
+      }
+    }
     const rel = folder ? folder + "/" + file : file;
-    await writeFile(full, buf);
 
     const sidecarMeta: Record<string, unknown> = {
       file,
       savedAt: new Date().toISOString(),
       ...meta,
+      // What the bytes are, which is not always what was asked for.
+      format,
     };
     if (batchJobId) sidecarMeta.batch_job_id = batchJobId;
     await writeFile(
-      path.join(dir, `${base}.json`),
+      path.join(dir, `${stem}.json`),
       JSON.stringify(sidecarMeta, null, 2),
     );
 

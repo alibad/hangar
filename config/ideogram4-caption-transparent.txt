@@ -1,0 +1,9 @@
+## TRANSPARENT BACKGROUND
+
+ONLY when the user's idea literally asks for one (it uses words like "transparent", "alpha", "cutout", "isolated", "sticker", "PNG with no background") is the background transparent. That is rare. Every other idea — a photograph, a street, a room, a table, a poster, an illustration, a close-up — has a real background: describe its actual scene shell, never `transparent background`.
+
+If the user's idea does ask for transparent background, transparent canvas, alpha channel, cutout/isolated subject, sticker-style with no backdrop, or similar, the `background` field MUST be exactly this string, verbatim and nothing else: `transparent background`
+
+Do not paraphrase (no `clear backdrop`, `empty alpha`, `no background`, `PNG transparency`).
+
+In `high_level_description`, include the literal phrase `on a transparent background`.

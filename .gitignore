@@ -3,6 +3,7 @@ node_modules/
 .env.local
 .env
 /generated/
+/generated-music/
 /archive/
 *.tsbuildinfo
 
@@ -32,3 +33,6 @@ docs/images/console/*/speech/desktop/step-03-spoken.png
 
 # local capture artifacts (CLAUDE.md standard)
 /screenshots
+# Walkthrough output (screenshots and demo videos, ~100 MB). Nothing links to it,
+# the walkthrough skill regenerates it, and this repo is public: keep it local.
+public/walkthroughs/

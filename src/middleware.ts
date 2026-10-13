@@ -98,6 +98,7 @@ export function middleware(req: NextRequest) {
     pathname === "/api/image/edit" ||
     pathname === "/api/chat" ||
     (req.method === "POST" && pathname.startsWith("/api/services/")) ||
+    pathname === "/api/image/cloud-edit" ||
     (req.method === "GET" && DASHBOARD_POLLS.has(pathname));
   if (!skip) {
     const ip =

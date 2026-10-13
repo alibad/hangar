@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mkdir, rename, access, readdir } from "fs/promises";
 import path from "path";
-import { resolveInside, safeRelPng, safeFolder } from "@/lib/save-image";
+import { resolveInside, safeRelImage, safeFolder, sidecarRelFor, GALLERY_IMAGE_EXT } from "@/lib/save-image";
 import { getDb } from "@/lib/db";
 
 async function exists(p: string): Promise<boolean> {
@@ -37,7 +37,7 @@ async function findByBasename(base: string): Promise<string | null> {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const rel = safeRelPng(body.rel);
+  const rel = safeRelImage(body.rel);
   const toFolder = safeFolder(body.toFolder);
   if (rel == null || toFolder == null) return NextResponse.json({ error: "bad path" }, { status: 400 });
 
@@ -75,8 +75,9 @@ export async function POST(req: NextRequest) {
       const actualAbs = resolveInside(actual);
       if (!actualAbs) return NextResponse.json({ error: "bad path" }, { status: 400 });
       let healName = base;
-      const healStem = base.replace(/\.png$/i, "");
-      for (let i = 1; await exists(path.join(destDirAbs, healName)); i++) healName = `${healStem}-${i}.png`;
+      const healExt = path.extname(base);
+      const healStem = base.replace(GALLERY_IMAGE_EXT, "");
+      for (let i = 1; await exists(path.join(destDirAbs, healName)); i++) healName = `${healStem}-${i}${healExt}`;
       const healRel = toFolder ? `${toFolder}/${healName}` : healName;
       await rename(actualAbs, path.join(destDirAbs, healName));
       await db.run(
@@ -87,8 +88,9 @@ export async function POST(req: NextRequest) {
     }
 
     let name = base;
-    const stem = base.replace(/\.png$/i, "");
-    for (let i = 1; await exists(path.join(destDirAbs, name)); i++) name = `${stem}-${i}.png`;
+    const ext = path.extname(base);
+    const stem = base.replace(GALLERY_IMAGE_EXT, "");
+    for (let i = 1; await exists(path.join(destDirAbs, name)); i++) name = `${stem}-${i}${ext}`;
 
     const newRel = toFolder ? `${toFolder}/${name}` : name;
     await rename(srcAbs, path.join(destDirAbs, name));
@@ -101,10 +103,10 @@ export async function POST(req: NextRequest) {
     );
 
     // Move sidecar alongside (best-effort)
-    const srcSidecar = resolveInside(rel.replace(/\.png$/i, ".json"));
+    const srcSidecar = resolveInside(sidecarRelFor(rel));
     if (srcSidecar && (await exists(srcSidecar))) {
       try {
-        const destSidecar = path.join(destDirAbs, name.replace(/\.png$/i, ".json"));
+        const destSidecar = path.join(destDirAbs, sidecarRelFor(name));
         await rename(srcSidecar, destSidecar);
       } catch { /* ignore */ }
     }

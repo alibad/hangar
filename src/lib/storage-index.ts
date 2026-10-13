@@ -5,6 +5,7 @@ import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import { revealInExplorer } from "./reveal-in-explorer";
 
 // Renamed from betenshi-console to Hangar: a machine that already has an index
 // under the old directory keeps it rather than silently starting an empty one.
@@ -542,14 +543,17 @@ export async function revealStoragePath(input: string) {
   const target = normalizeIndexedPath(input);
   const stats = await fsp.stat(target);
   if (process.platform === "win32") {
-    const args = stats.isDirectory() ? [target] : ["/select,", target];
-    execFile("explorer.exe", args, { windowsHide: false }, () => {});
-  } else if (process.platform === "darwin") {
-    execFile("/usr/bin/open", stats.isDirectory() ? [target] : ["-R", target], () => {});
-  } else {
-    throw new StorageUnsupportedError(`Reveal is not supported on ${process.platform}.`);
+    // In front of the browser, reusing an open window: a bare explorer.exe from
+    // this background process opened behind it and looked like a dead button.
+    const result = await revealInExplorer(target, { select: !stats.isDirectory() });
+    if (!result.ok) throw new Error(result.error || "Explorer did not open.");
+    return { path: target, selected: !stats.isDirectory(), focused: result.focused };
   }
-  return { path: target, selected: !stats.isDirectory() };
+  if (process.platform === "darwin") {
+    execFile("/usr/bin/open", stats.isDirectory() ? [target] : ["-R", target], () => {});
+    return { path: target, selected: !stats.isDirectory() };
+  }
+  throw new StorageUnsupportedError(`Reveal is not supported on ${process.platform}.`);
 }
 
 export async function startMove(source: string, destinationDirectory: string, conflict: "error" | "rename") {

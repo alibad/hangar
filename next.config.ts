@@ -64,6 +64,8 @@ function detectImageRuntime(hostId: string): string {
  * Set PUBLIC_DOMAIN in .env.local on a machine that really has a tunnel.
  */
 const nextConfig: NextConfig = {
+  // Verify a production build without replacing a live console preview cache.
+  distDir: process.env.HANGAR_BUILD_DIR || ".next",
   env: {
     NEXT_PUBLIC_HOST_ID: detectHostId(),
     NEXT_PUBLIC_IMAGE_RUNTIME: detectImageRuntime(detectHostId()),

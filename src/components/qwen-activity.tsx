@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTabActive } from "./tab-pane";
 
 type Item = {
   rel: string;
@@ -46,6 +47,8 @@ function fmtMs(ms?: number) {
 const PAGE_SIZES = [100, 200, 500];
 
 export default function QwenActivity() {
+  // Kept alive while another console tab shows; its arrow keys aren't ours then.
+  const tabActive = useTabActive();
   const [items, setItems] = useState<Item[]>([]);
   const [sources, setSources] = useState<string[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -174,13 +177,13 @@ export default function QwenActivity() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") { setLightbox(null); return; }
-      if (!lightbox) return;
+      if (!lightbox || !tabActive) return;
       if (e.key === "ArrowRight") { e.preventDefault(); navLightbox(1); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); navLightbox(-1); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [lightbox, navLightbox]);
+  }, [lightbox, navLightbox, tabActive]);
 
   /** Absolute on-disk location — the archive dir plus the image's relative path. */
   const fullPath = useCallback(

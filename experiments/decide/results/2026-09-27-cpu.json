@@ -1,0 +1,7479 @@
+{
+ "predictions": {
+  "arabic-dialect": {
+   "laya": {
+    "ar-01": {
+     "id": "ar-01",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.7744,
+      "egyptian": 0.1331,
+      "levantine": 0.0147,
+      "gulf": 0.0235,
+      "maghrebi": 0.0542
+     },
+     "latencyMs": 98.5,
+     "modelLatencyMs": 94.34,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-02": {
+     "id": "ar-02",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.3592,
+      "egyptian": 0.239,
+      "levantine": 0.0166,
+      "gulf": 0.1626,
+      "maghrebi": 0.2226
+     },
+     "latencyMs": 97.4,
+     "modelLatencyMs": 85.74,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-03": {
+     "id": "ar-03",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.9035,
+      "egyptian": 0.0285,
+      "levantine": 0.0206,
+      "gulf": 0.0209,
+      "maghrebi": 0.0264
+     },
+     "latencyMs": 109.3,
+     "modelLatencyMs": 103.77,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-04": {
+     "id": "ar-04",
+     "label": "msa",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.3864,
+      "egyptian": 0.0724,
+      "levantine": 0.0331,
+      "gulf": 0.4522,
+      "maghrebi": 0.0559
+     },
+     "latencyMs": 97,
+     "modelLatencyMs": 91.75,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-05": {
+     "id": "ar-05",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.5351,
+      "egyptian": 0.2802,
+      "levantine": 0.0505,
+      "gulf": 0.094,
+      "maghrebi": 0.0401
+     },
+     "latencyMs": 78.8,
+     "modelLatencyMs": 75.43,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-06": {
+     "id": "ar-06",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.4579,
+      "egyptian": 0.1976,
+      "levantine": 0.1024,
+      "gulf": 0.1478,
+      "maghrebi": 0.0943
+     },
+     "latencyMs": 83.8,
+     "modelLatencyMs": 80.03,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-07": {
+     "id": "ar-07",
+     "label": "msa",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.2119,
+      "egyptian": 0.1084,
+      "levantine": 0.0216,
+      "gulf": 0.5383,
+      "maghrebi": 0.1199
+     },
+     "latencyMs": 79.5,
+     "modelLatencyMs": 76.12,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-08": {
+     "id": "ar-08",
+     "label": "egyptian",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0.2,
+      "egyptian": 0.5029,
+      "levantine": 0.0111,
+      "gulf": 0.2495,
+      "maghrebi": 0.0364
+     },
+     "latencyMs": 78.3,
+     "modelLatencyMs": 74.77,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-09": {
+     "id": "ar-09",
+     "label": "egyptian",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.2989,
+      "egyptian": 0.1775,
+      "levantine": 0.0321,
+      "gulf": 0.2243,
+      "maghrebi": 0.2672
+     },
+     "latencyMs": 82.1,
+     "modelLatencyMs": 78.61,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-10": {
+     "id": "ar-10",
+     "label": "egyptian",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.365,
+      "egyptian": 0.1149,
+      "levantine": 0.0257,
+      "gulf": 0.2605,
+      "maghrebi": 0.2338
+     },
+     "latencyMs": 97.9,
+     "modelLatencyMs": 94,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-11": {
+     "id": "ar-11",
+     "label": "egyptian",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0.1575,
+      "egyptian": 0.4383,
+      "levantine": 0.0295,
+      "gulf": 0.3393,
+      "maghrebi": 0.0354
+     },
+     "latencyMs": 99.6,
+     "modelLatencyMs": 95.89,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-12": {
+     "id": "ar-12",
+     "label": "egyptian",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.028,
+      "egyptian": 0.0712,
+      "levantine": 0.004,
+      "gulf": 0.8857,
+      "maghrebi": 0.0112
+     },
+     "latencyMs": 118.1,
+     "modelLatencyMs": 113.83,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-13": {
+     "id": "ar-13",
+     "label": "egyptian",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0.1367,
+      "egyptian": 0.4127,
+      "levantine": 0.0272,
+      "gulf": 0.3415,
+      "maghrebi": 0.0819
+     },
+     "latencyMs": 143.8,
+     "modelLatencyMs": 139.57,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-14": {
+     "id": "ar-14",
+     "label": "egyptian",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.1163,
+      "egyptian": 0.1064,
+      "levantine": 0.0291,
+      "gulf": 0.7163,
+      "maghrebi": 0.0319
+     },
+     "latencyMs": 99.9,
+     "modelLatencyMs": 96.47,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-15": {
+     "id": "ar-15",
+     "label": "levantine",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.2146,
+      "egyptian": 0.1837,
+      "levantine": 0.0221,
+      "gulf": 0.5127,
+      "maghrebi": 0.0669
+     },
+     "latencyMs": 100.6,
+     "modelLatencyMs": 95.95,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-16": {
+     "id": "ar-16",
+     "label": "levantine",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.0732,
+      "egyptian": 0.3348,
+      "levantine": 0.0162,
+      "gulf": 0.5649,
+      "maghrebi": 0.0109
+     },
+     "latencyMs": 124.6,
+     "modelLatencyMs": 120.86,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-17": {
+     "id": "ar-17",
+     "label": "levantine",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.273,
+      "egyptian": 0.1195,
+      "levantine": 0.0086,
+      "gulf": 0.5586,
+      "maghrebi": 0.0403
+     },
+     "latencyMs": 93.3,
+     "modelLatencyMs": 89.66,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-18": {
+     "id": "ar-18",
+     "label": "levantine",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.18,
+      "egyptian": 0.2494,
+      "levantine": 0.0212,
+      "gulf": 0.4763,
+      "maghrebi": 0.0731
+     },
+     "latencyMs": 98.1,
+     "modelLatencyMs": 90.68,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-19": {
+     "id": "ar-19",
+     "label": "levantine",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.4255,
+      "egyptian": 0.1436,
+      "levantine": 0.0132,
+      "gulf": 0.2943,
+      "maghrebi": 0.1234
+     },
+     "latencyMs": 88.4,
+     "modelLatencyMs": 84.56,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-20": {
+     "id": "ar-20",
+     "label": "levantine",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.1545,
+      "egyptian": 0.1713,
+      "levantine": 0.0385,
+      "gulf": 0.4958,
+      "maghrebi": 0.1398
+     },
+     "latencyMs": 98.6,
+     "modelLatencyMs": 94.17,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-21": {
+     "id": "ar-21",
+     "label": "levantine",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.076,
+      "egyptian": 0.0795,
+      "levantine": 0.0114,
+      "gulf": 0.7472,
+      "maghrebi": 0.0858
+     },
+     "latencyMs": 80,
+     "modelLatencyMs": 76.05,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-22": {
+     "id": "ar-22",
+     "label": "gulf",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.2232,
+      "egyptian": 0.1935,
+      "levantine": 0.0217,
+      "gulf": 0.4532,
+      "maghrebi": 0.1084
+     },
+     "latencyMs": 108.8,
+     "modelLatencyMs": 103.66,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-23": {
+     "id": "ar-23",
+     "label": "gulf",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.13,
+      "egyptian": 0.0461,
+      "levantine": 0.0082,
+      "gulf": 0.794,
+      "maghrebi": 0.0216
+     },
+     "latencyMs": 97.7,
+     "modelLatencyMs": 94.24,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-24": {
+     "id": "ar-24",
+     "label": "gulf",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.3405,
+      "egyptian": 0.048,
+      "levantine": 0.0459,
+      "gulf": 0.4177,
+      "maghrebi": 0.148
+     },
+     "latencyMs": 76.8,
+     "modelLatencyMs": 73.09,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-25": {
+     "id": "ar-25",
+     "label": "gulf",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0.0418,
+      "egyptian": 0.7152,
+      "levantine": 0.0151,
+      "gulf": 0.219,
+      "maghrebi": 0.009
+     },
+     "latencyMs": 77.1,
+     "modelLatencyMs": 73.26,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-26": {
+     "id": "ar-26",
+     "label": "gulf",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.3604,
+      "egyptian": 0.1279,
+      "levantine": 0.0328,
+      "gulf": 0.4009,
+      "maghrebi": 0.078
+     },
+     "latencyMs": 82.5,
+     "modelLatencyMs": 76.96,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-27": {
+     "id": "ar-27",
+     "label": "gulf",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.0756,
+      "egyptian": 0.2594,
+      "levantine": 0.0108,
+      "gulf": 0.6199,
+      "maghrebi": 0.0343
+     },
+     "latencyMs": 118.5,
+     "modelLatencyMs": 77.01,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-28": {
+     "id": "ar-28",
+     "label": "gulf",
+     "choice": "maghrebi",
+     "probabilities": {
+      "msa": 0.089,
+      "egyptian": 0.017,
+      "levantine": 0.0105,
+      "gulf": 0.0617,
+      "maghrebi": 0.8217
+     },
+     "latencyMs": 86.7,
+     "modelLatencyMs": 83.22,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-29": {
+     "id": "ar-29",
+     "label": "maghrebi",
+     "choice": "egyptian",
+     "probabilities": {
+      "msa": 0.1819,
+      "egyptian": 0.3677,
+      "levantine": 0.0581,
+      "gulf": 0.3565,
+      "maghrebi": 0.0358
+     },
+     "latencyMs": 82.3,
+     "modelLatencyMs": 78.59,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-30": {
+     "id": "ar-30",
+     "label": "maghrebi",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.1674,
+      "egyptian": 0.369,
+      "levantine": 0.0132,
+      "gulf": 0.4234,
+      "maghrebi": 0.0269
+     },
+     "latencyMs": 68.3,
+     "modelLatencyMs": 64.6,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-31": {
+     "id": "ar-31",
+     "label": "maghrebi",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.4519,
+      "egyptian": 0.3712,
+      "levantine": 0.0326,
+      "gulf": 0.0775,
+      "maghrebi": 0.0669
+     },
+     "latencyMs": 76.4,
+     "modelLatencyMs": 72.32,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-32": {
+     "id": "ar-32",
+     "label": "maghrebi",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.0601,
+      "egyptian": 0.0706,
+      "levantine": 0.017,
+      "gulf": 0.793,
+      "maghrebi": 0.0594
+     },
+     "latencyMs": 93.6,
+     "modelLatencyMs": 89.8,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-33": {
+     "id": "ar-33",
+     "label": "maghrebi",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.2544,
+      "egyptian": 0.2114,
+      "levantine": 0.0523,
+      "gulf": 0.43,
+      "maghrebi": 0.0519
+     },
+     "latencyMs": 74,
+     "modelLatencyMs": 69.97,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-34": {
+     "id": "ar-34",
+     "label": "maghrebi",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.3774,
+      "egyptian": 0.145,
+      "levantine": 0.0327,
+      "gulf": 0.3651,
+      "maghrebi": 0.0799
+     },
+     "latencyMs": 73.8,
+     "modelLatencyMs": 70.43,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ar-35": {
+     "id": "ar-35",
+     "label": "maghrebi",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.1198,
+      "egyptian": 0.1714,
+      "levantine": 0.0364,
+      "gulf": 0.5907,
+      "maghrebi": 0.0817
+     },
+     "latencyMs": 68,
+     "modelLatencyMs": 64.61,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    }
+   },
+   "laya-typed-decisions": {
+    "ar-01": {
+     "id": "ar-01",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.464,
+      "egyptian": 0.0978,
+      "levantine": 0.1631,
+      "gulf": 0.1562,
+      "maghrebi": 0.1189
+     },
+     "latencyMs": 3139.4,
+     "modelLatencyMs": 3135.16,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-02": {
+     "id": "ar-02",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.4041,
+      "egyptian": 0.1145,
+      "levantine": 0.2076,
+      "gulf": 0.1627,
+      "maghrebi": 0.111
+     },
+     "latencyMs": 233.9,
+     "modelLatencyMs": 230.32,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-03": {
+     "id": "ar-03",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.2965,
+      "egyptian": 0.1882,
+      "levantine": 0.2804,
+      "gulf": 0.132,
+      "maghrebi": 0.1029
+     },
+     "latencyMs": 185.8,
+     "modelLatencyMs": 181.03,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-04": {
+     "id": "ar-04",
+     "label": "msa",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2741,
+      "egyptian": 0.1236,
+      "levantine": 0.3436,
+      "gulf": 0.1514,
+      "maghrebi": 0.1073
+     },
+     "latencyMs": 192.9,
+     "modelLatencyMs": 189.06,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-05": {
+     "id": "ar-05",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.4023,
+      "egyptian": 0.1164,
+      "levantine": 0.227,
+      "gulf": 0.1428,
+      "maghrebi": 0.1115
+     },
+     "latencyMs": 192.4,
+     "modelLatencyMs": 177.66,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-06": {
+     "id": "ar-06",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.325,
+      "egyptian": 0.131,
+      "levantine": 0.1989,
+      "gulf": 0.2293,
+      "maghrebi": 0.1159
+     },
+     "latencyMs": 201.1,
+     "modelLatencyMs": 197.99,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-07": {
+     "id": "ar-07",
+     "label": "msa",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.2833,
+      "egyptian": 0.1667,
+      "levantine": 0.2476,
+      "gulf": 0.1734,
+      "maghrebi": 0.129
+     },
+     "latencyMs": 162.2,
+     "modelLatencyMs": 158.32,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-08": {
+     "id": "ar-08",
+     "label": "egyptian",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.2775,
+      "egyptian": 0.2308,
+      "levantine": 0.2361,
+      "gulf": 0.1455,
+      "maghrebi": 0.1101
+     },
+     "latencyMs": 178.1,
+     "modelLatencyMs": 174.84,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-09": {
+     "id": "ar-09",
+     "label": "egyptian",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2262,
+      "egyptian": 0.186,
+      "levantine": 0.3257,
+      "gulf": 0.1635,
+      "maghrebi": 0.0985
+     },
+     "latencyMs": 219.7,
+     "modelLatencyMs": 216.11,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-10": {
+     "id": "ar-10",
+     "label": "egyptian",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2371,
+      "egyptian": 0.1579,
+      "levantine": 0.2678,
+      "gulf": 0.2515,
+      "maghrebi": 0.0857
+     },
+     "latencyMs": 181.1,
+     "modelLatencyMs": 177.68,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-11": {
+     "id": "ar-11",
+     "label": "egyptian",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2569,
+      "egyptian": 0.1762,
+      "levantine": 0.3185,
+      "gulf": 0.1478,
+      "maghrebi": 0.1007
+     },
+     "latencyMs": 198.9,
+     "modelLatencyMs": 195.23,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-12": {
+     "id": "ar-12",
+     "label": "egyptian",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2713,
+      "egyptian": 0.1883,
+      "levantine": 0.3022,
+      "gulf": 0.1298,
+      "maghrebi": 0.1084
+     },
+     "latencyMs": 207.1,
+     "modelLatencyMs": 203.31,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-13": {
+     "id": "ar-13",
+     "label": "egyptian",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.2571,
+      "egyptian": 0.1203,
+      "levantine": 0.2563,
+      "gulf": 0.267,
+      "maghrebi": 0.0994
+     },
+     "latencyMs": 190.9,
+     "modelLatencyMs": 187.77,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-14": {
+     "id": "ar-14",
+     "label": "egyptian",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.3318,
+      "egyptian": 0.1586,
+      "levantine": 0.1981,
+      "gulf": 0.1687,
+      "maghrebi": 0.1429
+     },
+     "latencyMs": 333.5,
+     "modelLatencyMs": 330.07,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-15": {
+     "id": "ar-15",
+     "label": "levantine",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2096,
+      "egyptian": 0.2256,
+      "levantine": 0.334,
+      "gulf": 0.1227,
+      "maghrebi": 0.1082
+     },
+     "latencyMs": 328.4,
+     "modelLatencyMs": 324.5,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-16": {
+     "id": "ar-16",
+     "label": "levantine",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.2817,
+      "egyptian": 0.1671,
+      "levantine": 0.2585,
+      "gulf": 0.1803,
+      "maghrebi": 0.1123
+     },
+     "latencyMs": 270.8,
+     "modelLatencyMs": 259.24,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-17": {
+     "id": "ar-17",
+     "label": "levantine",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.3898,
+      "egyptian": 0.1216,
+      "levantine": 0.2099,
+      "gulf": 0.157,
+      "maghrebi": 0.1217
+     },
+     "latencyMs": 417.7,
+     "modelLatencyMs": 412.22,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-18": {
+     "id": "ar-18",
+     "label": "levantine",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2204,
+      "egyptian": 0.2584,
+      "levantine": 0.2877,
+      "gulf": 0.1397,
+      "maghrebi": 0.0938
+     },
+     "latencyMs": 301.8,
+     "modelLatencyMs": 298.22,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-19": {
+     "id": "ar-19",
+     "label": "levantine",
+     "choice": "gulf",
+     "probabilities": {
+      "msa": 0.2072,
+      "egyptian": 0.1527,
+      "levantine": 0.2061,
+      "gulf": 0.3084,
+      "maghrebi": 0.1256
+     },
+     "latencyMs": 233.5,
+     "modelLatencyMs": 229.77,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-20": {
+     "id": "ar-20",
+     "label": "levantine",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2045,
+      "egyptian": 0.2106,
+      "levantine": 0.3023,
+      "gulf": 0.1624,
+      "maghrebi": 0.1201
+     },
+     "latencyMs": 235.8,
+     "modelLatencyMs": 231.84,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-21": {
+     "id": "ar-21",
+     "label": "levantine",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2281,
+      "egyptian": 0.1625,
+      "levantine": 0.3131,
+      "gulf": 0.1811,
+      "maghrebi": 0.1152
+     },
+     "latencyMs": 221.1,
+     "modelLatencyMs": 217.09,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-22": {
+     "id": "ar-22",
+     "label": "gulf",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2106,
+      "egyptian": 0.1653,
+      "levantine": 0.3565,
+      "gulf": 0.1588,
+      "maghrebi": 0.1088
+     },
+     "latencyMs": 217.1,
+     "modelLatencyMs": 213.73,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-23": {
+     "id": "ar-23",
+     "label": "gulf",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2427,
+      "egyptian": 0.1336,
+      "levantine": 0.3037,
+      "gulf": 0.2139,
+      "maghrebi": 0.106
+     },
+     "latencyMs": 214.1,
+     "modelLatencyMs": 210.47,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-24": {
+     "id": "ar-24",
+     "label": "gulf",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2106,
+      "egyptian": 0.168,
+      "levantine": 0.3277,
+      "gulf": 0.1695,
+      "maghrebi": 0.1243
+     },
+     "latencyMs": 211.3,
+     "modelLatencyMs": 208.2,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-25": {
+     "id": "ar-25",
+     "label": "gulf",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.2276,
+      "egyptian": 0.2022,
+      "levantine": 0.2225,
+      "gulf": 0.2107,
+      "maghrebi": 0.137
+     },
+     "latencyMs": 214.3,
+     "modelLatencyMs": 210.86,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-26": {
+     "id": "ar-26",
+     "label": "gulf",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2359,
+      "egyptian": 0.2023,
+      "levantine": 0.2891,
+      "gulf": 0.1531,
+      "maghrebi": 0.1196
+     },
+     "latencyMs": 187.6,
+     "modelLatencyMs": 183.82,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-27": {
+     "id": "ar-27",
+     "label": "gulf",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2697,
+      "egyptian": 0.149,
+      "levantine": 0.2943,
+      "gulf": 0.1674,
+      "maghrebi": 0.1197
+     },
+     "latencyMs": 203.1,
+     "modelLatencyMs": 197.59,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-28": {
+     "id": "ar-28",
+     "label": "gulf",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2415,
+      "egyptian": 0.1347,
+      "levantine": 0.3429,
+      "gulf": 0.1762,
+      "maghrebi": 0.1048
+     },
+     "latencyMs": 170.3,
+     "modelLatencyMs": 166.82,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-29": {
+     "id": "ar-29",
+     "label": "maghrebi",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2719,
+      "egyptian": 0.1553,
+      "levantine": 0.3291,
+      "gulf": 0.1446,
+      "maghrebi": 0.099
+     },
+     "latencyMs": 204.5,
+     "modelLatencyMs": 199.58,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-30": {
+     "id": "ar-30",
+     "label": "maghrebi",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.3573,
+      "egyptian": 0.1566,
+      "levantine": 0.217,
+      "gulf": 0.1654,
+      "maghrebi": 0.1036
+     },
+     "latencyMs": 194.1,
+     "modelLatencyMs": 189.82,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-31": {
+     "id": "ar-31",
+     "label": "maghrebi",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.2969,
+      "egyptian": 0.1498,
+      "levantine": 0.2541,
+      "gulf": 0.1677,
+      "maghrebi": 0.1315
+     },
+     "latencyMs": 175.7,
+     "modelLatencyMs": 171.88,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-32": {
+     "id": "ar-32",
+     "label": "maghrebi",
+     "choice": "msa",
+     "probabilities": {
+      "msa": 0.3356,
+      "egyptian": 0.1519,
+      "levantine": 0.1893,
+      "gulf": 0.2104,
+      "maghrebi": 0.1128
+     },
+     "latencyMs": 265.8,
+     "modelLatencyMs": 257.84,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-33": {
+     "id": "ar-33",
+     "label": "maghrebi",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2517,
+      "egyptian": 0.1952,
+      "levantine": 0.2706,
+      "gulf": 0.1555,
+      "maghrebi": 0.127
+     },
+     "latencyMs": 170.2,
+     "modelLatencyMs": 166.87,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-34": {
+     "id": "ar-34",
+     "label": "maghrebi",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.2376,
+      "egyptian": 0.195,
+      "levantine": 0.2625,
+      "gulf": 0.1669,
+      "maghrebi": 0.138
+     },
+     "latencyMs": 218,
+     "modelLatencyMs": 214.79,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ar-35": {
+     "id": "ar-35",
+     "label": "maghrebi",
+     "choice": "levantine",
+     "probabilities": {
+      "msa": 0.1587,
+      "egyptian": 0.1527,
+      "levantine": 0.4655,
+      "gulf": 0.1247,
+      "maghrebi": 0.0984
+     },
+     "latencyMs": 186.8,
+     "modelLatencyMs": 183.66,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    }
+   }
+  },
+  "console-intent": {
+   "laya": {
+    "ci-01": {
+     "id": "ci-01",
+     "label": "chat",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.2425,
+      "code": 0.2467,
+      "image": 0.0242,
+      "speech": 0.125,
+      "vision": 0.1653,
+      "service": 0.1507,
+      "models": 0.0457
+     },
+     "latencyMs": 179.8,
+     "modelLatencyMs": 176.57,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-02": {
+     "id": "ci-02",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.3998,
+      "code": 0.1335,
+      "image": 0.0134,
+      "speech": 0.0825,
+      "vision": 0.1258,
+      "service": 0.0913,
+      "models": 0.1536
+     },
+     "latencyMs": 178.1,
+     "modelLatencyMs": 174.93,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-03": {
+     "id": "ci-03",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.5465,
+      "code": 0.1268,
+      "image": 0.0173,
+      "speech": 0.1767,
+      "vision": 0.0353,
+      "service": 0.0574,
+      "models": 0.0399
+     },
+     "latencyMs": 567.2,
+     "modelLatencyMs": 257.2,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-04": {
+     "id": "ci-04",
+     "label": "chat",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.1044,
+      "code": 0.0927,
+      "image": 0.0205,
+      "speech": 0.6598,
+      "vision": 0.0342,
+      "service": 0.0321,
+      "models": 0.0564
+     },
+     "latencyMs": 220.5,
+     "modelLatencyMs": 215.97,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-05": {
+     "id": "ci-05",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.2437,
+      "code": 0.1708,
+      "image": 0.0135,
+      "speech": 0.1253,
+      "vision": 0.0959,
+      "service": 0.2094,
+      "models": 0.1415
+     },
+     "latencyMs": 222.4,
+     "modelLatencyMs": 218.33,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-06": {
+     "id": "ci-06",
+     "label": "chat",
+     "choice": "vision",
+     "probabilities": {
+      "chat": 0.1941,
+      "code": 0.0314,
+      "image": 0.0023,
+      "speech": 0.0041,
+      "vision": 0.5539,
+      "service": 0.1523,
+      "models": 0.0618
+     },
+     "latencyMs": 96.3,
+     "modelLatencyMs": 92.2,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ci-07": {
+     "id": "ci-07",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0003,
+      "code": 0.9911,
+      "image": 0.0061,
+      "speech": 0.0002,
+      "vision": 0.001,
+      "service": 0.0006,
+      "models": 0.0006
+     },
+     "latencyMs": 237.3,
+     "modelLatencyMs": 233.9,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-08": {
+     "id": "ci-08",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0221,
+      "code": 0.9337,
+      "image": 0.0027,
+      "speech": 0.0041,
+      "vision": 0.0082,
+      "service": 0.015,
+      "models": 0.0142
+     },
+     "latencyMs": 183.9,
+     "modelLatencyMs": 180.63,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-09": {
+     "id": "ci-09",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.1572,
+      "code": 0.3194,
+      "image": 0.0077,
+      "speech": 0.0156,
+      "vision": 0.0556,
+      "service": 0.2936,
+      "models": 0.1508
+     },
+     "latencyMs": 172.7,
+     "modelLatencyMs": 169.64,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-10": {
+     "id": "ci-10",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0062,
+      "code": 0.934,
+      "image": 0.0021,
+      "speech": 0.0069,
+      "vision": 0.0147,
+      "service": 0.02,
+      "models": 0.0162
+     },
+     "latencyMs": 166.7,
+     "modelLatencyMs": 155.2,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-11": {
+     "id": "ci-11",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0083,
+      "code": 0.9775,
+      "image": 0.0013,
+      "speech": 0.0031,
+      "vision": 0.0031,
+      "service": 0.0031,
+      "models": 0.0036
+     },
+     "latencyMs": 243,
+     "modelLatencyMs": 239.69,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-12": {
+     "id": "ci-12",
+     "label": "code",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.0007,
+      "code": 0.1483,
+      "image": 0.0003,
+      "speech": 0.0005,
+      "vision": 0.0012,
+      "service": 0.8482,
+      "models": 0.0008
+     },
+     "latencyMs": 204.6,
+     "modelLatencyMs": 169.84,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-13": {
+     "id": "ci-13",
+     "label": "image",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0373,
+      "code": 0.5408,
+      "image": 0.3022,
+      "speech": 0.02,
+      "vision": 0.032,
+      "service": 0.041,
+      "models": 0.0268
+     },
+     "latencyMs": 547.6,
+     "modelLatencyMs": 543.43,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-14": {
+     "id": "ci-14",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0,
+      "code": 0.0003,
+      "image": 0.9993,
+      "speech": 0,
+      "vision": 0.0001,
+      "service": 0.0001,
+      "models": 0.0001
+     },
+     "latencyMs": 220.7,
+     "modelLatencyMs": 217.41,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-15": {
+     "id": "ci-15",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0006,
+      "code": 0.0027,
+      "image": 0.9906,
+      "speech": 0.0005,
+      "vision": 0.0033,
+      "service": 0.001,
+      "models": 0.0013
+     },
+     "latencyMs": 213.5,
+     "modelLatencyMs": 209.8,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-16": {
+     "id": "ci-16",
+     "label": "image",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0439,
+      "code": 0.4244,
+      "image": 0.0085,
+      "speech": 0.0287,
+      "vision": 0.0357,
+      "service": 0.3726,
+      "models": 0.0863
+     },
+     "latencyMs": 216,
+     "modelLatencyMs": 212.77,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-17": {
+     "id": "ci-17",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0064,
+      "code": 0.0306,
+      "image": 0.9233,
+      "speech": 0.0033,
+      "vision": 0.0164,
+      "service": 0.0099,
+      "models": 0.0102
+     },
+     "latencyMs": 172.4,
+     "modelLatencyMs": 169.21,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-18": {
+     "id": "ci-18",
+     "label": "image",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0.0027,
+      "code": 0.0499,
+      "image": 0.1119,
+      "speech": 0.0016,
+      "vision": 0.0278,
+      "service": 0.0088,
+      "models": 0.7974
+     },
+     "latencyMs": 80.1,
+     "modelLatencyMs": 76.39,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ci-19": {
+     "id": "ci-19",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.0077,
+      "code": 0.005,
+      "image": 0.0005,
+      "speech": 0.9796,
+      "vision": 0.0015,
+      "service": 0.0026,
+      "models": 0.0032
+     },
+     "latencyMs": 163.8,
+     "modelLatencyMs": 160.55,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-20": {
+     "id": "ci-20",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.0255,
+      "code": 0.0121,
+      "image": 0.0018,
+      "speech": 0.9242,
+      "vision": 0.004,
+      "service": 0.0156,
+      "models": 0.0168
+     },
+     "latencyMs": 161.9,
+     "modelLatencyMs": 158.69,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-21": {
+     "id": "ci-21",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.1117,
+      "code": 0.0643,
+      "image": 0.0573,
+      "speech": 0.6426,
+      "vision": 0.027,
+      "service": 0.0688,
+      "models": 0.0284
+     },
+     "latencyMs": 197.3,
+     "modelLatencyMs": 193.89,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-22": {
+     "id": "ci-22",
+     "label": "speech",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0115,
+      "code": 0.8488,
+      "image": 0.0032,
+      "speech": 0.0284,
+      "vision": 0.0216,
+      "service": 0.0464,
+      "models": 0.0401
+     },
+     "latencyMs": 230.8,
+     "modelLatencyMs": 224.83,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-23": {
+     "id": "ci-23",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.0632,
+      "code": 0.0362,
+      "image": 0.0049,
+      "speech": 0.6022,
+      "vision": 0.0903,
+      "service": 0.0467,
+      "models": 0.1564
+     },
+     "latencyMs": 242,
+     "modelLatencyMs": 238.71,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-24": {
+     "id": "ci-24",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.2426,
+      "code": 0.1023,
+      "image": 0.006,
+      "speech": 0.4385,
+      "vision": 0.0195,
+      "service": 0.0965,
+      "models": 0.0945
+     },
+     "latencyMs": 218.9,
+     "modelLatencyMs": 215.36,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-25": {
+     "id": "ci-25",
+     "label": "vision",
+     "choice": "vision",
+     "probabilities": {
+      "chat": 0.0764,
+      "code": 0.1803,
+      "image": 0.2199,
+      "speech": 0.0506,
+      "vision": 0.2505,
+      "service": 0.1179,
+      "models": 0.1043
+     },
+     "latencyMs": 207,
+     "modelLatencyMs": 202.94,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-26": {
+     "id": "ci-26",
+     "label": "vision",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0735,
+      "code": 0.0121,
+      "image": 0.5984,
+      "speech": 0.1989,
+      "vision": 0.0827,
+      "service": 0.0113,
+      "models": 0.0232
+     },
+     "latencyMs": 197.7,
+     "modelLatencyMs": 194.09,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-27": {
+     "id": "ci-27",
+     "label": "vision",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0125,
+      "code": 0.0656,
+      "image": 0.7341,
+      "speech": 0.0086,
+      "vision": 0.1093,
+      "service": 0.0455,
+      "models": 0.0244
+     },
+     "latencyMs": 210,
+     "modelLatencyMs": 206.82,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-28": {
+     "id": "ci-28",
+     "label": "vision",
+     "choice": "vision",
+     "probabilities": {
+      "chat": 0.0569,
+      "code": 0.1254,
+      "image": 0.027,
+      "speech": 0.0348,
+      "vision": 0.6121,
+      "service": 0.08,
+      "models": 0.0638
+     },
+     "latencyMs": 180,
+     "modelLatencyMs": 176.19,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-29": {
+     "id": "ci-29",
+     "label": "vision",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.0838,
+      "code": 0.0257,
+      "image": 0.0684,
+      "speech": 0.6822,
+      "vision": 0.09,
+      "service": 0.0268,
+      "models": 0.0232
+     },
+     "latencyMs": 175.1,
+     "modelLatencyMs": 171.93,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-30": {
+     "id": "ci-30",
+     "label": "vision",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0195,
+      "code": 0.0637,
+      "image": 0.7612,
+      "speech": 0.0049,
+      "vision": 0.1236,
+      "service": 0.0161,
+      "models": 0.011
+     },
+     "latencyMs": 195.6,
+     "modelLatencyMs": 192.43,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-31": {
+     "id": "ci-31",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.0728,
+      "code": 0.3669,
+      "image": 0.0051,
+      "speech": 0.0332,
+      "vision": 0.0423,
+      "service": 0.3762,
+      "models": 0.1035
+     },
+     "latencyMs": 186.3,
+     "modelLatencyMs": 171.2,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-32": {
+     "id": "ci-32",
+     "label": "service",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.5276,
+      "code": 0.0413,
+      "image": 0.0216,
+      "speech": 0.0448,
+      "vision": 0.1676,
+      "service": 0.1486,
+      "models": 0.0483
+     },
+     "latencyMs": 202,
+     "modelLatencyMs": 192.49,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-33": {
+     "id": "ci-33",
+     "label": "service",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0575,
+      "code": 0.3982,
+      "image": 0.0172,
+      "speech": 0.1072,
+      "vision": 0.0806,
+      "service": 0.2457,
+      "models": 0.0936
+     },
+     "latencyMs": 178.1,
+     "modelLatencyMs": 174.97,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-34": {
+     "id": "ci-34",
+     "label": "service",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0881,
+      "code": 0.4888,
+      "image": 0.0094,
+      "speech": 0.0474,
+      "vision": 0.0619,
+      "service": 0.2375,
+      "models": 0.0668
+     },
+     "latencyMs": 183.8,
+     "modelLatencyMs": 179.77,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-35": {
+     "id": "ci-35",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.0174,
+      "code": 0.0048,
+      "image": 0.001,
+      "speech": 0.003,
+      "vision": 0.014,
+      "service": 0.957,
+      "models": 0.0028
+     },
+     "latencyMs": 218.6,
+     "modelLatencyMs": 214.97,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-36": {
+     "id": "ci-36",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.0005,
+      "code": 0.0011,
+      "image": 0.0001,
+      "speech": 0.0006,
+      "vision": 0.0004,
+      "service": 0.9971,
+      "models": 0.0002
+     },
+     "latencyMs": 191.1,
+     "modelLatencyMs": 187.43,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-37": {
+     "id": "ci-37",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0.0031,
+      "code": 0.0011,
+      "image": 0.0004,
+      "speech": 0.0012,
+      "vision": 0.0016,
+      "service": 0.0035,
+      "models": 0.9891
+     },
+     "latencyMs": 197.2,
+     "modelLatencyMs": 193.33,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-38": {
+     "id": "ci-38",
+     "label": "models",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.2295,
+      "code": 0.171,
+      "image": 0.0107,
+      "speech": 0.0771,
+      "vision": 0.043,
+      "service": 0.2908,
+      "models": 0.178
+     },
+     "latencyMs": 211.3,
+     "modelLatencyMs": 204.84,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-39": {
+     "id": "ci-39",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0.0648,
+      "code": 0.3573,
+      "image": 0.0096,
+      "speech": 0.0244,
+      "vision": 0.0441,
+      "service": 0.0517,
+      "models": 0.4481
+     },
+     "latencyMs": 264.8,
+     "modelLatencyMs": 261.59,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-40": {
+     "id": "ci-40",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0.0179,
+      "code": 0.0191,
+      "image": 0.0652,
+      "speech": 0.006,
+      "vision": 0.0594,
+      "service": 0.0144,
+      "models": 0.8181
+     },
+     "latencyMs": 187.7,
+     "modelLatencyMs": 183.92,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-41": {
+     "id": "ci-41",
+     "label": "models",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0022,
+      "code": 0.9603,
+      "image": 0.0012,
+      "speech": 0.0026,
+      "vision": 0.005,
+      "service": 0.0139,
+      "models": 0.0147
+     },
+     "latencyMs": 183.3,
+     "modelLatencyMs": 179.69,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ci-42": {
+     "id": "ci-42",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0.0007,
+      "code": 0.0005,
+      "image": 0.0002,
+      "speech": 0.0004,
+      "vision": 0.0029,
+      "service": 0.0043,
+      "models": 0.9912
+     },
+     "latencyMs": 174.1,
+     "modelLatencyMs": 170.46,
+     "costUsd": null,
+     "checkpoint": "english"
+    }
+   },
+   "laya-typed-decisions": {
+    "ci-01": {
+     "id": "ci-01",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.3512,
+      "code": 0.1464,
+      "image": 0.0998,
+      "speech": 0.0809,
+      "vision": 0.1103,
+      "service": 0.133,
+      "models": 0.0784
+     },
+     "latencyMs": 190.2,
+     "modelLatencyMs": 176.93,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-02": {
+     "id": "ci-02",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.628,
+      "code": 0.0845,
+      "image": 0.0231,
+      "speech": 0.0458,
+      "vision": 0.0559,
+      "service": 0.0441,
+      "models": 0.1185
+     },
+     "latencyMs": 200.5,
+     "modelLatencyMs": 196.64,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-03": {
+     "id": "ci-03",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.5289,
+      "code": 0.1192,
+      "image": 0.0389,
+      "speech": 0.1651,
+      "vision": 0.0412,
+      "service": 0.0452,
+      "models": 0.0615
+     },
+     "latencyMs": 196.7,
+     "modelLatencyMs": 192.29,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-04": {
+     "id": "ci-04",
+     "label": "chat",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.2491,
+      "code": 0.0886,
+      "image": 0.1031,
+      "speech": 0.3372,
+      "vision": 0.0766,
+      "service": 0.045,
+      "models": 0.1003
+     },
+     "latencyMs": 198,
+     "modelLatencyMs": 194.04,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-05": {
+     "id": "ci-05",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.5692,
+      "code": 0.0864,
+      "image": 0.0349,
+      "speech": 0.0679,
+      "vision": 0.0767,
+      "service": 0.0783,
+      "models": 0.0867
+     },
+     "latencyMs": 196.7,
+     "modelLatencyMs": 192.9,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-06": {
+     "id": "ci-06",
+     "label": "chat",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.375,
+      "code": 0.2111,
+      "image": 0.0381,
+      "speech": 0.0691,
+      "vision": 0.1153,
+      "service": 0.0711,
+      "models": 0.1203
+     },
+     "latencyMs": 476.5,
+     "modelLatencyMs": 470.55,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-07": {
+     "id": "ci-07",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0121,
+      "code": 0.7975,
+      "image": 0.1301,
+      "speech": 0.006,
+      "vision": 0.0206,
+      "service": 0.0168,
+      "models": 0.017
+     },
+     "latencyMs": 549.9,
+     "modelLatencyMs": 546.24,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-08": {
+     "id": "ci-08",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.1414,
+      "code": 0.7138,
+      "image": 0.0173,
+      "speech": 0.0101,
+      "vision": 0.0212,
+      "service": 0.0554,
+      "models": 0.0408
+     },
+     "latencyMs": 391.4,
+     "modelLatencyMs": 387.63,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-09": {
+     "id": "ci-09",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.2148,
+      "code": 0.2715,
+      "image": 0.0163,
+      "speech": 0.0136,
+      "vision": 0.0848,
+      "service": 0.247,
+      "models": 0.152
+     },
+     "latencyMs": 251.4,
+     "modelLatencyMs": 247.72,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-10": {
+     "id": "ci-10",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.1042,
+      "code": 0.6044,
+      "image": 0.0196,
+      "speech": 0.0222,
+      "vision": 0.0576,
+      "service": 0.1081,
+      "models": 0.0839
+     },
+     "latencyMs": 215.3,
+     "modelLatencyMs": 211.87,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-11": {
+     "id": "ci-11",
+     "label": "code",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0888,
+      "code": 0.8069,
+      "image": 0.0133,
+      "speech": 0.0121,
+      "vision": 0.019,
+      "service": 0.0353,
+      "models": 0.0247
+     },
+     "latencyMs": 215.5,
+     "modelLatencyMs": 211.42,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-12": {
+     "id": "ci-12",
+     "label": "code",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.0334,
+      "code": 0.4419,
+      "image": 0.0096,
+      "speech": 0.0081,
+      "vision": 0.0219,
+      "service": 0.4608,
+      "models": 0.0243
+     },
+     "latencyMs": 192.7,
+     "modelLatencyMs": 189.27,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-13": {
+     "id": "ci-13",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0682,
+      "code": 0.2424,
+      "image": 0.5207,
+      "speech": 0.0215,
+      "vision": 0.0616,
+      "service": 0.0364,
+      "models": 0.0493
+     },
+     "latencyMs": 180.5,
+     "modelLatencyMs": 177.07,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-14": {
+     "id": "ci-14",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0099,
+      "code": 0.0271,
+      "image": 0.9049,
+      "speech": 0.0051,
+      "vision": 0.0197,
+      "service": 0.0125,
+      "models": 0.0207
+     },
+     "latencyMs": 184.6,
+     "modelLatencyMs": 180.75,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-15": {
+     "id": "ci-15",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0247,
+      "code": 0.0455,
+      "image": 0.7816,
+      "speech": 0.0105,
+      "vision": 0.0901,
+      "service": 0.0176,
+      "models": 0.03
+     },
+     "latencyMs": 183.7,
+     "modelLatencyMs": 180.41,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-16": {
+     "id": "ci-16",
+     "label": "image",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.1187,
+      "code": 0.2691,
+      "image": 0.1086,
+      "speech": 0.0346,
+      "vision": 0.0751,
+      "service": 0.2717,
+      "models": 0.1223
+     },
+     "latencyMs": 208.8,
+     "modelLatencyMs": 205.45,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-17": {
+     "id": "ci-17",
+     "label": "image",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0265,
+      "code": 0.0559,
+      "image": 0.7651,
+      "speech": 0.0108,
+      "vision": 0.0861,
+      "service": 0.0214,
+      "models": 0.0342
+     },
+     "latencyMs": 195.4,
+     "modelLatencyMs": 191.98,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-18": {
+     "id": "ci-18",
+     "label": "image",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.2475,
+      "code": 0.2331,
+      "image": 0.0518,
+      "speech": 0.0702,
+      "vision": 0.1315,
+      "service": 0.151,
+      "models": 0.1149
+     },
+     "latencyMs": 167,
+     "modelLatencyMs": 163.78,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-19": {
+     "id": "ci-19",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.1953,
+      "code": 0.0342,
+      "image": 0.0121,
+      "speech": 0.687,
+      "vision": 0.0208,
+      "service": 0.0176,
+      "models": 0.033
+     },
+     "latencyMs": 160.9,
+     "modelLatencyMs": 157.89,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-20": {
+     "id": "ci-20",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.183,
+      "code": 0.0594,
+      "image": 0.0254,
+      "speech": 0.5693,
+      "vision": 0.0382,
+      "service": 0.0541,
+      "models": 0.0706
+     },
+     "latencyMs": 246.1,
+     "modelLatencyMs": 242.91,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-21": {
+     "id": "ci-21",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.1165,
+      "code": 0.0489,
+      "image": 0.1618,
+      "speech": 0.5361,
+      "vision": 0.039,
+      "service": 0.051,
+      "models": 0.0467
+     },
+     "latencyMs": 393.5,
+     "modelLatencyMs": 389.99,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-22": {
+     "id": "ci-22",
+     "label": "speech",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.1504,
+      "code": 0.3767,
+      "image": 0.0382,
+      "speech": 0.1033,
+      "vision": 0.0976,
+      "service": 0.1279,
+      "models": 0.1059
+     },
+     "latencyMs": 270.5,
+     "modelLatencyMs": 267.05,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-23": {
+     "id": "ci-23",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.1668,
+      "code": 0.0543,
+      "image": 0.0206,
+      "speech": 0.4216,
+      "vision": 0.096,
+      "service": 0.0622,
+      "models": 0.1787
+     },
+     "latencyMs": 357,
+     "modelLatencyMs": 353.04,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-24": {
+     "id": "ci-24",
+     "label": "speech",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.2919,
+      "code": 0.0747,
+      "image": 0.0326,
+      "speech": 0.3828,
+      "vision": 0.0398,
+      "service": 0.0803,
+      "models": 0.0979
+     },
+     "latencyMs": 221.2,
+     "modelLatencyMs": 217.82,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-25": {
+     "id": "ci-25",
+     "label": "vision",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.1093,
+      "code": 0.1076,
+      "image": 0.375,
+      "speech": 0.0341,
+      "vision": 0.2314,
+      "service": 0.0578,
+      "models": 0.0848
+     },
+     "latencyMs": 181,
+     "modelLatencyMs": 177.93,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-26": {
+     "id": "ci-26",
+     "label": "vision",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.1362,
+      "code": 0.0253,
+      "image": 0.515,
+      "speech": 0.1288,
+      "vision": 0.1342,
+      "service": 0.016,
+      "models": 0.0445
+     },
+     "latencyMs": 175.3,
+     "modelLatencyMs": 172.36,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-27": {
+     "id": "ci-27",
+     "label": "vision",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0529,
+      "code": 0.0875,
+      "image": 0.5552,
+      "speech": 0.013,
+      "vision": 0.1736,
+      "service": 0.0545,
+      "models": 0.0633
+     },
+     "latencyMs": 178,
+     "modelLatencyMs": 174.93,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-28": {
+     "id": "ci-28",
+     "label": "vision",
+     "choice": "vision",
+     "probabilities": {
+      "chat": 0.0886,
+      "code": 0.1355,
+      "image": 0.1699,
+      "speech": 0.0342,
+      "vision": 0.4186,
+      "service": 0.07,
+      "models": 0.0832
+     },
+     "latencyMs": 196.7,
+     "modelLatencyMs": 193.12,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-29": {
+     "id": "ci-29",
+     "label": "vision",
+     "choice": "speech",
+     "probabilities": {
+      "chat": 0.1834,
+      "code": 0.043,
+      "image": 0.156,
+      "speech": 0.2686,
+      "vision": 0.2028,
+      "service": 0.0797,
+      "models": 0.0665
+     },
+     "latencyMs": 204.4,
+     "modelLatencyMs": 200.55,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-30": {
+     "id": "ci-30",
+     "label": "vision",
+     "choice": "image",
+     "probabilities": {
+      "chat": 0.0716,
+      "code": 0.0975,
+      "image": 0.5019,
+      "speech": 0.0123,
+      "vision": 0.2425,
+      "service": 0.033,
+      "models": 0.0411
+     },
+     "latencyMs": 194.4,
+     "modelLatencyMs": 191.25,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-31": {
+     "id": "ci-31",
+     "label": "service",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.2189,
+      "code": 0.2816,
+      "image": 0.0167,
+      "speech": 0.036,
+      "vision": 0.0605,
+      "service": 0.2493,
+      "models": 0.137
+     },
+     "latencyMs": 241.5,
+     "modelLatencyMs": 237.99,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-32": {
+     "id": "ci-32",
+     "label": "service",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.4124,
+      "code": 0.083,
+      "image": 0.0412,
+      "speech": 0.0452,
+      "vision": 0.2027,
+      "service": 0.1253,
+      "models": 0.0901
+     },
+     "latencyMs": 231.2,
+     "modelLatencyMs": 227.67,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-33": {
+     "id": "ci-33",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.1388,
+      "code": 0.2609,
+      "image": 0.0303,
+      "speech": 0.0623,
+      "vision": 0.0919,
+      "service": 0.2854,
+      "models": 0.1303
+     },
+     "latencyMs": 203.3,
+     "modelLatencyMs": 199.55,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-34": {
+     "id": "ci-34",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.163,
+      "code": 0.2951,
+      "image": 0.024,
+      "speech": 0.0501,
+      "vision": 0.0842,
+      "service": 0.3044,
+      "models": 0.0791
+     },
+     "latencyMs": 176.6,
+     "modelLatencyMs": 173.25,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-35": {
+     "id": "ci-35",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.1468,
+      "code": 0.0563,
+      "image": 0.0148,
+      "speech": 0.0196,
+      "vision": 0.091,
+      "service": 0.621,
+      "models": 0.0505
+     },
+     "latencyMs": 176.3,
+     "modelLatencyMs": 172.46,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-36": {
+     "id": "ci-36",
+     "label": "service",
+     "choice": "service",
+     "probabilities": {
+      "chat": 0.0435,
+      "code": 0.0868,
+      "image": 0.0078,
+      "speech": 0.0265,
+      "vision": 0.0263,
+      "service": 0.7893,
+      "models": 0.0199
+     },
+     "latencyMs": 180.7,
+     "modelLatencyMs": 177.5,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-37": {
+     "id": "ci-37",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0.1023,
+      "code": 0.0396,
+      "image": 0.0139,
+      "speech": 0.0215,
+      "vision": 0.0407,
+      "service": 0.0755,
+      "models": 0.7064
+     },
+     "latencyMs": 238.3,
+     "modelLatencyMs": 234.75,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-38": {
+     "id": "ci-38",
+     "label": "models",
+     "choice": "chat",
+     "probabilities": {
+      "chat": 0.3107,
+      "code": 0.1241,
+      "image": 0.0396,
+      "speech": 0.0714,
+      "vision": 0.0726,
+      "service": 0.1788,
+      "models": 0.2027
+     },
+     "latencyMs": 207.3,
+     "modelLatencyMs": 203.57,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-39": {
+     "id": "ci-39",
+     "label": "models",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.1775,
+      "code": 0.3092,
+      "image": 0.0408,
+      "speech": 0.0371,
+      "vision": 0.0738,
+      "service": 0.1141,
+      "models": 0.2476
+     },
+     "latencyMs": 189.2,
+     "modelLatencyMs": 185,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-40": {
+     "id": "ci-40",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0.0735,
+      "code": 0.0716,
+      "image": 0.2854,
+      "speech": 0.0119,
+      "vision": 0.1131,
+      "service": 0.053,
+      "models": 0.3916
+     },
+     "latencyMs": 196.9,
+     "modelLatencyMs": 192.88,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-41": {
+     "id": "ci-41",
+     "label": "models",
+     "choice": "code",
+     "probabilities": {
+      "chat": 0.0313,
+      "code": 0.6673,
+      "image": 0.0138,
+      "speech": 0.0132,
+      "vision": 0.0261,
+      "service": 0.1418,
+      "models": 0.1064
+     },
+     "latencyMs": 196.7,
+     "modelLatencyMs": 193.09,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ci-42": {
+     "id": "ci-42",
+     "label": "models",
+     "choice": "models",
+     "probabilities": {
+      "chat": 0.0452,
+      "code": 0.0258,
+      "image": 0.0099,
+      "speech": 0.0112,
+      "vision": 0.1097,
+      "service": 0.0814,
+      "models": 0.7168
+     },
+     "latencyMs": 215.8,
+     "modelLatencyMs": 211.81,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    }
+   }
+  },
+  "feedback-triage": {
+   "laya": {
+    "ft-01": {
+     "id": "ft-01",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.6964,
+      "feature_request": 0.0255,
+      "ui_ux": 0.1286,
+      "content_correction": 0.0947,
+      "noise": 0.0548
+     },
+     "latencyMs": 261.2,
+     "modelLatencyMs": 258,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-02": {
+     "id": "ft-02",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.6634,
+      "feature_request": 0.0336,
+      "ui_ux": 0.0886,
+      "content_correction": 0.0624,
+      "noise": 0.152
+     },
+     "latencyMs": 276.2,
+     "modelLatencyMs": 272.74,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-03": {
+     "id": "ft-03",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4242,
+      "feature_request": 0.0728,
+      "ui_ux": 0.1995,
+      "content_correction": 0.1634,
+      "noise": 0.1402
+     },
+     "latencyMs": 277.4,
+     "modelLatencyMs": 273.46,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-04": {
+     "id": "ft-04",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4478,
+      "feature_request": 0.06,
+      "ui_ux": 0.1833,
+      "content_correction": 0.2224,
+      "noise": 0.0866
+     },
+     "latencyMs": 224.7,
+     "modelLatencyMs": 220.99,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-05": {
+     "id": "ft-05",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.7796,
+      "feature_request": 0.0288,
+      "ui_ux": 0.0661,
+      "content_correction": 0.0505,
+      "noise": 0.0749
+     },
+     "latencyMs": 214.3,
+     "modelLatencyMs": 211.14,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-06": {
+     "id": "ft-06",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.5998,
+      "feature_request": 0.034,
+      "ui_ux": 0.1323,
+      "content_correction": 0.1735,
+      "noise": 0.0604
+     },
+     "latencyMs": 208.1,
+     "modelLatencyMs": 204.88,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-07": {
+     "id": "ft-07",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4734,
+      "feature_request": 0.0877,
+      "ui_ux": 0.1766,
+      "content_correction": 0.132,
+      "noise": 0.1304
+     },
+     "latencyMs": 181.7,
+     "modelLatencyMs": 178.53,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-08": {
+     "id": "ft-08",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.9656,
+      "feature_request": 0.0004,
+      "ui_ux": 0.0204,
+      "content_correction": 0.0131,
+      "noise": 0.0005
+     },
+     "latencyMs": 79.1,
+     "modelLatencyMs": 75.63,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ft-09": {
+     "id": "ft-09",
+     "label": "feature_request",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.3018,
+      "feature_request": 0.1027,
+      "ui_ux": 0.2157,
+      "content_correction": 0.2208,
+      "noise": 0.159
+     },
+     "latencyMs": 208,
+     "modelLatencyMs": 204.5,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-10": {
+     "id": "ft-10",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0.2905,
+      "feature_request": 0.3403,
+      "ui_ux": 0.1573,
+      "content_correction": 0.159,
+      "noise": 0.0529
+     },
+     "latencyMs": 200.3,
+     "modelLatencyMs": 197.25,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-11": {
+     "id": "ft-11",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0.1272,
+      "feature_request": 0.5996,
+      "ui_ux": 0.0723,
+      "content_correction": 0.1576,
+      "noise": 0.0432
+     },
+     "latencyMs": 206.6,
+     "modelLatencyMs": 203.21,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-12": {
+     "id": "ft-12",
+     "label": "feature_request",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.3664,
+      "feature_request": 0.259,
+      "ui_ux": 0.168,
+      "content_correction": 0.1375,
+      "noise": 0.0691
+     },
+     "latencyMs": 194.5,
+     "modelLatencyMs": 191.08,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-13": {
+     "id": "ft-13",
+     "label": "feature_request",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.3169,
+      "feature_request": 0.2436,
+      "ui_ux": 0.1826,
+      "content_correction": 0.1958,
+      "noise": 0.061
+     },
+     "latencyMs": 196.7,
+     "modelLatencyMs": 192.83,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-14": {
+     "id": "ft-14",
+     "label": "feature_request",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.3944,
+      "feature_request": 0.1561,
+      "ui_ux": 0.1989,
+      "content_correction": 0.1659,
+      "noise": 0.0847
+     },
+     "latencyMs": 200.8,
+     "modelLatencyMs": 177.96,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-15": {
+     "id": "ft-15",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0.0006,
+      "feature_request": 0.9417,
+      "ui_ux": 0.0209,
+      "content_correction": 0.0332,
+      "noise": 0.0037
+     },
+     "latencyMs": 155.6,
+     "modelLatencyMs": 152.03,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ft-16": {
+     "id": "ft-16",
+     "label": "ui_ux",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4549,
+      "feature_request": 0.0759,
+      "ui_ux": 0.2183,
+      "content_correction": 0.1921,
+      "noise": 0.0588
+     },
+     "latencyMs": 310.4,
+     "modelLatencyMs": 307.33,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-17": {
+     "id": "ft-17",
+     "label": "ui_ux",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4766,
+      "feature_request": 0.0582,
+      "ui_ux": 0.2054,
+      "content_correction": 0.1737,
+      "noise": 0.086
+     },
+     "latencyMs": 274.8,
+     "modelLatencyMs": 271.2,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-18": {
+     "id": "ft-18",
+     "label": "ui_ux",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4741,
+      "feature_request": 0.0564,
+      "ui_ux": 0.2212,
+      "content_correction": 0.1254,
+      "noise": 0.1229
+     },
+     "latencyMs": 232.3,
+     "modelLatencyMs": 228.45,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-19": {
+     "id": "ft-19",
+     "label": "ui_ux",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4025,
+      "feature_request": 0.0539,
+      "ui_ux": 0.3473,
+      "content_correction": 0.1227,
+      "noise": 0.0736
+     },
+     "latencyMs": 236.6,
+     "modelLatencyMs": 232.63,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-20": {
+     "id": "ft-20",
+     "label": "ui_ux",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4981,
+      "feature_request": 0.0729,
+      "ui_ux": 0.2446,
+      "content_correction": 0.1115,
+      "noise": 0.0729
+     },
+     "latencyMs": 218.4,
+     "modelLatencyMs": 214.91,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-21": {
+     "id": "ft-21",
+     "label": "ui_ux",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4371,
+      "feature_request": 0.147,
+      "ui_ux": 0.2666,
+      "content_correction": 0.0797,
+      "noise": 0.0696
+     },
+     "latencyMs": 219.8,
+     "modelLatencyMs": 216.37,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-22": {
+     "id": "ft-22",
+     "label": "content_correction",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4265,
+      "feature_request": 0.048,
+      "ui_ux": 0.1703,
+      "content_correction": 0.3051,
+      "noise": 0.0502
+     },
+     "latencyMs": 239.2,
+     "modelLatencyMs": 235.85,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-23": {
+     "id": "ft-23",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.225,
+      "feature_request": 0.0352,
+      "ui_ux": 0.1094,
+      "content_correction": 0.6032,
+      "noise": 0.0273
+     },
+     "latencyMs": 267.4,
+     "modelLatencyMs": 264.2,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-24": {
+     "id": "ft-24",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.2167,
+      "feature_request": 0.0353,
+      "ui_ux": 0.1114,
+      "content_correction": 0.61,
+      "noise": 0.0266
+     },
+     "latencyMs": 292,
+     "modelLatencyMs": 288.51,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-25": {
+     "id": "ft-25",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.1207,
+      "feature_request": 0.0291,
+      "ui_ux": 0.0686,
+      "content_correction": 0.7557,
+      "noise": 0.0257
+     },
+     "latencyMs": 228.4,
+     "modelLatencyMs": 225.09,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-26": {
+     "id": "ft-26",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.2818,
+      "feature_request": 0.0624,
+      "ui_ux": 0.1458,
+      "content_correction": 0.4623,
+      "noise": 0.0477
+     },
+     "latencyMs": 205.6,
+     "modelLatencyMs": 202.31,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-27": {
+     "id": "ft-27",
+     "label": "content_correction",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.6005,
+      "feature_request": 0.0574,
+      "ui_ux": 0.1316,
+      "content_correction": 0.1583,
+      "noise": 0.0523
+     },
+     "latencyMs": 195.2,
+     "modelLatencyMs": 191.92,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-28": {
+     "id": "ft-28",
+     "label": "content_correction",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.9332,
+      "feature_request": 0.0015,
+      "ui_ux": 0.0091,
+      "content_correction": 0.052,
+      "noise": 0.0043
+     },
+     "latencyMs": 85.8,
+     "modelLatencyMs": 82.59,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "ft-29": {
+     "id": "ft-29",
+     "label": "noise",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.5106,
+      "feature_request": 0.0674,
+      "ui_ux": 0.1888,
+      "content_correction": 0.1444,
+      "noise": 0.0888
+     },
+     "latencyMs": 188.7,
+     "modelLatencyMs": 185.66,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-30": {
+     "id": "ft-30",
+     "label": "noise",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4476,
+      "feature_request": 0.0966,
+      "ui_ux": 0.1961,
+      "content_correction": 0.1703,
+      "noise": 0.0895
+     },
+     "latencyMs": 202.9,
+     "modelLatencyMs": 198.94,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-31": {
+     "id": "ft-31",
+     "label": "noise",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4777,
+      "feature_request": 0.0739,
+      "ui_ux": 0.1854,
+      "content_correction": 0.1755,
+      "noise": 0.0875
+     },
+     "latencyMs": 186.5,
+     "modelLatencyMs": 183.23,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-32": {
+     "id": "ft-32",
+     "label": "noise",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.3926,
+      "feature_request": 0.1194,
+      "ui_ux": 0.1908,
+      "content_correction": 0.117,
+      "noise": 0.1801
+     },
+     "latencyMs": 200.5,
+     "modelLatencyMs": 197.15,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-33": {
+     "id": "ft-33",
+     "label": "noise",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.3895,
+      "feature_request": 0.0788,
+      "ui_ux": 0.2811,
+      "content_correction": 0.1636,
+      "noise": 0.087
+     },
+     "latencyMs": 183.5,
+     "modelLatencyMs": 179.93,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-34": {
+     "id": "ft-34",
+     "label": "noise",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4167,
+      "feature_request": 0.0582,
+      "ui_ux": 0.2581,
+      "content_correction": 0.1421,
+      "noise": 0.1248
+     },
+     "latencyMs": 192,
+     "modelLatencyMs": 188.73,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-35": {
+     "id": "ft-35",
+     "label": "bug",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.2102,
+      "feature_request": 0.0349,
+      "ui_ux": 0.0847,
+      "content_correction": 0.6267,
+      "noise": 0.0435
+     },
+     "latencyMs": 204,
+     "modelLatencyMs": 200.91,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-36": {
+     "id": "ft-36",
+     "label": "ui_ux",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4698,
+      "feature_request": 0.0797,
+      "ui_ux": 0.1818,
+      "content_correction": 0.1759,
+      "noise": 0.0928
+     },
+     "latencyMs": 220,
+     "modelLatencyMs": 216.71,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-37": {
+     "id": "ft-37",
+     "label": "noise",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.2455,
+      "feature_request": 0.0363,
+      "ui_ux": 0.3935,
+      "content_correction": 0.2705,
+      "noise": 0.0542
+     },
+     "latencyMs": 195.8,
+     "modelLatencyMs": 191.98,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-38": {
+     "id": "ft-38",
+     "label": "feature_request",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.3501,
+      "feature_request": 0.1579,
+      "ui_ux": 0.1942,
+      "content_correction": 0.1961,
+      "noise": 0.1017
+     },
+     "latencyMs": 299.1,
+     "modelLatencyMs": 295,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-39": {
+     "id": "ft-39",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.5743,
+      "feature_request": 0.0376,
+      "ui_ux": 0.1757,
+      "content_correction": 0.1451,
+      "noise": 0.0672
+     },
+     "latencyMs": 219.6,
+     "modelLatencyMs": 216.27,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "ft-40": {
+     "id": "ft-40",
+     "label": "ui_ux",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4947,
+      "feature_request": 0.0477,
+      "ui_ux": 0.2147,
+      "content_correction": 0.1782,
+      "noise": 0.0648
+     },
+     "latencyMs": 219.9,
+     "modelLatencyMs": 216.62,
+     "costUsd": null,
+     "checkpoint": "english"
+    }
+   },
+   "laya-typed-decisions": {
+    "ft-01": {
+     "id": "ft-01",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4466,
+      "feature_request": 0.0888,
+      "ui_ux": 0.2011,
+      "content_correction": 0.1544,
+      "noise": 0.1092
+     },
+     "latencyMs": 210.2,
+     "modelLatencyMs": 206.69,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-02": {
+     "id": "ft-02",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.4075,
+      "feature_request": 0.1056,
+      "ui_ux": 0.1555,
+      "content_correction": 0.1373,
+      "noise": 0.1941
+     },
+     "latencyMs": 223,
+     "modelLatencyMs": 219.8,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-03": {
+     "id": "ft-03",
+     "label": "bug",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.2055,
+      "feature_request": 0.15,
+      "ui_ux": 0.2498,
+      "content_correction": 0.2076,
+      "noise": 0.1871
+     },
+     "latencyMs": 222.9,
+     "modelLatencyMs": 218.35,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-04": {
+     "id": "ft-04",
+     "label": "bug",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.188,
+      "feature_request": 0.1206,
+      "ui_ux": 0.3196,
+      "content_correction": 0.2061,
+      "noise": 0.1657
+     },
+     "latencyMs": 239.6,
+     "modelLatencyMs": 236.19,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-05": {
+     "id": "ft-05",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.5168,
+      "feature_request": 0.0914,
+      "ui_ux": 0.1429,
+      "content_correction": 0.117,
+      "noise": 0.1319
+     },
+     "latencyMs": 245.2,
+     "modelLatencyMs": 240.6,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-06": {
+     "id": "ft-06",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.3431,
+      "feature_request": 0.1022,
+      "ui_ux": 0.1791,
+      "content_correction": 0.239,
+      "noise": 0.1365
+     },
+     "latencyMs": 273.8,
+     "modelLatencyMs": 270.12,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-07": {
+     "id": "ft-07",
+     "label": "bug",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.1971,
+      "feature_request": 0.2102,
+      "ui_ux": 0.2315,
+      "content_correction": 0.2073,
+      "noise": 0.1539
+     },
+     "latencyMs": 196.5,
+     "modelLatencyMs": 193.03,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-08": {
+     "id": "ft-08",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.2869,
+      "feature_request": 0.132,
+      "ui_ux": 0.2311,
+      "content_correction": 0.1964,
+      "noise": 0.1536
+     },
+     "latencyMs": 234.8,
+     "modelLatencyMs": 231.34,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-09": {
+     "id": "ft-09",
+     "label": "feature_request",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.144,
+      "feature_request": 0.239,
+      "ui_ux": 0.2489,
+      "content_correction": 0.2336,
+      "noise": 0.1346
+     },
+     "latencyMs": 195,
+     "modelLatencyMs": 191.52,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-10": {
+     "id": "ft-10",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0.1438,
+      "feature_request": 0.3093,
+      "ui_ux": 0.233,
+      "content_correction": 0.212,
+      "noise": 0.1019
+     },
+     "latencyMs": 205.4,
+     "modelLatencyMs": 199.65,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-11": {
+     "id": "ft-11",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0.1153,
+      "feature_request": 0.3931,
+      "ui_ux": 0.1463,
+      "content_correction": 0.2398,
+      "noise": 0.1055
+     },
+     "latencyMs": 216.4,
+     "modelLatencyMs": 213.26,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-12": {
+     "id": "ft-12",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0.167,
+      "feature_request": 0.331,
+      "ui_ux": 0.2299,
+      "content_correction": 0.1799,
+      "noise": 0.0922
+     },
+     "latencyMs": 201.9,
+     "modelLatencyMs": 198.58,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-13": {
+     "id": "ft-13",
+     "label": "feature_request",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.1564,
+      "feature_request": 0.254,
+      "ui_ux": 0.2659,
+      "content_correction": 0.2294,
+      "noise": 0.0942
+     },
+     "latencyMs": 203.1,
+     "modelLatencyMs": 199.63,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-14": {
+     "id": "ft-14",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0.1565,
+      "feature_request": 0.2893,
+      "ui_ux": 0.251,
+      "content_correction": 0.2005,
+      "noise": 0.1026
+     },
+     "latencyMs": 207.8,
+     "modelLatencyMs": 204.31,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-15": {
+     "id": "ft-15",
+     "label": "feature_request",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.1303,
+      "feature_request": 0.2435,
+      "ui_ux": 0.2108,
+      "content_correction": 0.3186,
+      "noise": 0.0968
+     },
+     "latencyMs": 209.7,
+     "modelLatencyMs": 206.09,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-16": {
+     "id": "ft-16",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.2087,
+      "feature_request": 0.1521,
+      "ui_ux": 0.2837,
+      "content_correction": 0.2688,
+      "noise": 0.0866
+     },
+     "latencyMs": 189,
+     "modelLatencyMs": 185.98,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-17": {
+     "id": "ft-17",
+     "label": "ui_ux",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.2784,
+      "feature_request": 0.1145,
+      "ui_ux": 0.2628,
+      "content_correction": 0.2274,
+      "noise": 0.1168
+     },
+     "latencyMs": 199.5,
+     "modelLatencyMs": 196.35,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-18": {
+     "id": "ft-18",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.215,
+      "feature_request": 0.1359,
+      "ui_ux": 0.294,
+      "content_correction": 0.1957,
+      "noise": 0.1593
+     },
+     "latencyMs": 184.5,
+     "modelLatencyMs": 181.01,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-19": {
+     "id": "ft-19",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.2197,
+      "feature_request": 0.1243,
+      "ui_ux": 0.314,
+      "content_correction": 0.2356,
+      "noise": 0.1064
+     },
+     "latencyMs": 193.9,
+     "modelLatencyMs": 190,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-20": {
+     "id": "ft-20",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.1935,
+      "feature_request": 0.1885,
+      "ui_ux": 0.3157,
+      "content_correction": 0.1853,
+      "noise": 0.117
+     },
+     "latencyMs": 182.4,
+     "modelLatencyMs": 179.57,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-21": {
+     "id": "ft-21",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.1952,
+      "feature_request": 0.1964,
+      "ui_ux": 0.3051,
+      "content_correction": 0.162,
+      "noise": 0.1413
+     },
+     "latencyMs": 192.9,
+     "modelLatencyMs": 189.64,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-22": {
+     "id": "ft-22",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.1748,
+      "feature_request": 0.1131,
+      "ui_ux": 0.2489,
+      "content_correction": 0.3688,
+      "noise": 0.0944
+     },
+     "latencyMs": 223.2,
+     "modelLatencyMs": 220.06,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-23": {
+     "id": "ft-23",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.1765,
+      "feature_request": 0.0948,
+      "ui_ux": 0.2249,
+      "content_correction": 0.4125,
+      "noise": 0.0913
+     },
+     "latencyMs": 185.2,
+     "modelLatencyMs": 182.14,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-24": {
+     "id": "ft-24",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.1886,
+      "feature_request": 0.1188,
+      "ui_ux": 0.2259,
+      "content_correction": 0.3884,
+      "noise": 0.0781
+     },
+     "latencyMs": 210.4,
+     "modelLatencyMs": 207.06,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-25": {
+     "id": "ft-25",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.1523,
+      "feature_request": 0.1471,
+      "ui_ux": 0.1991,
+      "content_correction": 0.4087,
+      "noise": 0.0928
+     },
+     "latencyMs": 226.7,
+     "modelLatencyMs": 223.45,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-26": {
+     "id": "ft-26",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.1693,
+      "feature_request": 0.1068,
+      "ui_ux": 0.2202,
+      "content_correction": 0.4116,
+      "noise": 0.0921
+     },
+     "latencyMs": 403.2,
+     "modelLatencyMs": 399.62,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-27": {
+     "id": "ft-27",
+     "label": "content_correction",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.2638,
+      "feature_request": 0.1157,
+      "ui_ux": 0.2214,
+      "content_correction": 0.2534,
+      "noise": 0.1456
+     },
+     "latencyMs": 447.9,
+     "modelLatencyMs": 444.39,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-28": {
+     "id": "ft-28",
+     "label": "content_correction",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.2232,
+      "feature_request": 0.0813,
+      "ui_ux": 0.2074,
+      "content_correction": 0.3301,
+      "noise": 0.1581
+     },
+     "latencyMs": 261.4,
+     "modelLatencyMs": 257.85,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-29": {
+     "id": "ft-29",
+     "label": "noise",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.2382,
+      "feature_request": 0.1646,
+      "ui_ux": 0.2472,
+      "content_correction": 0.1956,
+      "noise": 0.1544
+     },
+     "latencyMs": 232.2,
+     "modelLatencyMs": 228.73,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-30": {
+     "id": "ft-30",
+     "label": "noise",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.2332,
+      "feature_request": 0.1759,
+      "ui_ux": 0.2526,
+      "content_correction": 0.1967,
+      "noise": 0.1417
+     },
+     "latencyMs": 192,
+     "modelLatencyMs": 188.52,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-31": {
+     "id": "ft-31",
+     "label": "noise",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.2402,
+      "feature_request": 0.158,
+      "ui_ux": 0.2542,
+      "content_correction": 0.2178,
+      "noise": 0.1297
+     },
+     "latencyMs": 215.7,
+     "modelLatencyMs": 212.72,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-32": {
+     "id": "ft-32",
+     "label": "noise",
+     "choice": "noise",
+     "probabilities": {
+      "bug": 0.2242,
+      "feature_request": 0.2126,
+      "ui_ux": 0.1801,
+      "content_correction": 0.1369,
+      "noise": 0.2461
+     },
+     "latencyMs": 212.6,
+     "modelLatencyMs": 209.4,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-33": {
+     "id": "ft-33",
+     "label": "noise",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.1674,
+      "feature_request": 0.1779,
+      "ui_ux": 0.3009,
+      "content_correction": 0.2169,
+      "noise": 0.1368
+     },
+     "latencyMs": 185.8,
+     "modelLatencyMs": 182.72,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-34": {
+     "id": "ft-34",
+     "label": "noise",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.2075,
+      "feature_request": 0.1532,
+      "ui_ux": 0.2829,
+      "content_correction": 0.1805,
+      "noise": 0.176
+     },
+     "latencyMs": 189.9,
+     "modelLatencyMs": 187.02,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-35": {
+     "id": "ft-35",
+     "label": "bug",
+     "choice": "content_correction",
+     "probabilities": {
+      "bug": 0.1817,
+      "feature_request": 0.0871,
+      "ui_ux": 0.2087,
+      "content_correction": 0.3921,
+      "noise": 0.1303
+     },
+     "latencyMs": 211.6,
+     "modelLatencyMs": 208.43,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-36": {
+     "id": "ft-36",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.2165,
+      "feature_request": 0.1956,
+      "ui_ux": 0.2458,
+      "content_correction": 0.2202,
+      "noise": 0.1219
+     },
+     "latencyMs": 196.1,
+     "modelLatencyMs": 193.09,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-37": {
+     "id": "ft-37",
+     "label": "noise",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.1626,
+      "feature_request": 0.1164,
+      "ui_ux": 0.3366,
+      "content_correction": 0.2735,
+      "noise": 0.111
+     },
+     "latencyMs": 194,
+     "modelLatencyMs": 190.82,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-38": {
+     "id": "ft-38",
+     "label": "feature_request",
+     "choice": "feature_request",
+     "probabilities": {
+      "bug": 0.1502,
+      "feature_request": 0.2747,
+      "ui_ux": 0.2439,
+      "content_correction": 0.2007,
+      "noise": 0.1305
+     },
+     "latencyMs": 198.5,
+     "modelLatencyMs": 194.98,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-39": {
+     "id": "ft-39",
+     "label": "bug",
+     "choice": "bug",
+     "probabilities": {
+      "bug": 0.3094,
+      "feature_request": 0.104,
+      "ui_ux": 0.222,
+      "content_correction": 0.2432,
+      "noise": 0.1214
+     },
+     "latencyMs": 281.6,
+     "modelLatencyMs": 278.37,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "ft-40": {
+     "id": "ft-40",
+     "label": "ui_ux",
+     "choice": "ui_ux",
+     "probabilities": {
+      "bug": 0.2262,
+      "feature_request": 0.1356,
+      "ui_ux": 0.2699,
+      "content_correction": 0.2443,
+      "noise": 0.124
+     },
+     "latencyMs": 199.2,
+     "modelLatencyMs": 196.08,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    }
+   }
+  },
+  "moderation": {
+   "laya": {
+    "mo-01": {
+     "id": "mo-01",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.398,
+      "review": 0.2346,
+      "remove": 0.3674
+     },
+     "latencyMs": 171.5,
+     "modelLatencyMs": 167.97,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-02": {
+     "id": "mo-02",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.6188,
+      "review": 0.2316,
+      "remove": 0.1497
+     },
+     "latencyMs": 171.5,
+     "modelLatencyMs": 168.15,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-03": {
+     "id": "mo-03",
+     "label": "allow",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.3322,
+      "review": 0.2728,
+      "remove": 0.395
+     },
+     "latencyMs": 191.6,
+     "modelLatencyMs": 187.92,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-04": {
+     "id": "mo-04",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4834,
+      "review": 0.2571,
+      "remove": 0.2595
+     },
+     "latencyMs": 194.6,
+     "modelLatencyMs": 190.81,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-05": {
+     "id": "mo-05",
+     "label": "allow",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.2962,
+      "review": 0.3229,
+      "remove": 0.381
+     },
+     "latencyMs": 180.8,
+     "modelLatencyMs": 177.55,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-06": {
+     "id": "mo-06",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.48,
+      "review": 0.2883,
+      "remove": 0.2316
+     },
+     "latencyMs": 204.7,
+     "modelLatencyMs": 201.5,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-07": {
+     "id": "mo-07",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4285,
+      "review": 0.2806,
+      "remove": 0.2909
+     },
+     "latencyMs": 191.5,
+     "modelLatencyMs": 188.3,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-08": {
+     "id": "mo-08",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.715,
+      "review": 0.1944,
+      "remove": 0.0907
+     },
+     "latencyMs": 90.4,
+     "modelLatencyMs": 87.08,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "mo-09": {
+     "id": "mo-09",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.3443,
+      "review": 0.3372,
+      "remove": 0.3185
+     },
+     "latencyMs": 249.5,
+     "modelLatencyMs": 245.96,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-10": {
+     "id": "mo-10",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.3046,
+      "review": 0.3881,
+      "remove": 0.3073
+     },
+     "latencyMs": 210.8,
+     "modelLatencyMs": 206.7,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-11": {
+     "id": "mo-11",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.3489,
+      "review": 0.2695,
+      "remove": 0.3816
+     },
+     "latencyMs": 214.3,
+     "modelLatencyMs": 210,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-12": {
+     "id": "mo-12",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.1182,
+      "review": 0.0525,
+      "remove": 0.8293
+     },
+     "latencyMs": 212.6,
+     "modelLatencyMs": 208.89,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-13": {
+     "id": "mo-13",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.3525,
+      "review": 0.2698,
+      "remove": 0.3777
+     },
+     "latencyMs": 229.2,
+     "modelLatencyMs": 222.28,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-14": {
+     "id": "mo-14",
+     "label": "remove",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.3974,
+      "review": 0.2531,
+      "remove": 0.3495
+     },
+     "latencyMs": 185.5,
+     "modelLatencyMs": 181.96,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-15": {
+     "id": "mo-15",
+     "label": "remove",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4887,
+      "review": 0.2807,
+      "remove": 0.2305
+     },
+     "latencyMs": 186.9,
+     "modelLatencyMs": 183.57,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-16": {
+     "id": "mo-16",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.3389,
+      "review": 0.3667,
+      "remove": 0.2943
+     },
+     "latencyMs": 1158.8,
+     "modelLatencyMs": 1155.7,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-17": {
+     "id": "mo-17",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.2889,
+      "review": 0.2065,
+      "remove": 0.5047
+     },
+     "latencyMs": 167.2,
+     "modelLatencyMs": 164.03,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-18": {
+     "id": "mo-18",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.2671,
+      "review": 0.253,
+      "remove": 0.4798
+     },
+     "latencyMs": 171.9,
+     "modelLatencyMs": 168.45,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-19": {
+     "id": "mo-19",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4078,
+      "review": 0.2348,
+      "remove": 0.3574
+     },
+     "latencyMs": 169.1,
+     "modelLatencyMs": 166.01,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-20": {
+     "id": "mo-20",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4495,
+      "review": 0.2415,
+      "remove": 0.309
+     },
+     "latencyMs": 163.8,
+     "modelLatencyMs": 160.5,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-21": {
+     "id": "mo-21",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.374,
+      "review": 0.2973,
+      "remove": 0.3287
+     },
+     "latencyMs": 177.6,
+     "modelLatencyMs": 174.07,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-22": {
+     "id": "mo-22",
+     "label": "allow",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.23,
+      "review": 0.4008,
+      "remove": 0.3692
+     },
+     "latencyMs": 174.3,
+     "modelLatencyMs": 162.32,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-23": {
+     "id": "mo-23",
+     "label": "review",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.189,
+      "review": 0.3934,
+      "remove": 0.4176
+     },
+     "latencyMs": 481.2,
+     "modelLatencyMs": 477.64,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-24": {
+     "id": "mo-24",
+     "label": "remove",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.3653,
+      "review": 0.3086,
+      "remove": 0.3261
+     },
+     "latencyMs": 282.3,
+     "modelLatencyMs": 278.53,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-25": {
+     "id": "mo-25",
+     "label": "review",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.3314,
+      "review": 0.3291,
+      "remove": 0.3395
+     },
+     "latencyMs": 255.3,
+     "modelLatencyMs": 251.95,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-26": {
+     "id": "mo-26",
+     "label": "allow",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.2197,
+      "review": 0.3842,
+      "remove": 0.3961
+     },
+     "latencyMs": 207.6,
+     "modelLatencyMs": 203.83,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-27": {
+     "id": "mo-27",
+     "label": "allow",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.3252,
+      "review": 0.2469,
+      "remove": 0.4279
+     },
+     "latencyMs": 182.1,
+     "modelLatencyMs": 178.7,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-28": {
+     "id": "mo-28",
+     "label": "review",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.307,
+      "review": 0.1403,
+      "remove": 0.5528
+     },
+     "latencyMs": 162.1,
+     "modelLatencyMs": 158.7,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-29": {
+     "id": "mo-29",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.2461,
+      "review": 0.0194,
+      "remove": 0.7345
+     },
+     "latencyMs": 80.7,
+     "modelLatencyMs": 77.4,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "mo-30": {
+     "id": "mo-30",
+     "label": "allow",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.2823,
+      "review": 0.3219,
+      "remove": 0.3959
+     },
+     "latencyMs": 178,
+     "modelLatencyMs": 174.68,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-31": {
+     "id": "mo-31",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.3434,
+      "review": 0.3298,
+      "remove": 0.3268
+     },
+     "latencyMs": 173.9,
+     "modelLatencyMs": 170.38,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-32": {
+     "id": "mo-32",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.3129,
+      "review": 0.3216,
+      "remove": 0.3655
+     },
+     "latencyMs": 195.7,
+     "modelLatencyMs": 192.55,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-33": {
+     "id": "mo-33",
+     "label": "allow",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.215,
+      "review": 0.3269,
+      "remove": 0.4581
+     },
+     "latencyMs": 171.7,
+     "modelLatencyMs": 168.43,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-34": {
+     "id": "mo-34",
+     "label": "allow",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.3066,
+      "review": 0.2785,
+      "remove": 0.4149
+     },
+     "latencyMs": 171.3,
+     "modelLatencyMs": 167.41,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-35": {
+     "id": "mo-35",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.2687,
+      "review": 0.3686,
+      "remove": 0.3627
+     },
+     "latencyMs": 165.2,
+     "modelLatencyMs": 162.11,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "mo-36": {
+     "id": "mo-36",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.3522,
+      "review": 0.3021,
+      "remove": 0.3456
+     },
+     "latencyMs": 165.5,
+     "modelLatencyMs": 162.47,
+     "costUsd": null,
+     "checkpoint": "english"
+    }
+   },
+   "laya-typed-decisions": {
+    "mo-01": {
+     "id": "mo-01",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.5309,
+      "review": 0.3078,
+      "remove": 0.1612
+     },
+     "latencyMs": 175,
+     "modelLatencyMs": 171.98,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-02": {
+     "id": "mo-02",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4768,
+      "review": 0.317,
+      "remove": 0.2062
+     },
+     "latencyMs": 171.3,
+     "modelLatencyMs": 168.14,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-03": {
+     "id": "mo-03",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4159,
+      "review": 0.338,
+      "remove": 0.2462
+     },
+     "latencyMs": 180.6,
+     "modelLatencyMs": 177.26,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-04": {
+     "id": "mo-04",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.3944,
+      "review": 0.3694,
+      "remove": 0.2363
+     },
+     "latencyMs": 1110.4,
+     "modelLatencyMs": 1092.62,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-05": {
+     "id": "mo-05",
+     "label": "allow",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.3741,
+      "review": 0.4055,
+      "remove": 0.2204
+     },
+     "latencyMs": 188.9,
+     "modelLatencyMs": 185.26,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-06": {
+     "id": "mo-06",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4259,
+      "review": 0.4116,
+      "remove": 0.1625
+     },
+     "latencyMs": 237.8,
+     "modelLatencyMs": 233.99,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-07": {
+     "id": "mo-07",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4952,
+      "review": 0.3274,
+      "remove": 0.1774
+     },
+     "latencyMs": 228.1,
+     "modelLatencyMs": 223.24,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-08": {
+     "id": "mo-08",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4099,
+      "review": 0.3903,
+      "remove": 0.1997
+     },
+     "latencyMs": 263.7,
+     "modelLatencyMs": 260.38,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-09": {
+     "id": "mo-09",
+     "label": "allow",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.3629,
+      "review": 0.4113,
+      "remove": 0.2258
+     },
+     "latencyMs": 217.9,
+     "modelLatencyMs": 214.42,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-10": {
+     "id": "mo-10",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.3537,
+      "review": 0.3761,
+      "remove": 0.2703
+     },
+     "latencyMs": 183.1,
+     "modelLatencyMs": 179.73,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-11": {
+     "id": "mo-11",
+     "label": "remove",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.3789,
+      "review": 0.3177,
+      "remove": 0.3033
+     },
+     "latencyMs": 191.6,
+     "modelLatencyMs": 187.45,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-12": {
+     "id": "mo-12",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.1334,
+      "review": 0.1334,
+      "remove": 0.7332
+     },
+     "latencyMs": 401.4,
+     "modelLatencyMs": 186.22,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-13": {
+     "id": "mo-13",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.2583,
+      "review": 0.3353,
+      "remove": 0.4064
+     },
+     "latencyMs": 205.9,
+     "modelLatencyMs": 201.01,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-14": {
+     "id": "mo-14",
+     "label": "remove",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4727,
+      "review": 0.3595,
+      "remove": 0.1677
+     },
+     "latencyMs": 170.1,
+     "modelLatencyMs": 166.56,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-15": {
+     "id": "mo-15",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.3218,
+      "review": 0.3625,
+      "remove": 0.3157
+     },
+     "latencyMs": 186.6,
+     "modelLatencyMs": 183.02,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-16": {
+     "id": "mo-16",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.2691,
+      "review": 0.4893,
+      "remove": 0.2416
+     },
+     "latencyMs": 179.1,
+     "modelLatencyMs": 175.45,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-17": {
+     "id": "mo-17",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.2162,
+      "review": 0.2287,
+      "remove": 0.5551
+     },
+     "latencyMs": 168.3,
+     "modelLatencyMs": 165.03,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-18": {
+     "id": "mo-18",
+     "label": "remove",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.2694,
+      "review": 0.2902,
+      "remove": 0.4404
+     },
+     "latencyMs": 171.5,
+     "modelLatencyMs": 168.07,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-19": {
+     "id": "mo-19",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4895,
+      "review": 0.3269,
+      "remove": 0.1835
+     },
+     "latencyMs": 181.7,
+     "modelLatencyMs": 178.6,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-20": {
+     "id": "mo-20",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4743,
+      "review": 0.3435,
+      "remove": 0.1822
+     },
+     "latencyMs": 178.3,
+     "modelLatencyMs": 174.89,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-21": {
+     "id": "mo-21",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4568,
+      "review": 0.3358,
+      "remove": 0.2075
+     },
+     "latencyMs": 170.8,
+     "modelLatencyMs": 167.55,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-22": {
+     "id": "mo-22",
+     "label": "allow",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.2309,
+      "review": 0.505,
+      "remove": 0.264
+     },
+     "latencyMs": 162.4,
+     "modelLatencyMs": 159.35,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-23": {
+     "id": "mo-23",
+     "label": "review",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.2204,
+      "review": 0.4011,
+      "remove": 0.3785
+     },
+     "latencyMs": 161.7,
+     "modelLatencyMs": 158.69,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-24": {
+     "id": "mo-24",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.3006,
+      "review": 0.4444,
+      "remove": 0.255
+     },
+     "latencyMs": 160.7,
+     "modelLatencyMs": 156.76,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-25": {
+     "id": "mo-25",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4249,
+      "review": 0.3577,
+      "remove": 0.2175
+     },
+     "latencyMs": 171.5,
+     "modelLatencyMs": 168.41,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-26": {
+     "id": "mo-26",
+     "label": "allow",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.1841,
+      "review": 0.4226,
+      "remove": 0.3934
+     },
+     "latencyMs": 163.8,
+     "modelLatencyMs": 160.67,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-27": {
+     "id": "mo-27",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4519,
+      "review": 0.3238,
+      "remove": 0.2243
+     },
+     "latencyMs": 200.3,
+     "modelLatencyMs": 196.82,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-28": {
+     "id": "mo-28",
+     "label": "review",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.2435,
+      "review": 0.2255,
+      "remove": 0.531
+     },
+     "latencyMs": 185.2,
+     "modelLatencyMs": 181.82,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-29": {
+     "id": "mo-29",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.3434,
+      "review": 0.4147,
+      "remove": 0.2419
+     },
+     "latencyMs": 198.8,
+     "modelLatencyMs": 195.53,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-30": {
+     "id": "mo-30",
+     "label": "allow",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.3349,
+      "review": 0.4174,
+      "remove": 0.2476
+     },
+     "latencyMs": 198.9,
+     "modelLatencyMs": 195.16,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-31": {
+     "id": "mo-31",
+     "label": "allow",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.3551,
+      "review": 0.42,
+      "remove": 0.2249
+     },
+     "latencyMs": 177,
+     "modelLatencyMs": 173.09,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-32": {
+     "id": "mo-32",
+     "label": "remove",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4325,
+      "review": 0.3696,
+      "remove": 0.1979
+     },
+     "latencyMs": 190.2,
+     "modelLatencyMs": 186.61,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-33": {
+     "id": "mo-33",
+     "label": "allow",
+     "choice": "remove",
+     "probabilities": {
+      "allow": 0.1809,
+      "review": 0.3909,
+      "remove": 0.4282
+     },
+     "latencyMs": 171.3,
+     "modelLatencyMs": 168.01,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-34": {
+     "id": "mo-34",
+     "label": "allow",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4316,
+      "review": 0.334,
+      "remove": 0.2344
+     },
+     "latencyMs": 286.1,
+     "modelLatencyMs": 282.69,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-35": {
+     "id": "mo-35",
+     "label": "remove",
+     "choice": "review",
+     "probabilities": {
+      "allow": 0.2674,
+      "review": 0.4414,
+      "remove": 0.2912
+     },
+     "latencyMs": 278.3,
+     "modelLatencyMs": 273.38,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "mo-36": {
+     "id": "mo-36",
+     "label": "review",
+     "choice": "allow",
+     "probabilities": {
+      "allow": 0.4632,
+      "review": 0.3183,
+      "remove": 0.2185
+     },
+     "latencyMs": 315.8,
+     "modelLatencyMs": 312.36,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    }
+   }
+  },
+  "reddit-relevance": {
+   "laya": {
+    "rr-01": {
+     "id": "rr-01",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2815,
+      "medium": 0.4707,
+      "low": 0.2478
+     },
+     "latencyMs": 407.9,
+     "modelLatencyMs": 404.11,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-02": {
+     "id": "rr-02",
+     "label": "low",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.4484,
+      "medium": 0.3776,
+      "low": 0.1741
+     },
+     "latencyMs": 247.1,
+     "modelLatencyMs": 243.57,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-03": {
+     "id": "rr-03",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2552,
+      "medium": 0.5067,
+      "low": 0.2382
+     },
+     "latencyMs": 255.8,
+     "modelLatencyMs": 252.42,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-04": {
+     "id": "rr-04",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2772,
+      "medium": 0.5329,
+      "low": 0.1899
+     },
+     "latencyMs": 215.4,
+     "modelLatencyMs": 212.04,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-05": {
+     "id": "rr-05",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1814,
+      "medium": 0.5372,
+      "low": 0.2814
+     },
+     "latencyMs": 236.6,
+     "modelLatencyMs": 233.34,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-06": {
+     "id": "rr-06",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1576,
+      "medium": 0.4881,
+      "low": 0.3543
+     },
+     "latencyMs": 274.1,
+     "modelLatencyMs": 270.68,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-07": {
+     "id": "rr-07",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3089,
+      "medium": 0.4965,
+      "low": 0.1946
+     },
+     "latencyMs": 289.5,
+     "modelLatencyMs": 285.89,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-08": {
+     "id": "rr-08",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3935,
+      "medium": 0.3957,
+      "low": 0.2108
+     },
+     "latencyMs": 234.7,
+     "modelLatencyMs": 231.37,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-09": {
+     "id": "rr-09",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2267,
+      "medium": 0.4844,
+      "low": 0.2888
+     },
+     "latencyMs": 224.9,
+     "modelLatencyMs": 221.57,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-10": {
+     "id": "rr-10",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1166,
+      "medium": 0.594,
+      "low": 0.2894
+     },
+     "latencyMs": 266.2,
+     "modelLatencyMs": 262.98,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-11": {
+     "id": "rr-11",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.377,
+      "medium": 0.4725,
+      "low": 0.1505
+     },
+     "latencyMs": 284.5,
+     "modelLatencyMs": 281.47,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-12": {
+     "id": "rr-12",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1883,
+      "medium": 0.5841,
+      "low": 0.2276
+     },
+     "latencyMs": 289.1,
+     "modelLatencyMs": 285.83,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-13": {
+     "id": "rr-13",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.261,
+      "medium": 0.4459,
+      "low": 0.2931
+     },
+     "latencyMs": 320.2,
+     "modelLatencyMs": 316.84,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-14": {
+     "id": "rr-14",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.3854,
+      "medium": 0.3799,
+      "low": 0.2347
+     },
+     "latencyMs": 248.1,
+     "modelLatencyMs": 244.53,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-15": {
+     "id": "rr-15",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1967,
+      "medium": 0.501,
+      "low": 0.3024
+     },
+     "latencyMs": 230.7,
+     "modelLatencyMs": 227.21,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-16": {
+     "id": "rr-16",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1591,
+      "medium": 0.4448,
+      "low": 0.3962
+     },
+     "latencyMs": 231.2,
+     "modelLatencyMs": 227.67,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-17": {
+     "id": "rr-17",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1802,
+      "medium": 0.5033,
+      "low": 0.3165
+     },
+     "latencyMs": 236.1,
+     "modelLatencyMs": 232.92,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-18": {
+     "id": "rr-18",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3451,
+      "medium": 0.4325,
+      "low": 0.2223
+     },
+     "latencyMs": 224.9,
+     "modelLatencyMs": 221.76,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-19": {
+     "id": "rr-19",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2552,
+      "medium": 0.5404,
+      "low": 0.2044
+     },
+     "latencyMs": 201.7,
+     "modelLatencyMs": 198.18,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-20": {
+     "id": "rr-20",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1426,
+      "medium": 0.4651,
+      "low": 0.3923
+     },
+     "latencyMs": 209.3,
+     "modelLatencyMs": 205.99,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-21": {
+     "id": "rr-21",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1147,
+      "medium": 0.5468,
+      "low": 0.3386
+     },
+     "latencyMs": 222.2,
+     "modelLatencyMs": 218.72,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-22": {
+     "id": "rr-22",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3877,
+      "medium": 0.428,
+      "low": 0.1843
+     },
+     "latencyMs": 203.1,
+     "modelLatencyMs": 200.2,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-23": {
+     "id": "rr-23",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.284,
+      "medium": 0.4731,
+      "low": 0.2429
+     },
+     "latencyMs": 204.5,
+     "modelLatencyMs": 201.18,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-24": {
+     "id": "rr-24",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2703,
+      "medium": 0.4848,
+      "low": 0.2449
+     },
+     "latencyMs": 202.6,
+     "modelLatencyMs": 199.42,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-25": {
+     "id": "rr-25",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3345,
+      "medium": 0.4542,
+      "low": 0.2113
+     },
+     "latencyMs": 202.4,
+     "modelLatencyMs": 198.67,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-26": {
+     "id": "rr-26",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3685,
+      "medium": 0.4595,
+      "low": 0.172
+     },
+     "latencyMs": 214,
+     "modelLatencyMs": 210.67,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-27": {
+     "id": "rr-27",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.212,
+      "medium": 0.5584,
+      "low": 0.2296
+     },
+     "latencyMs": 228.1,
+     "modelLatencyMs": 224.54,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-28": {
+     "id": "rr-28",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1564,
+      "medium": 0.5147,
+      "low": 0.3289
+     },
+     "latencyMs": 212.1,
+     "modelLatencyMs": 208.73,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-29": {
+     "id": "rr-29",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.246,
+      "medium": 0.4984,
+      "low": 0.2556
+     },
+     "latencyMs": 237.8,
+     "modelLatencyMs": 234.18,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-30": {
+     "id": "rr-30",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2451,
+      "medium": 0.5386,
+      "low": 0.2162
+     },
+     "latencyMs": 295.1,
+     "modelLatencyMs": 291.44,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-31": {
+     "id": "rr-31",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3034,
+      "medium": 0.4252,
+      "low": 0.2714
+     },
+     "latencyMs": 295.6,
+     "modelLatencyMs": 291.69,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-32": {
+     "id": "rr-32",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3109,
+      "medium": 0.456,
+      "low": 0.2331
+     },
+     "latencyMs": 254,
+     "modelLatencyMs": 250.94,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-33": {
+     "id": "rr-33",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0.1077,
+      "medium": 0.4145,
+      "low": 0.4778
+     },
+     "latencyMs": 242.6,
+     "modelLatencyMs": 239.31,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-34": {
+     "id": "rr-34",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1003,
+      "medium": 0.4805,
+      "low": 0.4192
+     },
+     "latencyMs": 228.5,
+     "modelLatencyMs": 224.63,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-35": {
+     "id": "rr-35",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2951,
+      "medium": 0.5096,
+      "low": 0.1953
+     },
+     "latencyMs": 217.5,
+     "modelLatencyMs": 212.27,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "rr-36": {
+     "id": "rr-36",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.207,
+      "medium": 0.5521,
+      "low": 0.2409
+     },
+     "latencyMs": 600.6,
+     "modelLatencyMs": 552.39,
+     "costUsd": null,
+     "checkpoint": "english"
+    }
+   },
+   "laya-typed-decisions": {
+    "rr-01": {
+     "id": "rr-01",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.394,
+      "medium": 0.439,
+      "low": 0.1669
+     },
+     "latencyMs": 381.2,
+     "modelLatencyMs": 377.56,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-02": {
+     "id": "rr-02",
+     "label": "low",
+     "choice": "high",
+     "probabilities": {
+      "high": 0.4268,
+      "medium": 0.4064,
+      "low": 0.1668
+     },
+     "latencyMs": 290.8,
+     "modelLatencyMs": 287.4,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-03": {
+     "id": "rr-03",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3572,
+      "medium": 0.4598,
+      "low": 0.183
+     },
+     "latencyMs": 288.5,
+     "modelLatencyMs": 284.98,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-04": {
+     "id": "rr-04",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3578,
+      "medium": 0.4384,
+      "low": 0.2037
+     },
+     "latencyMs": 258.1,
+     "modelLatencyMs": 254.76,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-05": {
+     "id": "rr-05",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3183,
+      "medium": 0.464,
+      "low": 0.2178
+     },
+     "latencyMs": 1323.2,
+     "modelLatencyMs": 1320.06,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-06": {
+     "id": "rr-06",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3755,
+      "medium": 0.4113,
+      "low": 0.2133
+     },
+     "latencyMs": 363.9,
+     "modelLatencyMs": 360.85,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-07": {
+     "id": "rr-07",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3433,
+      "medium": 0.4536,
+      "low": 0.2031
+     },
+     "latencyMs": 297.3,
+     "modelLatencyMs": 293.91,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-08": {
+     "id": "rr-08",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.39,
+      "medium": 0.4096,
+      "low": 0.2004
+     },
+     "latencyMs": 356.3,
+     "modelLatencyMs": 352.56,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-09": {
+     "id": "rr-09",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3423,
+      "medium": 0.4295,
+      "low": 0.2282
+     },
+     "latencyMs": 452.6,
+     "modelLatencyMs": 448.71,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-10": {
+     "id": "rr-10",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2671,
+      "medium": 0.4903,
+      "low": 0.2426
+     },
+     "latencyMs": 526,
+     "modelLatencyMs": 494.41,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-11": {
+     "id": "rr-11",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.4097,
+      "medium": 0.4198,
+      "low": 0.1705
+     },
+     "latencyMs": 819.1,
+     "modelLatencyMs": 814.8,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-12": {
+     "id": "rr-12",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3029,
+      "medium": 0.479,
+      "low": 0.2181
+     },
+     "latencyMs": 332.6,
+     "modelLatencyMs": 329.04,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-13": {
+     "id": "rr-13",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.276,
+      "medium": 0.4356,
+      "low": 0.2883
+     },
+     "latencyMs": 311.1,
+     "modelLatencyMs": 307.58,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-14": {
+     "id": "rr-14",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.4034,
+      "medium": 0.4041,
+      "low": 0.1925
+     },
+     "latencyMs": 225.6,
+     "modelLatencyMs": 222.39,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-15": {
+     "id": "rr-15",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3305,
+      "medium": 0.4444,
+      "low": 0.2251
+     },
+     "latencyMs": 193.2,
+     "modelLatencyMs": 189.97,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-16": {
+     "id": "rr-16",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3214,
+      "medium": 0.4353,
+      "low": 0.2433
+     },
+     "latencyMs": 219.4,
+     "modelLatencyMs": 216.33,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-17": {
+     "id": "rr-17",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3652,
+      "medium": 0.4212,
+      "low": 0.2136
+     },
+     "latencyMs": 195.6,
+     "modelLatencyMs": 192.02,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-18": {
+     "id": "rr-18",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3619,
+      "medium": 0.4415,
+      "low": 0.1967
+     },
+     "latencyMs": 206.7,
+     "modelLatencyMs": 203.77,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-19": {
+     "id": "rr-19",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3087,
+      "medium": 0.4943,
+      "low": 0.197
+     },
+     "latencyMs": 228.2,
+     "modelLatencyMs": 225.02,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-20": {
+     "id": "rr-20",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2634,
+      "medium": 0.4419,
+      "low": 0.2947
+     },
+     "latencyMs": 264.2,
+     "modelLatencyMs": 260.73,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-21": {
+     "id": "rr-21",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2515,
+      "medium": 0.5331,
+      "low": 0.2154
+     },
+     "latencyMs": 246.7,
+     "modelLatencyMs": 243.19,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-22": {
+     "id": "rr-22",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.397,
+      "medium": 0.4092,
+      "low": 0.1938
+     },
+     "latencyMs": 212.8,
+     "modelLatencyMs": 209.39,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-23": {
+     "id": "rr-23",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3764,
+      "medium": 0.4153,
+      "low": 0.2083
+     },
+     "latencyMs": 236.1,
+     "modelLatencyMs": 232.82,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-24": {
+     "id": "rr-24",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.339,
+      "medium": 0.4484,
+      "low": 0.2126
+     },
+     "latencyMs": 225.4,
+     "modelLatencyMs": 222.03,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-25": {
+     "id": "rr-25",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.352,
+      "medium": 0.4364,
+      "low": 0.2116
+     },
+     "latencyMs": 193.5,
+     "modelLatencyMs": 189.88,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-26": {
+     "id": "rr-26",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3941,
+      "medium": 0.4253,
+      "low": 0.1806
+     },
+     "latencyMs": 196,
+     "modelLatencyMs": 192.67,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-27": {
+     "id": "rr-27",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2934,
+      "medium": 0.503,
+      "low": 0.2036
+     },
+     "latencyMs": 232.3,
+     "modelLatencyMs": 229.06,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-28": {
+     "id": "rr-28",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3189,
+      "medium": 0.4497,
+      "low": 0.2313
+     },
+     "latencyMs": 785.6,
+     "modelLatencyMs": 782.62,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-29": {
+     "id": "rr-29",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3588,
+      "medium": 0.4554,
+      "low": 0.1858
+     },
+     "latencyMs": 301.3,
+     "modelLatencyMs": 297.31,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-30": {
+     "id": "rr-30",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.334,
+      "medium": 0.4459,
+      "low": 0.2201
+     },
+     "latencyMs": 280.4,
+     "modelLatencyMs": 277.31,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-31": {
+     "id": "rr-31",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.4058,
+      "medium": 0.4176,
+      "low": 0.1766
+     },
+     "latencyMs": 217.6,
+     "modelLatencyMs": 214.13,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-32": {
+     "id": "rr-32",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3927,
+      "medium": 0.4192,
+      "low": 0.1881
+     },
+     "latencyMs": 229,
+     "modelLatencyMs": 225.59,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-33": {
+     "id": "rr-33",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.2708,
+      "medium": 0.4304,
+      "low": 0.2988
+     },
+     "latencyMs": 268.2,
+     "modelLatencyMs": 264.39,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-34": {
+     "id": "rr-34",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.1876,
+      "medium": 0.4757,
+      "low": 0.3367
+     },
+     "latencyMs": 245.4,
+     "modelLatencyMs": 242.06,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-35": {
+     "id": "rr-35",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3381,
+      "medium": 0.4515,
+      "low": 0.2104
+     },
+     "latencyMs": 221.3,
+     "modelLatencyMs": 217.82,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "rr-36": {
+     "id": "rr-36",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0.3426,
+      "medium": 0.4679,
+      "low": 0.1895
+     },
+     "latencyMs": 244,
+     "modelLatencyMs": 240.79,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    }
+   },
+   "reddit-scout-heuristic": {
+    "rr-01": {
+     "id": "rr-01",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 45
+    },
+    "rr-02": {
+     "id": "rr-02",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 20
+    },
+    "rr-03": {
+     "id": "rr-03",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 28
+    },
+    "rr-04": {
+     "id": "rr-04",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0,
+      "low": 1
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 0
+    },
+    "rr-05": {
+     "id": "rr-05",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 26
+    },
+    "rr-06": {
+     "id": "rr-06",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 25
+    },
+    "rr-07": {
+     "id": "rr-07",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 40
+    },
+    "rr-08": {
+     "id": "rr-08",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 28
+    },
+    "rr-09": {
+     "id": "rr-09",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0,
+      "low": 1
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 17
+    },
+    "rr-10": {
+     "id": "rr-10",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 25
+    },
+    "rr-11": {
+     "id": "rr-11",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 30
+    },
+    "rr-12": {
+     "id": "rr-12",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 25
+    },
+    "rr-13": {
+     "id": "rr-13",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 31
+    },
+    "rr-14": {
+     "id": "rr-14",
+     "label": "high",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0,
+      "low": 1
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 13
+    },
+    "rr-15": {
+     "id": "rr-15",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 25
+    },
+    "rr-16": {
+     "id": "rr-16",
+     "label": "high",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0,
+      "low": 1
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 17
+    },
+    "rr-17": {
+     "id": "rr-17",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0,
+      "low": 1
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 13
+    },
+    "rr-18": {
+     "id": "rr-18",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 20
+    },
+    "rr-19": {
+     "id": "rr-19",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 40
+    },
+    "rr-20": {
+     "id": "rr-20",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 25
+    },
+    "rr-21": {
+     "id": "rr-21",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 37
+    },
+    "rr-22": {
+     "id": "rr-22",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 25
+    },
+    "rr-23": {
+     "id": "rr-23",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 25
+    },
+    "rr-24": {
+     "id": "rr-24",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 48
+    },
+    "rr-25": {
+     "id": "rr-25",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 20
+    },
+    "rr-26": {
+     "id": "rr-26",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 25
+    },
+    "rr-27": {
+     "id": "rr-27",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 48
+    },
+    "rr-28": {
+     "id": "rr-28",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 25
+    },
+    "rr-29": {
+     "id": "rr-29",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0,
+      "low": 1
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 17
+    },
+    "rr-30": {
+     "id": "rr-30",
+     "label": "medium",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0,
+      "low": 1
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 17
+    },
+    "rr-31": {
+     "id": "rr-31",
+     "label": "high",
+     "choice": "high",
+     "probabilities": {
+      "high": 1,
+      "medium": 0,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 44
+    },
+    "rr-32": {
+     "id": "rr-32",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 34
+    },
+    "rr-33": {
+     "id": "rr-33",
+     "label": "low",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 33
+    },
+    "rr-34": {
+     "id": "rr-34",
+     "label": "medium",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 20
+    },
+    "rr-35": {
+     "id": "rr-35",
+     "label": "low",
+     "choice": "low",
+     "probabilities": {
+      "high": 0,
+      "medium": 0,
+      "low": 1
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 0
+    },
+    "rr-36": {
+     "id": "rr-36",
+     "label": "high",
+     "choice": "medium",
+     "probabilities": {
+      "high": 0,
+      "medium": 1,
+      "low": 0
+     },
+     "latencyMs": 0,
+     "costUsd": null,
+     "score": 28
+    }
+   }
+  },
+  "router-escalation": {
+   "laya": {
+    "re-01": {
+     "id": "re-01",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.7239,
+      "cloud": 0.2761
+     },
+     "latencyMs": 255,
+     "modelLatencyMs": 251.13,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-02": {
+     "id": "re-02",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6384,
+      "cloud": 0.3616
+     },
+     "latencyMs": 393.4,
+     "modelLatencyMs": 389.76,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-03": {
+     "id": "re-03",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.7788,
+      "cloud": 0.2212
+     },
+     "latencyMs": 270.6,
+     "modelLatencyMs": 264.06,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-04": {
+     "id": "re-04",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6794,
+      "cloud": 0.3206
+     },
+     "latencyMs": 309.8,
+     "modelLatencyMs": 306.81,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-05": {
+     "id": "re-05",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.7343,
+      "cloud": 0.2657
+     },
+     "latencyMs": 222.7,
+     "modelLatencyMs": 218.41,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-06": {
+     "id": "re-06",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6676,
+      "cloud": 0.3324
+     },
+     "latencyMs": 209.1,
+     "modelLatencyMs": 205.49,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-07": {
+     "id": "re-07",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6863,
+      "cloud": 0.3137
+     },
+     "latencyMs": 198.5,
+     "modelLatencyMs": 195.2,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-08": {
+     "id": "re-08",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6587,
+      "cloud": 0.3413
+     },
+     "latencyMs": 203.8,
+     "modelLatencyMs": 200.49,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-09": {
+     "id": "re-09",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.7148,
+      "cloud": 0.2852
+     },
+     "latencyMs": 202.5,
+     "modelLatencyMs": 199.23,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-10": {
+     "id": "re-10",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.7045,
+      "cloud": 0.2955
+     },
+     "latencyMs": 192.7,
+     "modelLatencyMs": 189.17,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-11": {
+     "id": "re-11",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.7513,
+      "cloud": 0.2487
+     },
+     "latencyMs": 206.9,
+     "modelLatencyMs": 203.35,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-12": {
+     "id": "re-12",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.7665,
+      "cloud": 0.2335
+     },
+     "latencyMs": 200.4,
+     "modelLatencyMs": 196.88,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-13": {
+     "id": "re-13",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5889,
+      "cloud": 0.4111
+     },
+     "latencyMs": 177.7,
+     "modelLatencyMs": 174.55,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-14": {
+     "id": "re-14",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6917,
+      "cloud": 0.3083
+     },
+     "latencyMs": 186.5,
+     "modelLatencyMs": 183.32,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-15": {
+     "id": "re-15",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.7063,
+      "cloud": 0.2937
+     },
+     "latencyMs": 71.5,
+     "modelLatencyMs": 68.58,
+     "costUsd": null,
+     "checkpoint": "multilingual"
+    },
+    "re-16": {
+     "id": "re-16",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5818,
+      "cloud": 0.4182
+     },
+     "latencyMs": 166.1,
+     "modelLatencyMs": 163.24,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-17": {
+     "id": "re-17",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6628,
+      "cloud": 0.3372
+     },
+     "latencyMs": 180.8,
+     "modelLatencyMs": 177.51,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-18": {
+     "id": "re-18",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6627,
+      "cloud": 0.3373
+     },
+     "latencyMs": 198.8,
+     "modelLatencyMs": 195.71,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-19": {
+     "id": "re-19",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.525,
+      "cloud": 0.475
+     },
+     "latencyMs": 202.5,
+     "modelLatencyMs": 199.27,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-20": {
+     "id": "re-20",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5377,
+      "cloud": 0.4623
+     },
+     "latencyMs": 161.6,
+     "modelLatencyMs": 158.57,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-21": {
+     "id": "re-21",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6776,
+      "cloud": 0.3224
+     },
+     "latencyMs": 163.6,
+     "modelLatencyMs": 160.46,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-22": {
+     "id": "re-22",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6508,
+      "cloud": 0.3492
+     },
+     "latencyMs": 182.7,
+     "modelLatencyMs": 179.58,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-23": {
+     "id": "re-23",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5213,
+      "cloud": 0.4787
+     },
+     "latencyMs": 199,
+     "modelLatencyMs": 195.51,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-24": {
+     "id": "re-24",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5786,
+      "cloud": 0.4214
+     },
+     "latencyMs": 211.8,
+     "modelLatencyMs": 208.37,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-25": {
+     "id": "re-25",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5115,
+      "cloud": 0.4885
+     },
+     "latencyMs": 212.8,
+     "modelLatencyMs": 209.17,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-26": {
+     "id": "re-26",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.7038,
+      "cloud": 0.2962
+     },
+     "latencyMs": 209.3,
+     "modelLatencyMs": 206.13,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-27": {
+     "id": "re-27",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.4982,
+      "cloud": 0.5018
+     },
+     "latencyMs": 215.2,
+     "modelLatencyMs": 211.87,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-28": {
+     "id": "re-28",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6314,
+      "cloud": 0.3686
+     },
+     "latencyMs": 204.9,
+     "modelLatencyMs": 201.95,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-29": {
+     "id": "re-29",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5028,
+      "cloud": 0.4972
+     },
+     "latencyMs": 208.7,
+     "modelLatencyMs": 205.06,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-30": {
+     "id": "re-30",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5422,
+      "cloud": 0.4578
+     },
+     "latencyMs": 213.1,
+     "modelLatencyMs": 209.68,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-31": {
+     "id": "re-31",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6809,
+      "cloud": 0.3191
+     },
+     "latencyMs": 178.4,
+     "modelLatencyMs": 175.3,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-32": {
+     "id": "re-32",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6891,
+      "cloud": 0.3109
+     },
+     "latencyMs": 183.7,
+     "modelLatencyMs": 169.37,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-33": {
+     "id": "re-33",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5973,
+      "cloud": 0.4027
+     },
+     "latencyMs": 199.6,
+     "modelLatencyMs": 196.22,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-34": {
+     "id": "re-34",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6852,
+      "cloud": 0.3148
+     },
+     "latencyMs": 147.7,
+     "modelLatencyMs": 144.62,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-35": {
+     "id": "re-35",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5951,
+      "cloud": 0.4049
+     },
+     "latencyMs": 155.8,
+     "modelLatencyMs": 152.73,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-36": {
+     "id": "re-36",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.4491,
+      "cloud": 0.5509
+     },
+     "latencyMs": 198.4,
+     "modelLatencyMs": 195.36,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-37": {
+     "id": "re-37",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5762,
+      "cloud": 0.4238
+     },
+     "latencyMs": 217.8,
+     "modelLatencyMs": 214.59,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-38": {
+     "id": "re-38",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.7085,
+      "cloud": 0.2915
+     },
+     "latencyMs": 182.7,
+     "modelLatencyMs": 179.13,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-39": {
+     "id": "re-39",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6255,
+      "cloud": 0.3745
+     },
+     "latencyMs": 176.3,
+     "modelLatencyMs": 173.39,
+     "costUsd": null,
+     "checkpoint": "english"
+    },
+    "re-40": {
+     "id": "re-40",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6,
+      "cloud": 0.4
+     },
+     "latencyMs": 201.1,
+     "modelLatencyMs": 188.01,
+     "costUsd": null,
+     "checkpoint": "english"
+    }
+   },
+   "laya-typed-decisions": {
+    "re-01": {
+     "id": "re-01",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6391,
+      "cloud": 0.3609
+     },
+     "latencyMs": 544.4,
+     "modelLatencyMs": 539.49,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-02": {
+     "id": "re-02",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6016,
+      "cloud": 0.3984
+     },
+     "latencyMs": 250.3,
+     "modelLatencyMs": 246.29,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-03": {
+     "id": "re-03",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6016,
+      "cloud": 0.3984
+     },
+     "latencyMs": 284.6,
+     "modelLatencyMs": 258.43,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-04": {
+     "id": "re-04",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.565,
+      "cloud": 0.435
+     },
+     "latencyMs": 241.6,
+     "modelLatencyMs": 238.28,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-05": {
+     "id": "re-05",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5844,
+      "cloud": 0.4156
+     },
+     "latencyMs": 248.6,
+     "modelLatencyMs": 245.14,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-06": {
+     "id": "re-06",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5416,
+      "cloud": 0.4584
+     },
+     "latencyMs": 235.7,
+     "modelLatencyMs": 232.48,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-07": {
+     "id": "re-07",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6337,
+      "cloud": 0.3663
+     },
+     "latencyMs": 264.9,
+     "modelLatencyMs": 261.47,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-08": {
+     "id": "re-08",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5776,
+      "cloud": 0.4224
+     },
+     "latencyMs": 219.2,
+     "modelLatencyMs": 215.98,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-09": {
+     "id": "re-09",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6258,
+      "cloud": 0.3742
+     },
+     "latencyMs": 190.6,
+     "modelLatencyMs": 187.57,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-10": {
+     "id": "re-10",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5763,
+      "cloud": 0.4237
+     },
+     "latencyMs": 198.2,
+     "modelLatencyMs": 194.73,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-11": {
+     "id": "re-11",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6363,
+      "cloud": 0.3637
+     },
+     "latencyMs": 209.4,
+     "modelLatencyMs": 206.05,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-12": {
+     "id": "re-12",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6067,
+      "cloud": 0.3933
+     },
+     "latencyMs": 250.1,
+     "modelLatencyMs": 246.81,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-13": {
+     "id": "re-13",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5747,
+      "cloud": 0.4253
+     },
+     "latencyMs": 263.9,
+     "modelLatencyMs": 260.39,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-14": {
+     "id": "re-14",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5904,
+      "cloud": 0.4096
+     },
+     "latencyMs": 265.4,
+     "modelLatencyMs": 262.27,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-15": {
+     "id": "re-15",
+     "label": "local",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.4283,
+      "cloud": 0.5717
+     },
+     "latencyMs": 320.8,
+     "modelLatencyMs": 317.16,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-16": {
+     "id": "re-16",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5536,
+      "cloud": 0.4464
+     },
+     "latencyMs": 216.6,
+     "modelLatencyMs": 213.08,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-17": {
+     "id": "re-17",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5929,
+      "cloud": 0.4071
+     },
+     "latencyMs": 192.1,
+     "modelLatencyMs": 188.6,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-18": {
+     "id": "re-18",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5575,
+      "cloud": 0.4425
+     },
+     "latencyMs": 228,
+     "modelLatencyMs": 224.8,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-19": {
+     "id": "re-19",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.4726,
+      "cloud": 0.5274
+     },
+     "latencyMs": 206.2,
+     "modelLatencyMs": 202.96,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-20": {
+     "id": "re-20",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5454,
+      "cloud": 0.4546
+     },
+     "latencyMs": 198.2,
+     "modelLatencyMs": 194.92,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-21": {
+     "id": "re-21",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5904,
+      "cloud": 0.4096
+     },
+     "latencyMs": 188.8,
+     "modelLatencyMs": 185.65,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-22": {
+     "id": "re-22",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.436,
+      "cloud": 0.564
+     },
+     "latencyMs": 179.6,
+     "modelLatencyMs": 176.24,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-23": {
+     "id": "re-23",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.4767,
+      "cloud": 0.5233
+     },
+     "latencyMs": 178.4,
+     "modelLatencyMs": 175,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-24": {
+     "id": "re-24",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.544,
+      "cloud": 0.456
+     },
+     "latencyMs": 209.7,
+     "modelLatencyMs": 206.43,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-25": {
+     "id": "re-25",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5082,
+      "cloud": 0.4918
+     },
+     "latencyMs": 228.7,
+     "modelLatencyMs": 225.56,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-26": {
+     "id": "re-26",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.553,
+      "cloud": 0.447
+     },
+     "latencyMs": 197.8,
+     "modelLatencyMs": 194.64,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-27": {
+     "id": "re-27",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.4999,
+      "cloud": 0.5001
+     },
+     "latencyMs": 208.7,
+     "modelLatencyMs": 205.47,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-28": {
+     "id": "re-28",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5062,
+      "cloud": 0.4938
+     },
+     "latencyMs": 224.8,
+     "modelLatencyMs": 221.51,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-29": {
+     "id": "re-29",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5145,
+      "cloud": 0.4855
+     },
+     "latencyMs": 186.4,
+     "modelLatencyMs": 183.22,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-30": {
+     "id": "re-30",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5388,
+      "cloud": 0.4612
+     },
+     "latencyMs": 191.8,
+     "modelLatencyMs": 182.91,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-31": {
+     "id": "re-31",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5802,
+      "cloud": 0.4198
+     },
+     "latencyMs": 200.2,
+     "modelLatencyMs": 196.54,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-32": {
+     "id": "re-32",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6195,
+      "cloud": 0.3805
+     },
+     "latencyMs": 176.8,
+     "modelLatencyMs": 173.69,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-33": {
+     "id": "re-33",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5362,
+      "cloud": 0.4638
+     },
+     "latencyMs": 204.1,
+     "modelLatencyMs": 198.63,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-34": {
+     "id": "re-34",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5342,
+      "cloud": 0.4658
+     },
+     "latencyMs": 292.3,
+     "modelLatencyMs": 288.85,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-35": {
+     "id": "re-35",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5358,
+      "cloud": 0.4642
+     },
+     "latencyMs": 217.8,
+     "modelLatencyMs": 214.29,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-36": {
+     "id": "re-36",
+     "label": "cloud",
+     "choice": "cloud",
+     "probabilities": {
+      "local": 0.3933,
+      "cloud": 0.6067
+     },
+     "latencyMs": 783.4,
+     "modelLatencyMs": 779.41,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-37": {
+     "id": "re-37",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5416,
+      "cloud": 0.4584
+     },
+     "latencyMs": 269,
+     "modelLatencyMs": 265.2,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-38": {
+     "id": "re-38",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.6248,
+      "cloud": 0.3752
+     },
+     "latencyMs": 334.5,
+     "modelLatencyMs": 331.21,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-39": {
+     "id": "re-39",
+     "label": "local",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5734,
+      "cloud": 0.4266
+     },
+     "latencyMs": 255,
+     "modelLatencyMs": 251.35,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    },
+    "re-40": {
+     "id": "re-40",
+     "label": "cloud",
+     "choice": "local",
+     "probabilities": {
+      "local": 0.5359,
+      "cloud": 0.4641
+     },
+     "latencyMs": 217.1,
+     "modelLatencyMs": 214.01,
+     "costUsd": null,
+     "checkpoint": "typed-decisions"
+    }
+   }
+  }
+ },
+ "meta": {}
+}

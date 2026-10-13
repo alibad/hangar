@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { execFile } from "node:child_process";
 import { mkdir, rm, rename } from "fs/promises";
-import { execFile } from "child_process";
 import { resolveInside, safeFolder } from "@/lib/save-image";
 import { getDb } from "@/lib/db";
+import { revealInExplorer } from "@/lib/reveal-in-explorer";
+import { isLabStorage } from "@/lib/gallery-folders";
 
 // Folder management: create / rename / delete galleries on disk under the output
 // dir. Folders are real directories, so the hierarchy mirrors the filesystem.
@@ -44,14 +46,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Reveal the folder in the native file manager on the machine running the console.
+  // Reveal the folder in the native file manager on the machine running the console;
+  // on Windows in front of the browser (revealInExplorer says why that takes a script).
   if (action === "reveal") {
     const folder = safeFolder(body.path) ?? "";
     const abs = resolveInside(folder);
     if (!abs) return NextResponse.json({ error: "bad path" }, { status: 400 });
     try {
+      if (process.platform === "win32") {
+        const result = await revealInExplorer(abs.replace(/\//g, "\\"));
+        return NextResponse.json(result, { status: result.ok ? 200 : 500 });
+      }
       if (process.platform === "darwin") execFile("/usr/bin/open", [abs], () => {});
-      else if (process.platform === "win32") execFile("explorer.exe", [abs.replace(/\//g, "\\")], () => {});
       else execFile("xdg-open", [abs], () => {});
       return NextResponse.json({ ok: true, path: abs });
     } catch (err) {
@@ -62,6 +68,8 @@ export async function POST(req: NextRequest) {
   if (action === "delete") {
     const folder = safeFolder(body.path);
     if (!folder) return NextResponse.json({ error: "cannot delete root" }, { status: 400 });
+    // The 3D and Video Labs keep their jobs here too; that is not the gallery's to delete.
+    if (isLabStorage(folder)) return NextResponse.json({ error: `"${folder}" holds another lab's jobs, not gallery images` }, { status: 400 });
     const abs = resolveInside(folder);
     if (!abs) return NextResponse.json({ error: "bad path" }, { status: 400 });
     // recursive:true removes the folder and everything in it — the UI gates this

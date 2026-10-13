@@ -294,6 +294,64 @@ html:root:not(.dark) {
   --color-gray-50: oklch(0.06 var(--nu-c) var(--nu-h));
 }
 
+/* …and the coloured ramps' ends: text shades dark, tint shades pale. */
+html:root:not(.dark) {
+  --accent-50: oklch(0.3 calc(var(--accent-c) * 0.6) var(--accent-h));
+  --accent-100: oklch(0.35 calc(var(--accent-c) * 0.7) var(--accent-h));
+  --accent-200: oklch(0.4 calc(var(--accent-c) * 0.8) var(--accent-h));
+  --accent-300: oklch(0.46 calc(var(--accent-c) * 0.9) var(--accent-h));
+  --accent-400: oklch(0.52 calc(var(--accent-c) * 0.95) var(--accent-h));
+  --accent-700: oklch(0.8 calc(var(--accent-c) * 0.55) var(--accent-h));
+  --accent-800: oklch(0.87 calc(var(--accent-c) * 0.45) var(--accent-h));
+  --accent-900: oklch(0.92 calc(var(--accent-c) * 0.35) var(--accent-h));
+  --accent-950: oklch(0.96 calc(var(--accent-c) * 0.25) var(--accent-h));
+  --catA-50: oklch(0.3 calc(var(--accent-c) * 0.6) calc(var(--accent-h) + 32));
+  --catA-100: oklch(0.35 calc(var(--accent-c) * 0.7) calc(var(--accent-h) + 32));
+  --catA-200: oklch(0.4 calc(var(--accent-c) * 0.8) calc(var(--accent-h) + 32));
+  --catA-300: oklch(0.46 calc(var(--accent-c) * 0.9) calc(var(--accent-h) + 32));
+  --catA-400: oklch(0.52 calc(var(--accent-c) * 0.95) calc(var(--accent-h) + 32));
+  --catA-700: oklch(0.8 calc(var(--accent-c) * 0.55) calc(var(--accent-h) + 32));
+  --catA-800: oklch(0.87 calc(var(--accent-c) * 0.45) calc(var(--accent-h) + 32));
+  --catA-900: oklch(0.92 calc(var(--accent-c) * 0.35) calc(var(--accent-h) + 32));
+  --catA-950: oklch(0.96 calc(var(--accent-c) * 0.25) calc(var(--accent-h) + 32));
+  --catB-50: oklch(0.3 calc(var(--accent-c) * 0.6) calc(var(--accent-h) + -32));
+  --catB-100: oklch(0.35 calc(var(--accent-c) * 0.7) calc(var(--accent-h) + -32));
+  --catB-200: oklch(0.4 calc(var(--accent-c) * 0.8) calc(var(--accent-h) + -32));
+  --catB-300: oklch(0.46 calc(var(--accent-c) * 0.9) calc(var(--accent-h) + -32));
+  --catB-400: oklch(0.52 calc(var(--accent-c) * 0.95) calc(var(--accent-h) + -32));
+  --catB-700: oklch(0.8 calc(var(--accent-c) * 0.55) calc(var(--accent-h) + -32));
+  --catB-800: oklch(0.87 calc(var(--accent-c) * 0.45) calc(var(--accent-h) + -32));
+  --catB-900: oklch(0.92 calc(var(--accent-c) * 0.35) calc(var(--accent-h) + -32));
+  --catB-950: oklch(0.96 calc(var(--accent-c) * 0.25) calc(var(--accent-h) + -32));
+  --ok-50: oklch(0.3 calc(var(--ok-c) * 0.6) var(--ok-h));
+  --ok-100: oklch(0.35 calc(var(--ok-c) * 0.7) var(--ok-h));
+  --ok-200: oklch(0.4 calc(var(--ok-c) * 0.8) var(--ok-h));
+  --ok-300: oklch(0.46 calc(var(--ok-c) * 0.9) var(--ok-h));
+  --ok-400: oklch(0.52 calc(var(--ok-c) * 0.95) var(--ok-h));
+  --ok-700: oklch(0.8 calc(var(--ok-c) * 0.55) var(--ok-h));
+  --ok-800: oklch(0.87 calc(var(--ok-c) * 0.45) var(--ok-h));
+  --ok-900: oklch(0.92 calc(var(--ok-c) * 0.35) var(--ok-h));
+  --ok-950: oklch(0.96 calc(var(--ok-c) * 0.25) var(--ok-h));
+  --warn-50: oklch(0.3 calc(var(--warn-c) * 0.6) var(--warn-h));
+  --warn-100: oklch(0.35 calc(var(--warn-c) * 0.7) var(--warn-h));
+  --warn-200: oklch(0.4 calc(var(--warn-c) * 0.8) var(--warn-h));
+  --warn-300: oklch(0.46 calc(var(--warn-c) * 0.9) var(--warn-h));
+  --warn-400: oklch(0.52 calc(var(--warn-c) * 0.95) var(--warn-h));
+  --warn-700: oklch(0.8 calc(var(--warn-c) * 0.55) var(--warn-h));
+  --warn-800: oklch(0.87 calc(var(--warn-c) * 0.45) var(--warn-h));
+  --warn-900: oklch(0.92 calc(var(--warn-c) * 0.35) var(--warn-h));
+  --warn-950: oklch(0.96 calc(var(--warn-c) * 0.25) var(--warn-h));
+  --err-50: oklch(0.3 calc(var(--err-c) * 0.6) var(--err-h));
+  --err-100: oklch(0.35 calc(var(--err-c) * 0.7) var(--err-h));
+  --err-200: oklch(0.4 calc(var(--err-c) * 0.8) var(--err-h));
+  --err-300: oklch(0.46 calc(var(--err-c) * 0.9) var(--err-h));
+  --err-400: oklch(0.52 calc(var(--err-c) * 0.95) var(--err-h));
+  --err-700: oklch(0.8 calc(var(--err-c) * 0.55) var(--err-h));
+  --err-800: oklch(0.87 calc(var(--err-c) * 0.45) var(--err-h));
+  --err-900: oklch(0.92 calc(var(--err-c) * 0.35) var(--err-h));
+  --err-950: oklch(0.96 calc(var(--err-c) * 0.25) var(--err-h));
+}
+
 html:root[data-theme="claude"] {
   --accent-c: 0.131;
   --accent-h: 38.8;

@@ -60,6 +60,19 @@ const NEUTRAL_LIGHT = [
   [400, 0.38], [300, 0.27], [200, 0.175], [100, 0.105], [50, 0.06],
 ];
 
+// Light mode does the same for the coloured ramps. The markup is coded for a
+// dark page: 100-400 are text shades (pale, to read on dark) and 700-950 are
+// tints and borders (dark, to sit quietly on dark). On a light page both read
+// wrong — pale amber text on cream, muddy brown panels — and per-class
+// overrides can't keep up, because every opacity variant (`text-amber-300/90`)
+// is a separate class. So the light-mode ramp swaps the ends: text shades turn
+// dark, tint shades turn pale. 500 and 600 (dots, filled buttons under white
+// text) mean the same thing in both modes and stay as they are.
+const LIGHT_STOPS = [
+  [50, 0.3, 0.6], [100, 0.35, 0.7], [200, 0.4, 0.8], [300, 0.46, 0.9], [400, 0.52, 0.95],
+  [700, 0.8, 0.55], [800, 0.87, 0.45], [900, 0.92, 0.35], [950, 0.96, 0.25],
+];
+
 // chroma / hue derived from each palette's source brand color.
 const THEMES = [
   { id: "claude", accent: [0.131, 38.8], ok: [0.106, 142.8], warn: [0.127, 75.4], err: [0.143, 28.3], nu: [0.004, 84.6, 0.18] },
@@ -156,6 +169,16 @@ ${neutrals(NEUTRAL_DARK, false)}
 /* Light mode flips the neutral scale so the same classes keep their meaning. */
 html:root:not(.dark) {
 ${neutrals(NEUTRAL_LIGHT, true)}
+}
+
+/* …and the coloured ramps' ends: text shades dark, tint shades pale. */
+html:root:not(.dark) {
+${ramp("accent", "accent", LIGHT_STOPS)}
+${ramp("catA", "accent", LIGHT_STOPS)}
+${ramp("catB", "accent", LIGHT_STOPS)}
+${ramp("ok", "ok", LIGHT_STOPS)}
+${ramp("warn", "warn", LIGHT_STOPS)}
+${ramp("err", "err", LIGHT_STOPS)}
 }
 `;
 

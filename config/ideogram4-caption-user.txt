@@ -1,0 +1,2 @@
+TARGET IMAGE ASPECT RATIO: {{ratio}} (width:height).
+User idea: {{original_prompt}}

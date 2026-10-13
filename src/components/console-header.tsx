@@ -8,6 +8,7 @@ import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import { ThemePicker } from "@/components/theme-picker";
 import { useTheme } from "@/components/theme-provider";
 import { getHost, hostHasTab } from "@/lib/host";
+import { labDestinations } from "@/lib/labs";
 
 type Props = {
   active: ConsoleTab;
@@ -36,17 +37,20 @@ const workstreams = ([
   // Directly under Chat & Code: it answers the question that tab provokes —
   // "is this model the right one?" — rather than being a separate kind of work.
   { id: "arena", label: "Arena", hint: "Compare models on one prompt" },
-  { id: "qwen", label: "Image Studio", hint: "Generate and edit" },
+  { id: "qwen", label: "Image Studio", hint: "Generate, edit, compare and evaluate" },
   { id: "video", label: "Video Studio", hint: "Text and image to video" },
   { id: "speech", label: "Speech", hint: "Transcribe and synthesize" },
-  { id: "sam3d", label: "3D Body", hint: "Human mesh and pose" },
   { id: "sam3", label: "Segment", hint: "Open-vocabulary masks" },
 ] as Array<{ id: ConsoleTab; label: string; hint: string }>).map((item) => ({
   ...item,
   // Present on every machine; a host that cannot back it is marked here and
   // explains itself on the page, rather than the entry disappearing.
   available: hostHasTab(item.id),
-}));
+})).concat(
+  // Every registered Lab. Always "available": a Lab with nothing behind it on
+  // this host says so in place and shows what would fit.
+  labDestinations().map(({ id, label, hint }) => ({ id, label, hint, available: true })),
+);
 
 // What is flowing through the stack, and what it costs.
 const insights: Array<{ id: ConsoleTab; label: string; hint: string }> = [
@@ -177,12 +181,12 @@ export default function ConsoleHeader({
           <button
             type="button"
             onClick={() => onSelect("services")}
-            aria-label={`Service status: ${readyServices} ready now, ${onDemandServices} on demand, ${attentionServices} need attention`}
+            aria-label={`Service status: ${readyServices} ready now, ${onDemandServices} on demand, ${attentionServices} ${attentionServices === 1 ? "needs" : "need"} attention`}
             className="hidden h-10 items-center gap-2 rounded-lg border border-gray-800 bg-gray-900/55 px-3 lg:flex"
           >
             <span className={`h-2 w-2 rounded-full ${overallStatus === "operational" ? "bg-emerald-400" : overallStatus === "degraded" ? "bg-amber-400" : "bg-red-400"}`} />
             <span className="leading-tight">
-              <span className="block text-xs font-medium text-gray-200">{attentionServices ? `${attentionServices} need attention` : `${readyServices} ready now`}</span>
+              <span className="block text-xs font-medium text-gray-200">{attentionServices ? `${attentionServices} ${attentionServices === 1 ? "needs" : "need"} attention` : `${readyServices} ready now`}</span>
               <span className="block text-[9px] text-gray-600">{onDemandServices} on demand</span>
             </span>
           </button>

@@ -3,8 +3,9 @@
  * An MCP server that hands a coding agent this box's local AI stack.
  *
  * Claude Code and Codex both spawn it over stdio and get the same tools: run the
- * services, see what the GPU is holding, and use the three things they cannot do
- * themselves — speak in a cloned voice, generate an image, transcribe audio.
+ * services, see what the GPU is holding, and use the things they cannot do
+ * themselves — speak in a cloned voice, generate an image or a piece of music,
+ * transcribe audio.
  *
  * Why tools and not a page in the console. A page explaining how to start
  * services is documentation a human reads and relays, which is the job MCP
@@ -31,7 +32,7 @@
  *   - speak → the speech SERVICE directly. The console's /api/tts follows `tts`
  *     routing, which can legitimately point at Kokoro, whose voices are baked
  *     into its weights and will never include yours.
- *   - generate_image, transcribe → the CONSOLE's API. Those sit on real logic
+ *   - generate_image, generate_music, transcribe → the CONSOLE's API. Those sit on real logic
  *     (image-gen.ts alone acquires its own resource lease), and reimplementing
  *     it here would both duplicate it and route around the guardrail.
  *
@@ -40,10 +41,12 @@
  * package.json would cost more than it saves.
  */
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
+import { videoAnalysisTools } from "./video-analysis.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MANAGER = process.env.MANAGER_URL ?? "http://localhost:8099";
@@ -340,6 +343,76 @@ async function transcribe({ file }) {
   return ok(`${body.text.trim()}\n\n— ${body.model} in ${body.latency}ms`);
 }
 
+/** JSON POST over node:http, for requests that legitimately take longer than undici allows. */
+function longPost(url, payload, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const req = http.request(
+      {
+        hostname: u.hostname,
+        port: Number(u.port) || 80,
+        path: u.pathname,
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) },
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          let body = {};
+          try {
+            body = JSON.parse(text);
+          } catch {
+            body = { error: text.slice(0, 300) };
+          }
+          resolve({ status: res.statusCode, body });
+        });
+        res.on("error", reject);
+      },
+    );
+    req.setTimeout(timeoutMs, () => req.destroy(new Error(`timed out after ${Math.round(timeoutMs / 60000)} min`)));
+    req.on("error", reject);
+    req.end(payload);
+  });
+}
+
+async function generate3dModel({ subject, image_path, model, concept, resolution, seed }) {
+  if (!subject?.trim() && !image_path) return fail("Pass a subject to draw, or image_path to an existing picture of the object.");
+  let image;
+  if (image_path) {
+    if (!fs.existsSync(image_path)) return fail(`No file at ${image_path}.`);
+    image = fs.readFileSync(image_path).toString("base64");
+  }
+  // One request runs every step, and a dense object at 1024 is 15+ minutes of
+  // TRELLIS.2 post-processing before the first response byte. Not fetch():
+  // undici's headersTimeout is 300 s whatever timeout is asked for.
+  const payload = JSON.stringify({
+    ...(subject?.trim() ? { subject: subject.trim() } : {}),
+    ...(image ? { image } : {}),
+    ...(model ? { model } : {}),
+    ...(concept ? { concept } : {}),
+    ...(Number.isInteger(resolution) ? { resolution } : {}),
+    ...(Number.isInteger(seed) ? { seed } : {}),
+  });
+  let status, body;
+  try {
+    ({ status, body } = await longPost(`${CONSOLE}/api/labs/3d/pipeline`, payload, 1_800_000));
+  } catch (e) {
+    return fail(`The console on ${CONSOLE} did not answer (${e.message}). This tool needs it running.`);
+  }
+  if (status !== 200 || !body.ok) {
+    if (body.resourceBlocked) return fail(`Not enough room on the GPU: ${body.error}. gpu_status shows what is holding memory.`);
+    return fail(body.error ?? `3D generation failed (${status}).`);
+  }
+  const steps = (body.steps ?? []).map((s) => `${s.name} ${(s.ms / 1000).toFixed(1)}s${s.detail ? ` (${s.detail})` : ""}`).join(", ");
+  return ok(
+    `GLB saved to ${body.glbPath} — ${body.model}, ${(body.bytes / 1024 / 1024).toFixed(1)} MB. ${steps}.` +
+      (body.cutoutPath ? ` Cutout: ${body.cutoutPath}.` : "") +
+      ` Source image: ${body.sourcePath}. Open ${CONSOLE}${body.labUrl} to orbit it.`,
+  );
+}
+
 async function generateImage({ prompt, model, folder }) {
   if (!prompt?.trim()) return fail("What should it draw? Pass a prompt.");
   const { error, res } = await consoleFetch("/api/image/generate", {
@@ -365,9 +438,224 @@ async function generateImage({ prompt, model, folder }) {
   );
 }
 
+async function generateMusic({ prompt, lyrics, seconds, seed, bpm, fade_out }) {
+  if (!prompt?.trim()) return fail("Describe the music: genre, instruments, mood, tempo.");
+  const dur = Math.round(Number(seconds) || 30);
+  if (dur < 10 || dur > 600) return fail("seconds must be between 10 and 600.");
+  // Through the Music Lab's run route, like generate_image through the
+  // console: it holds the GPU lease, saves to the gallery and records the run.
+  const f = new FormData();
+  f.set("task", "text2music");
+  f.set("caption", prompt.trim());
+  f.set("instrumental", String(!lyrics?.trim()));
+  if (lyrics?.trim()) f.set("lyrics", lyrics);
+  f.set("duration", String(dur));
+  if (Number.isInteger(seed) && seed >= 0) f.set("seed", String(seed));
+  if (bpm) f.set("bpm", String(bpm));
+  if (Number(fade_out) > 0) f.set("fade_out", String(fade_out));
+  f.set("format", "flac");
+  const { error, res } = await consoleFetch("/api/labs/music/run", { method: "POST", body: f }, 900_000);
+  if (error) return fail(error);
+  const body = await res.json().catch(() => ({}));
+  if (!body.ok) {
+    if (body.resourceBlocked) return fail(`Not enough room to generate: ${body.error}. gpu_status shows what is holding memory.`);
+    if (/isn't reachable|not ready|loading/i.test(body.error ?? "")) return fail(`${body.error} start_service("music") starts it (~30 s to load).`);
+    return fail(body.error ?? `Music generation failed (${res.status}).`);
+  }
+  const t = body.output.track;
+  const dir = process.env.MUSIC_OUTPUT_DIR || path.join(HERE, "..", "generated-music");
+  const r = t.meta.resolved ?? {};
+  return ok(
+    `Saved to ${path.join(dir, t.file)} — ${t.meta.audio_seconds}s FLAC (48 kHz stereo), seed ${t.meta.seed}` +
+      `${r.bpm ? `, ${r.bpm} bpm` : ""}${r.keyscale ? `, ${r.keyscale}` : ""}, in ${(body.latencyMs / 1000).toFixed(1)}s.`,
+  );
+}
+
+async function decideTool({ question, choices, type, context, model }) {
+  if (!question?.trim()) return fail("Pass the question to decide.");
+  const { error, res } = await consoleFetch("/api/decide", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Source": "mcp-decide" },
+    body: JSON.stringify({ question, choices, type, context, ...(model ? { model } : {}) }),
+  });
+  if (error) return fail(error);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 503) return fail(`${body.error ?? "The decision service is not running."} start_service("laya") starts it.`);
+    return fail(body.error ?? `Decision failed (${res.status}).`);
+  }
+  // The whole distribution, not just the winner: the point of asking a
+  // calibrated model is to act differently at 0.55 than at 0.98.
+  const dist = Object.entries(body.probabilities)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, p]) => `${k} ${(p * 100).toFixed(1)}%`)
+    .join(", ");
+  const how = [body.model, body.checkpoint && `checkpoint ${body.checkpoint}`, `${Math.round(body.latencyMs)} ms`, body.costUsd != null && `$${body.costUsd.toFixed(5)}`]
+    .filter(Boolean)
+    .join(", ");
+  return ok(`${body.choice} (${(body.confidence * 100).toFixed(1)}%). Distribution: ${dist}. [${how}]${body.parsed === false ? " Warning: the LLM did not return the requested JSON; the distribution is a fallback." : ""}`);
+}
+
+// ── process lab ─────────────────────────────────────────────────────────────
+
+async function processLab({ action = "status", caseKey, run, scenarios, secondsPerDay, autoHuman }) {
+  const call = async (path, init) => {
+    const { error, res } = await consoleFetch(`/api/labs/process/${path}`, init, 120_000);
+    if (error) return { error };
+    const body = await res.json().catch(() => ({}));
+    return res.ok ? { body } : { error: body.error ?? `HTTP ${res.status}` };
+  };
+  if (action === "status") {
+    const { error, body } = await call("status");
+    if (error) return fail(error);
+    const lines = body.services.map((s) => `${s.up ? "up  " : "down"} ${s.id} — ${s.role}`);
+    return ok(`${lines.join("\n")}\nStart a stopped one with start_service(id); the lab needs process-engine and process-lab.`);
+  }
+  if (action === "cases") {
+    const { error, body } = await call(`api/cases?limit=40${run ? `&run=${encodeURIComponent(run)}` : ""}`);
+    if (error) return fail(error);
+    if (!body.length) return ok("No cases yet.");
+    return ok(body.map((c) => `${c.caseKey} ${c.clientName ?? ""} → ${c.destination ?? "?"} · ${c.service ?? "service unknown"} · ${c.state === "ACTIVE" ? `at ${c.current.join(", ")}` : c.outcome}${c.incidents ? " · INCIDENT" : ""}`).join("\n"));
+  }
+  if (action === "case") {
+    if (!caseKey) return fail("Pass caseKey (from action cases).");
+    const { error, body } = await call(`api/cases/${encodeURIComponent(caseKey)}`);
+    if (error) return fail(error);
+    const d = body.decisions.map((x) => `[${x.kind}] ${x.question} → ${x.decided}${x.confidence != null ? ` (${Number(x.confidence).toFixed(2)})` : ""}${x.model ? ` by ${x.model}` : ""}${x.provider === "cloud" ? " (cloud)" : ""}${x.escalated ? " → person" : ""}${x.overridden ? " OVERRIDDEN" : ""}`);
+    return ok(`${body.caseKey}: ${body.state === "ACTIVE" ? `at ${body.current.join(", ")}` : body.outcome}\n${d.join("\n")}`);
+  }
+  if (action === "simulate") {
+    const { error, body } = await call("api/sim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scenarios, secondsPerDay, autoHuman }),
+    });
+    if (error) return fail(error);
+    return ok(`Started ${body.id}: ${body.config.scenarios.length} synthetic cases at ${body.config.secondsPerDay} s per simulated day. Follow it with action "cases" (run ${body.id}) and "stats".`);
+  }
+  if (action === "stats") {
+    const { error, body } = await call(`api/stats${run ? `?run=${encodeURIComponent(run)}` : ""}`);
+    if (error) return fail(error);
+    const kinds = Object.entries(body.byKind).map(([k, v]) => `${k}: ${v.count}, median ${v.medianLatencyMs ?? "?"} ms${v.accuracy != null ? `, ${v.accuracy}% vs truth` : ""}${v.cloud ? `, ${v.cloud} on cloud` : ""}`);
+    return ok(
+      `${body.finished}/${body.cases} finished · outcomes ${JSON.stringify(body.outcomes)} · right ending ${body.pathAccuracy?.pct ?? "?"}% · ` +
+        `median cycle ${body.cycle.medianDays} simulated days · AI→person ${body.escalation.pct ?? "?"}% · person overrode AI ${body.overrides.pct ?? "?"}% · ` +
+        `cloud $${body.models.costUsd}\n${kinds.join("\n")}`,
+    );
+  }
+  return fail(`Unknown action "${action}".`);
+}
+
+/**
+ * Video goes through the console's QUEUE (/api/video/jobs), not a request that
+ * waits: a clip takes minutes, and the queue is what holds the resource lease,
+ * collects the file if the caller goes away, and records the run. This tool
+ * waits a bounded time and otherwise hands back the job id for video_job.
+ */
+function describeVideoJob(j) {
+  if (j.status === "done") {
+    return `Done: ${j.output ? path.join(CONSOLE_GENERATED, "video", j.output) : "(no file)"} — ${j.model}, ${j.seconds}s ${j.width}×${j.height}, generated in ${Math.round((j.latencyMs ?? 0) / 1000)}s${j.costUsd != null ? `, $${j.costUsd}` : ""}.`;
+  }
+  if (j.status === "failed" || j.status === "cancelled") return `Job ${j.id} ${j.status}: ${j.error ?? ""}`.trim();
+  const eta = j.etaSec != null ? ` ~${Math.round(j.etaSec / 60)} min left (${j.etaBasis})` : "";
+  const block = j.block ? ` Waiting: ${j.block.message}` : "";
+  return `Job ${j.id} is ${j.status} (${j.stage}${j.stepsTotal ? `, step ${j.stepsDone ?? 0}/${j.stepsTotal}` : ""}).${eta}${block} Check again with video_job.`;
+}
+const CONSOLE_GENERATED = process.env.QWEN_OUTPUT_DIR ?? path.join(HERE, "..", "generated");
+
+async function generateVideo({ prompt, model, image, seconds, resolution, wait_minutes }) {
+  if (!prompt?.trim()) return fail("Describe the shot: pass a prompt.");
+  let sourceImage;
+  if (image) {
+    if (!fs.existsSync(image)) return fail(`No such image: ${image}`);
+    const ext = path.extname(image).toLowerCase().replace(".jpg", ".jpeg").slice(1);
+    if (!["png", "jpeg", "webp"].includes(ext)) return fail("The image must be PNG, JPEG or WebP.");
+    const { error, res } = await consoleFetch("/api/video/source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dataUrl: `data:image/${ext};base64,${fs.readFileSync(image).toString("base64")}` }),
+    }, 30_000);
+    if (error) return fail(error);
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return fail(body.error ?? `Could not register the image (${res.status}).`);
+    sourceImage = body.path;
+  }
+  const { error, res } = await consoleFetch("/api/video/jobs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: model || "wan2.2-ti2v-5b",
+      mode: sourceImage ? "i2v" : "t2v",
+      prompt: prompt.trim(),
+      seconds: seconds ?? 5,
+      tier: resolution === "high" ? "high" : "low",
+      sourceImage,
+      origin: "mcp",
+    }),
+  }, 30_000);
+  if (error) return fail(error);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) return fail(body.error ?? `Could not queue the clip (${res.status}).`);
+  let job = body.job;
+  const deadline = Date.now() + Math.min(Math.max(Number(wait_minutes ?? 10), 0), 30) * 60_000;
+  while (["queued", "waiting", "running"].includes(job.status) && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const poll = await consoleFetch(`/api/video/jobs/${job.id}`, {}, 15_000);
+    if (poll.res?.ok) job = (await poll.res.json()).job ?? job;
+  }
+  return job.status === "failed" || job.status === "cancelled" ? fail(describeVideoJob(job)) : ok(describeVideoJob(job));
+}
+
+async function videoForge({ action = "status", id, verdict, reason }) {
+  const post = async (body, ms) => {
+    const { error, res } = await consoleFetch("/api/forge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }, ms);
+    if (error) return { error };
+    const json = await res.json().catch(() => ({}));
+    return res.ok ? { json } : { error: json.error ?? `HTTP ${res.status}` };
+  };
+  if (action === "listen") {
+    const { error, json } = await post({ action: "listen" }, 300_000);
+    if (error) return fail(error);
+    const i = json.item;
+    if (i.status !== "brief") return ok(`Listened, made no brief: ${i.error}`);
+    return ok(`Brief "${i.topic}" (heard: ${i.heard}). Why now: ${i.whyNow}\nFirst frame: ${i.stillPrompt}\nMotion: ${i.motionPrompt}\nIt will be made in tonight's window.`);
+  }
+  if (action === "review") {
+    if (!id || !["approved", "rejected"].includes(verdict)) return fail("Pass id and verdict (approved | rejected).");
+    const { error, json } = await post({ action: "review", id, verdict, reason }, 30_000);
+    if (error) return fail(error);
+    return ok(`${json.item.topic}: ${verdict}${reason ? ` — ${reason}` : ""}. The next briefs will take it into account.`);
+  }
+  const { error, res } = await consoleFetch("/api/forge", {}, 30_000);
+  if (error) return fail(error);
+  const d = await res.json().catch(() => ({}));
+  const by = (s) => d.items.filter((i) => s.includes(i.status));
+  const review = by(["review"]).map((i) => `  ${i.id} "${i.topic}" — ${i.video?.output ? path.join(CONSOLE_GENERATED, "video", i.video.output) : "no file"}`);
+  const tonight = by(["brief", "still", "rendering"]).map((i) => `  "${i.topic}" (${i.status})`);
+  return ok(
+    [
+      `Right now: ${d.runtime.now ?? "starting"}`,
+      d.window.open ? `Render window open, ${d.window.minutesLeft} min left.` : `Next render window ${new Date(d.window.nextStart).toLocaleString()} (${d.settings.window.start}-${d.settings.window.end}).`,
+      `Brief writer (vllm-small): ${d.services.smallModel ? "up" : "down"}; web search (SearXNG): ${d.services.search ? "up" : "down"}.`,
+      `Waiting for review (${review.length}):${review.length ? `\n${review.join("\n")}` : " none"}`,
+      `To make (${tonight.length}):${tonight.length ? `\n${tonight.join("\n")}` : " none"}`,
+    ].join("\n"),
+  );
+}
+
+async function videoJob({ id }) {
+  if (!id) return fail("Which job? Pass the id generate_video returned.");
+  const { error, res } = await consoleFetch(`/api/video/jobs/${encodeURIComponent(id)}`, {}, 15_000);
+  if (error) return fail(error);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) return fail(body.error ?? `No such job (${res.status}).`);
+  return ok(describeVideoJob(body.job));
+}
+
 // ── tool table ────────────────────────────────────────────────────────────────
 
 const TOOLS = [
+  ...videoAnalysisTools(),
   {
     name: "list_services",
     description:
@@ -455,6 +743,29 @@ const TOOLS = [
     run: transcribe,
   },
   {
+    name: "generate_3d_model",
+    description:
+      "Make a textured 3D mesh (GLB file) of ONE object on the local GPU: draws the object with a local image model " +
+      "(or takes image_path), cuts it out with SAM 3, and reconstructs it with TRELLIS.2 (default: textured, ~0.5-2.5 min at its default 512) " +
+      "or TripoSR (model \"triposr\", seconds, vertex colours, blockout quality). Returns the GLB path. " +
+      "Use it when a 3D asset is the deliverable (a game prop, a product mockup, a starting mesh for a print). " +
+      "Do NOT use it for scenes, rooms or several objects at once (it reconstructs a single object), for precise " +
+      "CAD/engineering parts (dimensions are not controllable), or for a human body pose (use the SAM 3D Body tab). " +
+      "Meshes are not print-ready without repair in a slicer. It occupies most of the GPU for its duration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        subject: { type: "string", description: 'The object, e.g. "a brass desk lamp". Ignored when image_path is given, except as its label.' },
+        image_path: { type: "string", description: "Absolute path to a PNG/JPEG of the object, instead of drawing one." },
+        model: { type: "string", description: '"trellis-2" (default, quality) or "triposr" (fast draft).' },
+        concept: { type: "string", description: "The noun SAM 3 should segment. Defaults to the last word of subject." },
+        resolution: { type: "integer", description: "TRELLIS.2: 512 (default), 1024 (3-6x slower, 1.5-14 min, finer detail) or 1536. Pixal3D: 1024 (default; it has no 512 texture model) or 1536. TripoSR: marching-cubes grid, 256 default (max 384)." },
+        seed: { type: "integer", description: "Seed for the image and the mesh. Default 42." },
+      },
+    },
+    run: generate3dModel,
+  },
+  {
     name: "generate_image",
     description:
       "Generate an image with a local diffusion model and save it to the console's gallery, returning the path. " +
@@ -464,12 +775,157 @@ const TOOLS = [
       type: "object",
       properties: {
         prompt: { type: "string", description: "What to draw." },
-        model: { type: "string", description: 'Backend, e.g. "qwen-image" or "flux-schnell". Defaults to Qwen-Image.' },
+        model: {
+          type: "string",
+          description:
+            'Local model. Measured on this box (docs/image-model-experiment-2026-09-26.md): "flux2-klein-4b" is fastest ' +
+            '(~10 s) and good at layout; "z-image-turbo" (~14 s) is the one to use for rendered text, Arabic text or exact ' +
+            'small counts; "hidream-o1-dev" is native 2K but English prompts only (it ignored an Arabic prompt). ' +
+            'Omitting it means Qwen-Image (the 20B Qwen-Image-2512 since 3 Oct, Apache-2.0), which needs ~28 GB of free host ' +
+            'RAM and several minutes to load, and is often refused while other models are resident. Also local: ' +
+            '"qwen-image-2.1" (#1 open model), "hidream-o1" (full), "ideogram-4" (#2, typography) and "ming-image" (#6, ' +
+            'design layouts, MIT) — see the doc for how they compare. qwen-image-2.1 and ideogram-4 are licensed for ' +
+            'NON-COMMERCIAL use only: never use them for anything commercial. FLUX.1 schnell was retired; "flux-schnell" ' +
+            'is no longer a model.',
+        },
         folder: { type: "string", description: "Gallery folder to save into." },
       },
       required: ["prompt"],
     },
     run: generateImage,
+  },
+  {
+    name: "generate_music",
+    description:
+      "Generate a piece of music locally with ACE-Step 1.5 and save it to the console's music gallery, returning the " +
+      "file path (FLAC). Use it when a track is the deliverable, e.g. a background bed for a video you are assembling: " +
+      "describe genre, instruments, mood and tempo, and ask for the length the edit needs. Instrumental unless you pass " +
+      "lyrics. Measured on this box: ~15 s for 30 s of audio, ~20 s for a minute, ~42 s for three. Do NOT use it to illustrate an answer, for " +
+      "sound effects or speech (use speak for a voice), or when the user needs a specific existing song. The weights " +
+      "are MIT-licensed, but a generated track can still resemble existing music; say it was AI-generated where that " +
+      "matters. Needs the music service running (start_service(\"music\")).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: { type: "string", description: "Genre, instruments, mood, tempo — e.g. \"calm cinematic strings and piano, slow build, 70 bpm\"." },
+        seconds: { type: "number", description: "Length in seconds, 10-600. Default 30." },
+        lyrics: { type: "string", description: "Optional sung lyrics, with [verse]/[chorus] section tags. Omit for instrumental." },
+        seed: { type: "integer", description: "Fix it to reproduce a track." },
+        bpm: { type: "integer", description: "Tempo, if the edit needs it exact. Otherwise the planner picks one." },
+        fade_out: { type: "number", description: "Seconds to fade to silence at the end — usually wanted for a video bed (e.g. 2)." },
+      },
+      required: ["prompt"],
+    },
+    run: generateMusic,
+  },
+  {
+    name: "decide",
+    description:
+      "Answer one typed question about a piece of text with calibrated probabilities, using Laya, a local " +
+      "decision model (~30 ms, nothing leaves the box): pick one of a few labels, yes/no, or a low-to-high score. " +
+      "It is good at coarse, vocabulary-level calls (topic, language, 'is this about billing') and weak at judgement: " +
+      "on this box's six labelled decision sets (triage, moderation, routing, relevance, intent, Arabic dialect) it " +
+      "scored 17-65% where Claude Haiku scored 83-100% — see docs/decision-model-experiment-2026-09-27.md. " +
+      "Do NOT use it when you can simply read the text and decide yourself, for anything that needs reading between " +
+      "the lines, world knowledge or arithmetic, for open-ended questions, or for more than ~20 options. " +
+      "The same tool asks an LLM in the same shape: pass model \"local-small\" (a resident 7B, ~0.2 s, free) or " +
+      "\"claude-haiku\" (~1 s, metered) — usually the better choice for a real decision.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        question: { type: "string", description: "The question, e.g. \"Is this post spam?\"" },
+        choices: {
+          description: "The options: a list of labels, or an object of label → what the label means (descriptions help). Omit for yesno.",
+          oneOf: [{ type: "array", items: { type: "string" } }, { type: "object", additionalProperties: { type: "string" } }],
+        },
+        type: { type: "string", enum: ["choice", "yesno", "score"], description: "Default choice. score: choices ordered low → high." },
+        context: { description: "The text (or a JSON object) the decision is about.", oneOf: [{ type: "string" }, { type: "object" }] },
+        model: { type: "string", description: "Default \"laya\". Also laya-multilingual, laya-typed-decisions, or a router chat alias." },
+      },
+      required: ["question", "context"],
+    },
+    run: decideTool,
+  },
+  {
+    name: "process_lab",
+    description:
+      "The process lab: a SIMULATED relocation agency whose cases run on a BPMN engine (Operaton), with DMN rules " +
+      "and AI at the judgement steps. Actions: status (its services), cases (list, optionally for one simulation run), " +
+      "case (one case's full decision history: which kind of decision, what it decided, confidence, model, whether a " +
+      "person overrode it), simulate (start a run of synthetic clients), stats (cycle time, hand-offs, overrides, cost). " +
+      "Use it to study how rules, a decision model and an LLM share work in a process. Do NOT use it for real clients or " +
+      "real immigration advice — every case and document is synthetic — and do not start a simulation to answer a " +
+      "question the existing runs already answer: a run costs GPU time or cloud money.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["status", "cases", "case", "simulate", "stats"] },
+        caseKey: { type: "string", description: "For action case." },
+        run: { type: "string", description: "A simulation run id, e.g. SIM2609271637 (cases, stats)." },
+        scenarios: { type: "array", items: { type: "string" }, description: "simulate: scenario ids; omit for all." },
+        secondsPerDay: { type: "number", description: "simulate: wall-clock seconds per simulated day (default 10)." },
+        autoHuman: { type: "boolean", description: "simulate: a simulated consultant works the inbox (default true)." },
+      },
+      required: ["action"],
+    },
+    run: processLab,
+  },
+  {
+    name: "generate_video",
+    description:
+      "Make a short video clip (3–15 s) with a local video model, from a prompt or from a still image plus a prompt, and save it as an mp4. " +
+      "Expensive: a clip takes several minutes to tens of minutes and needs most of the GPU AND 20–45 GB of RAM, so other models may have to be stopped first " +
+      "(the job waits and says what is in the way rather than failing). Use it only when a video is the deliverable or the user asked for one — " +
+      "never to illustrate an answer, never in a loop, and never for a cloud project (globe_quest, ColdClub, avatar-lab, tinkerer-presenter): " +
+      "those call vendors directly and must not depend on this box. Waits up to wait_minutes, then returns a job id for video_job.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        prompt: { type: "string", description: "What happens in the shot: subject, motion, camera move, light." },
+        image: { type: "string", description: "Absolute path to a still to animate (image-to-video). Omit for text-to-video." },
+        model: {
+          type: "string",
+          description:
+            'Default "wan2.2-ti2v-5b" (fastest). Others: "wan2.2-14b", "ltx-2.5" (adds audio), "hunyuanvideo-1.5", "minimax-h3" (heaviest; its licence excludes the USA/EU/UK/Korea).',
+        },
+        seconds: { type: "number", description: "Clip length, 3–15. Default 5; snapped to what the model accepts." },
+        resolution: { type: "string", enum: ["low", "high"], description: "low ≈ 480p (default), high ≈ 720p." },
+        wait_minutes: { type: "number", description: "How long to wait before returning a job id instead, 0–30. Default 10." },
+      },
+      required: ["prompt"],
+    },
+    run: generateVideo,
+  },
+  {
+    name: "video_job",
+    description: "Status of a clip queued by generate_video: stage, progress, ETA, what it is waiting for, or the saved mp4 path when done.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string", description: "The job id generate_video returned." } },
+      required: ["id"],
+    },
+    run: videoJob,
+  },
+  {
+    name: "video_forge",
+    description:
+      "The Video Forge: a loop in the console that listens to what is trending (Google Trends, Wikipedia most-read, Hacker News), has a local model " +
+      "(vllm-small, free) research one topic with web search and write a brief, and makes a 5 s clip from it overnight (01:00-07:00, when it may pause " +
+      "vllm-small) for the user's review. Actions: status (what it is doing, tonight's list, clips waiting for review with their mp4 paths), listen " +
+      "(hear the trends and write one brief now, ~15 s, costs nothing), review (approve or reject a finished clip, with a reason the next briefs learn from). " +
+      "Do NOT use it to make a specific clip now (use generate_video), do not approve or reject clips unless the user said which and why, and never " +
+      "publish its clips anywhere — nothing it makes is published.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["status", "listen", "review"] },
+        id: { type: "string", description: "review: the clip's item id, from status." },
+        verdict: { type: "string", enum: ["approved", "rejected"], description: "review." },
+        reason: { type: "string", description: "review: why, in the user's words — it steers the next briefs." },
+      },
+      required: ["action"],
+    },
+    run: videoForge,
   },
 ];
 

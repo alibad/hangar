@@ -8,6 +8,25 @@ const productionModelMeta = require("../config/model-meta.json");
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
+test("a standalone GPU holder blocks GPU service loads but allows CPU services", async () => {
+  const c=fixtures();
+  c.profiles.services.cpu={resident:{ramGb:1,vramGb:0}};
+  const lease=await c.acquire("segment",{owner:"video-lab",ttlMs:120000});
+  assert.equal((await c.reserveServiceStart("coder")).denial.kind,"slot");
+  assert.equal((await c.reserveServiceStart("cpu")).ok,true);
+  c.release(lease.id);
+  assert.equal((await c.reserveServiceStart("coder")).ok,true);
+});
+
+test("heartbeat cannot revive expired leases or renew another owner's lease", async () => {
+  const c=fixtures();let now=1000;c.clock=()=>now;
+  const lease=await c.acquire("segment",{owner:"video-lab",ttlMs:2000});
+  assert.equal(c.renew(lease.id,"someone-else"),null);
+  now=2000;assert.equal(c.renew(lease.id,"video-lab",120000).expiresAt,122000);
+  now=123000;assert.equal(c.renew(lease.id,"video-lab"),null);
+  assert.equal(c.reapExpired(),1);
+});
+
 test("live free VRAM admits Qwen beside an overestimated resident footprint", async () => {
   const coordinator = new ResourceCoordinator({
     profiles: buildResourceProfiles(productionPolicy, productionModelMeta),
@@ -167,9 +186,13 @@ test("a workload peak replaces its service resident footprint instead of double 
   coordinator.release(lease.id);
 });
 
-test("the production policy still admits measured FLUX peak on the 5090", async () => {
+test("the production policy admits the heaviest image workload's measured peak on an idle 5090", async () => {
+  // This was FLUX.1 schnell's 31.7 GB until it was retired (28 Sept 2026);
+  // Qwen-Image's measured 20.3 GB peak / 28 GB resident RAM is now the heaviest.
+  const profiles = buildResourceProfiles(productionPolicy, productionModelMeta);
+  assert.equal(profiles.workloads["flux-generate"], undefined, "FLUX.1 schnell is retired");
   const coordinator = new ResourceCoordinator({
-    profiles: buildResourceProfiles(productionPolicy, productionModelMeta),
+    profiles,
     capacityProvider: async () => ({
       ram: { totalGb: 63.3, freeGb: 35 },
       vram: { totalGb: 31.84, freeGb: 31.68 },
@@ -177,7 +200,7 @@ test("the production policy still admits measured FLUX peak on the 5090", async 
   });
   coordinator.setActiveServices(["qwen", "comfyui"]);
 
-  const lease = await coordinator.acquire("flux-generate", { owner: "measured-card", waitMs: 100 });
-  assert.equal(lease.workload, "flux-generate");
+  const lease = await coordinator.acquire("qwen-generate", { owner: "measured-card", waitMs: 100 });
+  assert.equal(lease.workload, "qwen-generate");
   coordinator.release(lease.id);
 });

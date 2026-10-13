@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Brain,
-  Box,
+  FlaskConical,
   Gauge,
   HardDrive,
   Image,
@@ -19,7 +19,12 @@ import {
   Swords,
 } from "lucide-react";
 
-export type ConsoleTab = "stack" | "services" | "storage" | "llm" | "arena" | "speech" | "qwen" | "video" | "requests" | "usage" | "sam3d" | "sam3" | "models";
+import { labDestinations, type ConsoleTab } from "@/lib/labs";
+
+// The tab union lives with the Labs registry now, so a Lab is a destination
+// the moment it is registered. Re-exported for the components that import it
+// from here.
+export type { ConsoleTab };
 
 type Destination = {
   id: ConsoleTab;
@@ -36,13 +41,13 @@ const DESTINATIONS: Destination[] = [
   { id: "llm", label: "LLM", hint: "Chat with the active text model", keywords: "chat text vllm qwen", icon: Brain },
   { id: "arena", label: "Arena", hint: "Compare several models on one prompt", keywords: "compare benchmark arabic ocr vision judge side by side", icon: Swords },
   { id: "speech", label: "Speech", hint: "Transcribe and synthesize audio", keywords: "whisper stt tts voice audio", icon: Mic },
-  { id: "qwen", label: "Image", hint: "Local app · generate, queue and browse", keywords: "local machine qwen flux creative gallery", icon: Image },
+  { id: "qwen", label: "Image Studio", hint: "Local app · generate, edit, compare, evaluate and browse", keywords: "local machine qwen flux klein hidream z-image creative gallery compare eval suite image lab", icon: Image },
   { id: "video", label: "Video", hint: "Local app · text and image to video", keywords: "local machine wan draw things movie mp4", icon: Film },
-  { id: "requests", label: "Requests", hint: "Local app · inspect traffic and failures", keywords: "local machine logs activity api traffic errors", icon: Activity },
-  { id: "usage", label: "AI Usage", hint: "Local app · Codex, Claude and router usage", keywords: "local machine claude codex chatgpt gpt openai tokens cost spend billing daily monthly", icon: Gauge },
-  { id: "sam3d", label: "3D Body", hint: "Recover human mesh and pose", keywords: "sam 3d pose body mesh", icon: Box },
+  { id: "requests", label: "Requests", hint: "Local app · inspect traffic, failures and spend", keywords: "local machine logs activity api traffic errors", icon: Activity },
+  { id: "usage", label: "AI Usage", hint: "Local app · router, Codex GPT and Claude token usage", keywords: "local machine claude codex chatgpt gpt openai tokens cost spend billing daily monthly", icon: Gauge },
   { id: "sam3", label: "Segment", hint: "Segment images and track video", keywords: "sam mask boxes tracking", icon: Scan },
-  { id: "models", label: "Models", hint: "Local app · route and install models", keywords: "local machine router providers configuration aliases", icon: Settings2 },
+  { id: "models", label: "Models", hint: "Local app · choose routing by capability", keywords: "local machine router providers configuration aliases", icon: Settings2 },
+  ...labDestinations().map((d) => ({ ...d, icon: FlaskConical })),
 ];
 
 export function CommandPalette({

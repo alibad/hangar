@@ -1,0 +1,230 @@
+{
+ "agnews/bare": {
+  "acc": 0.95,
+  "ece": 0.04028800000000006,
+  "p50ms": 216.18339999986347,
+  "n": 100
+ },
+ "agnews/described": {
+  "acc": 0.94,
+  "ece": 0.04920300000000012,
+  "p50ms": 330.36634999734815,
+  "n": 100
+ },
+ "arabic-dialect/laya/default": {
+  "acc": 0.37142857142857144,
+  "ece": 0.21599142857142856,
+  "p50ms": 204.89480000105686,
+  "n": 35
+ },
+ "arabic-dialect/laya/head512": {
+  "acc": 0.37142857142857144,
+  "ece": 0.21599142857142856,
+  "p50ms": 107.83909999736352,
+  "n": 35
+ },
+ "arabic-dialect/laya/bare": {
+  "acc": 0.2571428571428571,
+  "ece": 0.4675742857142857,
+  "p50ms": 76.88639999832958,
+  "n": 35
+ },
+ "console-intent/laya/default": {
+  "acc": 0.5952380952380952,
+  "ece": 0.21420952380952382,
+  "p50ms": 425.5875999988348,
+  "n": 42
+ },
+ "console-intent/laya/head512": {
+  "acc": 0.5952380952380952,
+  "ece": 0.21420952380952382,
+  "p50ms": 382.59109999853536,
+  "n": 42
+ },
+ "console-intent/laya/bare": {
+  "acc": 0.5476190476190477,
+  "ece": 0.24296428571428574,
+  "p50ms": 329.4471000008343,
+  "n": 42
+ },
+ "feedback-triage/laya/default": {
+  "acc": 0.4,
+  "ece": 0.193755,
+  "p50ms": 453.0159000023559,
+  "n": 40
+ },
+ "feedback-triage/laya/head512": {
+  "acc": 0.4,
+  "ece": 0.193755,
+  "p50ms": 535.4809000018577,
+  "n": 40
+ },
+ "feedback-triage/laya/bare": {
+  "acc": 0.55,
+  "ece": 0.16887500000000003,
+  "p50ms": 256.85019999946235,
+  "n": 40
+ },
+ "moderation/laya/default": {
+  "acc": 0.4166666666666667,
+  "ece": 0.08964444444444446,
+  "p50ms": 277.5830499995209,
+  "n": 36
+ },
+ "moderation/laya/head512": {
+  "acc": 0.4166666666666667,
+  "ece": 0.08964444444444446,
+  "p50ms": 615.9563000001071,
+  "n": 36
+ },
+ "moderation/laya/bare": {
+  "acc": 0.3888888888888889,
+  "ece": 0.3219138888888889,
+  "p50ms": 201.3363500009291,
+  "n": 36
+ },
+ "reddit-relevance/laya/default": {
+  "acc": 0.2222222222222222,
+  "ece": 0.27847500000000003,
+  "p50ms": 343.54044999781763,
+  "n": 36
+ },
+ "reddit-relevance/laya/head512": {
+  "acc": 0.2222222222222222,
+  "ece": 0.27847500000000003,
+  "p50ms": 366.87514999721316,
+  "n": 36
+ },
+ "reddit-relevance/laya/bare": {
+  "acc": 0.2222222222222222,
+  "ece": 0.41937777777777785,
+  "p50ms": 307.05310000121244,
+  "n": 36
+ },
+ "router-escalation/laya/default": {
+  "acc": 0.625,
+  "ece": 0.10016250000000006,
+  "p50ms": 278.2202500020503,
+  "n": 40
+ },
+ "router-escalation/laya/head512": {
+  "acc": 0.625,
+  "ece": 0.10016250000000006,
+  "p50ms": 376.3475000014296,
+  "n": 40
+ },
+ "router-escalation/laya/bare": {
+  "acc": 0.725,
+  "ece": 0.1110875,
+  "p50ms": 199.9759999998787,
+  "n": 40
+ },
+ "arabic-dialect/typed-decisions/default": {
+  "acc": 0.2857142857142857,
+  "ece": 0.1089657142857143,
+  "p50ms": 330.1382999998168,
+  "n": 35
+ },
+ "arabic-dialect/typed-decisions/head512": {
+  "acc": 0.2857142857142857,
+  "ece": 0.1089657142857143,
+  "p50ms": 256.9641000009142,
+  "n": 35
+ },
+ "arabic-dialect/typed-decisions/bare": {
+  "acc": 0.3142857142857143,
+  "ece": 0.03148857142857145,
+  "p50ms": 163.77009999996517,
+  "n": 35
+ },
+ "console-intent/typed-decisions/default": {
+  "acc": 0.6428571428571429,
+  "ece": 0.13476666666666662,
+  "p50ms": 293.29340000185766,
+  "n": 42
+ },
+ "console-intent/typed-decisions/head512": {
+  "acc": 0.6428571428571429,
+  "ece": 0.13476666666666662,
+  "p50ms": 268.61559999815654,
+  "n": 42
+ },
+ "console-intent/typed-decisions/bare": {
+  "acc": 0.5476190476190477,
+  "ece": 0.11121666666666666,
+  "p50ms": 223.05690000212053,
+  "n": 42
+ },
+ "feedback-triage/typed-decisions/default": {
+  "acc": 0.625,
+  "ece": 0.3063725,
+  "p50ms": 294.8680500012415,
+  "n": 40
+ },
+ "feedback-triage/typed-decisions/head512": {
+  "acc": 0.625,
+  "ece": 0.3063725,
+  "p50ms": 276.15079999668524,
+  "n": 40
+ },
+ "feedback-triage/typed-decisions/bare": {
+  "acc": 0.525,
+  "ece": 0.157495,
+  "p50ms": 160.06444999948144,
+  "n": 40
+ },
+ "moderation/typed-decisions/default": {
+  "acc": 0.3888888888888889,
+  "ece": 0.07679166666666665,
+  "p50ms": 296.2429000035627,
+  "n": 36
+ },
+ "moderation/typed-decisions/head512": {
+  "acc": 0.3888888888888889,
+  "ece": 0.07679166666666665,
+  "p50ms": 272.4269999998796,
+  "n": 36
+ },
+ "moderation/typed-decisions/bare": {
+  "acc": 0.3611111111111111,
+  "ece": 0.25005833333333327,
+  "p50ms": 189.0502500027651,
+  "n": 36
+ },
+ "reddit-relevance/typed-decisions/default": {
+  "acc": 0.16666666666666666,
+  "ece": 0.2784277777777777,
+  "p50ms": 564.665400001104,
+  "n": 36
+ },
+ "reddit-relevance/typed-decisions/head512": {
+  "acc": 0.16666666666666666,
+  "ece": 0.2784277777777777,
+  "p50ms": 439.9343000004592,
+  "n": 36
+ },
+ "reddit-relevance/typed-decisions/bare": {
+  "acc": 0.2222222222222222,
+  "ece": 0.28436388888888897,
+  "p50ms": 269.2445000029693,
+  "n": 36
+ },
+ "router-escalation/typed-decisions/default": {
+  "acc": 0.675,
+  "ece": 0.10664749999999992,
+  "p50ms": 282.8596999970614,
+  "n": 40
+ },
+ "router-escalation/typed-decisions/head512": {
+  "acc": 0.675,
+  "ece": 0.10664749999999992,
+  "p50ms": 213.70550000210642,
+  "n": 40
+ },
+ "router-escalation/typed-decisions/bare": {
+  "acc": 0.675,
+  "ece": 0.11799500000000007,
+  "p50ms": 174.1879000001063,
+  "n": 40
+ }
+}

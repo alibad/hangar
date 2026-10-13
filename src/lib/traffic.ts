@@ -5,6 +5,7 @@ import path from "path";
 import os from "os";
 import { SERVICE_REGISTRY } from "@/lib/services";
 import { getHost } from "@/lib/host";
+import { readVideoRequestJournal } from "@/lib/video-request-journal";
 
 const execFileP = promisify(execFile);
 
@@ -453,6 +454,7 @@ export async function readTraffic(): Promise<{
   hopCount: number;
   services: string[];
 }> {
+  for (const event of await readVideoRequestJournal()) record(event as TrafficEvent);
   const liveServices = new Set(ring.filter((e) => e.source === "live").map((e) => e.service));
   const ids = [...SERVICE_REGISTRY.map((s) => s.id), ...EXTRA_LOG_SERVICES].filter((id) => !liveServices.has(id));
 

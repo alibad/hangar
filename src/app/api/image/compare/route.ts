@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
     steps: raw.steps,
     cfg: raw.cfg,
     seed,
+    // Hosted models: shared parameters (validated per model) and attribution.
+    cloud: raw.cloud,
+    source: "console/compare",
   };
 
   // All at once. Cloud calls really do run in parallel; local ones queue behind

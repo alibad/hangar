@@ -46,6 +46,24 @@ output bubble is `dir="auto"`, so RTL renders as RTL.
 points at a cent a call, against a local one that is free but holds 20 GB of a
 32 GB card, is a trade-off you can only make with all three numbers on screen.
 
+**Every run is kept.** Each run that reaches a model is written to the runs
+record (`lab_runs`, see [labs.md](labs.md#the-runs-record)) under `lab: "arena"`:
+the model, local or cloud, the prompt (trimmed, `[image]` when one was attached),
+latency, card-wide peak VRAM for local models, the router's cost for cloud ones,
+and any parameter the model refused. A request refused before the model is
+called (unknown alias, stopped service, router down, card full) is not a run and
+is not recorded. The tiles of one batch share a
+`compare_group`. The table at the bottom of the page reads it back, so a
+comparison survives a reload. Only a 600-character excerpt of each output is
+kept, and the scores and the judge's verdict are computed on the page and are
+**not** recorded — use "Copy all" or `scripts/experiment-arabic.mjs` for a run
+you need to re-score later.
+
+**A refused parameter is reported, not hidden.** OpenAI's newest models reject
+`max_tokens` and any temperature but their default. The call retries with only
+what the rejection names, and the tile says so ("temperature 0 refused"), because
+that output was not greedy and is not directly comparable with one that was.
+
 ## Design decisions worth keeping
 
 **Fan-out is per-model and client-side.** One server call that awaits every model

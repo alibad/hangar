@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile, writeFile } from "fs/promises";
-import { resolveInside, safeRelPng } from "@/lib/save-image";
+import { resolveInside, safeRelImage, sidecarRelFor } from "@/lib/save-image";
 import { getDb } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const rel = safeRelPng(body.rel);
+  const rel = safeRelImage(body.rel);
   if (!rel) return NextResponse.json({ error: "bad path" }, { status: 400 });
   const favorite = body.favorite === true;
 
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   await db.run("UPDATE images SET favorite = ? WHERE rel = ?", [favorite, rel]);
 
   // Also update sidecar for backward compat (best-effort)
-  const sidecarAbs = resolveInside(rel.replace(/\.png$/i, ".json"));
+  const sidecarAbs = resolveInside(sidecarRelFor(rel));
   if (sidecarAbs) {
     try {
       let meta: Record<string, unknown> = {};

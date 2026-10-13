@@ -29,46 +29,73 @@
       "basis": "Conservative unified-memory admission estimate for the verified Wan 2.2 TI2V 5B Draw Things workflow. The adapter holds no model at idle."
     }
   },
+  "local-football-sam31-video": {
+    "checkpoint": "facebook/sam3.1/sam3.1_multiplex.pt",
+    "service": "football-video-sam31",
+    "footprint": {
+      "ramGb": 16,
+      "vramGb": 26,
+      "idleRamGb": 0,
+      "idleVramGb": 0,
+      "kind": "peak",
+      "basis": "Local RTX 5090, 2026-10-12: pilot allocated 21.66 GB/reserved 25.16 GB (decimal); resumed worker peak working set 9.86 GB decimal. Admission allowances are 26 GiB VRAM and 16 GiB RAM, with headroom. Official SAM3.1, two independent prompts, 30-sample windows, 75% CUDA allocation cap; not the existing image SAM service profile."
+    }
+  },
+  "local-football-rfdetr-video": {
+    "checkpoint": "rf-detr-medium.pth",
+    "service": "football-video-rfdetr",
+    "footprint": {
+      "ramGb": 16,
+      "vramGb": 2,
+      "idleRamGb": 0,
+      "idleVramGb": 0,
+      "kind": "peak",
+      "basis": "Full 1080p tiled recording, 2026-10-12: 0.48 GB allocated and 0.57 GB reserved decimal. Conservative 2 GiB VRAM / 16 GiB RAM admission allowances; RAM is an allowance, not a measured peak."
+    }
+  },
   "local-flux2-klein-4b": {
     "checkpoint": "black-forest-labs/FLUX.2-klein-4B",
+    "license": "Apache-2.0",
     "service": "comfyui",
     "params": "4B denoiser",
     "docs": "https://huggingface.co/black-forest-labs/FLUX.2-klein-4B",
     "footprint": {
-      "ramGb": 12,
-      "vramGb": 15,
+      "ramGb": 13,
+      "vramGb": 16,
       "idleRamGb": 0.13,
       "idleVramGb": 0.1,
-      "kind": "estimate",
-      "basis": "Initial admission estimate: 7.22 GiB BF16 denoiser plus existing mixed-FP8 4B encoder and overhead; official model card quotes approximately 13 GB VRAM. Not a measured peak."
+      "kind": "peak",
+      "basis": "Measured 2026-09-27 (docs/image-model-experiment-2026-09-26.md, `footprint` study): one cold console generation after ComfyUI /free and a settled card, nvidia-smi every 250 ms. 1024x1024: +15.4 GiB VRAM over baseline, host free RAM fell 12.9 GiB, 7.4 s. At 2048x2048 it needs +21.3 GiB (two clean readings: 21.1 and 21.3) - this footprint is per workload, not per size, so a 2K Klein job can exceed what is declared here."
     }
   },
   "local-hidream-o1-dev": {
     "checkpoint": "Comfy-Org/HiDream-O1-Image",
+    "license": "MIT",
     "service": "comfyui",
     "params": "8B unified · FP8 Dev",
     "docs": "https://huggingface.co/HiDream-ai/HiDream-O1-Image",
     "footprint": {
-      "ramGb": 12,
-      "vramGb": 22,
+      "ramGb": 8.5,
+      "vramGb": 9,
       "idleRamGb": 0.13,
       "idleVramGb": 0.1,
-      "kind": "estimate",
-      "basis": "Initial admission estimate: 7.51 GiB unified FP8 checkpoint plus loading/activation headroom for native 2048x2048. No separate prompt-refining LLM. Not a measured peak."
+      "kind": "peak",
+      "basis": "Measured 2026-09-27 (docs/image-model-experiment-2026-09-26.md, `footprint` study): one cold console generation after ComfyUI /free and a settled card, nvidia-smi every 250 ms. Native 2048x2048: +8.6 GiB VRAM over baseline (two clean readings: 8.55 and 8.57), host free RAM fell 8.2 GiB, 13.2 s; 1024x1024: +8.0 GiB, 7.9 GiB RAM. ComfyUI streams the unified FP8 checkpoint, so the earlier 22 GB estimate was more than double the real peak."
     }
   },
   "local-z-image-turbo": {
     "checkpoint": "Z-Image-Turbo (local NVFP4)",
+    "license": "Apache-2.0",
     "service": "comfyui",
     "params": "6B denoiser · NVFP4",
     "docs": "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo",
     "footprint": {
-      "ramGb": 8,
+      "ramGb": 11,
       "vramGb": 12,
       "idleRamGb": 0.13,
       "idleVramGb": 0.1,
-      "kind": "estimate",
-      "basis": "Initial admission estimate: existing NVFP4 6B denoiser plus mixed-FP8 4B encoder and inference overhead. Not a measured peak."
+      "kind": "peak",
+      "basis": "Measured 2026-09-27 (docs/image-model-experiment-2026-09-26.md, `footprint` study): one cold console generation at 1024x1024 after ComfyUI /free and a settled card, nvidia-smi every 250 ms: +11.0 GiB VRAM over baseline, host free RAM fell 10.6 GiB, 11.5 s. The 12 GB VRAM estimate held; RAM had been under-declared at 8."
     }
   },
   "_doc": "Human-facing facts about each router alias: real checkpoint, parameter count, and where to read more. Kept OUT of ai-router.yaml because LiteLLM does not pass custom model_info keys through /model/info (verified) — it returns only its own standard fields. Keyed by the alias in ai-router.yaml. Every field is optional; the UI degrades gracefully. Params for local models are exact counts from the Hugging Face repo; cloud vendors do not publish parameter counts, so those are intentionally absent rather than guessed.",
@@ -84,12 +111,13 @@
     }
   },
   "local-qwen-image": {
-    "checkpoint": "Qwen/Qwen-Image",
+    "checkpoint": "Qwen/Qwen-Image-2512 · edits: Qwen/Qwen-Image-Edit-2511",
+    "license": "Apache-2.0",
     "params": "20.4B denoiser · 28.8B loaded",
-    "released": "2025-08",
-    "docs": "https://hf.co/Qwen/Qwen-Image",
+    "released": "2025-12",
+    "docs": "https://hf.co/Qwen/Qwen-Image-2512",
     "paper": "https://arxiv.org/abs/2508.02324",
-    "note": "Newer sibling available: Qwen/Qwen-Image-2512 (Dec 2025), same 20.4B size.",
+    "note": "Since 3 Oct 2026 the service loads Qwen-Image-2512 (Artificial Analysis open-weights #5, Elo 999, against the Aug 2025 Qwen-Image's #24 at 889) and Qwen-Image-Edit-2511 (editing #3, 1021, against Edit-2509's #8 at 981): same 20.4B architecture and footprint, Apache-2.0, so commercial use stays allowed. Set by QWEN_IMAGE_MODEL / QWEN_EDIT_MODEL in scripts/service-commands.json.",
     "service": "qwen",
     "footprint": {
       "vramGb": 20.3,
@@ -100,25 +128,78 @@
       "basis": "VRAM measured: 20.3 GB peak mid-generation, ~0.1 GB idle. It does NOT hold the card — enable_model_cpu_offload() keeps the ~28 GB of fp8 weights in host RAM and streams them per stage. Note idleRamGb == ramGb and that is the point: the VRAM cost is transient but the HOST RAM cost is permanent for as long as the service is loaded (measured 21.7 GB resident while generating, 2026-08-01). That standing 28 GB is what collides with a FLUX run on a 63 GB box."
     }
   },
-  "local-flux-schnell": {
-    "checkpoint": "black-forest-labs/FLUX.1-schnell",
-    "params": "12B rectified-flow transformer, 4-step distilled",
-    "released": "2024-08",
-    "docs": "https://hf.co/black-forest-labs/FLUX.1-schnell",
-    "note": "Served through ComfyUI (:8188), not a router alias — the console builds the graph itself. Fast-draft tier beside Qwen-Image.",
+  "local-hidream-o1": {
+    "checkpoint": "Comfy-Org/HiDream-O1-Image · hidream_o1_image_fp8_scaled (full, non-distilled)",
+    "license": "MIT",
+    "params": "8B unified · FP8 full",
+    "released": "2026-05",
+    "docs": "https://huggingface.co/HiDream-ai/HiDream-O1-Image",
+    "note": "The full HiDream-O1 beside the Dev model: 40 steps at CFG 5 with seam smoothing (Comfy-Org template image_hidream_o1), and reference-image editing. Artificial Analysis open-weights text-to-image #13 (Elo 979) against Dev's #27 (878), checked 27 Sept 2026.",
     "service": "comfyui",
     "footprint": {
-      "vramGb": 31.7,
-      "ramGb": 28,
-      "idleVramGb": 0.06,
+      "vramGb": 12,
+      "ramGb": 9,
       "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
       "kind": "peak",
-      "basis": "VRAM measured 2026-07-30: card went to 31.72 GiB of 31.84 GiB during a 512x512 4-step run (35s cold). Weights on disk total 31.81 GiB — flux1-schnell 22.15, t5xxl_fp16 9.12, clip_l 0.23, ae 0.31 — so it effectively fills the card and nothing meaningful fits beside it. ComfyUI streams via cudaMallocAsync + comfy-aimdo DynamicVRAM, so torch_vram_total reads ~0.44 GiB and per-process attribution is NOT available: this figure is whole-card usage minus the 0.1 GiB Qwen-Image held idle at the time. IDLE measured 2026-08-01 with the service running but no workflow executed: torch_vram_total 64 MB, process resident 0.13 GB — ComfyUI loads checkpoints lazily on first execution and evicts after, so STARTING it costs nothing. ramGb is the host-RAM cost of an actual run, estimated from the weight total; that is what collides with Qwen-Image's standing 28 GB."
+      "basis": "VRAM measured 3 Oct 2026: +9.11 GiB at 1024² (15.6 s) and +11.41 GiB at 2048² (45.6 s) over 2.8 GiB; declared at the 2K peak, its default size. Edits run on a ~4 MP canvas (see comfy-image-workflows.ts). Host RAM was not separable: ComfyUI keeps recently used weights cached in its own process between jobs (18.7 GB private after /free on 3 Oct), so the free-memory drop during a run read ~0 and the RAM figure stays an admission estimate."
+    }
+  },
+  "local-qwen-image-2.1": {
+    "checkpoint": "Comfy-Org/Qwen-Image-2.1 · qwen_image_2.1_int8_convrot + qwen3vl_8b_int8_convrot + qwen_image_2.1_vae_bf16",
+    "license": "Qwen Research License (non-commercial only)",
+    "params": "7B DiT + Qwen3-VL-8B text encoder (int8)",
+    "released": "2026-09",
+    "docs": "https://huggingface.co/Qwen/Qwen-Image-2.1",
+    "note": "One model for generation and editing (up to 16 reference images), native in ComfyUI v0.37+. #1 open-weights on Artificial Analysis for both text-to-image (Elo 1035) and editing (1071), checked 27 Sept 2026. NON-COMMERCIAL: the Qwen Research Licence allows non-commercial use only, under Chinese law with Hangzhou courts, and derived models must say 'Built with Qwen'.",
+    "service": "comfyui",
+    "footprint": {
+      "vramGb": 16,
+      "ramGb": 18,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "peak",
+      "basis": "VRAM measured 3 Oct 2026 (experiment-image-suite footprint): +15.37 GiB whole-card peak over a settled 2.8 GiB baseline, cold 1024² generation in 22.3 s; edits peak higher, +19.1 to +22.2 GiB (the 1536x1024 canvas extension highest): declared at the generation peak, the default job, as Klein is; an edit beside vllm-small can be squeezed. Host RAM was not separable: ComfyUI keeps recently used weights cached in its own process between jobs (18.7 GB private after /free on 3 Oct), so the free-memory drop during a run read ~0 and the RAM figure stays an admission estimate."
+    }
+  },
+  "local-ideogram-4": {
+    "checkpoint": "Comfy-Org/Ideogram-4 · ideogram4_fp8_scaled + ideogram4_unconditional_fp8_scaled + Comfy-Org/Qwen3-VL qwen3vl_8b_fp8_scaled + flux2-vae",
+    "license": "Ideogram 4 Non-Commercial",
+    "params": "9.3B DiT ×2 (conditional + unconditional) + Qwen3-VL-8B text encoder (fp8)",
+    "released": "2026-05",
+    "docs": "https://huggingface.co/ideogram-ai/ideogram-4-fp8",
+    "note": "Artificial Analysis open-weights text-to-image #2 (Elo 1011), checked 3 Oct 2026. Trained on structured JSON captions; the console passes the prompt as the caption's high_level_description with no LLM rewrite. NON-COMMERCIAL licence.",
+    "service": "comfyui",
+    "footprint": {
+      "vramGb": 26,
+      "ramGb": 20,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "peak",
+      "basis": "VRAM measured 3 Oct 2026: +25.91 GiB whole-card peak over 2.8 GiB at 1024² (28.3 s cold): both 9.3 GB transformers are sampled every step, plus the Qwen3-VL-8B encoder, which also writes the caption. It cannot run beside vllm-small. Host RAM was not separable: ComfyUI keeps recently used weights cached in its own process between jobs (18.7 GB private after /free on 3 Oct), so the free-memory drop during a run read ~0 and the RAM figure stays an admission estimate."
+    }
+  },
+  "local-ming-image": {
+    "checkpoint": "Comfy-Org/Ming-Image · ming_image_0.1_design_int8_convrot + ming_image_0.1_ling_mini_2.0_int8_convrot + ming_image_vae_bf16",
+    "license": "MIT",
+    "params": "Ming-Image 0.1 Design DiT (int8) + Ling-mini-2.0 16B MoE text encoder (int8)",
+    "released": "2026-09",
+    "docs": "https://huggingface.co/inclusionAI/Ming-Image-0.1-Design",
+    "note": "Artificial Analysis open-weights text-to-image #6 (Elo 998), checked 3 Oct 2026; aimed at text-heavy design. Native in ComfyUI v0.38+. Generation and reference-image editing.",
+    "service": "comfyui",
+    "footprint": {
+      "vramGb": 26,
+      "ramGb": 20,
+      "idleRamGb": 0.13,
+      "idleVramGb": 0.1,
+      "kind": "peak",
+      "basis": "VRAM measured 3 Oct 2026: +23.86 GiB whole-card peak over 2.8 GiB at 1024² (15.2 s cold) and +25.64 GiB for an edit, which is what is declared (it cannot share the card with vllm-small either way); the 19.5 GB int8 Ling-mini-2.0 encoder dominates. Declared RAM was 26 GB first and refused back-to-back Ming jobs for weights ComfyUI already held, so it is 20. Host RAM was not separable: ComfyUI keeps recently used weights cached in its own process between jobs (18.7 GB private after /free on 3 Oct), so the free-memory drop during a run read ~0 and the RAM figure stays an admission estimate."
     }
   },
   "local-coder": {
     "vision": false,
     "checkpoint": "QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
+    "license": "apache-2.0",
     "params": "30B (A3B MoE, ~3B active) · AWQ 4-bit",
     "docs": "https://hf.co/QuantTrio/Qwen3-Coder-30B-A3B-Instruct-AWQ",
     "note": "32k context with native Qwen3-Coder tool parsing for MCP agents; gpu-memory-utilization 0.72.",
@@ -133,6 +214,7 @@
   "local-small": {
     "vision": false,
     "checkpoint": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    "license": "apache-2.0",
     "params": "7B · AWQ 4-bit",
     "docs": "https://hf.co/Qwen/Qwen2.5-7B-Instruct-AWQ",
     "note": "16k context with Hermes tool parsing for MCP agents; gpu-memory-utilization 0.55.",
@@ -143,6 +225,63 @@
       "kind": "reserved",
       "basis": "Read off the OpenRA tool-enabled container launch flags: --gpu-memory-utilization 0.55 of a 31.8 GB card, with KV cache for 16k context."
     }
+  },
+  "local-bonsai-2": {
+    "vision": true,
+    "checkpoint": "prism-ml/Ternary-Bonsai-2-27B-gguf · PQ2_0 + Q8_0 vision projector",
+    "params": "27.36B · ternary 2.13 bpw (PQ2_0)",
+    "released": "2026-09",
+    "docs": "https://docs.prismml.com/",
+    "note": "PrismML Bonsai 2 on its CUDA llama.cpp fork. Full model/tool-use capability in a 7.21 GB PQ2_0 language pack; the optional 0.63 GB vision projector is loaded for image input. Initial service context is 32K; change it only with the corresponding VRAM admission budget.",
+    "service": "bonsai",
+    "footprint": {
+      "vramGb": 14,
+      "ramGb": 2,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-21 after warm loading the configured 32K-context CUDA service: nvidia-smi reported 13,767 MiB total GPU use (the box was otherwise idle apart from display/system overhead). 14 GB is the rounded admission reservation; it covers the 7.21 GB PQ2_0 language weights, 0.63 GB Q8 vision projector, 32K KV cache, and runtime overhead."
+    }
+  },
+  "local-laya": {
+    "checkpoint": "convaiinnovations/laya @ 55cf4c4 · English + multilingual + typed-decisions, routed per request",
+    "params": "421M (ModernBERT-large) + 322M (mmBERT-base) + 421M",
+    "released": "2026-09",
+    "license": "apache-2.0",
+    "docs": "https://huggingface.co/convaiinnovations/laya",
+    "note": "A decision model, not a text generator: one forward pass scores every option of a typed question (choice, yes/no, score) and returns a distribution. 'laya' lets laya's Router pick the checkpoint: English for Latin-script English, multilingual otherwise. What it is good and bad at on this box's own decisions: docs/decision-model-experiment-2026-09-27.md.",
+    "service": "laya",
+    "footprint": {
+      "vramGb": 0,
+      "ramGb": 6,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-27, CPU mode as service-commands.json starts it (LAYA_DEVICE=cpu): working set 3.73 GB once /health was ready with english + multilingual loaded (24.7 s), 5.45 GB after typed-decisions loaded on first use; the process holds no GPU context at all (absent from nvidia-smi's process list). 6 GB is that rounded up. On the GPU instead (LAYA_DEVICE=cuda, all three preloaded) it measured 5,745 MiB of VRAM and a 2.44 GB working set: set vramGb to 6 before switching."
+    }
+  },
+  "local-laya-english": {
+    "checkpoint": "convaiinnovations/laya (root) · ModernBERT-large + decision head",
+    "params": "421M",
+    "released": "2026-09",
+    "license": "apache-2.0",
+    "docs": "https://huggingface.co/convaiinnovations/laya",
+    "note": "The English checkpoint forced, bypassing routing. The vendor measured it collapsing on non-Latin scripts (Khmer: 0.000 accuracy at 0.952 confidence). Shares the laya service's memory: its footprint is on local-laya.",
+    "service": "laya"
+  },
+  "local-laya-multilingual": {
+    "checkpoint": "convaiinnovations/laya/multilingual · mmBERT-base + decision head",
+    "params": "322M",
+    "released": "2026-09",
+    "license": "apache-2.0",
+    "docs": "https://huggingface.co/convaiinnovations/laya-multilingual",
+    "note": "The multilingual checkpoint forced, for every input. 100+ languages, 1,024-token context (up to 8,192). Shares the laya service's memory: its footprint is on local-laya.",
+    "service": "laya"
+  },
+  "local-laya-typed-decisions": {
+    "checkpoint": "convaiinnovations/laya/typed-decisions · ModernBERT-large fine-tuned on the vendor's four workflows",
+    "params": "421M",
+    "released": "2026-09",
+    "license": "apache-2.0",
+    "docs": "https://huggingface.co/convaiinnovations/laya-typed-decisions",
+    "note": "Fine-tuned on invoice processing, security incidents, customer service and agent traces; the vendor's 0.766 accuracy is on those. Shares the laya service's memory: its footprint is on local-laya.",
+    "service": "laya"
   },
   "local-whisper": {
     "checkpoint": "openai/whisper large-v3 (local service on :8001)",
@@ -182,6 +321,23 @@
       "basis": "Measured: the service reports 3075 MB allocated / 3094 MB reserved once loaded, and holds it from startup because the model loads at import."
     }
   },
+  "local-ace-step-1.5": {
+    "checkpoint": "ACE-Step/acestep-v15-xl-turbo (int8) + ACE-Step/acestep-5Hz-lm-1.7B planner (local service on :8014)",
+    "docs": "https://huggingface.co/ACE-Step/acestep-v15-xl-turbo",
+    "params": "4B DiT (XL turbo, 8 steps, int8) + 1.7B 5Hz LM planner, offloaded between phases",
+    "released": "2026-04",
+    "license": "MIT (code and weights)",
+    "service": "music",
+    "note": "Text + optional lyrics -> a full song, 10-600 s, 50 vocal languages; ~17 s for 30 s of audio, ~21 s for 60 s. Also repaint/extend and restyle an uploaded clip; stems and add-an-instrument need the XL base DiT, which the service swaps in on request (same size). Configured to fit BESIDE quote-forge's resident vllm-small; with the card to itself the unquantized XL + 4B planner is the quality option (~23 GB).",
+    "footprint": {
+      "vramGb": 9,
+      "ramGb": 16,
+      "idleVramGb": 5,
+      "idleRamGb": 13,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-27 beside vllm-small (card 21.8 GB before): +4.83 GB card-wide once loaded (torch 5.5 GB reserved), +8.83 GB card-wide peak generating 60 s of sung audio (torch peak 9.28 GB reserved). Host RAM: 12.9 GB working set idle (22.9 GB committed), 15.4 GB peak while generating. Loading the fp32 XL checkpoint briefly adds ~27 GB of Windows commit charge; at the commit limit the first load attempt crashed (0xC0000005)."
+    }
+  },
   "local-ollama": {
     "vision": false,
     "checkpoint": "qwen3.8:27b-mlx via Ollama (local service on :11434)",
@@ -202,6 +358,7 @@
   "local-gemma4": {
     "vision": true,
     "checkpoint": "gemma4:31b-it-qat via Ollama (local service on :11434)",
+    "license": "apache-2.0",
     "params": "31B · int4 QAT",
     "released": "2026-08",
     "docs": "https://ollama.com/library/gemma4",
@@ -219,6 +376,7 @@
   "local-qwen3-vl": {
     "vision": true,
     "checkpoint": "qwen3-vl:32b-instruct via Ollama (local service on :11434)",
+    "license": "apache-2.0",
     "params": "32B · q4",
     "released": "2026-08",
     "docs": "https://ollama.com/library/qwen3-vl",
@@ -231,6 +389,86 @@
       "idleRamGb": 0,
       "kind": "peak",
       "basis": "20 GB on disk for this exact tag (`ollama list` on B5), which is what Ollama maps in; KV cache at 32K adds a few GB. `peak`, not `reserved`: Ollama unloads after OLLAMA_KEEP_ALIVE, so an idle box holds ~0."
+    }
+  },
+  "local-wan2.2-ti2v-5b": {
+    "checkpoint": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged · wan2.2_ti2v_5B_fp16 + umt5_xxl fp8 + wan2.2_vae (ComfyUI)",
+    "license": "apache-2.0",
+    "params": "5B · fp16",
+    "released": "2025-07",
+    "docs": "https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B",
+    "note": "Text or image to video, 24 fps, 720p native. Runs as a ComfyUI graph from the Video Lab (docs/video-model-experiment-2026-09-27.md). No `service` key on purpose: getFootprintsByService keeps one footprint per service, and ComfyUI's must stay its image one.",
+    "footprint": {
+      "vramGb": 16,
+      "ramGb": 20,
+      "idleVramGb": 0,
+      "idleRamGb": 0,
+      "kind": "peak",
+      "basis": "Measured 2026-09-30 with the card to itself (Video Lab bench, Windows per-process counters): ComfyUI peaked at 23.2 GB VRAM / 18.2-18.8 GB RAM at 832x480 and 24.3-24.4 GB VRAM / 16.7 GB RAM at 1280x704; the card peaked at 25.4-26.5 GB. ComfyUI keeps weights resident when there is room, so the VRAM peak is what it takes on an empty card, not what it needs. 16 GB is kept as the admission figure (the working minimum with the text encoder offloaded, still unmeasured under pressure); RAM 20 covers the measured 18.8 peak. In practice it is refused beside vllm-small (17.5 GB) and runs in the Video Forge 01:00-07:00 window."
+    }
+  },
+  "local-wan2.2-14b": {
+    "checkpoint": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged · wan2.2_{i2v,t2v}_{high,low}_noise_14B_fp8_scaled + lightx2v 4-step LoRAs (ComfyUI)",
+    "license": "apache-2.0",
+    "params": "2 × 14B experts (A14B MoE) · fp8",
+    "released": "2025-07",
+    "docs": "https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B",
+    "note": "High-noise then low-noise expert, 4 steps with the lightx2v LoRAs, 16 fps. Runs as a ComfyUI graph from the Video Lab.",
+    "footprint": {
+      "vramGb": 16,
+      "ramGb": 38,
+      "idleVramGb": 0,
+      "idleRamGb": 0,
+      "kind": "peak",
+      "basis": "PROVISIONAL, pending measurement: one 14.3 GB fp8 expert on the card at a time (ComfyUI swaps high/low-noise experts, partially offloading if short), both held in RAM with the 6.7 GB text encoder. Working minimum, not an empty-card peak."
+    }
+  },
+  "local-ltx-2.5": {
+    "checkpoint": "Lightricks/LTX-2.5 · 22B distilled transformer NVFP4 + Gemma 4 12B int8 text encoder + spatial x2 upscaler (ComfyUI)",
+    "license": "LTX-2.x Community License (free for entities under $10M annual revenue)",
+    "params": "22B · NVFP4",
+    "released": "2026-07",
+    "docs": "https://huggingface.co/Lightricks/LTX-2.5",
+    "note": "Video and audio in one pass; half-resolution draft, x2 latent upscale, 3-step refine. Gated repo on the Hub (accepted). Runs as a ComfyUI graph from the Video Lab.",
+    "footprint": {
+      "vramGb": 16,
+      "ramGb": 38,
+      "idleVramGb": 0,
+      "idleRamGb": 0,
+      "kind": "peak",
+      "basis": "PROVISIONAL, pending measurement: 18.7 GB NVFP4 DiT partially offloaded when the card has ~17 GB free; 15.4 GB text encoder and 2.9 GB of VAEs/upscaler in RAM. Working minimum, not an empty-card peak."
+    }
+  },
+  "local-hunyuanvideo-1.5": {
+    "checkpoint": "Comfy-Org/HunyuanVideo_1.5_repackaged · 480p i2v step-distilled / t2v cfg-distilled fp8 + lightx2v 4-step LoRA + Qwen2.5-VL-7B fp8 (ComfyUI)",
+    "license": "Tencent Hunyuan Community License (not licensed in the EU, UK or South Korea)",
+    "params": "8.3B · fp8",
+    "released": "2025-11",
+    "docs": "https://huggingface.co/tencent/HunyuanVideo-1.5",
+    "note": "480p checkpoints only on this box. Runs as a ComfyUI graph from the Video Lab.",
+    "footprint": {
+      "vramGb": 14,
+      "ramGb": 24,
+      "idleVramGb": 0,
+      "idleRamGb": 0,
+      "kind": "peak",
+      "basis": "PROVISIONAL, pending measurement: 8.3 GB fp8 DiT plus 480p activations on the card; 9.4 GB text encoder, 2.5 GB VAE and 0.9 GB SigCLIP in RAM. Working minimum, not an empty-card peak."
+    }
+  },
+  "local-minimax-h3": {
+    "checkpoint": "Comfy-Org/MiniMax-H3 · minimax_h3_fl2va_pruned_fp8_scaled + Qwen3-VL-32B NVFP4 text encoder + turbo 8-step LoRA (ComfyUI)",
+    "license": "MiniMax H3 Community License — grants NO rights in the USA, EU, UK or South Korea; separate authorization over $20M revenue",
+    "params": "33B (pruned) · fp8",
+    "released": "2026-07",
+    "docs": "https://huggingface.co/MiniMaxAI/MiniMax-H3",
+    "note": "Omni audio+video model, up to 15 s. The heaviest model on the box. Runs as a ComfyUI graph from the Video Lab.",
+    "footprint": {
+      "vramGb": 16,
+      "ramGb": 46,
+      "idleVramGb": 0,
+      "idleRamGb": 0,
+      "kind": "peak",
+      "basis": "PROVISIONAL, pending measurement: the 21 GB fp8 DiT cannot sit whole beside vllm-small, so ComfyUI streams part of it from RAM; 15.7 GB NVFP4 text encoder and 5.8 GB of VAEs in RAM. Working minimum, not an empty-card peak."
     }
   },
   "gpt-5.5": {
@@ -284,5 +522,85 @@
   "gemini-image-fast": {
     "docs": "https://ai.google.dev/gemini-api/docs/image-generation",
     "note": "Cheaper/faster image tier; same 429 quota caveat."
+  },
+  "local-trellis-2": {
+    "checkpoint": "microsoft/TRELLIS.2-4B · GGUF f16 (ilintar/trellis2-gguf) on trellis.cpp v0.8.1",
+    "params": "4B (3 × 1.3B flow DiTs + VAEs) · f16",
+    "license": "MIT",
+    "released": "2025-12",
+    "docs": "https://huggingface.co/microsoft/TRELLIS.2-4B",
+    "service": "trellis",
+    "footprint": {
+      "vramGb": 11,
+      "ramGb": 9,
+      "idleVramGb": 1.3,
+      "idleRamGb": 0.5,
+      "kind": "peak",
+      "basis": "Measured on BeTenshi 2026-09-27 with the Windows 'GPU Process Memory' counter on trellis-server.exe itself (nvidia-smi on WDDM has no per-process figure): 1.33 GB idle between meshes (CUDA context + ggml pool), 10.56 GB at the peak of the densest job tried, a tree stump at 1024 (17.8M decoded voxels, 753 s), with 1.2 GB of card headroom left so the figure is not capped. Moderate objects peak lower: +2.7-5.2 GB card-wide at 1024, +2.6-3.9 GB at 512. RAM: 8.4 GB private at the peak of the stump's CPU post-processing (39M-face remesh); idle not separately measured."
+    }
+  },
+  "local-pixal3d": {
+    "checkpoint": "TencentARC/Pixal3D (TRELLIS.2 backbone) · GGUF (vegax87/Pixal3D) on trellis.cpp v0.8.1",
+    "params": "4B · f16",
+    "license": "MIT (upstream gates out the EU)",
+    "released": "2026-05",
+    "docs": "https://huggingface.co/TencentARC/Pixal3D",
+    "service": "trellis",
+    "upAxis": "-z",
+    "note": "Pixel-aligned: it reconstructs in the input camera’s frame, and its GLB arrives with up along -Z (checked by eye in the 3D Lab on a standing character). upAxis makes the 3D pipeline stand it up by adding one rotated root node; geometry and textures are untouched.",
+    "footprint": {
+      "vramGb": 11,
+      "ramGb": 9,
+      "idleVramGb": 1.3,
+      "idleRamGb": 0.5,
+      "kind": "peak",
+      "basis": "Same server and post-processing as local-trellis-2, whose dense-object peak (10.56 GB, per-process) is used here because Pixal3D's dense case was not run. Measured for Pixal3D itself on 2026-09-27: +7.2-7.4 GB card-wide at 1024 on a chair and a character (both runs near the card's ceiling, so possibly capped), +6.7 GB on a plush-toy photo in the 3D Lab. It has no 512 texture model, so it always runs at 1024 or above."
+    }
+  },
+  "local-triposr": {
+    "checkpoint": "stabilityai/TripoSR",
+    "params": "~0.4B · fp32",
+    "license": "MIT",
+    "released": "2024-03",
+    "docs": "https://huggingface.co/stabilityai/TripoSR",
+    "service": "triposr",
+    "footprint": {
+      "vramGb": 3.5,
+      "ramGb": 2.5,
+      "idleVramGb": 3.5,
+      "idleRamGb": 2.5,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-27: the process held 3.49 GB of dedicated GPU memory idle after 8 runs (Windows 'GPU Process Memory' counter), torch.cuda.max_memory_allocated 2.38 GB per mesh at a 256 grid, and the card did not rise above the idle figure during warm runs; so resident = peak. RAM: ~2.3 GB working set (7.7 GB private commit, mostly torch/CUDA reservations)."
+    }
+  },
+  "local-sam3": {
+    "checkpoint": "facebook/sam3 (move-quest services/sam3/server.py, fp32)",
+    "service": "sam3",
+    "note": "Declared by the 3D exploration because the 3D Lab chains SAM 3 between an image model and a mesh model, and it was the one resident service on that path the coordinator and the capacity remedy could not see.",
+    "footprint": {
+      "vramGb": 4.8,
+      "ramGb": 1.3,
+      "idleVramGb": 4.8,
+      "idleRamGb": 1.3,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-27: 4.76 GB of dedicated GPU memory held by the SAM 3 server process after a run of segmentations (Windows 'GPU Process Memory' counter; nvidia-smi on WDDM has no per-process figure). RAM: ~1.2 GB working set (6.5 GB private commit). Resident = peak: the model stays loaded."
+    }
+  },
+  "local-sam-3d-body": {
+    "checkpoint": "facebook/sam-3d-body-vith (move-quest services/sam3d, ViT-H backbone + MHR body model)",
+    "params": "ViT-H · single-person body mesh + 70 joints",
+    "license": "SAM License (Meta): royalty-free incl. commercial; trade-control terms",
+    "released": "2025-11",
+    "docs": "https://github.com/facebookresearch/sam-3d-body",
+    "service": "sam3d",
+    "note": "The 3D Lab's Person mode (capability 3d-body). Reconstructs ONE person per image, the most prominent unless given a box; recovers body shape and pose, not clothing or hair. Licence read from the local checkout's LICENSE (the hub repo is gated).",
+    "footprint": {
+      "vramGb": 3.9,
+      "ramGb": 2.3,
+      "idleVramGb": 3.7,
+      "idleRamGb": 2.3,
+      "kind": "reserved",
+      "basis": "Measured on BeTenshi 2026-09-28: 3.69 GB of dedicated GPU memory held by the SAM 3D Body server process after body runs, about +0.2 GB during one (Windows 'GPU Process Memory' counter). RAM: 2.25 GB working set (8.3 GB private commit). Resident: the model stays loaded between runs."
+    }
   }
 }

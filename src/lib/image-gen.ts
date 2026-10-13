@@ -9,13 +9,14 @@
 import { getServiceUrl, getServiceHeaders } from "@/lib/services";
 import { saveImage, safeFolder } from "@/lib/save-image";
 import { nodePost } from "@/lib/qwen-http";
-import { generateFlux, generateComfyImage } from "@/lib/flux";
-import { getImageModel, isImageModelId, type ImageModelId } from "@/lib/image-models";
+import { generateComfyImage } from "@/lib/flux";
+import { getImageModel, hostedImageSize, isImageModelId, type ImageModelId } from "@/lib/image-models";
 import { getCatalogue, routerUrl } from "@/lib/providers";
 import { mirrorImageHistory } from "@/lib/image-history";
 import { ResourceLeaseError, withResourceLease, workloadForImageModel } from "@/lib/resource-manager";
 import { inspectImage } from "@/lib/image-quality";
 import { getRuntime } from "@/lib/runtimes";
+import { runCloudImage } from "@/lib/cloud-image-run";
 
 /**
  * Which backend served (or would have served) the call.
@@ -74,6 +75,14 @@ async function generateViaRouter(alias: string, p: GenPayload): Promise<Buffer> 
         seed: p.seed,
       }
     : {};
+  // Hosted APIs take a fixed set of sizes, and reject the rest with a 400
+  // (Compare's 768² default did). Written back to the payload so the saved
+  // record states the size that was actually made.
+  if (!isDiffusion) {
+    const [w, h] = hostedImageSize(p.width, p.height).split("x").map(Number);
+    p.width = w;
+    p.height = h;
+  }
   // nodePost, NOT fetch. undici caps headersTimeout at 300s regardless of any
   // AbortSignal you pass, and a routed local generation blows straight through
   // that — measured: a 308s run died with a bare "fetch failed" that looked like
@@ -134,19 +143,44 @@ export async function generateAndSave(
 
   const folder = safeFolder(raw.folder == null ? "" : String(raw.folder));
   if (folder === null) return { ok: false, target, status: 400, body: { error: "Invalid destination gallery" } };
+
+  // A hosted model takes its own parameter set (quality, background, format,
+  // n, …), validated against src/lib/cloud-image-models.ts and saved image by
+  // image — see cloud-image-run.ts. Local aliases served THROUGH the router
+  // (local-qwen-image) keep the diffusion path below.
+  if (viaRouter) {
+    let entry: { local: boolean; target: string } | undefined;
+    try {
+      entry = (await getCatalogue()).models.find((m) => m.id === requested);
+    } catch { /* unknown: treat as hosted, as generateViaRouter always has */ }
+    if (!entry?.local) {
+      try {
+        const r = await runCloudImage({
+          kind: "generate",
+          alias: requested,
+          target: entry?.target,
+          prompt: payload.prompt,
+          cloud: raw.cloud as Record<string, unknown> | undefined,
+          width: raw.width,
+          height: raw.height,
+          folder,
+          seed,
+          source: raw.source,
+          signal,
+          baseUrl: routerUrl(),
+        });
+        return r.ok ? { ok: true, target, body: r.body } : { ok: false, target, status: r.status, body: r.body };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { ok: false, target, status: 502, body: { error: message, cause: err instanceof Error && err.cause ? String(err.cause) : "" } };
+      }
+    }
+  }
+
   try {
     const generate = async () => {
       if (viaRouter) return generateViaRouter(requested, payload);
-      if (model.serviceId === "comfyui" && model.id !== "flux-schnell") return generateComfyImage(model.id, payload, signal);
-      if (model.id === "flux-schnell") {
-        return generateFlux({
-          prompt: payload.prompt,
-          width: payload.width,
-          height: payload.height,
-          steps: payload.steps,
-          seed,
-        }, 900_000, signal);
-      }
+      if (model.serviceId === "comfyui") return generateComfyImage(model.id, payload, signal);
       const base = getServiceUrl("qwen");
       const headers = getServiceHeaders("qwen", { "Content-Type": "application/json", "X-Source": "console" });
       return nodePost(base + "/generate", JSON.stringify(payload), headers, signal);

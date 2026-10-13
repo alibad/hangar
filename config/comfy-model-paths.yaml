@@ -1,6 +1,13 @@
 # Additional weights stay on D:. Hardlinks into the HF cache avoid extra copies.
+# The video models (docs/video-model-experiment-2026-09-27.md) added the text
+# encoder, LoRA, latent-upscaler and CLIP-vision folders.
 betenshi:
   base_path: D:/AI Models/comfyui
   checkpoints: checkpoints
   diffusion_models: diffusion_models
   vae: vae
+  text_encoders: text_encoders
+  loras: loras
+  latent_upscale_models: latent_upscale_models
+  clip_vision: clip_vision
+  model_patches: model_patches

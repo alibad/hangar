@@ -8,7 +8,6 @@ import QwenTab from "@/components/qwen-tab";
 import VideoStudio from "@/components/video-studio";
 import RequestsView from "@/components/requests-view";
 import UsageView from "@/components/usage-view";
-import Sam3dView from "@/components/sam3d-view";
 import Sam3View from "@/components/sam3-view";
 import ModelsPage from "@/components/models-page";
 import ArenaView from "@/components/arena-view";
@@ -19,7 +18,9 @@ import { isAdopted, isOnDemand, isReady, needsAttention } from "@/lib/service-st
 import { useTheme } from "@/components/theme-provider";
 import { ThemePicker } from "@/components/theme-picker";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
-import TabErrorBoundary from "@/components/tab-error-boundary";
+import LabHost from "@/components/labs/lab-host";
+import { LABS, isConsoleTab, labForTab, labTab, type LabTab } from "@/lib/labs";
+import { KEEP_TABS, TabPane } from "@/components/tab-pane";
 import HomeCockpit from "@/components/home-cockpit";
 import ForeignProfileNotice from "@/components/foreign-profile-notice";
 import ConsoleHeader from "@/components/console-header";
@@ -44,6 +45,7 @@ import LocalMachineRequired, { HostedRuntimeNotice } from "@/components/local-ma
 import { isHostedRuntime } from "@/lib/runtime";
 
 const HOSTED_RUNTIME = isHostedRuntime();
+import { preferSubject } from "@/lib/mesh3d-shared";
 
 // Small inline spinner shown while a service action (start/stop/restart) is in flight.
 function Spinner() {
@@ -410,6 +412,20 @@ export default function Home() {
   const [catalogByService, setCatalogByService] = useState<Record<string, CatalogEntry[]>>({});
   const [activeModels, setActiveModels] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<ConsoleTab>("stack");
+  // The tabs kept built (newest first) and where each was scrolled to — see TabPane.
+  const [kept, setKept] = useState<ConsoleTab[]>([]);
+  const tabNow = useRef<ConsoleTab>("stack");
+  const scrollByTab = useRef<Partial<Record<ConsoleTab, number>>>({});
+  /** Leave the current tab where it was; open the next one where you left it (or at the top). */
+  const switchTab = useCallback((next: ConsoleTab) => {
+    if (next === tabNow.current) return;
+    scrollByTab.current[tabNow.current] = window.scrollY;
+    tabNow.current = next;
+    setTab(next);
+    setKept((k) => [next, ...k.filter((t) => t !== next)].slice(0, KEEP_TABS));
+    // After React has shown the next tab (a timer, not a frame: frames pause in background tabs).
+    setTimeout(() => window.scrollTo({ top: scrollByTab.current[next] ?? 0 }), 0);
+  }, []);
   // Incremented to ask the cockpit to expand its Resource map panel.
   const [resourceMapSignal, setResourceMapSignal] = useState(0);
   /** Stack tab filter — All / GPU / or a service category. */
@@ -421,25 +437,42 @@ export default function Home() {
   const audioInputRef = useRef<HTMLInputElement>(null);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  const selectTab = useCallback((next: ConsoleTab) => {
-    setTab(next);
-    window.localStorage.setItem("bt-active-tab", next);
-    window.history.pushState({ tab: next }, "", `#${next}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+  const selectTab = useCallback(
+    (next: ConsoleTab) => {
+      window.localStorage.setItem("bt-active-tab", next);
+      if (next !== tabNow.current) window.history.pushState({ tab: next }, "", `#${next}`);
+      switchTab(next);
+    },
+    [switchTab],
+  );
 
   useEffect(() => {
-    const valid = new Set<ConsoleTab>(["stack", "services", "storage", "llm", "arena", "speech", "qwen", "video", "requests", "usage", "sam3d", "sam3", "models"]);
+    // Built-in tabs and every registered Lab — see src/lib/labs.ts.
     const resolve = () => {
-      const hash = window.location.hash.slice(1) as ConsoleTab;
-      const saved = window.localStorage.getItem("bt-active-tab") as ConsoleTab | null;
-      const next = valid.has(hash) ? hash : saved && valid.has(saved) ? saved : "stack";
-      setTab(next);
+      let hash = window.location.hash.slice(1);
+      let saved = window.localStorage.getItem("bt-active-tab");
+      // 3D Body is the 3D Lab's Person mode now; old links and a remembered tab
+      // still land there, in that mode.
+      if (hash === "sam3d" || (!hash && saved === "sam3d")) {
+        preferSubject("person");
+        hash = "lab-3d";
+        saved = "lab-3d";
+        window.history.replaceState({ tab: hash }, "", "#lab-3d");
+      }
+      // The Image Lab is the Image Studio's Compare and Eval tabs now.
+      if (hash === "lab-image" || (!hash && saved === "lab-image")) {
+        hash = "qwen";
+        saved = "qwen";
+        window.history.replaceState({ tab: hash }, "", "#qwen");
+      }
+      const next: ConsoleTab = isConsoleTab(hash) ? hash : isConsoleTab(saved) ? saved : "stack";
+      switchTab(next);
+      setKept((k) => (k.length ? k : [next]));
     };
     resolve();
     window.addEventListener("popstate", resolve);
     return () => window.removeEventListener("popstate", resolve);
-  }, []);
+  }, [switchTab]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("bt-stack-density");
@@ -828,10 +861,13 @@ export default function Home() {
     { id: "arena" as const, label: "Arena" },
     { id: "requests" as const, label: "Requests" },
     { id: "usage" as const, label: "Usage" },
-    { id: "sam3d" as const, label: "3D Body" },
     { id: "sam3" as const, label: "Segment" },
     { id: "models" as const, label: "Models" },
+    ...LABS.map((l) => ({ id: labTab(l.id), label: l.label, count: undefined })),
   ];
+
+  /** Props for one tab's pane: which tab is showing, which are kept built, and its name for errors. */
+  const pane = (id: ConsoleTab) => ({ id, current: tab, kept, label: tabs.find((item) => item.id === id)?.label ?? "Console" });
 
   return (
     <div className="console-shell min-h-screen bg-gray-950 text-gray-100">
@@ -865,13 +901,13 @@ export default function Home() {
 
         {HOSTED_RUNTIME && <HostedRuntimeNotice />}
 
-        <TabErrorBoundary key={tab} label={tabs.find((item) => item.id === tab)?.label ?? "Console"}>
+        <>
 
         {/* ── STACK TAB (services + GPU) ── */}
-        {tab === "stack" && !HOSTED_RUNTIME && host && host.matchesProfile === false && (
+        <TabPane {...pane("stack")}>
+        {!HOSTED_RUNTIME && host && host.matchesProfile === false && (
           <ForeignProfileNotice profile={host.name} profileId={host.id} machine={host.machine ?? "this machine"} />
         )}
-        {tab === "stack" && (
           <HomeCockpit
             managedServices={managedServices}
             catalogByService={catalogByService}
@@ -891,9 +927,9 @@ export default function Home() {
             onTranscribeFile={transcribeAudio}
             openResourceMapSignal={resourceMapSignal}
           />
-        )}
+        </TabPane>
 
-        {tab === "services" && (
+        <TabPane {...pane("services")}>
           <ServicesControlCenter
             services={managedServices}
             catalogByService={catalogByService}
@@ -905,15 +941,17 @@ export default function Home() {
             onServiceAction={serviceAction}
             onSelectTab={selectTab}
           />
-        )}
+        </TabPane>
 
-        {tab === "storage" && (HOSTED_RUNTIME ? (
-          <LocalMachineRequired
-            title="Storage Manager runs on the machine whose disks it manages"
-            description="A hosted server cannot inspect your Mac or PC drives. Run Hangar locally to discover volumes, build the private file index, watch changes, reveal files, and perform guarded moves."
-            available={["Real disk capacity and mounted volumes", "Private SQLite file index and duplicate candidates", "Filesystem watching, Finder or Explorer reveal, and guarded moves"]}
-          />
-        ) : <StorageManager />)}
+        <TabPane {...pane("storage")}>
+          {HOSTED_RUNTIME ? (
+            <LocalMachineRequired
+              title="Storage Manager runs on the machine whose disks it manages"
+              description="A hosted server cannot inspect your Mac or PC drives. Run Hangar locally to discover volumes, build the private file index, watch changes, reveal files, and perform guarded moves."
+              available={["Real disk capacity and mounted volumes", "Private SQLite file index and duplicate candidates", "Filesystem watching, Finder or Explorer reveal, and guarded moves"]}
+            />
+          ) : <StorageManager />}
+        </TabPane>
 
         {/* Kept hidden for one checkpoint so the former Stack markup remains a
             local rollback while the new Home cockpit settles. */}
@@ -1515,7 +1553,7 @@ export default function Home() {
                     />
                     {/* Open / Test CTA — only when running */}
                     {isRunning && (() => {
-                      type TabId = "llm" | "speech" | "stack" | "qwen" | "requests" | "sam3d" | "sam3" | "models";
+                      type TabId = ConsoleTab;
                       type Cta = { label: string; goTab?: TabId; href?: string };
                       const ctaMap: Record<string, Cta> = {
                         vllm:       { label: "Playground", goTab: "llm" },
@@ -1526,7 +1564,7 @@ export default function Home() {
                         prometheus: { label: "Open",       href: r?.activeUrl ?? `http://localhost:${s.port}` },
                         qwen:       { label: "Studio",     goTab: "qwen" },
                         comfyui:    { label: "Open",       href: r?.activeUrl ?? `http://localhost:${s.port}` },
-                        sam3d:      { label: "Test",       goTab: "sam3d" },
+                        sam3d:      { label: "Test",       goTab: "lab-3d" },
                         sam3:       { label: "Try",        goTab: "sam3" },
                       };
                       const cta = ctaMap[s.id];
@@ -1535,7 +1573,14 @@ export default function Home() {
                       if (cta.goTab) return (
                         <>
                           <div className="w-px h-4 bg-gray-800 flex-shrink-0" />
-                          <button onClick={() => selectTab(cta.goTab!)} className={cls}>
+                          <button
+                            onClick={() => {
+                              // SAM 3D Body opens the 3D Lab in Person mode.
+                              if (s.id === "sam3d") preferSubject("person");
+                              selectTab(cta.goTab!);
+                            }}
+                            className={cls}
+                          >
                             {cta.label}
                           </button>
                         </>
@@ -1558,7 +1603,7 @@ export default function Home() {
         )}
 
         {/* ── LLM TAB ── */}
-        {tab === "llm" && (
+        <TabPane {...pane("llm")}>
           <div className="tool-page chat-page chat-page-layout">
             <ToolPageHeader
               eyebrow="Text workstream"
@@ -1765,11 +1810,13 @@ export default function Home() {
               </div>
             </section>
           </div>
-        )}
+        </TabPane>
 
         {/* ── SPEECH TAB ── */}
-        {tab === "speech" && !hostHasTab("speech") && <HostUnavailable tab="speech" title="Speech" />}
-        {tab === "speech" && hostHasTab("speech") && (
+        <TabPane {...pane("speech")}>
+          {!hostHasTab("speech") ? (
+            <HostUnavailable tab="speech" title="Speech" />
+          ) : (
           <div className="tool-page speech-page">
             <ToolPageHeader
               eyebrow="Voice workstream"
@@ -1957,61 +2004,81 @@ export default function Home() {
             )}
             </div>
           </div>
-        )}
+          )}
+        </TabPane>
 
         {/* ── CREATIVE TAB ── */}
 
         {/* ── IMAGE TAB — Qwen-Image + FLUX, model picked inside the studio ── */}
-        {tab === "qwen" && (HOSTED_RUNTIME ? (
-          <LocalMachineRequired
-            title="Image Studio keeps its queue and gallery on the machine"
-            description="Generation depends on installed model services and a persistent local gallery. The hosted site does not write generated images into an ephemeral server filesystem."
-            available={["Installed Qwen and ComfyUI checkpoints", "Persistent generated-image gallery and folders", "Local GPU admission control and resumable queues"]}
-          />
-        ) : hostHasTab("qwen") ? <QwenTab /> : <HostUnavailable tab="qwen" title="Image Studio" />)}
+        <TabPane {...pane("qwen")}>
+          {HOSTED_RUNTIME ? (
+            <LocalMachineRequired
+              title="Image Studio keeps its queue and gallery on the machine"
+              description="Generation depends on installed model services and a persistent local gallery. The hosted site does not write generated images into an ephemeral server filesystem."
+              available={["Installed Qwen and ComfyUI checkpoints", "Persistent generated-image gallery and folders", "Local GPU admission control and resumable queues"]}
+            />
+          ) : hostHasTab("qwen") ? <QwenTab /> : <HostUnavailable tab="qwen" title="Image Studio" />}
+        </TabPane>
 
-        {tab === "video" && (HOSTED_RUNTIME ? (
-          <LocalMachineRequired
-            title="Video Studio runs on the local machine"
-            description="Wan video generation uses the installed Draw Things models and substantial unified memory. The hosted site cannot reach or run those local checkpoints."
-            available={["Local text-to-video with Wan 2.2", "Optional image-to-video starting frame", "Serialized generation that shares memory safely with image and speech"]}
-          />
-        ) : hostHasTab("video") ? <VideoStudio /> : <HostUnavailable tab="video" title="Video Studio" />)}
+        <TabPane {...pane("video")}>
+          {HOSTED_RUNTIME ? (
+            <LocalMachineRequired
+              title="Video Studio runs on the local machine"
+              description="Wan video generation uses the installed Draw Things models and substantial unified memory. The hosted site cannot reach or run those local checkpoints."
+              available={["Local text-to-video with Wan 2.2", "Optional image-to-video starting frame", "Serialized generation that shares memory safely with image and speech"]}
+            />
+          ) : hostHasTab("video") ? <VideoStudio /> : <HostUnavailable tab="video" title="Video Studio" />}
+        </TabPane>
 
         {/* Arena — one prompt across several chat/vision models, scored. */}
-        {tab === "arena" && <ArenaView />}
+        <TabPane {...pane("arena")}>
+          <ArenaView />
+        </TabPane>
 
         {/* ── REQUESTS TAB ── */}
-        {tab === "requests" && (HOSTED_RUNTIME ? (
-          <LocalMachineRequired
-            title="Request history is recorded by the local Hangar process"
-            description="The real feed combines an in-process event ring with service access logs from your machine. A hosted function has neither the durable local history nor those log files."
-            available={["Local service and console request history", "Prompt, response, latency, status, and target attribution", "Access-log tailing without uploading logs"]}
-          />
-        ) : <RequestsView />)}
+        <TabPane {...pane("requests")}>
+          {HOSTED_RUNTIME ? (
+            <LocalMachineRequired
+              title="Request history is recorded by the local Hangar process"
+              description="The real feed combines an in-process event ring with service access logs from your machine. A hosted function has neither the durable local history nor those log files."
+              available={["Local service and console request history", "Prompt, response, latency, status, and target attribution", "Access-log tailing without uploading logs"]}
+            />
+          ) : <RequestsView />}
+        </TabPane>
 
         {/* ── USAGE TAB ── */}
-        {tab === "usage" && (HOSTED_RUNTIME ? (
-          <LocalMachineRequired
-            title="AI usage is read from local Codex, Claude, and router history"
-            description="Those records stay on the developer machine. The hosted site intentionally shows no zero-filled or invented usage dashboard."
-            available={["Codex and Claude task-history accounting", "Durable AI Router usage and cost estimates", "Per-project, model, task, and date breakdowns"]}
-          />
-        ) : <UsageView />)}
+        <TabPane {...pane("usage")}>
+          {HOSTED_RUNTIME ? (
+            <LocalMachineRequired
+              title="AI usage is read from local Codex, Claude, and router history"
+              description="Those records stay on the developer machine. The hosted site intentionally shows no zero-filled or invented usage dashboard."
+              available={["Codex and Claude task-history accounting", "Durable AI Router usage and cost estimates", "Per-project, model, task, and date breakdowns"]}
+            />
+          ) : <UsageView />}
+        </TabPane>
 
-        {/* ── SAM3D TAB ── */}
-        {tab === "sam3d" && (hostHasTab("sam3d") ? <Sam3dView /> : <HostUnavailable tab="sam3d" title="3D Body" />)}
-        {tab === "sam3" && (hostHasTab("sam3") ? <Sam3View /> : <HostUnavailable tab="sam3" title="Segment" />)}
+        <TabPane {...pane("sam3")}>{hostHasTab("sam3") ? <Sam3View /> : <HostUnavailable tab="sam3" title="Segment" />}</TabPane>
 
         {/* ── MODELS / AI ROUTER TAB ── */}
-        {tab === "models" && (HOSTED_RUNTIME ? (
-          <LocalMachineRequired
-            title="Model routing and downloads change the local installation"
-            description="Wiring aliases, downloading weights, and deciding what fits all depend on this machine's files, runtimes, and memory. Run Hangar locally to make those changes safely."
-            available={["Fit verdicts against live machine capacity", "Local model downloads and checkpoint discovery", "Persistent router configuration and service restart"]}
-          />
-        ) : <ModelsPage />)}
-        </TabErrorBoundary>
+        <TabPane {...pane("models")}>
+          {HOSTED_RUNTIME ? (
+            <LocalMachineRequired
+              title="Model routing and downloads change the local installation"
+              description="Wiring aliases, downloading weights, and deciding what fits all depend on this machine's files, runtimes, and memory. Run Hangar locally to make those changes safely."
+              available={["Fit verdicts against live machine capacity", "Local model downloads and checkpoint discovery", "Persistent router configuration and service restart"]}
+            />
+          ) : <ModelsPage />}
+        </TabPane>
+
+        {/* ── LABS — one line for all of them; see src/lib/labs.ts ── */}
+        {[tab, ...kept.filter((t) => t !== tab)]
+          .filter((t) => labForTab(t))
+          .map((t) => (
+            <TabPane key={t} {...pane(t)}>
+              <LabHost tab={t as LabTab} />
+            </TabPane>
+          ))}
+        </>
 
 
         {/* Footer */}
