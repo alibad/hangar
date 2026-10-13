@@ -889,11 +889,18 @@ class VideoQueue {
   private async readDenial(job: VideoJob, owner: string) {
     try {
       const snap = (await fetch(`${MANAGER_URL}/resources`, { signal: AbortSignal.timeout(3000) }).then((r) => r.json())) as {
-        queue?: { owner: string; lastDenial?: { kind?: string; message?: string } | null }[];
+        queue?: { owner: string; lastDenial?: { kind?: string; message?: string; holder?: { id: string; owner: string } } | null }[];
       };
       const mine = snap.queue?.find((q) => q.owner === owner);
       const denial = mine?.lastDenial;
       if (!denial?.message) return;
+      // Blocked by our own lease: a reload or restart retired the queue that took it, mid-run, and it would hold the
+      // slot until its TTL (over an hour) while this job waits behind it. Only one queue runs a job, so let it go.
+      if (denial.holder?.owner === owner) {
+        console.warn(`[video] ${owner} was waiting behind its own stale lease ${denial.holder.id}; releasing it`);
+        await releaseLease(denial.holder.id);
+        return;
+      }
       const kind = denial.kind === "slot" ? "slot" : "capacity";
       job.stage = kind === "slot" ? "waiting for GPU" : "waiting for memory";
       job.block = { kind, message: denial.message };
