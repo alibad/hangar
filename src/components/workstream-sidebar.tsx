@@ -19,7 +19,7 @@ export default function WorkstreamSidebar({ active, onSelect, speechMode }: { ac
   const go = (id: ConsoleTab) => { onSelect(id); setMobileOpen(false); };
   const link = (item: WorkstreamLink) => {
     const ChildIcon = item.id === "lab-audio" ? AudioLines : item.id === "voices" ? Mic : item.id === "speech-recognition" ? ScanLine : item.id === "lab-music" ? Music : Layers;
-    const available = item.id.startsWith("lab-") || hostHasTab(item.id === "voices" || item.id === "speech-recognition" ? "speech" : item.id);
+    const available = item.id.startsWith("lab-") || hostHasTab(item.id);
     return <button key={item.id} type="button" onClick={() => go(item.id)} aria-current={selected === item.id ? "page" : undefined} className="hangar-nav-child" title={item.hint}>
       <ChildIcon size={16} /><span>{item.label}</span>{!available && <small>Not on this machine</small>}
     </button>;

@@ -7,6 +7,7 @@ import type { AudioEvent, AudioLayer, AudioLibrary, AudioPilot, AudioRecipe, Aud
 import { validateAudioRecipe, peakAndRms } from "@/lib/audio-project";
 import { decodeAudio, renderAudio } from "@/lib/audio-render";
 import { useTabActive } from "@/components/tab-pane";
+import { getHost } from "@/lib/host";
 import { isHostedRuntime } from "@/lib/runtime";
 
 const peaks = new Map<string, Promise<number[]>>();
@@ -86,7 +87,7 @@ export default function AudioLab({ lab }: LabComponentProps) {
   const dirty = Boolean(revision && JSON.stringify(recipe) !== JSON.stringify(revision.recipe));
   return <div className="audio-lab">
     <div className="audio-editor">
-      <header className="audio-heading"><div><h1>{lab.label}</h1><p>Craft and iterate audio with local tools.</p></div><span className="audio-local">{hosted ? "Hosted preview" : "Local · BeTenshi"}</span></header>
+      <header className="audio-heading"><div><h1>{lab.label}</h1><p>Craft and iterate audio with local tools.</p></div><span className="audio-local">{hosted ? "Hosted preview" : `Local · ${getHost().name}`}</span></header>
       <nav className="audio-sections" aria-label="Audio Lab views">{["Workspace", "Library", "Compare", "Jobs"].map(s => <button key={s} type="button" aria-current={section === s ? "page" : undefined} onClick={() => setSection(s)}>{s}</button>)}</nav>
       {hosted && <p className="audio-notice">Open Hangar locally to render, import, save revisions and connect to your Faction Viewer. Licensed pilot sources are available here for listening.</p>}
       <div className="audio-project-row"><label>Project<strong>{pilot.name}</strong><small>{pilot.actorName}</small></label><label>Sound event<select aria-label="Sound event" value={eventId} disabled={busy} onChange={e => chooseEvent(events.find(x => x.id === e.target.value)!)}>{events.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}</select></label><label>Revision<select aria-label="Revision" value={revision?.id ?? "draft"} onChange={e => { if (e.target.value === "draft") { setRevision(null); return; } loadRevision(revisions.find(r => r.id === e.target.value)!); }}><option value="draft">Working draft</option>{revisions.map((r, i) => <option key={r.id} value={r.id}>{r.name} ({r.status})</option>)}</select></label></div>
