@@ -23,8 +23,9 @@ import { LABS, isConsoleTab, labForTab, labTab, type LabTab } from "@/lib/labs";
 import { KEEP_TABS, TabPane } from "@/components/tab-pane";
 import HomeCockpit from "@/components/home-cockpit";
 import ForeignProfileNotice from "@/components/foreign-profile-notice";
+import TankVoiceDirector from "@/components/tank-voice-director";
 import WorkstreamSidebar from "@/components/workstream-sidebar";
-import { speechTab } from "@/lib/workstreams";
+import { speechTab, workstreamFor } from "@/lib/workstreams";
 import ConsoleHeader from "@/components/console-header";
 import ResourcePulse from "@/components/resource-pulse";
 import { VoiceCloner } from "@/components/voice-cloner";
@@ -890,7 +891,7 @@ export default function Home() {
       />
       <WorkstreamSidebar active={tab} onSelect={selectTab} speechMode={speechMode} />
       <div className="hangar-content">
-      <ResourcePulse
+      {workstreamFor(tab)?.id !== "audio" && <ResourcePulse
         gpu={gpu}
         resources={resourceControl}
         onOpenDetails={() => {
@@ -901,7 +902,7 @@ export default function Home() {
             document.getElementById("resource-map")?.scrollIntoView({ behavior: "smooth", block: "center" });
           }, tab === "stack" ? 0 : 100);
         }}
-      />
+      />}
 
       <main className="mx-auto max-w-[1500px] space-y-6 px-4 pb-24 pt-4 sm:px-6 sm:pt-5 md:pb-5">
 
@@ -1820,8 +1821,8 @@ export default function Home() {
 
         {/* ── SPEECH TAB ── */}
         <TabPane {...pane("speech")}>
-          {!hostHasTab("speech") ? (
-            <HostUnavailable tab="speech" title="Speech" />
+          {!hostHasTab(speechTab(tab) ? tab : "speech") ? (
+            <HostUnavailable tab={speechTab(tab) ? tab : "speech"} title={tab === "voices" ? "Voices & Speech" : tab === "speech-recognition" ? "Speech Recognition" : "Speech"} />
           ) : (
           <div className="tool-page speech-page">
             <ToolPageHeader
@@ -1923,6 +1924,8 @@ export default function Home() {
               <ModelDiscovery capability="stt" label="speech → text" className="mt-3" />
             </section>
             )}
+
+            {speechMode === "tts" && <TankVoiceDirector />}
 
             {/* Text-to-Speech */}
             {speechMode === "tts" && (

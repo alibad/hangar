@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sameAudioOrigin } from "@/lib/audio-origin";
 import { audioLibrary, saveAudioImport, saveAudioRevision, reviewAudioRevision } from "@/lib/audio-store";
 import { isHostedRuntime } from "@/lib/runtime";
 
@@ -10,7 +11,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   if (isHostedRuntime()) return NextResponse.json({ error: "Open Hangar on your local machine to save or import audio." }, { status: 409 });
   const origin = req.headers.get("origin");
-  if (origin && origin !== req.nextUrl.origin) return NextResponse.json({ error: "Use the local Hangar workspace to change audio." }, { status: 403 });
+  if (!sameAudioOrigin(origin, req.headers.get("host"))) return NextResponse.json({ error: "Use the local Hangar workspace to change audio." }, { status: 403 });
   if (Number(req.headers.get("content-length") ?? 0) > 21000000) return NextResponse.json({ error: "Audio request exceeds 20 MB" }, { status: 413 });
   try {
     const form = await req.formData(), action = form.get("action");

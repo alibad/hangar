@@ -51,6 +51,6 @@ for event, title, kind, key, groups, names in specs:
     S.write(out / f"{event}-reference.wav", baseline)
     # CC0 design reference, explicitly not labelled the current installed game sound.
     events.append({"id": event, "label": title, "kind": kind, "currentUrl": f"/audio-lab/pilot/{event}-reference.wav", "recipe": {"layers": layers, "length": length, "loop": event == "engine", "notes": "Heavy metallic punch. Short outdoor tail." if event == "main-gun" else original["note"]}, "note": "Engine loop is a browser audition; native movement binding must be verified separately." if event == "engine" else None})
-pilot = {"name": "RTS AI / Tank pilot", "actor": actor["id"], "faction": "saudi-arabia", "actorName": actor["name"], "viewerOrigin": "http://127.0.0.1:3462", "events": events, "provenance": {"license": "CC0 1.0", "sources": provenance, "recipeSource": "RTS AI sound bake-off / design_cc0.py; prepared as independent editable stems"}}
+pilot = {"name": "RTS AI / Tank pilot", "actor": actor["id"], "faction": "saudi-arabia", "actorName": actor["name"], "viewerOrigin": "http://127.0.0.1:3463", "events": events, "provenance": {"license": "CC0 1.0", "sources": provenance, "recipeSource": "RTS AI sound bake-off / design_cc0.py; prepared as independent editable stems"}}
 (out / "project.json").write_text(json.dumps(pilot, ensure_ascii=False, indent=2), "utf-8")
 print(f"Prepared {len(events)} events and {len(provenance)} licensed stems for {actor['name']}")

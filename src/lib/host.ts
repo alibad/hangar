@@ -218,6 +218,8 @@ export function memoryLabel(): string {
  */
 const TAB_CAPABILITIES: Record<string, string[]> = {
   speech: ["stt", "tts"],
+  voices: ["tts"],
+  "speech-recognition": ["stt"],
   video: ["video"],
 };
 

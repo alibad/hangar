@@ -1,14 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
-import { CaretDown, Moon, Sun } from "@phosphor-icons/react";
-import { Activity, Gauge, HardDrive, Home, Network, RefreshCw } from "lucide-react";
+import { Moon, Sun } from "@phosphor-icons/react";
+import { RefreshCw } from "lucide-react";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import { ThemePicker } from "@/components/theme-picker";
 import { useTheme } from "@/components/theme-provider";
-import { getHost, hostHasTab } from "@/lib/host";
-import { labDestinations } from "@/lib/labs";
+import { getHost } from "@/lib/host";
 
 type Props = {
   active: ConsoleTab;
@@ -25,39 +23,6 @@ type Props = {
    *  until /api/host answers, so the header never flashes a placeholder. */
   hostName?: string;
 };
-
-// Filtered to what this machine can actually back — the same rule the tab bar
-// uses. Unfiltered, a Mac with only Ollama still listed Image Studio, Speech,
-// 3D Body and Segment here, every one of them opening a tab that is hidden.
-// Every workstream, on every machine. Availability is SHOWN, never used to hide:
-// a console that drops entries on one box reads as a different, smaller product
-// and conceals exactly what that box cannot do.
-const workstreams = ([
-  { id: "llm", label: "Chat & Code", hint: "Local text models" },
-  // Directly under Chat & Code: it answers the question that tab provokes —
-  // "is this model the right one?" — rather than being a separate kind of work.
-  { id: "arena", label: "Arena", hint: "Compare models on one prompt" },
-  { id: "qwen", label: "Image Studio", hint: "Generate, edit, compare and evaluate" },
-  { id: "video", label: "Video Studio", hint: "Text and image to video" },
-  { id: "speech", label: "Speech", hint: "Transcribe and synthesize" },
-  { id: "sam3", label: "Segment", hint: "Open-vocabulary masks" },
-] as Array<{ id: ConsoleTab; label: string; hint: string }>).map((item) => ({
-  ...item,
-  // Present on every machine; a host that cannot back it is marked here and
-  // explains itself on the page, rather than the entry disappearing.
-  available: hostHasTab(item.id),
-})).concat(
-  // Every registered Lab. Always "available": a Lab with nothing behind it on
-  // this host says so in place and shows what would fit.
-  labDestinations().map(({ id, label, hint }) => ({ id, label, hint, available: true })),
-);
-
-// What is flowing through the stack, and what it costs.
-const insights: Array<{ id: ConsoleTab; label: string; hint: string }> = [
-  { id: "requests", label: "Requests", hint: "Live traffic and failures" },
-  { id: "usage", label: "AI Usage", hint: "Router, providers and cost" },
-  { id: "storage", label: "Storage", hint: "Drive space, files and changes" },
-];
 
 export default function ConsoleHeader({
   active,
@@ -81,45 +46,6 @@ export default function ConsoleHeader({
   // resolved at build time into NEXT_PUBLIC_HOST_ID.
   const machine = hostName || getHost().name;
   const { theme, toggle } = useTheme();
-  const workstreamsMenuRef = useRef<HTMLDetailsElement>(null);
-  const insightsMenuRef = useRef<HTMLDetailsElement>(null);
-  const workstreamActive = workstreams.some((item) => item.id === active);
-  const insightsActive = insights.some((item) => item.id === active);
-
-  useEffect(() => {
-    const menus = [workstreamsMenuRef, insightsMenuRef];
-    const closeAll = () => menus.forEach((ref) => ref.current?.removeAttribute("open"));
-    const handlePointerDown = (event: PointerEvent) => {
-      for (const ref of menus) {
-        if (!ref.current?.contains(event.target as Node)) ref.current?.removeAttribute("open");
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      const open = menus.find((ref) => ref.current?.open);
-      if (!open) return;
-      closeAll();
-      open.current?.querySelector("summary")?.focus();
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
-
-  const selectWorkstream = (tab: ConsoleTab) => {
-    workstreamsMenuRef.current?.removeAttribute("open");
-    onSelect(tab);
-  };
-
-  const selectInsight = (tab: ConsoleTab) => {
-    insightsMenuRef.current?.removeAttribute("open");
-    onSelect(tab);
-  };
-
   return (
     <>
     <header className="console-header sticky top-0 z-30 border-b border-gray-800 bg-gray-950/90 backdrop-blur-xl">
@@ -165,20 +91,3 @@ export default function ConsoleHeader({
   );
 }
 
-function MobileNavButton({ label, active, onClick, icon }: { label: string; active: boolean; onClick: () => void; icon: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-medium transition ${active ? "bg-orange-500/12 text-orange-200" : "text-gray-500 hover:bg-gray-900 hover:text-gray-200"}`}>
-      {icon}
-      {label}
-    </button>
-  );
-}
-
-function NavButton({ active = false, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} aria-current={active ? "page" : undefined} className={`relative flex h-full items-center px-3 text-sm font-medium transition ${active ? "text-orange-300" : "text-gray-500 hover:text-gray-200"}`}>
-      {children}
-      {active && <span className="absolute inset-x-2 bottom-0 h-0.5 bg-orange-500" />}
-    </button>
-  );
-}
