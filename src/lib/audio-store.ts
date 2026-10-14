@@ -5,6 +5,11 @@ import { validateAudioRecipe, type AudioLibrary, type AudioRevision } from "./au
 
 export const audioDir = () => process.env.AUDIO_LAB_DIR || path.join(process.cwd(), "var", "audio-lab");
 export const audioFile = (name: string) => /^[a-f0-9-]{36}\.(wav|mp3|ogg|flac|webm|m4a|json)$/.test(name) ? path.join(audioDir(), name) : null;
+async function writeSidecar(id: string, value: unknown) {
+  const temporary = path.join(audioDir(), `${id}.json.tmp`);
+  await writeFile(temporary, JSON.stringify(value, null, 2), { flag: "wx" });
+  await rename(temporary, path.join(audioDir(), `${id}.json`));
+}
 export async function audioLibrary(): Promise<AudioLibrary> {
   await mkdir(audioDir(), { recursive: true });
   const entries = await Promise.all((await readdir(audioDir())).filter(f => /^[a-f0-9-]{36}\.json$/.test(f)).map(async file => {
@@ -29,7 +34,7 @@ export async function saveAudioRevision(bytes: Buffer, value: Omit<AudioRevision
   const id = randomUUID(), revision: AudioRevision = { ...value, peakDb: Math.max(-120, 20 * Math.log10(peak || 1e-6)), rmsDb: Math.max(-120, 20 * Math.log10(Math.sqrt(squares / ((bytes.length - 44) / 2)) || 1e-6)), id, url: `/api/audio-lab/asset/${id}.wav`, created: new Date().toISOString(), status: "draft" };
   await mkdir(audioDir(), { recursive: true });
   await writeFile(path.join(audioDir(), `${id}.wav`), bytes, { flag: "wx" });
-  await writeFile(path.join(audioDir(), `${id}.json`), JSON.stringify({ type: "revision", ...revision }, null, 2), { flag: "wx" });
+  await writeSidecar(id, { type: "revision", ...revision });
   return revision;
 }
 export async function saveAudioImport(bytes: Buffer, name: string, ext: string, license: string) {
@@ -37,7 +42,7 @@ export async function saveAudioImport(bytes: Buffer, name: string, ext: string, 
   const id = randomUUID(), item = { id, name, license, url: `/api/audio-lab/asset/${id}.${ext}` };
   await mkdir(audioDir(), { recursive: true });
   await writeFile(path.join(audioDir(), `${id}.${ext}`), bytes, { flag: "wx" });
-  await writeFile(path.join(audioDir(), `${id}.json`), JSON.stringify({ type: "asset", ...item }, null, 2), { flag: "wx" });
+  await writeSidecar(id, { type: "asset", ...item });
   return item;
 }
 export async function reviewAudioRevision(id: string, status: AudioRevision["status"], notes: string) {

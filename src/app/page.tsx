@@ -1827,7 +1827,7 @@ export default function Home() {
           <div className="tool-page speech-page">
             <ToolPageHeader
               eyebrow="Voice workstream"
-              title="Speech Lab"
+              title={speechMode === "tts" ? "Voices & Speech" : "Speech Recognition"}
               description="Transcribe recordings and synthesize natural speech from one focused local audio workspace."
               icon={<WaveformIcon size={24} weight="duotone" />}
               meta={<span className="tool-page-chip">{SPEECH_ENGINES}</span>}

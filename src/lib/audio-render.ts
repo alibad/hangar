@@ -38,9 +38,12 @@ export async function renderAudio(recipe: AudioRecipe) {
     for (let i = 0; i < ch.length; i++) ch[i] *= reduction;
     if (recipe.loop) {
       const cross = Math.min(Math.floor(sr * .025), Math.floor(ch.length / 4));
-      for (let i = 0; i < cross; i++) { const blend = (i + 1) / cross; const value = ch[i] * blend + ch[ch.length - cross + i] * (1 - blend); ch[i] = value; ch[ch.length - cross + i] = value; }
-      // Join the loop endpoints at a shared zero crossing amplitude.
-      ch[0] = 0; ch[ch.length - 1] = 0;
+      const first = ch[0];
+      for (let i = 0; i < cross; i++) {
+        const blend = .5 - .5 * Math.cos(Math.PI * (i + 1) / cross);
+        const index = ch.length - cross + i;
+        ch[index] = ch[index] * (1 - blend) + first * blend;
+      }
     }
   }
   return { wav: encodeAudioWav(channels, sr), ...peakAndRms(channels), reductionDb: 20 * Math.log10(reduction) };

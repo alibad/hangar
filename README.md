@@ -513,3 +513,16 @@ The two machines in these images:
 
 Nothing was started specially for the photographs except the services named in
 the notes, and those were stopped again.
+
+
+## Audio workspace and game audition
+
+Workstreams now live in a persistent sidebar: Audio, Visual, Chat & Code, and Decisions & Processes. Existing hash routes and tools remain available. Audio includes Effects (`#lab-audio`), Voices & Speech (`#voices`), Speech Recognition (`#speech-recognition`) and the existing Music Lab (`#lab-music`). The legacy `#speech` link still opens the shared speech workspace.
+
+Effects uses bounded, portable layer recipes and CPU-only browser rendering. The tank pilot includes licensed CC0 stems for main-gun, impact, destruction and engine sounds. Source provenance is in `public/audio-lab/pilot/project.json`; the preparation script takes an external sound-stack root and the RTS AI web checkout. Imports, rendered WAVs, sidecars and reviews live in gitignored `var/audio-lab/` (override with `AUDIO_LAB_DIR`). Each render has a new ID; writes publish metadata atomically. Reviews do not replace game files. The existing sound bake-off stays accessible from the Library.
+
+The tank crew director calls only host-declared local neural speech services, keeps the selected voice explicit, and saves raw and processed takes separately. General speech synthesis, engine-managed cloning, microphone/file recognition, dictation and Music Lab retain their existing implementations.
+
+For a local Faction Viewer audition, run `npm run preview:viewer` in the sibling RTS AI web checkout. Its default loopback port is 3463 (`RTSAI_VIEWER_PORT` overrides it). Set that address in Audio Lab, render or load a revision, then choose **Audition in Faction Viewer**. The bridge verifies the actor, faction, revision and local asset URL; the Viewer can switch between candidate and current game audio or clear the override. Engine movement playback remains a manual audition, not a native game binding. Native installation and release approval remain separate steps.
+
+Hosted Hangar preserves the public setup-guide/private-console split. New disk writes, neural pilot generation and the Viewer bridge require the local runtime. User recordings and generated revisions are not deployed. The walkthrough builder (`scripts/make-audio-walkthrough.py`) uses local Kokoro `am_michael` and verified screenshots; its output stays gitignored under `public/walkthroughs/`.

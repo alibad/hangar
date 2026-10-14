@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AudioLines, ChevronDown, Home, Image, MessageSquare, Workflow, Server, Network, Activity, Gauge, HardDrive, Menu, X } from "lucide-react";
+import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Home, Image, MessageSquare, Workflow, Server, Network, Activity, Gauge, HardDrive, Menu, X } from "lucide-react";
 import { WORKSTREAMS, SYSTEM_LINKS, workstreamFor, type WorkstreamLink } from "@/lib/workstreams";
 import { hostHasTab } from "@/lib/host";
 import type { ConsoleTab } from "@/lib/labs";
@@ -18,9 +18,10 @@ export default function WorkstreamSidebar({ active, onSelect, speechMode }: { ac
   useEffect(() => { const close = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileOpen(false); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, []);
   const go = (id: ConsoleTab) => { onSelect(id); setMobileOpen(false); };
   const link = (item: WorkstreamLink) => {
+    const ChildIcon = item.id === "lab-audio" ? AudioLines : item.id === "voices" ? Mic : item.id === "speech-recognition" ? ScanLine : item.id === "lab-music" ? Music : Layers;
     const available = item.id.startsWith("lab-") || hostHasTab(item.id === "voices" || item.id === "speech-recognition" ? "speech" : item.id);
     return <button key={item.id} type="button" onClick={() => go(item.id)} aria-current={selected === item.id ? "page" : undefined} className="hangar-nav-child" title={item.hint}>
-      <span>{item.label}</span>{!available && <small>Not on this machine</small>}
+      <ChildIcon size={16} /><span>{item.label}</span>{!available && <small>Not on this machine</small>}
     </button>;
   };
   return <>

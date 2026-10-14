@@ -131,7 +131,7 @@ export function CommandPalette({
         aria-label="Jump to a console tool"
       >
         <Search className="h-3.5 w-3.5" />
-        <span className="hidden md:inline">Jump to</span>
+        <span className="hidden md:inline">Jump to a tool…</span>
         <kbd className="hidden rounded border border-gray-700 bg-gray-900 px-1.5 py-0.5 font-sans text-[10px] text-gray-500 lg:inline">Ctrl K</kbd>
       </button>
 

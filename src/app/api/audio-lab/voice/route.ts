@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const r = await fetch(`${service.localUrl}/v1/audio/voices`, { signal: AbortSignal.timeout(5000) });
     if (!r.ok) throw new Error("Engine is not ready");
     const data = await r.json(), rows: unknown[] = Array.isArray(data) ? data : data.voices ?? [];
-    const voices = rows.flatMap(v => { if (typeof v === "string") return [{ id: v, label: v }]; if (!v || typeof v !== "object") return []; const x = v as Record<string, string>; const id = x.id ?? x.name ?? x.voice; return id ? [{ id, label: x.label ?? x.kokoro_id ?? id }] : []; });
+    const voices = rows.flatMap(v => { if (typeof v === "string") return [{ id: v, label: v }]; if (!v || typeof v !== "object") return []; const x = v as Record<string, string>; const id = x.kokoro_id ?? x.id ?? x.name ?? x.voice; return id ? [{ id, label: x.label ?? (x.kokoro_id && x.name ? `${x.kokoro_id} (${x.name})` : id) }] : []; });
     return NextResponse.json({ engines, engine: service.id, voices });
   } catch { return NextResponse.json({ engines, engine: service.id, voices: [], serviceId: service.id, error: `${service.name} is not running. Start it in Services, then refresh voices.` }); }
 }
