@@ -1,0 +1,664 @@
+{
+  "name": "RTS AI / Tank pilot",
+  "actor": "r2m1a2s",
+  "faction": "saudi-arabia",
+  "actorName": "M1A2S Battle Tank",
+  "viewerOrigin": "http://127.0.0.1:3462",
+  "events": [
+    {
+      "id": "main-gun",
+      "label": "Tank main gun",
+      "kind": "weapon:report",
+      "currentUrl": "/audio-lab/pilot/main-gun-reference.wav",
+      "recipe": {
+        "layers": [
+          {
+            "id": "main-gun-0",
+            "name": "Mechanical attack",
+            "url": "/audio-lab/pilot/main-gun-0.wav",
+            "duration": 3.2,
+            "start": 0,
+            "end": 3.2,
+            "offset": 0,
+            "gainDb": 0,
+            "pitch": 0,
+            "fadeIn": 0,
+            "fadeOut": 0.03,
+            "lowpass": 20000,
+            "pan": 0,
+            "muted": false,
+            "solo": false
+          },
+          {
+            "id": "main-gun-1",
+            "name": "Blast body",
+            "url": "/audio-lab/pilot/main-gun-1.wav",
+            "duration": 3.2,
+            "start": 0,
+            "end": 3.2,
+            "offset": 0,
+            "gainDb": -6,
+            "pitch": 0,
+            "fadeIn": 0,
+            "fadeOut": 0.03,
+            "lowpass": 20000,
+            "pan": 0,
+            "muted": false,
+            "solo": false
+          },
+          {
+            "id": "main-gun-2",
+            "name": "Outdoor tail",
+            "url": "/audio-lab/pilot/main-gun-2.wav",
+            "duration": 3.2,
+            "start": 0,
+            "end": 3.2,
+            "offset": 0,
+            "gainDb": -6,
+            "pitch": 0,
+            "fadeIn": 0,
+            "fadeOut": 0.03,
+            "lowpass": 20000,
+            "pan": 0,
+            "muted": false,
+            "solo": false
+          }
+        ],
+        "length": 3.2,
+        "loop": false,
+        "notes": "Heavy metallic punch. Short outdoor tail."
+      },
+      "note": null
+    },
+    {
+      "id": "impact",
+      "label": "Armour impact",
+      "kind": "weapon:impact",
+      "currentUrl": "/audio-lab/pilot/impact-reference.wav",
+      "recipe": {
+        "layers": [
+          {
+            "id": "impact-0",
+            "name": "Metal body",
+            "url": "/audio-lab/pilot/impact-0.wav",
+            "duration": 1.0,
+            "start": 0,
+            "end": 1.0,
+            "offset": 0,
+            "gainDb": 0,
+            "pitch": 0,
+            "fadeIn": 0,
+            "fadeOut": 0.03,
+            "lowpass": 20000,
+            "pan": 0,
+            "muted": false,
+            "solo": false
+          },
+          {
+            "id": "impact-1",
+            "name": "Bright impact",
+            "url": "/audio-lab/pilot/impact-1.wav",
+            "duration": 1.0,
+            "start": 0,
+            "end": 1.0,
+            "offset": 0,
+            "gainDb": -6,
+            "pitch": 0,
+            "fadeIn": 0,
+            "fadeOut": 0.03,
+            "lowpass": 20000,
+            "pan": 0,
+            "muted": false,
+            "solo": false
+          },
+          {
+            "id": "impact-2",
+            "name": "Ricochet tail",
+            "url": "/audio-lab/pilot/impact-2.wav",
+            "duration": 1.0,
+            "start": 0,
+            "end": 1.0,
+            "offset": 0,
+            "gainDb": -6,
+            "pitch": 0,
+            "fadeIn": 0,
+            "fadeOut": 0.03,
+            "lowpass": 20000,
+            "pan": 0,
+            "muted": false,
+            "solo": false
+          }
+        ],
+        "length": 1.0,
+        "loop": false,
+        "notes": "Metal hit body, bright clink, metal impact thud, a metal ring with a falling varispeed glide as the ricochet."
+      },
+      "note": null
+    },
+    {
+      "id": "destruction",
+      "label": "Tank destruction",
+      "kind": "death:explosion",
+      "currentUrl": "/audio-lab/pilot/destruction-reference.wav",
+      "recipe": {
+        "layers": [
+          {
+            "id": "destruction-0",
+            "name": "Initial crack",
+            "url": "/audio-lab/pilot/destruction-0.wav",
+            "duration": 5.0,
+            "start": 0,
+            "end": 5.0,
+            "offset": 0,
+            "gainDb": 0,
+            "pitch": 0,
+            "fadeIn": 0,
+            "fadeOut": 0.03,
+            "lowpass": 20000,
+            "pan": 0,
+            "muted": false,
+            "solo": false
+          },
+          {
+            "id": "destruction-1",
+            "name": "Explosion body",
+            "url": "/audio-lab/pilot/destruction-1.wav",
+            "duration": 5.0,
+            "start": 0,
+            "end": 5.0,
+            "offset": 0,
+            "gainDb": -6,
+            "pitch": 0,
+            "fadeIn": 0,
+            "fadeOut": 0.03,
+            "lowpass": 20000,
+            "pan": 0,
+            "muted": false,
+            "solo": false
+          },
+          {
+            "id": "destruction-2",
+            "name": "Debris tail",
+            "url": "/audio-lab/pilot/destruction-2.wav",
+            "duration": 5.0,
+            "start": 0,
+            "end": 5.0,
+            "offset": 0,
+            "gainDb": -6,
+            "pitch": 0,
+            "fadeIn": 0,
+            "fadeOut": 0.03,
+            "lowpass": 20000,
+            "pan": 0,
+            "muted": false,
+            "solo": false
+          }
+        ],
+        "length": 5.0,
+        "loop": false,
+        "notes": "Firework bang + 10 m gun report for the crack, the report 9 semitones down for the boom, thunderclap body, rolling thunder tail, rock/glass/metal debris."
+      },
+      "note": null
+    },
+    {
+      "id": "engine",
+      "label": "Engine loop",
+      "kind": "movement",
+      "currentUrl": "/audio-lab/pilot/engine-reference.wav",
+      "recipe": {
+        "layers": [
+          {
+            "id": "engine-0",
+            "name": "Tracked engine",
+            "url": "/audio-lab/pilot/engine-0.wav",
+            "duration": 5.0,
+            "start": 0,
+            "end": 5.0,
+            "offset": 0,
+            "gainDb": 0,
+            "pitch": 0,
+            "fadeIn": 0,
+            "fadeOut": 0.03,
+            "lowpass": 20000,
+            "pan": 0,
+            "muted": false,
+            "solo": false
+          }
+        ],
+        "length": 5.0,
+        "loop": true,
+        "notes": "Tracked excavator moving (rubber tracks + engine) 2 semitones down, a diesel idle 5 down for weight, sparse heavy-chain clanks for steel tracks; folded into a seamless loop."
+      },
+      "note": "Engine loop is a browser audition; native movement binding must be verified separately."
+    }
+  ],
+  "provenance": {
+    "license": "CC0 1.0",
+    "sources": [
+      {
+        "file": "main-gun-0.wav",
+        "sha256": "9898aa8f2b86e9dc20ee34c8321d4db3c10101a1dbf6a0eb28a6b8d5defd6b30",
+        "sources": [
+          {
+            "role": "crack",
+            "src": "M_21P.wav",
+            "start": 0.8,
+            "end": 3.0,
+            "find_onset": true,
+            "length": 1.5,
+            "semitones": -7,
+            "drive_db": 6,
+            "fade_out": 0.5,
+            "sha256": "970ed2322ba61579dc8afaefb4f25e6ae791a3acb1e6e23372ea948cfe2a97b3",
+            "author": "Ben Jaszczak, Brian Nelson, Kevin Heras, Matthew Nanney",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0; library page: 'CC0 NO RIGHTS RESERVED')",
+            "source": "https://opengameart.org/content/the-free-firearm-sound-library"
+          },
+          {
+            "role": "muzzle snap",
+            "src": "M_21P.wav",
+            "start": 0.8,
+            "end": 3.0,
+            "find_onset": true,
+            "length": 0.35,
+            "hp": 1800,
+            "gain_db": -8,
+            "fade_out": 0.15,
+            "sha256": "970ed2322ba61579dc8afaefb4f25e6ae791a3acb1e6e23372ea948cfe2a97b3",
+            "author": "Ben Jaszczak, Brian Nelson, Kevin Heras, Matthew Nanney",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0; library page: 'CC0 NO RIGHTS RESERVED')",
+            "source": "https://opengameart.org/content/the-free-firearm-sound-library"
+          },
+          {
+            "role": "metal ring",
+            "src": "bsb-anvil-1-s3589.wav",
+            "start": 0.1,
+            "end": 1.2,
+            "find_onset": true,
+            "semitones": -10,
+            "hp": 150,
+            "lp": 4000,
+            "decay": 0.3,
+            "gain_db": -14,
+            "offset": 0.005,
+            "fade_out": 0.3,
+            "sha256": "ebc51af2da517a3b3a2e21a7f7be1ce0c5942f3583a0a8702506af87d4ca10c0",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/anvil-1-s3589.html"
+          }
+        ],
+        "processing": {
+          "length": 3.2,
+          "fade_out": 0.06
+        }
+      },
+      {
+        "file": "main-gun-1.wav",
+        "sha256": "8c19c9b21d4eeb7a1538dff2a7ec4a1167b1f53d2aa663cd6a6f89908b14ffd2",
+        "sources": [
+          {
+            "role": "boom",
+            "src": "bsb-explosion-2-s1808.wav",
+            "find_onset": true,
+            "semitones": -6,
+            "lp": 600,
+            "eq": [
+              [
+                "low_shelf",
+                80,
+                6
+              ]
+            ],
+            "gain_db": -2,
+            "sha256": "d0c74f7c01ab4bebc45f346696be1167af9b6e6c932528215aa0df9932a639bb",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/explosion-2-s1808.html"
+          },
+          {
+            "role": "cannon",
+            "src": "cannon_02.ogg",
+            "find_onset": true,
+            "semitones": -4,
+            "gain_db": -4,
+            "fade_out": 0.3,
+            "sha256": "716392af61b29dabe637c2616091207f390d25357aae3d4c625df5dfea7e961d",
+            "author": "rubberduck",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0)",
+            "source": "https://opengameart.org/content/25-cc0-bang-firework-sfx"
+          }
+        ],
+        "processing": {
+          "length": 3.2,
+          "fade_out": 0.06
+        }
+      },
+      {
+        "file": "main-gun-2.wav",
+        "sha256": "64fcff75c49809bb205f1a6bf025a25d6033aa62073c9730c91178ba03ac31cc",
+        "sources": [
+          {
+            "role": "tail",
+            "src": "bsb-thunder-10-s3183.wav",
+            "start": 2.0,
+            "end": 5.5,
+            "fade_in": 0.15,
+            "lp": 1500,
+            "decay": 1.2,
+            "gain_db": -10,
+            "offset": 0.1,
+            "sha256": "a26179c860eb60e319bcdff2e66e6605a319a667f437ec6b0017505c9684b385",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/thunder-10-s3183.html"
+          }
+        ],
+        "processing": {
+          "length": 3.2,
+          "fade_out": 0.06
+        }
+      },
+      {
+        "file": "impact-0.wav",
+        "sha256": "89b52af54478dbbeecf94f8261349aec4beefd9dbcdb7f4009b4b2b0802e9d42",
+        "sources": [
+          {
+            "role": "body",
+            "src": "bfh1_metal_hit_02.ogg",
+            "find_onset": true,
+            "gain_db": -2,
+            "sha256": "e368991507cfb1ad84743fa64289bd8731acd1b8fa256db1612a30cd0c7d2725",
+            "author": "rubberduck",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0)",
+            "source": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx"
+          },
+          {
+            "role": "thud",
+            "src": "qubodupImpactMetal.flac",
+            "find_onset": true,
+            "gain_db": -6,
+            "sha256": "ec8711b7779df95b127091cb74142a82d196a398afd7bd6ac68d7dafc8867c03",
+            "author": "qubodup",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0)",
+            "source": "https://opengameart.org/content/impact"
+          }
+        ],
+        "processing": {
+          "length": 1.0,
+          "fade_out": 0.06
+        }
+      },
+      {
+        "file": "impact-1.wav",
+        "sha256": "951341564ad5611054ec45be9647923dd61e7af162599d5744900cddf2f63284",
+        "sources": [
+          {
+            "role": "ping",
+            "src": "clink2.wav",
+            "find_onset": true,
+            "semitones": 3,
+            "hp": 800,
+            "gain_db": -4,
+            "sha256": "ecbf5a221f2aff32376b8584eea875d0b7d9963d22f6c16e237f5e7b63f51dc2",
+            "author": "BMacZero",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0)",
+            "source": "https://opengameart.org/content/metal-impact-sounds"
+          }
+        ],
+        "processing": {
+          "length": 1.0,
+          "fade_out": 0.06
+        }
+      },
+      {
+        "file": "impact-2.wav",
+        "sha256": "fc09123fc5863e5c8f62097270daaec766b22cc78c77c02375e64253a7029693",
+        "sources": [
+          {
+            "role": "ricochet",
+            "src": "bing1.wav",
+            "find_onset": true,
+            "rate_ramp": [
+              1.6,
+              0.9
+            ],
+            "hp": 1500,
+            "decay": 0.35,
+            "gain_db": -12,
+            "offset": 0.03,
+            "sweep": [
+              0,
+              0.8
+            ],
+            "sha256": "d14941ce27e6b409e0cd941eaad7201d613070a4c3eb9c3627fec4cf3ae686e4",
+            "author": "BMacZero",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0)",
+            "source": "https://opengameart.org/content/metal-impact-sounds"
+          }
+        ],
+        "processing": {
+          "length": 1.0,
+          "fade_out": 0.06
+        }
+      },
+      {
+        "file": "destruction-0.wav",
+        "sha256": "d55aa8dae883ed8c98fa58be8fe37996bf5a8b343b7543a922c9fe169a5d574b",
+        "sources": [
+          {
+            "role": "crack",
+            "src": "bang_09.ogg",
+            "find_onset": true,
+            "gain_db": -2,
+            "sha256": "ca0c121adbcbf3d0af366d03ace49a4e018e7157c7f35348c63918fa34afbc46",
+            "author": "rubberduck",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0)",
+            "source": "https://opengameart.org/content/25-cc0-bang-firework-sfx"
+          },
+          {
+            "role": "crack 2",
+            "src": "bsb-explosion-2-s1808.wav",
+            "find_onset": true,
+            "gain_db": -3,
+            "sha256": "d0c74f7c01ab4bebc45f346696be1167af9b6e6c932528215aa0df9932a639bb",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/explosion-2-s1808.html"
+          }
+        ],
+        "processing": {
+          "length": 5.0,
+          "fade_out": 0.06
+        }
+      },
+      {
+        "file": "destruction-1.wav",
+        "sha256": "f749812457fa7710ee5a69050fc5df3327049f487d408f0644b4948c88cbafb9",
+        "sources": [
+          {
+            "role": "boom",
+            "src": "bsb-explosion-2-s1808.wav",
+            "find_onset": true,
+            "semitones": -9,
+            "lp": 300,
+            "eq": [
+              [
+                "low_shelf",
+                70,
+                6
+              ]
+            ],
+            "drive_db": 4,
+            "sha256": "d0c74f7c01ab4bebc45f346696be1167af9b6e6c932528215aa0df9932a639bb",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/explosion-2-s1808.html"
+          },
+          {
+            "role": "body",
+            "src": "bsb-thunder-2-s3113.wav",
+            "start": 3.75,
+            "end": 5.0,
+            "find_onset": true,
+            "semitones": -4,
+            "lp": 2500,
+            "gain_db": -6,
+            "offset": 0.02,
+            "sha256": "88b9cc1944d63662da3989114683ac616b0e93480d8b5fe4547fca7f52de17c2",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/thunder-2-s3113.html"
+          }
+        ],
+        "processing": {
+          "length": 5.0,
+          "fade_out": 0.06
+        }
+      },
+      {
+        "file": "destruction-2.wav",
+        "sha256": "87ee743b10cdfac0bfaa4cb5ba96517e4c45334b6b91b027ed83dd58e3065694",
+        "sources": [
+          {
+            "role": "rolling tail",
+            "src": "bsb-thunder-10-s3183.wav",
+            "start": 0.2,
+            "end": 7.0,
+            "semitones": -3,
+            "lp": 1800,
+            "fade_in": 0.2,
+            "decay": 2.0,
+            "gain_db": -8,
+            "offset": 0.15,
+            "sha256": "a26179c860eb60e319bcdff2e66e6605a319a667f437ec6b0017505c9684b385",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/thunder-10-s3183.html"
+          },
+          {
+            "role": "debris",
+            "src": "bfh1_rock_falling_01.ogg",
+            "gain_db": -16,
+            "offset": 0.6,
+            "sha256": "9e58d2d3302c1bad27267cef6a2b3b47bb636f49f77d8e4b986ac81a26e80d7b",
+            "author": "rubberduck",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0)",
+            "source": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx"
+          },
+          {
+            "role": "debris",
+            "src": "bfh1_rock_falling_05.ogg",
+            "gain_db": -18,
+            "offset": 0.9,
+            "pan": -0.4,
+            "sha256": "5ccb5d99ae33341d9f80fe760174182f0d2d98477b8340ee51d3f7de31279693",
+            "author": "rubberduck",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0)",
+            "source": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx"
+          },
+          {
+            "role": "debris",
+            "src": "bfh1_glass_breaking_06.ogg",
+            "gain_db": -20,
+            "offset": 0.5,
+            "pan": 0.5,
+            "sha256": "5dad395c21e85d0750be4b1f9c110aeba366ee5da0dadae8c307497e0a4b4c0d",
+            "author": "rubberduck",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0)",
+            "source": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx"
+          },
+          {
+            "role": "debris",
+            "src": "bfh1_metal_falling_02.ogg",
+            "gain_db": -20,
+            "offset": 1.3,
+            "sha256": "e40e73a05a9b1ae7d45e24aa898bf610b32334dae80a5c00abe3e2ce0f7d207a",
+            "author": "rubberduck",
+            "license": "CC0 1.0 (OpenGameArt licence field: CC0)",
+            "source": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx"
+          }
+        ],
+        "processing": {
+          "length": 5.0,
+          "fade_out": 0.06
+        }
+      },
+      {
+        "file": "engine-0.wav",
+        "sha256": "e5d412033b4e064ec12e071adf6d3d2833cda26ca5de10522f520a3e0ee6d37b",
+        "sources": [
+          {
+            "role": "tracks+engine",
+            "src": "bsb-excavator-displacement-s2149.wav",
+            "start": 38.0,
+            "end": 45.0,
+            "semitones": -2,
+            "eq": [
+              [
+                "low_shelf",
+                100,
+                3
+              ]
+            ],
+            "fade_in": 0.0,
+            "fade_out": 0.0,
+            "sha256": "873dceba832e3c9f63f708547aa7f0f81eaa3575dab1915f9df0b8a207e8f3c2",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/excavator-displacement-s2149.html"
+          },
+          {
+            "role": "diesel",
+            "src": "bsb-big-diesel-engine-s0967.wav",
+            "start": 10.0,
+            "end": 17.0,
+            "semitones": -5,
+            "lp": 800,
+            "gain_db": -8,
+            "fade_in": 0.0,
+            "fade_out": 0.0,
+            "sha256": "84349d8a6ef95cb790be9099bf5bdc3fcf271c0ee73cc2a2fbc4b829623fbb64",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/big-diesel-engine-s0967.html"
+          },
+          {
+            "role": "track clank",
+            "src": "bsb-heavy-chain-s0359.wav",
+            "start": 2.0,
+            "end": 4.1,
+            "hp": 400,
+            "gain_db": -16,
+            "offset": 0.6,
+            "fade_out": 0.1,
+            "sha256": "48efcc0364bf98a47a622b7642254b3e885378f8a241b99885ba5781f3a6c41d",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/heavy-chain-s0359.html"
+          },
+          {
+            "role": "track clank",
+            "src": "bsb-heavy-chain-s0359.wav",
+            "start": 2.2,
+            "end": 4.1,
+            "hp": 400,
+            "gain_db": -18,
+            "offset": 3.3,
+            "pan": 0.3,
+            "fade_out": 0.1,
+            "sha256": "48efcc0364bf98a47a622b7642254b3e885378f8a241b99885ba5781f3a6c41d",
+            "author": null,
+            "license": "CC0 1.0 (page states: 'License CC0 (public domain): Free and royalty-free')",
+            "source": "https://bigsoundbank.com/heavy-chain-s0359.html"
+          }
+        ],
+        "processing": {
+          "length": 5.0,
+          "fade_out": 0.06
+        }
+      }
+    ],
+    "recipeSource": "RTS AI sound bake-off / design_cc0.py; prepared as independent editable stems"
+  }
+}

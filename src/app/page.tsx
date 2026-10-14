@@ -23,6 +23,8 @@ import { LABS, isConsoleTab, labForTab, labTab, type LabTab } from "@/lib/labs";
 import { KEEP_TABS, TabPane } from "@/components/tab-pane";
 import HomeCockpit from "@/components/home-cockpit";
 import ForeignProfileNotice from "@/components/foreign-profile-notice";
+import WorkstreamSidebar from "@/components/workstream-sidebar";
+import { speechTab } from "@/lib/workstreams";
 import ConsoleHeader from "@/components/console-header";
 import ResourcePulse from "@/components/resource-pulse";
 import { VoiceCloner } from "@/components/voice-cloner";
@@ -422,6 +424,8 @@ export default function Home() {
     scrollByTab.current[tabNow.current] = window.scrollY;
     tabNow.current = next;
     setTab(next);
+    if (next === "voices") setSpeechMode("tts");
+    if (next === "speech-recognition") setSpeechMode("stt");
     setKept((k) => [next, ...k.filter((t) => t !== next)].slice(0, KEEP_TABS));
     // After React has shown the next tab (a timer, not a frame: frames pause in background tabs).
     setTimeout(() => window.scrollTo({ top: scrollByTab.current[next] ?? 0 }), 0);
@@ -509,7 +513,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (tab !== "speech" || speechMode !== "tts") return;
+    if (!speechTab(tab) || speechMode !== "tts") return;
     loadTtsVoices();
     const iv = setInterval(loadTtsVoices, 10_000);
     return () => clearInterval(iv);
@@ -867,7 +871,7 @@ export default function Home() {
   ];
 
   /** Props for one tab's pane: which tab is showing, which are kept built, and its name for errors. */
-  const pane = (id: ConsoleTab) => ({ id, current: tab, kept, label: tabs.find((item) => item.id === id)?.label ?? "Console" });
+  const pane = (id: ConsoleTab) => ({ id, current: id === "speech" && speechTab(tab) ? "speech" : tab, kept: kept.map(t => speechTab(t) ? "speech" : t), label: tabs.find((item) => item.id === id)?.label ?? "Console" });
 
   return (
     <div className="console-shell min-h-screen bg-gray-950 text-gray-100">
@@ -884,6 +888,8 @@ export default function Home() {
         onAutoRefresh={setAutoRefresh}
         hostName={host?.name ?? gpu?.host?.name}
       />
+      <WorkstreamSidebar active={tab} onSelect={selectTab} speechMode={speechMode} />
+      <div className="hangar-content">
       <ResourcePulse
         gpu={gpu}
         resources={resourceControl}
@@ -1831,19 +1837,19 @@ export default function Home() {
                 type="button"
                 role="tab"
                 aria-selected={speechMode === "stt"}
-                onClick={() => setSpeechMode("stt")}
+                onClick={() => selectTab("speech-recognition")}
                 className={speechMode === "stt" ? "is-active" : ""}
               >
-                Speech → text
+                Speech Recognition
               </button>
               <button
                 type="button"
                 role="tab"
                 aria-selected={speechMode === "tts"}
-                onClick={() => setSpeechMode("tts")}
+                onClick={() => selectTab("voices")}
                 className={speechMode === "tts" ? "is-active" : ""}
               >
-                Text → speech
+                Voices & Speech
               </button>
             </div>
             <div className="speech-workspace-grid">
@@ -2088,7 +2094,7 @@ export default function Home() {
           )}
         </footer>
       </main>
-
+      </div>
     </div>
   );
 }

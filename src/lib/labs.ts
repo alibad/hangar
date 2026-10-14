@@ -72,6 +72,12 @@ export type LabDefinition = {
 
 export const LABS: LabDefinition[] = [
   {
+    id: "audio", label: "Audio Lab", hint: "Layer, shape, compare and audition sound effects",
+    keywords: "audio sound effects sfx tank layers waveform compare library",
+    capability: "effects", input: "audio", output: "audio", cloudComparison: false,
+    load: () => import("@/components/labs/audio-lab"),
+  },
+  {
     id: "decide",
     label: "Decision Lab",
     hint: "A typed question, calibrated probabilities — Laya beside an LLM",
@@ -162,6 +168,8 @@ export const BUILTIN_TABS = [
   "llm",
   "arena",
   "speech",
+  "voices",
+  "speech-recognition",
   "qwen",
   "video",
   "requests",
