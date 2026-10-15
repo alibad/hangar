@@ -15,6 +15,15 @@
 .hangar-system-nav { margin-top: auto; padding-top: 18px; border-top: 1px solid var(--color-gray-800); }
 .hangar-system-nav .hangar-nav-group { min-height: 40px; font-size: 13px; }
 .hangar-mobile-nav,.hangar-nav-backdrop { display: none; }
+.hangar-sidebar-toggle { margin-bottom: 10px; min-height: 38px; font-size: 12px; }
+@media(min-width: 768px) {
+  .hangar-sidebar.is-collapsed { width: 72px; padding-left: 10px; padding-right: 10px; }
+  .hangar-sidebar.is-collapsed ~ .hangar-content { margin-left: 72px; }
+  .hangar-sidebar.is-collapsed :is(.hangar-nav-group,.hangar-nav-child) { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
+  .hangar-sidebar.is-collapsed :is(.hangar-nav-group span,.hangar-nav-group > svg:last-child:not(:first-child),.hangar-nav-child span,.hangar-nav-child small) { display: none; }
+  .hangar-sidebar.is-collapsed .hangar-nav-children { border-left: 1px solid var(--color-gray-800); }
+}
+@media(max-width: 767px) { .hangar-sidebar-toggle { display: none; } }
 .console-header > div { max-width: none; }
 .console-header .ml-auto { flex: 1; justify-content: flex-end; }
 .hangar-content > main { padding: 18px 24px 24px; }
