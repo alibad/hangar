@@ -536,7 +536,7 @@ export default function HomeCockpit({
           Discover and set up models <ArrowRight size={14} />
         </button>
       </section>
-      <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="cockpit-compose-grid grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="cockpit-hero cockpit-surface overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/75">
           {/* Bottom padding is not optional: the recent-prompt row below is
               conditional, and without it the primary button sat flush on the
@@ -688,8 +688,8 @@ export default function HomeCockpit({
           Pinning row one to `auto` and row two to `1fr` sends all of it to the
           flexible row instead, so the slack collects below the last card as
           plain background rather than inside either panel. */}
-      <section className="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_1fr] xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="cockpit-surface overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/75">
+      <section className="cockpit-overview-grid grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:grid-rows-[auto_1fr] xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="cockpit-workstreams cockpit-surface overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/75">
           <div className="cockpit-section-header flex items-center justify-between border-b border-gray-800 px-4 py-2.5 sm:px-5">
             <div>
               <h2 className="text-sm font-semibold text-gray-100">Workstreams</h2>

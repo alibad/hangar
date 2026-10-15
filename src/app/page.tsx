@@ -24,7 +24,7 @@ import { KEEP_TABS, TabPane } from "@/components/tab-pane";
 import HomeCockpit from "@/components/home-cockpit";
 import ForeignProfileNotice from "@/components/foreign-profile-notice";
 import TankVoiceDirector from "@/components/tank-voice-director";
-import WorkstreamSidebar from "@/components/workstream-sidebar";
+import WorkstreamSidebar, { useSidebarState } from "@/components/workstream-sidebar";
 import { speechTab, workstreamFor } from "@/lib/workstreams";
 import ConsoleHeader from "@/components/console-header";
 import ResourcePulse from "@/components/resource-pulse";
@@ -314,6 +314,7 @@ type ResourceControlSnapshot = {
 };
 
 export default function Home() {
+  const sidebar = useSidebarState();
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -877,6 +878,8 @@ export default function Home() {
   return (
     <div className="console-shell min-h-screen bg-gray-950 text-gray-100">
       <ConsoleHeader
+        sidebarCollapsed={sidebar.collapsed}
+        onToggleSidebar={sidebar.toggle}
         active={tab}
         onSelect={selectTab}
         overallStatus={attentionServices.length === 0 && runningServices > 0 ? "operational" : overallStatus}
@@ -889,7 +892,7 @@ export default function Home() {
         onAutoRefresh={setAutoRefresh}
         hostName={host?.name ?? gpu?.host?.name}
       />
-      <WorkstreamSidebar active={tab} onSelect={selectTab} speechMode={speechMode} />
+      <WorkstreamSidebar active={tab} onSelect={selectTab} speechMode={speechMode} collapsed={sidebar.collapsed} />
       <div className="hangar-content">
       {workstreamFor(tab)?.id !== "audio" && <ResourcePulse
         gpu={gpu}
