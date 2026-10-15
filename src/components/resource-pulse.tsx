@@ -3,7 +3,7 @@
 import { ArrowRight, CheckCircle, Cpu, WarningCircle } from "@phosphor-icons/react";
 import { declaredMemoryGb } from "@/lib/host";
 
-type GpuSnapshot = {
+export type GpuSnapshot = {
   name: string;
   /** Null where the GPU exposes no such counter (Apple silicon). */
   temperature: number | null;
@@ -18,7 +18,7 @@ type GpuSnapshot = {
   error?: string;
 };
 
-type ResourceSnapshot = {
+export type ResourceSnapshot = {
   budgets: { ramSafetyGb: number; vramSafetyGb: number };
   capacity: {
     ram: { totalGb: number; freeGb: number };

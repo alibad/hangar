@@ -64,11 +64,13 @@ function ImageRuntimeNotice({ status, stale }: { status: "unverified" | "unconfi
 
   const body =
     status === "unverified"
-      ? `Hangar can send prompts to ${runtime?.label ?? runtime?.model ?? "the configured engine"}, but nothing has confirmed that what comes back is a picture rather than static. Generate away — every result is checked before it is saved — or prove the runtime in one command first.`
+      ? `The host profile has ${stale ? "an older" : "no saved"} output-verification record for ${runtime?.label ?? runtime?.model ?? "the configured engine"}. This is separate from live service health. You can generate normally when the service is available; each result is checked before it is saved.`
       : "Declare an engine under `runtimes.image` in this host's profile, or pick a model below and let Hangar set one up.";
 
   return (
-    <section className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-4 sm:p-5">
+    <details className="image-runtime-notice">
+      <summary><AlertTriangle size={14} /><span>{runtime?.label ?? "Image runtime"} · {status === "unverified" ? stale ? "Verification out of date" : "Output not verified" : "Setup needed"}</span><span className="image-runtime-disclosure">Details</span></summary>
+      <div className="image-runtime-notice-body">
       <div className="flex max-w-3xl items-start gap-3">
         <span className="mt-0.5 rounded-xl border border-amber-500/25 bg-amber-500/10 p-2 text-amber-300">
           <AlertTriangle className="h-5 w-5" />
@@ -107,7 +109,8 @@ function ImageRuntimeNotice({ status, stale }: { status: "unverified" | "unconfi
         )}
       </div>
       {error && <p role="alert" className="mt-3 text-xs text-red-300">{error}</p>}
-    </section>
+      </div>
+    </details>
   );
 }
 

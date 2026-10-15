@@ -25,9 +25,9 @@ import HomeCockpit from "@/components/home-cockpit";
 import ForeignProfileNotice from "@/components/foreign-profile-notice";
 import TankVoiceDirector from "@/components/tank-voice-director";
 import WorkstreamSidebar, { useSidebarState } from "@/components/workstream-sidebar";
-import { speechTab, workstreamFor } from "@/lib/workstreams";
+import { speechTab } from "@/lib/workstreams";
 import ConsoleHeader from "@/components/console-header";
-import ResourcePulse from "@/components/resource-pulse";
+import MachineCapacity from "@/components/machine-capacity";
 import { VoiceCloner } from "@/components/voice-cloner";
 import { useVoiceInput, appendTranscript } from "@/components/voice-input";
 import { useAudioRecorder } from "@/lib/use-audio-recorder";
@@ -878,6 +878,11 @@ export default function Home() {
   return (
     <div className="console-shell min-h-screen bg-gray-950 text-gray-100">
       <ConsoleHeader
+        machineCapacity={<MachineCapacity gpu={gpu} resources={resourceControl} onOpenDetails={() => {
+          selectTab("stack");
+          setResourceMapSignal(n => n + 1);
+          window.setTimeout(() => document.getElementById("resource-map")?.scrollIntoView({ behavior: "smooth", block: "center" }), tab === "stack" ? 0 : 100);
+        }} />}
         active={tab}
         onSelect={selectTab}
         overallStatus={attentionServices.length === 0 && runningServices > 0 ? "operational" : overallStatus}
@@ -892,18 +897,6 @@ export default function Home() {
       />
       <WorkstreamSidebar active={tab} onSelect={selectTab} speechMode={speechMode} collapsed={sidebar.collapsed} onToggle={sidebar.toggle} />
       <div className="hangar-content">
-      {workstreamFor(tab)?.id !== "audio" && <ResourcePulse
-        gpu={gpu}
-        resources={resourceControl}
-        onOpenDetails={() => {
-          selectTab("stack");
-          // Expand it as well as scroll to it — see openResourceMapSignal.
-          setResourceMapSignal((n) => n + 1);
-          window.setTimeout(() => {
-            document.getElementById("resource-map")?.scrollIntoView({ behavior: "smooth", block: "center" });
-          }, tab === "stack" ? 0 : 100);
-        }}
-      />}
 
       <main className="mx-auto max-w-[1500px] space-y-6 px-4 pb-24 pt-4 sm:px-6 sm:pt-5 md:pb-5">
 
