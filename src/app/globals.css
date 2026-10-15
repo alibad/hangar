@@ -1658,7 +1658,7 @@ html:root:not(.dark) .storage-move-form > label > input { border-color: var(--st
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklab, var(--color-gray-500) 25%, transparent) transparent;
+  scrollbar-color: color-mix(in oklab, var(--accent-500) 30%, transparent) transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {

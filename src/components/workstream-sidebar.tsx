@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Home, Image, MessageSquare, Workflow, Server, Network, Activity, Gauge, HardDrive, Menu, X, Video, Clapperboard, Flame, Box, Scissors, Terminal, Swords, Scale, GitBranch } from "lucide-react";
+import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Home, Image, MessageSquare, Workflow, Server, Network, Activity, Gauge, HardDrive, Menu, X, Video, Clapperboard, Flame, Box, Scissors, Terminal, Swords, Scale, GitBranch, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { WORKSTREAMS, SYSTEM_LINKS, workstreamFor, type WorkstreamLink } from "@/lib/workstreams";
 import { hostHasTab } from "@/lib/host";
 import type { ConsoleTab } from "@/lib/labs";
@@ -22,7 +22,7 @@ export function useSidebarState() {
 
 const toolIcons = { "lab-audio": AudioLines, voices: Mic, "speech-recognition": ScanLine, "lab-music": Music, qwen: Image, video: Video, "lab-video": Clapperboard, "lab-forge": Flame, sam3: Scissors, "lab-3d": Box, llm: Terminal, arena: Swords, "lab-decide": Scale, "lab-process": GitBranch };
 
-export default function WorkstreamSidebar({ active, onSelect, speechMode, collapsed }: { active: ConsoleTab; onSelect: (tab: ConsoleTab) => void; speechMode: "tts" | "stt"; collapsed: boolean }) {
+export default function WorkstreamSidebar({ active, onSelect, speechMode, collapsed, onToggle }: { active: ConsoleTab; onSelect: (tab: ConsoleTab) => void; speechMode: "tts" | "stt"; collapsed: boolean; onToggle: () => void }) {
   const selected = active === "speech" ? speechMode === "tts" ? "voices" : "speech-recognition" : active;
   const currentGroup = workstreamFor(active)?.id;
   const [expanded, setExpanded] = useState<string[]>(["audio"]);
@@ -41,6 +41,11 @@ export default function WorkstreamSidebar({ active, onSelect, speechMode, collap
     <button type="button" className="hangar-mobile-nav" aria-label={mobileOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileOpen} aria-controls="hangar-sidebar" onClick={() => setMobileOpen(v => !v)}>{mobileOpen ? <X size={20} /> : <Menu size={20} />}</button>
     {mobileOpen && <button type="button" className="hangar-nav-backdrop" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
     <aside id="hangar-sidebar" className={`hangar-sidebar${mobileOpen ? " is-open" : ""}${collapsed ? " is-collapsed" : ""}`} aria-label="Workstreams">
+      <div className="hangar-nav-toolbar">
+        <button type="button" className="hangar-sidebar-toggle" onClick={onToggle} aria-controls="hangar-sidebar" aria-expanded={!collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+        </button>
+      </div>
       <nav aria-label="Primary navigation">
         <button type="button" className="hangar-nav-group" aria-label="Home" title="Home" aria-current={active === "stack" ? "page" : undefined} onClick={() => go("stack")}><Home size={19} /><span>Home</span></button>
         {WORKSTREAMS.map(group => { const Icon = icons[group.id as keyof typeof icons]; const open = expanded.includes(group.id); return <section className="hangar-nav-section" key={group.id}>

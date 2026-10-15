@@ -878,8 +878,6 @@ export default function Home() {
   return (
     <div className="console-shell min-h-screen bg-gray-950 text-gray-100">
       <ConsoleHeader
-        sidebarCollapsed={sidebar.collapsed}
-        onToggleSidebar={sidebar.toggle}
         active={tab}
         onSelect={selectTab}
         overallStatus={attentionServices.length === 0 && runningServices > 0 ? "operational" : overallStatus}
@@ -892,7 +890,7 @@ export default function Home() {
         onAutoRefresh={setAutoRefresh}
         hostName={host?.name ?? gpu?.host?.name}
       />
-      <WorkstreamSidebar active={tab} onSelect={selectTab} speechMode={speechMode} collapsed={sidebar.collapsed} />
+      <WorkstreamSidebar active={tab} onSelect={selectTab} speechMode={speechMode} collapsed={sidebar.collapsed} onToggle={sidebar.toggle} />
       <div className="hangar-content">
       {workstreamFor(tab)?.id !== "audio" && <ResourcePulse
         gpu={gpu}

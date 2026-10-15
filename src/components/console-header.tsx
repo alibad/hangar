@@ -2,15 +2,13 @@
 
 import Image from "next/image";
 import { Moon, Sun } from "@phosphor-icons/react";
-import { RefreshCw, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { CommandPalette, type ConsoleTab } from "@/components/command-palette";
 import { ThemePicker } from "@/components/theme-picker";
 import { useTheme } from "@/components/theme-provider";
 import { getHost } from "@/lib/host";
 
 type Props = {
-  sidebarCollapsed: boolean;
-  onToggleSidebar: () => void;
   active: ConsoleTab;
   onSelect: (tab: ConsoleTab) => void;
   overallStatus: "operational" | "degraded" | "down";
@@ -27,8 +25,6 @@ type Props = {
 };
 
 export default function ConsoleHeader({
-  sidebarCollapsed,
-  onToggleSidebar,
   active,
   onSelect,
   overallStatus,
@@ -54,9 +50,6 @@ export default function ConsoleHeader({
     <>
     <header className="console-header sticky top-0 z-30 border-b border-gray-800 bg-gray-950/90 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1500px] items-center gap-3 px-4 sm:px-6">
-        <button type="button" className="hangar-sidebar-toggle" onClick={onToggleSidebar} aria-controls="hangar-sidebar" aria-expanded={!sidebarCollapsed} aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
-          {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-        </button>
         <button type="button" onClick={() => onSelect("stack")} className="flex h-11 shrink-0 items-center gap-2.5 md:h-auto" aria-label={`Open Hangar home for ${machine}`}>
           <Image src="/icons/icon.svg" alt="" width={24} height={24} priority className="h-6 w-6" />
           <span className="text-lg font-semibold tracking-[-0.02em] text-gray-100">Hangar</span>
