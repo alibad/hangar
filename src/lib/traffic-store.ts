@@ -141,7 +141,7 @@ export async function recordTrafficEvent(ev: TrafficEvent): Promise<void> {
 export async function readStoredTraffic(limit = 500): Promise<TrafficEvent[]> {
   const handle = await db();
   const rows = await handle.all<{
-    ts: bigint | number; service: string; target: string | null; method: string; path: string;
+    key: string; ts: bigint | number; service: string; target: string | null; method: string; path: string;
     status: number | null; ms: number | null; model: string | null; caller: string | null;
     prompt: string | null; response: string | null; tokens_in: bigint | number | null;
     tokens_out: bigint | number | null; cost_usd: number | null; artifact_rel: string | null; error: string | null;
@@ -149,6 +149,7 @@ export async function readStoredTraffic(limit = 500): Promise<TrafficEvent[]> {
 
   const num = (v: bigint | number | null) => (v == null ? null : Number(v));
   return rows.map((r) => ({
+    rid: r.key.startsWith("rid:") ? r.key.slice(4) : null,
     ts: Number(r.ts),
     service: r.service,
     target: r.target,

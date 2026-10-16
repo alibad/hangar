@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import { mergeTrafficHistory } from "@/lib/traffic-identity";
 import { record, readTraffic, type TrafficEvent } from "@/lib/traffic";
 import { recordRouterCall } from "@/lib/router-usage";
 import { readStoredTraffic, recordTrafficEvent, pruneTraffic } from "@/lib/traffic-store";
@@ -20,16 +22,7 @@ export async function GET() {
    * may still be in flight.
    */
   const stored = await readStoredTraffic().catch(() => [] as TrafficEvent[]);
-  const seen = new Set(events.map((e) => `${e.ts}:${e.method}:${e.path}`));
-  const merged = [...events];
-  for (const row of stored) {
-    const key = `${row.ts}:${row.method}:${row.path}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      merged.push(row);
-    }
-  }
-  merged.sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
+  const merged = mergeTrafficHistory(events, stored);
   // Opportunistic, unawaited: retention is housekeeping and must never make a
   // page load wait on a DELETE.
   void pruneTraffic().catch(() => {});
@@ -77,7 +70,7 @@ export async function POST(req: NextRequest) {
       error: b.error ? String(b.error).slice(0, 400) : null,
       target: b.target ? String(b.target).slice(0, 40) : null,
       hop: b.hop ? String(b.hop).slice(0, 40) : null,
-      rid: b.rid ? String(b.rid).slice(0, 80) : null,
+      rid: b.rid ? String(b.rid).slice(0, 80) : randomUUID(),
       pending: b.pending === true,
       // Only the shapes the UI can render — an unknown `kind` would just be a
       // broken tile. Producers add a kind here and in the detail panel together.

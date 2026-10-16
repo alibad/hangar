@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Pulse } from "@phosphor-icons/react";
 import { ToolPageHeader } from "./tool-page";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
+import { keyTrafficEvents, trafficIdentity } from "@/lib/traffic-identity";
 
 type Ev = {
+  uiKey?: string;
   ts: number | null;
   service: string;
   method: string;
@@ -48,7 +50,7 @@ const RANGE_MS: Record<TimeRange, number | null> = {
 };
 
 function eventKey(event: Ev): string {
-  return event.rid ?? [event.ts ?? 0, event.service, event.method, event.path, event.model ?? ""].join(":");
+  return event.uiKey ?? trafficIdentity(event);
 }
 
 function percentile(values: number[], p: number): number | null {
@@ -248,10 +250,14 @@ export default function RequestsView() {
     try {
       const res = await fetch("/api/traffic");
       const data = await res.json();
-      setEvents(Array.isArray(data.events) ? data.events : []);
-      setNoise(Array.isArray(data.noise) ? data.noise : []);
+      const main: Ev[] = Array.isArray(data.events) ? data.events : [];
+      const background: Ev[] = Array.isArray(data.noise) ? data.noise : [];
+      const downstream: Ev[] = Array.isArray(data.hops) ? data.hops : [];
+      const keyed = keyTrafficEvents([...main, ...background, ...downstream]);
+      setEvents(keyed.slice(0, main.length));
+      setNoise(keyed.slice(main.length, main.length + background.length));
       setNoiseCount(typeof data.noiseCount === "number" ? data.noiseCount : 0);
-      setHops(Array.isArray(data.hops) ? data.hops : []);
+      setHops(keyed.slice(main.length + background.length));
       setHopCount(typeof data.hopCount === "number" ? data.hopCount : 0);
       setServices(Array.isArray(data.services) ? data.services : []);
     } catch {
@@ -264,7 +270,10 @@ export default function RequestsView() {
 
   useEffect(() => {
     if (!detailKey || detail) return;
-    const found = [...events, ...noise, ...hops].find((event) => eventKey(event) === detailKey);
+    const all = [...events, ...noise, ...hops];
+    const found = all.find(event => eventKey(event) === detailKey)
+      // Keep existing request-detail bookmarks working.
+      ?? all.find(event => (event.rid ?? [event.ts ?? 0, event.service, event.method, event.path, event.model ?? ""].join(":")) === detailKey);
     if (found) setDetail(found);
   }, [detail, detailKey, events, hops, noise]);
 
