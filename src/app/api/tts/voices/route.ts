@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceHeaders } from "@/lib/services";
+import { getServiceHeaders, SERVICE_REGISTRY } from "@/lib/services";
 import { resolveCallTarget, getCatalogue } from "@/lib/providers";
 
 /**
@@ -32,6 +32,8 @@ export type VoiceOption = {
 
 type VoicesResponse = {
   alias: string;
+  /** The service whose capabilities were actually probed, including fallbacks. */
+  engine?: string;
   /** Where the list came from — "none" means the caller should free-type. */
   source: "service" | "declared" | "none";
   local: boolean;
@@ -124,6 +126,7 @@ export async function GET() {
               ?.limits;
             return NextResponse.json<VoicesResponse>({
               alias,
+              engine: SERVICE_REGISTRY.find(service => service.id === target.serviceId)?.name ?? target.model,
               source: "service",
               local: true,
               voices,

@@ -34,3 +34,13 @@ Hangar is a general-purpose AI workspace. RTS AI, the tank pilot, the relocation
 ## Delivery and verification
 
 Work on the canonical main checkout; preserve data and backend contracts. Commit cohesive progress. Verify local type checks, regression tests and production build; inspect all destinations, expanded pickers, both themes, collapsed/expanded navigation and responsive layouts. Do not start paid/cloud inference for visual QA. Capture evidence and record limits in design-qa.md before completion. The generated proposal copy is illustrative, not an API or capability specification.
+
+## Implemented workspace system
+
+All destinations use the shared palette, navigation, type hierarchy and responsive content rules. The task stays prominent; runtime detail and research use contextual panels or disclosures. Effects starts with general sound drafts, with the existing tank and voice takes available as examples. Speech synthesis and recognition remain separate destinations. Recognition adds editable transcript review and copying. Services offers both a list with an inspector and the original cards.
+
+Existing media, queues, routes, experiment integrations and storage contracts remain in place. No model is started by opening a redesigned page. The generated proposals include illustrative content and capabilities; only existing product functions and the changes described above are shipped.
+
+The local review covers all 20 destinations in light and dark, expanded and collapsed navigation, phone layouts, themed picker popups, keyboard selection and Arabic script direction. Effects import/render/playback/export and local neural speech are exercised with real files. GPU-heavy image/video/3D generation and paid providers are outside this presentation regression pass. An unavailable runtime stays unavailable; verification gates are retained.
+
+`scripts/make-workspace-walkthrough.py` produces a local narrated walkthrough from the review captures using Kokoro `am_michael` and FFmpeg. Its media output stays ignored by Git.

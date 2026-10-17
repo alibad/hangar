@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceHeaders } from "@/lib/services";
 import { resolveCallTarget, type CallTarget } from "@/lib/providers";
+import { asciiHeaderValue } from "@/lib/response-header";
 
 // Speak text with whatever model the `tts` capability is pointed at: the local
 // Kokoro service directly, or a cloud voice via the AI Router. Which one answered
@@ -45,8 +46,9 @@ export async function POST(req: NextRequest) {
         "Content-Type": res.headers.get("content-type") ?? "audio/wav",
         "X-TTS-Latency": String(latency),
         "X-TTS-Model": target.alias,
+        "X-TTS-Engine": asciiHeaderValue(target.model),
         "X-TTS-Via": target.via,
-        ...(target.degraded ? { "X-TTS-Degraded": target.degraded } : {}),
+        ...(target.degraded ? { "X-TTS-Degraded": asciiHeaderValue(target.degraded) } : {}),
       },
     });
   } catch (err) {

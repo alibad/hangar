@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": res.headers.get("content-type") ?? "video/mp4",
         "X-Video-Model": target.alias,
         "X-Video-Via": target.via,
-        ...(target.degraded ? { "X-Video-Degraded": target.degraded } : {}),
+        ...(target.degraded ? { "X-Video-Degraded": asciiHeaderValue(target.degraded) } : {}),
       },
     });
   } catch (error) {
@@ -41,3 +41,4 @@ export async function POST(req: NextRequest) {
     }, { status: 502 });
   }
 }
+import { asciiHeaderValue } from "@/lib/response-header";

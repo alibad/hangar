@@ -302,7 +302,7 @@ function SourcePicker({ value, onChange }: { value: string | null; onChange: (p:
   };
 
   return (
-    <div className="flex flex-wrap gap-3 rounded-lg border border-gray-800 bg-gray-950/50 p-3">
+    <div className="video-source-still flex flex-wrap gap-3 rounded-lg border border-gray-800 bg-gray-950/50 p-3">
       <div className="flex h-[90px] w-[160px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-gray-800 bg-gray-900">
         {value ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -341,7 +341,7 @@ function SourcePicker({ value, onChange }: { value: string | null; onChange: (p:
               value={still}
               onChange={(e) => setStill(e.target.value)}
               placeholder="The still: e.g. Aerial view of Lisbon's Alfama rooftops at golden hour, photorealistic"
-              className="min-w-[16rem] flex-1 rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200"
+              className="min-w-0 w-full flex-1 rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200"
             />
             <FieldSelect value={stillModel} onValueChange={(selectedValue) => setStillModel(selectedValue)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200" aria-label="Image model for the still">
               <option value="z-image-turbo">Z-Image Turbo (ComfyUI)</option>

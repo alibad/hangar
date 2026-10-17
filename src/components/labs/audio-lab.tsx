@@ -13,16 +13,18 @@ import { useTabActive } from "@/components/tab-pane";
 import { isHostedRuntime } from "@/lib/runtime";
 import { emptyAudioEvent, restoreAudioEvents, validAudioDraft } from "@/lib/audio-workspace";
 import { ToolPageHeader } from "@/components/tool-page";
+import { useTheme } from "@/components/theme-provider";
 
 const peaks = new Map<string, Promise<number[]>>();
 function Waveform({ url, selected = false }: { url: string; selected?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const { theme, palette } = useTheme();
   useEffect(() => {
     let live = true;
     if (!peaks.has(url)) peaks.set(url, (async () => { const ctx = new OfflineAudioContext(1, 1, 48000), b = await decodeAudio(url, ctx), data = b.getChannelData(0), out = []; for (let i = 0; i < 140; i++) { let peak = 0; const start = Math.floor(i * data.length / 140), end = Math.floor((i + 1) * data.length / 140); for (let j = start; j < end; j++) peak = Math.max(peak, Math.abs(data[j])); out.push(peak); } return out; })());
     peaks.get(url)!.then(values => { if (!live || !ref.current) return; const canvas = ref.current, width = 560, height = 76; canvas.width = width * 2; canvas.height = height * 2; const c = canvas.getContext("2d")!; c.scale(2, 2); c.fillStyle = getComputedStyle(canvas).color; const max = Math.max(...values, .1); for (let i = 0; i < values.length; i++) { const h = Math.max(1, values[i] / max * 60); c.fillRect(i * 4, (height - h) / 2, 2, h); } }).catch(() => { peaks.delete(url); });
     return () => { live = false; };
-  }, [url, selected]);
+  }, [url, selected, theme, palette]);
   return <canvas ref={ref} className={`audio-waveform${selected ? " is-selected" : ""}`} role="img" aria-label="Audio waveform" />;
 }
 
@@ -37,7 +39,7 @@ export default function AudioLab({ lab }: LabComponentProps) {
   const [viewerOrigin, setViewerOrigin] = useState("http://127.0.0.1:3463");
   const audio = useRef<HTMLAudioElement | null>(null), currentKey = useRef<string | null>(null), playbackGain = useRef(1), fileInput = useRef<HTMLInputElement>(null);
   const active = useTabActive(), hosted = isHostedRuntime();
-  const extraEvents: AudioEvent[] = [...new Map(library.revisions.filter(r => !pilot?.events.some(e => e.id === r.event)).map(r => [r.event, { id: r.event, label: r.event.startsWith("voice-") ? `Crew · ${r.event.slice(6).replaceAll("-", " ")}` : r.event, kind: "voice", currentUrl: r.recipe.layers[0]?.url ?? null, recipe: r.recipe }])).values()];
+  const extraEvents: AudioEvent[] = [...new Map(library.revisions.filter(r => !pilot?.events.some(e => e.id === r.event)).map(r => [r.event, { id: r.event, label: r.event.startsWith("voice-") ? `Crew · ${r.event.slice(6).replaceAll("-", " ")}` : r.name.split(" · ")[0] || r.event, kind: r.event.startsWith("voice-") ? "voice" : "effect", currentUrl: r.recipe.layers[0]?.url ?? null, recipe: r.recipe }])).values()];
   const events = [...customEvents, ...(pilot?.events ?? []), ...extraEvents.filter(event => !customEvents.some(custom => custom.id === event.id))];
   const event = events.find(e => e.id === eventId), layer = recipe?.layers.find(l => l.id === selectedLayer);
   const referenceUrl = event?.currentUrl ?? recipe?.layers[0]?.url;

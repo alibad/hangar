@@ -3,7 +3,7 @@
 import { FieldSelect } from "@/components/ui/field-select";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { FlaskConical } from "lucide-react";
+import { Scale } from "lucide-react";
 import { ToolPageHeader } from "@/components/tool-page";
 import { ServiceControl, ServiceControls, useServiceLifecycle } from "@/components/service-control";
 import CapacityBlocker from "@/components/capacity-blocker";
@@ -265,12 +265,12 @@ export default function DecisionLab({ lab }: LabComponentProps) {
   const buttonLabel = running ? "Asking…" : mode === "example" ? `Ask ${who} again, live` : `Ask ${who}`;
 
   return (
-    <div className="space-y-6">
+    <div className="tool-page decision-page space-y-5">
       <ToolPageHeader
-        eyebrow="Lab"
+        eyebrow="Decisions"
         title={lab.label}
-        description="Could a small, free model make our apps' quick decisions instead of an LLM? See what we found, then try it."
-        icon={<FlaskConical className="h-5 w-5" />}
+        description="Explore typed choices with known examples, or ask your own question and compare the answers."
+        icon={<Scale className="h-5 w-5" />}
         meta={
           laya && (
             <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[11px] text-gray-400">
@@ -280,7 +280,7 @@ export default function DecisionLab({ lab }: LabComponentProps) {
         }
       />
 
-      <Findings summary={data?.summary ?? null} loading={!data} />
+      <details className="workspace-experiment"><summary>Benchmark findings · measured results and recommendations</summary><Findings summary={data?.summary ?? null} loading={!data} /></details>
 
       {/* ── Try it ── */}
       <section className="space-y-4 rounded-xl border border-gray-800 bg-gray-900/40 p-4 sm:p-5" aria-labelledby="decide-try">

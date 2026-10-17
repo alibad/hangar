@@ -121,6 +121,18 @@ html:root .console-shell .tool-panel { background: var(--workspace-panel); borde
 .speech-voice-controls :is(input,[role=combobox]) { width: 100%; }
 .speech-voice-controls button[type=submit] { margin-top: 4px; min-height: 36px; }
 .speech-workspace form { border: 0; padding: 12px 0 0; background: transparent; }
+.recognition-workbench { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 22px; margin-top: 20px; }
+.recognition-workbench h2 { font-size: 13px; font-weight: 550; margin-bottom: 12px; }
+.recognition-source > .flex { flex-direction: column; }
+.recognition-source > .flex > button { padding: 28px; min-height: 120px; }
+.recognition-source [role=button] { min-height: 130px; }
+.recognition-transcript { border-inline-start: 1px solid var(--workspace-line); padding-inline-start: 22px; min-width: 0; }
+.recognition-transcript > header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.recognition-transcript > header h2 { margin: 0; }
+.recognition-transcript > div.mt-3 { border: 0; background: transparent; padding: 10px 0 0; }
+.recognition-empty { min-height: 270px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 24px; color: var(--workspace-muted); }
+.recognition-empty p { font-size: 13px; color: var(--workspace-ink); }
+.recognition-empty small { max-width: 30ch; line-height: 1.6; }
 html:root .console-shell .speech-mode-tabs button.is-active { background: color-mix(in oklab,var(--accent-500) 12%,var(--workspace-panel)); color: var(--workspace-accent); box-shadow: none; }
 .models-page > section:first-of-type { background: var(--workspace-panel); border-color: var(--workspace-line); border-radius: var(--workspace-radius); }
 .models-page .grid > .rounded-xl,.requests-toolbar { box-shadow: none; }
@@ -130,6 +142,7 @@ html:root .console-shell .speech-mode-tabs button.is-active { background: color-
 .arena-workbench { display: grid; grid-template-columns: minmax(0,1fr) minmax(300px,.75fr); grid-template-areas: "prompt models" "scoring models"; gap: 20px; align-items: start; }
 .arena-prompt { grid-area: prompt; }
 .arena-models { grid-area: models; min-width: 0; }
+.arena-models > ul.grid { grid-template-columns: minmax(0,1fr); }
 .arena-scoring { grid-area: scoring; }
 .arena-prompt textarea { min-height: 180px; }
 .vision-workspace [data-workspace-upload] { display: grid; place-content: center; min-height: 180px; background: var(--workspace-inset); }
@@ -143,7 +156,7 @@ html:root .console-shell .speech-mode-tabs button.is-active { background: color-
 .lab-workbench.has-results:is([data-output=mesh],[data-output=video]) .lab-results { position: sticky; top: 80px; }
 .video-studio-workbench { display: grid; grid-template-columns: minmax(0,1fr) 340px; grid-template-areas: "preview controls"; gap: 22px; align-items: start; }
 .video-studio-controls { grid-area: controls; }
-.video-studio-preview { grid-area: preview; min-width: 0; aspect-ratio: 16/10; background: var(--workspace-inset); }
+.video-studio-preview { grid-area: preview; min-width: 0; width: 100%; aspect-ratio: 16/10; background: var(--workspace-inset); }
 .video-studio-preview > video { max-height: 65dvh; }
 .home-system-details,.home-models-details { border: 1px solid var(--workspace-line); border-radius: 9px; background: var(--workspace-panel); overflow: hidden; }
 .home-system-details > summary,.home-models-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 14px; font-size: 12px; color: var(--workspace-ink); cursor: pointer; list-style: none; }
@@ -173,6 +186,11 @@ html:root .console-shell .cockpit-compose { box-shadow: none; background: var(--
   .audio-lab { grid-template-columns: minmax(0,1fr) 250px; gap: 20px; }
 }
 @container workspace (max-width: 800px) {
+  .recognition-workbench { grid-template-columns: minmax(0,1fr); }
+  .recognition-transcript { border-inline-start: 0; padding-inline-start: 0; border-top: 1px solid var(--workspace-line); padding-top: 18px; }
+  .video-source-still { flex-direction: column; }
+  .video-source-still > div:first-child { width: 100%; height: auto; aspect-ratio: 16/9; }
+  .video-source-still > div:last-child > div:first-child { flex-wrap: wrap; }
   .arena-workbench { grid-template-columns: minmax(0,1fr); grid-template-areas: "prompt" "models" "scoring"; }
   .video-studio-workbench { grid-template-columns: minmax(0,1fr); grid-template-areas: "controls" "preview"; }
   .lab-workbench.has-results,.lab-workbench.has-results:is([data-output=mesh],[data-output=video]) { grid-template-columns: minmax(0,1fr); grid-template-areas: "model" "input" "result"; }

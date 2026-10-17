@@ -177,6 +177,7 @@ type Metrics = {
 
 type TranscribeResult = {
   text: string;
+  error?: string;
   latency: number;
   fileName: string;
   /** Router alias that actually did the work — the picked model, or the fallback. */
@@ -336,6 +337,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [transcribeResult, setTranscribeResult] = useState<TranscribeResult | null>(null);
+  const [transcriptCopied, setTranscriptCopied] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   /** Shared with VoiceCloner's own recorder — see lib/use-audio-recorder. */
   const sttRecorder = useAudioRecorder();
@@ -358,6 +360,7 @@ export default function Home() {
    */
   const [ttsVoices, setTtsVoices] = useState<{
     alias?: string;
+    engine?: string;
     source: "service" | "declared" | "none";
     voices: VoiceOption[];
     /** The engine can learn a voice from a clip — see VoiceCloner. */
@@ -701,6 +704,7 @@ export default function Home() {
 
   async function transcribeAudio(file: File) {
     setTranscribing(true);
+    setTranscriptCopied(false);
     setTranscribeResult(null);
     const start = Date.now();
     try {
@@ -711,14 +715,15 @@ export default function Home() {
       const res = await fetch("/api/stt", { method: "POST", body: form });
       const data = await res.json();
       setTranscribeResult({
-        text: res.ok ? data.text : `Error: ${data.error}${data.detail ? ` — ${data.detail}` : ""}`,
+        text: res.ok ? data.text : "",
+        error: res.ok ? undefined : `${data.error}${data.detail ? ` — ${data.detail}` : ""}`,
         latency: data.latency ?? Date.now() - start,
         fileName: file.name,
         model: data.model,
         degraded: data.degraded,
       });
     } catch (err) {
-      setTranscribeResult({ text: `Error: ${err}`, latency: Date.now() - start, fileName: file.name });
+      setTranscribeResult({ text: "", error: String(err), latency: Date.now() - start, fileName: file.name });
     }
     setTranscribing(false);
   }
@@ -745,7 +750,7 @@ export default function Home() {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       setTtsLatency(Date.now() - start);
-      setTtsModel(res.headers.get("X-TTS-Model"));
+      setTtsModel(res.headers.get("X-TTS-Engine") ?? res.headers.get("X-TTS-Model"));
       if (ttsAudioRef.current) {
         ttsAudioRef.current.src = url;
         ttsAudioRef.current.play();
@@ -1855,6 +1860,9 @@ export default function Home() {
                   are small enough to co-reside, so unlike the LLM picker there's no
                   stop-the-others logic — Start/Stop is per model. */}
               <ModelPicker capability="stt" className="mb-3" compact />
+              <div className="recognition-workbench">
+              <div className="recognition-source">
+              <h2>1. Source audio</h2>
               <div className="flex gap-4 items-stretch">
                 <button
                   onClick={sttRecorder.recording ? sttRecorder.stop : startRecording}
@@ -1900,7 +1908,10 @@ export default function Home() {
                   )}
                 </div>
               </div>
-              {transcribeResult && (
+              </div>
+              <section className="recognition-transcript" aria-label="Transcript review">
+              <header><h2>2. Transcript</h2><button type="button" className="workspace-secondary" disabled={!transcribeResult?.text} onClick={async () => { try { await navigator.clipboard.writeText(transcribeResult?.text ?? ""); setTranscriptCopied(true); } catch { setTranscriptCopied(false); } }}>{transcriptCopied ? "Copied" : "Copy transcript"}</button></header>
+              {transcribeResult ? (
                 <div className="mt-3 bg-gray-900 rounded-xl border border-gray-800 p-5">
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <span className="text-xs text-gray-500 truncate">{transcribeResult.fileName}</span>
@@ -1913,12 +1924,14 @@ export default function Home() {
                       <span className="text-xs text-green-400">{transcribeResult.latency}ms</span>
                     </span>
                   </div>
-                  <p className="text-sm text-gray-100 leading-relaxed">{transcribeResult.text || <span className="text-gray-500 italic">No speech detected</span>}</p>
+                  {transcribeResult.error ? <p role="alert" className="text-sm text-red-400">{transcribeResult.error}</p> : <><textarea aria-label="Transcript" dir="auto" rows={8} value={transcribeResult.text} onChange={event => { setTranscriptCopied(false); setTranscribeResult(result => result ? { ...result, text: event.target.value } : result); }} className="w-full bg-transparent text-sm text-gray-100 leading-relaxed" />{!transcribeResult.text && <p className="text-gray-500 italic text-xs">No speech detected</p>}</>}
                   {transcribeResult.degraded && (
                     <p className="mt-2 text-[11px] text-amber-400">{transcribeResult.degraded}</p>
                   )}
                 </div>
-              )}
+              ) : <div className="recognition-empty"><WaveformIcon size={30} aria-hidden="true" /><p>{transcribing ? "Recognizing your recording…" : "Your transcript will appear here"}</p><small>Record or upload audio, then review and copy the recognized words.</small></div>}
+              </section>
+              </div>
               <ModelDiscovery capability="stt" label="speech → text" className="mt-3" />
             </section>
             )}
@@ -1999,14 +2012,14 @@ export default function Home() {
               </form>
               {/* Enrolling a voice belongs here, beside the picker it feeds —
                   a clone is an entry in that dropdown, not a separate feature. */}
-              <VoiceCloner
+              {ttsVoices?.source === "service" ? <VoiceCloner
                 voices={ttsVoices?.voices ?? []}
                 canClone={!!ttsVoices?.canClone}
-                alias={ttsVoices?.alias ?? "This model"}
+                alias={ttsVoices?.engine ?? ttsVoices?.alias ?? "This model"}
                 limits={ttsVoices?.limits}
                 onChanged={loadTtsVoices}
                 className="mt-3"
-              />
+              /> : <p className="mt-3 text-xs text-gray-500">Start the selected speech runtime to check its voice library and cloning support.</p>}
               <ModelDiscovery capability="tts" label="text → speech" className="mt-3" />
             </section>
             )}
