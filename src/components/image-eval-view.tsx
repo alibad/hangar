@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cellKey, PICK, summarize, type EvalCell, type Verdicts } from "@/lib/image-eval";
 import { IMAGE_MODELS } from "@/lib/image-models";
@@ -138,9 +140,9 @@ export default function ImageEvalView() {
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <label className="flex items-center gap-2 text-gray-400">
             Run
-            <select value={run ?? ""} onChange={(e) => void load(e.target.value)} className="rounded bg-gray-800 border border-gray-700 px-2 py-1 text-gray-100">
+            <FieldSelect aria-label="Saved run" value={run ?? ""} onValueChange={(selectedValue) => void load(selectedValue)} className="rounded bg-gray-800 border border-gray-700 px-2 py-1 text-gray-100">
               {data.runs.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
+            </FieldSelect>
           </label>
           <div className="flex rounded-lg border border-gray-700 overflow-hidden" role="tablist" aria-label="Study">
             {(["suite", "resolution", "edit"] as const).map((s) => (
@@ -151,10 +153,10 @@ export default function ImageEvalView() {
             ))}
           </div>
           {dims.length > 1 && (
-            <select value={dimension} onChange={(e) => setDimension(e.target.value)} className="rounded bg-gray-800 border border-gray-700 px-2 py-1 text-gray-100" aria-label="Dimension">
+            <FieldSelect value={dimension} onValueChange={(selectedValue) => setDimension(selectedValue)} className="rounded bg-gray-800 border border-gray-700 px-2 py-1 text-gray-100" aria-label="Dimension">
               <option value="all">All dimensions</option>
               {dims.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
+            </FieldSelect>
           )}
           <button onClick={() => void load(run)} className="rounded bg-gray-800 border border-gray-700 px-2 py-1 text-gray-300 hover:bg-gray-700">Refresh</button>
           <span className="ml-auto text-xs text-gray-500">

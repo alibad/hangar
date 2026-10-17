@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 import { useState } from "react";
 import { lab, type Overview } from "./api";
 import { btn } from "./parts";
@@ -118,12 +120,12 @@ export default function SendClients({ overview, onSent }: { overview: Overview; 
         <div className="space-y-5 text-sm text-gray-300">
           <label className="block">
             <span className="font-medium text-gray-100">Speed</span>
-            <select value={spd} onChange={(e) => setSpd(Number(e.target.value))} className="mt-1 block rounded-md border border-gray-700 bg-gray-950 px-2 py-1.5 text-gray-200">
+            <FieldSelect aria-label="Simulation speed" value={spd} onValueChange={(selectedValue) => setSpd(Number(selectedValue))} className="mt-1 block rounded-md border border-gray-700 bg-gray-950 px-2 py-1.5 text-gray-200">
               <option value={2}>Fast — a day passes every 2 seconds</option>
               <option value={3}>Normal — a day every 3 seconds</option>
               <option value={10}>Slow — a day every 10 seconds</option>
               <option value={60}>Very slow — a day every minute</option>
-            </select>
+            </FieldSelect>
           </label>
           <label className="flex items-start gap-2">
             <input type="checkbox" className="mt-1 accent-orange-500" checked={autoHuman} onChange={(e) => setAutoHuman(e.target.checked)} />
@@ -206,23 +208,23 @@ function OwnClient({ onStarted }: { onStarted: () => void }) {
         <input value={f.passportCountry} onChange={set("passportCountry")} placeholder="Passport country, two letters (e.g. LB)" maxLength={2} className={input} />
         <label className="flex items-center gap-2 text-gray-400">
           Moving to
-          <select value={f.destination} onChange={set("destination")} className={input}>
+          <FieldSelect aria-label="Choose send option" value={f.destination} onValueChange={(selectedValue) => setF(previous => ({ ...previous, destination: selectedValue }))} className={input}>
             {COUNTRIES.map(([k, n]) => (
               <option key={k} value={k}>
                 {n}
               </option>
             ))}
-          </select>
+          </FieldSelect>
         </label>
         <label className="flex items-center gap-2 text-gray-400">
           Writes in
-          <select value={f.clientLanguage} onChange={set("clientLanguage")} className={input}>
+          <FieldSelect aria-label="Language" value={f.clientLanguage} onValueChange={(selectedValue) => setF(previous => ({ ...previous, clientLanguage: selectedValue }))} className={input}>
             {LANGUAGES.map(([k, n]) => (
               <option key={k} value={k}>
                 {n}
               </option>
             ))}
-          </select>
+          </FieldSelect>
         </label>
       </div>
       <textarea value={f.requestText} onChange={set("requestText")} rows={3} placeholder="What they ask for, in their own words" className={`${input} mt-2 text-xs`} />

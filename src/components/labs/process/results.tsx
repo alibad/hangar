@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 import { useEffect, useState } from "react";
 import { Dialog, KindBadge, btn } from "./parts";
 import { fmtMs, lab, type Run, type Stats } from "./api";
@@ -53,14 +55,14 @@ export default function Results({ runs, active = true }: { runs: Run[]; active?:
     <div className="space-y-5">
       <label className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
         Showing
-        <select value={run} onChange={(e) => setRun(e.target.value)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
+        <FieldSelect aria-label="Saved run" value={run} onValueChange={(selectedValue) => setRun(selectedValue)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
           <option value="">every pretend client so far</option>
           {runs.map((r) => (
             <option key={r.id} value={r.id}>
               {batchLabel(r)}
             </option>
           ))}
-        </select>
+        </FieldSelect>
       </label>
       {err && <p className="text-xs text-red-300">{err}</p>}
       {!s ? (

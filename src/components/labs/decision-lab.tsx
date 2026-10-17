@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { FlaskConical } from "lucide-react";
 import { ToolPageHeader } from "@/components/tool-page";
@@ -376,10 +378,10 @@ export default function DecisionLab({ lab }: LabComponentProps) {
           )}
           <label className="flex items-center gap-2 text-xs text-gray-400">
             Compare with
-            <select
+            <FieldSelect
               value={compareId ?? ""}
-              onChange={(e) => {
-                setCompareId(e.target.value);
+              onValueChange={(selectedValue) => {
+                setCompareId(selectedValue);
                 clear();
               }}
               aria-label="Compare Laya with"
@@ -408,7 +410,7 @@ export default function DecisionLab({ lab }: LabComponentProps) {
                     ))}
                 </optgroup>
               )}
-            </select>
+            </FieldSelect>
           </label>
         </div>
 
@@ -972,9 +974,9 @@ function LayaPanel({
       </p>
       <label className="flex flex-wrap items-center gap-2">
         <span className="text-gray-300">Which Laya answers</span>
-        <select
+        <FieldSelect
           value={layaId}
-          onChange={(e) => setLayaId(e.target.value)}
+          onValueChange={(selectedValue) => setLayaId(selectedValue)}
           aria-label="Laya version"
           className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200"
         >
@@ -983,7 +985,7 @@ function LayaPanel({
               {label}
             </option>
           ))}
-        </select>
+        </FieldSelect>
       </label>
       {laya?.params && <p className="text-[11px] text-gray-500">Model sizes: {laya.params}.</p>}
     </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LabShell from "./lab-shell";
 import Dialog, { buttonStyles } from "@/components/dialog";
@@ -137,20 +139,20 @@ export default function VideoLab({ lab }: LabComponentProps) {
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-gray-400">
             <label className="flex items-center gap-2">
               Length
-              <select value={seconds} onChange={(e) => setSeconds(Number(e.target.value))} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
+              <FieldSelect aria-label="Duration" value={seconds} onValueChange={(selectedValue) => setSeconds(Number(selectedValue))} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
                 {LENGTHS.map((s) => (
                   <option key={s} value={s}>
                     {s} s
                   </option>
                 ))}
-              </select>
+              </FieldSelect>
             </label>
             <label className="flex items-center gap-2">
               Resolution
-              <select value={tier} onChange={(e) => setTier(e.target.value as VideoTier)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
+              <FieldSelect aria-label="Video quality" value={tier} onValueChange={(selectedValue) => setTier(selectedValue as VideoTier)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
                 <option value="low">Low (~480p)</option>
                 <option value="high">High (~720p)</option>
-              </select>
+              </FieldSelect>
             </label>
             <label className="flex items-center gap-2">
               Seed
@@ -164,14 +166,14 @@ export default function VideoLab({ lab }: LabComponentProps) {
             </label>
             <label className="flex items-center gap-2">
               Also on cloud
-              <select value={cloud} onChange={(e) => setCloud(e.target.value)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
+              <FieldSelect aria-label="Comparison model" value={cloud} onValueChange={(selectedValue) => setCloud(selectedValue)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
                 <option value="">no</option>
                 {CLOUD.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.label} · ${m.usdPerSecond?.toFixed(2)}/s
                   </option>
                 ))}
-              </select>
+              </FieldSelect>
               {cloudSpec && (
                 <span className="text-[11px] text-sky-300">
                   {cloudSeconds} s ≈ ${(cloudSeconds * (cloudSpec.usdPerSecond ?? 0)).toFixed(2)}
@@ -341,11 +343,11 @@ function SourcePicker({ value, onChange }: { value: string | null; onChange: (p:
               placeholder="The still: e.g. Aerial view of Lisbon's Alfama rooftops at golden hour, photorealistic"
               className="min-w-[16rem] flex-1 rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200"
             />
-            <select value={stillModel} onChange={(e) => setStillModel(e.target.value)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200" aria-label="Image model for the still">
+            <FieldSelect value={stillModel} onValueChange={(selectedValue) => setStillModel(selectedValue)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200" aria-label="Image model for the still">
               <option value="z-image-turbo">Z-Image Turbo (ComfyUI)</option>
               <option value="flux2-klein-4b">FLUX.2 Klein 4B (ComfyUI)</option>
               <option value="qwen-image">Qwen-Image</option>
-            </select>
+            </FieldSelect>
             <button
               type="button"
               disabled={busy || !still.trim()}

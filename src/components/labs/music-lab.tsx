@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import LabShell from "./lab-shell";
 import Dialog, { buttonStyles } from "@/components/dialog";
@@ -230,9 +232,9 @@ export default function MusicLab({ lab }: LabComponentProps) {
             )}
             {caps && caps.dits_available.length > 1 && (
               <span className="ml-auto flex items-center gap-1.5">
-                <select
+                <FieldSelect
                   value={swapTo || caps.dit || st?.dit || ""}
-                  onChange={(e) => setSwapTo(e.target.value)}
+                  onValueChange={(selectedValue) => setSwapTo(selectedValue)}
                   className={inputCls}
                   aria-label="Diffusion model"
                   disabled={swapping || !st?.ready}
@@ -242,7 +244,7 @@ export default function MusicLab({ lab }: LabComponentProps) {
                       {d}
                     </option>
                   ))}
-                </select>
+                </FieldSelect>
                 <button
                   type="button"
                   disabled={swapping || !st?.ready || !swapTo || swapTo === caps.dit}
@@ -446,13 +448,13 @@ export default function MusicLab({ lab }: LabComponentProps) {
         {(current.id === "extract" || current.id === "lego") && (
           <label className="flex items-center gap-1.5">
             {current.id === "extract" ? "Stem" : "Instrument"}
-            <select value={stem} onChange={(e) => setStem(e.target.value)} className={inputCls}>
+            <FieldSelect aria-label="Stem" value={stem} onValueChange={(selectedValue) => setStem(selectedValue)} className={inputCls}>
               {(caps?.tracks ?? ["vocals"]).map((t) => (
                 <option key={t} value={t}>
                   {t.replace("_", " ")}
                 </option>
               ))}
-            </select>
+            </FieldSelect>
           </label>
         )}
         <span
@@ -482,13 +484,13 @@ export default function MusicLab({ lab }: LabComponentProps) {
         {!instrumental && (
           <label className="flex items-center gap-1.5">
             Vocal language
-            <select value={language} onChange={(e) => setLanguage(e.target.value)} className={inputCls}>
+            <FieldSelect aria-label="Language" value={language} onValueChange={(selectedValue) => setLanguage(selectedValue)} className={inputCls}>
               {(caps?.languages ?? ["en"]).map((l) => (
                 <option key={l} value={l}>
                   {l}
                 </option>
               ))}
-            </select>
+            </FieldSelect>
           </label>
         )}
         <label className="flex items-center gap-1.5">

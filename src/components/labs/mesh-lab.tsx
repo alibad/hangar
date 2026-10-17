@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Hammer, Library, PersonStanding } from "lucide-react";
 import LabShell from "./lab-shell";
@@ -424,13 +426,13 @@ export default function MeshLab({ lab }: LabComponentProps) {
               <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
                 <label className="flex items-center gap-2">
                   Image model
-                  <select value={imageModel} onChange={(e) => setImageModel(e.target.value)} className={inputCls} aria-label="Image model">
+                  <FieldSelect value={imageModel} onValueChange={(selectedValue) => setImageModel(selectedValue)} className={inputCls} aria-label="Image model">
                     {IMAGE_MODELS.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.name}
                       </option>
                     ))}
-                  </select>
+                  </FieldSelect>
                 </label>
                 <label className="flex items-center gap-2">
                   Seed

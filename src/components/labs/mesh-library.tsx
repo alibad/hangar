@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Copy, Search, Wrench } from "lucide-react";
 import Dialog, { buttonStyles } from "@/components/dialog";
@@ -123,7 +125,7 @@ export default function MeshLibrary({ refreshKey = 0, onOpenInLab }: { refreshKe
             className={`${inputCls} w-full pl-7`}
           />
         </label>
-        <select value={group} onChange={(e) => setGroup(e.target.value)} className={inputCls} aria-label="Set">
+        <FieldSelect value={group} onValueChange={(selectedValue) => setGroup(selectedValue)} className={inputCls} aria-label="Set">
           <option value="">All sets</option>
           <option value="none">Made by hand in the Lab</option>
           {page?.groups.map((g) => (
@@ -131,7 +133,7 @@ export default function MeshLibrary({ refreshKey = 0, onOpenInLab }: { refreshKe
               {g.label} ({g.count})
             </option>
           ))}
-        </select>
+        </FieldSelect>
         <div className="flex overflow-hidden rounded-md border border-gray-800 text-[11px]" role="radiogroup" aria-label="Kind">
           {(["all", "object", "person"] as const).map((k) => (
             <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={segCls(kind === k)}>

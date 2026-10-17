@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 import { useCallback, useEffect, useState } from "react";
 import { fileUrl, lab, type InboxItem } from "./api";
 import { btn } from "./parts";
@@ -152,13 +154,13 @@ function CheckDocuments({ t, fn, busy, submit }: { t: InboxItem; fn: string; bus
               <label key={f.key} className="block text-gray-400">
                 {f.label}
                 {f.key === "docType" ? (
-                  <select value={edits[d.id]?.[f.key] ?? ""} onChange={(e) => set(d.id, f.key, e.target.value)} className="mt-1 block w-full rounded-md border border-gray-700 bg-gray-950 px-2 py-1.5 text-gray-200">
+                  <FieldSelect aria-label="Musical key" value={edits[d.id]?.[f.key] ?? ""} onValueChange={(selectedValue) => set(d.id, f.key, selectedValue)} className="mt-1 block w-full rounded-md border border-gray-700 bg-gray-950 px-2 py-1.5 text-gray-200">
                     {Object.entries(t.docTypes ?? {}).map(([k, name]) => (
                       <option key={k} value={k}>
                         {name}
                       </option>
                     ))}
-                  </select>
+                  </FieldSelect>
                 ) : (
                   <input value={edits[d.id]?.[f.key] ?? ""} placeholder={f.hint} onChange={(e) => set(d.id, f.key, e.target.value)} className="mt-1 block w-full rounded-md border border-gray-700 bg-gray-950 px-2 py-1.5 text-gray-200" />
                 )}

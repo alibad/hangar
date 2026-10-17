@@ -1,7 +1,9 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { FlaskConical } from "lucide-react";
+import { FlaskConical, Music, Box, Scale, Clapperboard } from "lucide-react";
 import { ToolPageHeader } from "@/components/tool-page";
 import ModelFootprint from "@/components/model-footprint";
 import ModelDiscovery from "@/components/model-discovery";
@@ -162,11 +164,12 @@ export default function LabShell<T>({
 
   const capLabel = CAPABILITY_LABELS[lab.capability];
   const hostName = payload?.host.name ?? "this machine";
+  const LabIcon = ({ music: Music, "3d": Box, decide: Scale, video: Clapperboard } as const)[lab.id as "music" | "3d" | "decide" | "video"] ?? FlaskConical;
 
   return (
-    <div className="space-y-5">
+    <div className="lab-workspace tool-page space-y-5" data-lab={lab.id}>
       <ToolPageHeader
-        eyebrow="Lab"
+        eyebrow={lab.capability === "music" ? "Audio" : lab.capability === "decision" ? "Decisions" : "Visual"}
         title={lab.label}
         description={lab.hint}
         actions={
@@ -181,7 +184,7 @@ export default function LabShell<T>({
             )}
           </div>
         }
-        icon={<FlaskConical className="h-5 w-5" />}
+        icon={<LabIcon className="h-5 w-5" />}
         meta={
           <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[11px] text-gray-400">
             {capLabel} · {hostName}
@@ -195,14 +198,15 @@ export default function LabShell<T>({
         </p>
       )}
 
-      {toolbar}
+      {toolbar && <div className="lab-toolbar">{toolbar}</div>}
 
       {!browse && (
         <>
+        <div className="lab-workbench">
         {/* ── models on this host ── */}
-        <section className="rounded-xl border border-gray-800 bg-gray-900/40">
+        <section className="lab-model-panel tool-panel">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-800 px-4 py-2.5">
-            <h2 className="text-sm font-medium text-gray-200">Local models on {hostName}</h2>
+            <h2 className="text-sm font-medium text-gray-200">Model & runtime</h2>
             {payload && !payload.routerUp && locals.some((m) => m.source === "router") && (
               <span className="flex items-center gap-2 text-[11px] text-amber-300">
                 AI Router is down — nothing can be called through it.
@@ -246,7 +250,7 @@ export default function LabShell<T>({
         </section>
 
         {/* ── input + run ── */}
-        <section className="space-y-3 rounded-xl border border-gray-800 bg-gray-900/40 p-4">
+        <section className="lab-input-panel tool-panel space-y-4 p-5">
           {input}
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -255,7 +259,7 @@ export default function LabShell<T>({
               disabled={running || !canRun || !!blockedReason}
               className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {running ? "Running…" : targets.length > 1 ? "Run both" : "Run"}
+              {running ? "Running…" : targets.length > 1 ? "Run comparison" : lab.output === "audio" ? "Generate music" : lab.output === "mesh" ? "Generate 3D" : lab.output === "video" ? "Queue video" : "Analyze"}
             </button>
             {running && (
               <button type="button" onClick={() => abortRef.current?.abort()} className="text-xs text-gray-400 hover:text-gray-200">
@@ -269,9 +273,9 @@ export default function LabShell<T>({
                   ? `Same input on a ${CAPABILITY_LABELS[lab.compareCapability]} model`
                   : "Same input on a cloud model"}
                 {compare && (
-                  <select
+                  <FieldSelect
                     value={cloudId}
-                    onChange={(e) => setCloudId(e.target.value)}
+                    onValueChange={(selectedValue) => setCloudId(selectedValue)}
                     className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200"
                     aria-label="Cloud model to compare against"
                   >
@@ -283,13 +287,14 @@ export default function LabShell<T>({
                         {m.costPerMTokIn != null ? ` · $${m.costPerMTokIn.toFixed(2)}/$${(m.costPerMTokOut ?? 0).toFixed(2)} per Mtok` : ""}
                       </option>
                     ))}
-                  </select>
+                  </FieldSelect>
                 )}
               </label>
             )}
             {blockedReason && canRun && <span className="text-xs text-amber-300">{blockedReason}</span>}
           </div>
         </section>
+        </div>
 
         {/* ── results ── */}
         {slots.length > 0 && (

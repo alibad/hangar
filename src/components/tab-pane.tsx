@@ -38,7 +38,7 @@ export function TabPane({ id, current, kept, label, children }: { id: string; cu
 
   if (!active && !kept.includes(id)) return null;
   return (
-    <div ref={ref} hidden={!active} data-console-tab={id}>
+    <div ref={ref} hidden={!active} data-console-tab={id} className="workspace-page">
       <TabActiveContext.Provider value={active}>
         <TabErrorBoundary label={label}>{children}</TabErrorBoundary>
       </TabActiveContext.Provider>

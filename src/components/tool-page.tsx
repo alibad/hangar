@@ -17,7 +17,7 @@ export function ToolPageHeader({ eyebrow, title, description, icon, meta, action
       <div className="tool-page-icon" aria-hidden="true">{icon}</div>
       <div className="min-w-0 flex-1">
         <p className="tool-page-eyebrow">{eyebrow}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="tool-page-title-row">
           <h1 className="tool-page-title">{title}</h1>
           {meta}
         </div>
@@ -26,6 +26,11 @@ export function ToolPageHeader({ eyebrow, title, description, icon, meta, action
       {actions && <div className="tool-page-actions">{actions}</div>}
     </header>
   );
+}
+
+/** Common workspace framing; page components keep their own task state. */
+export function WorkspaceIntro({ title, description, icon, actions }: Omit<ToolPageHeaderProps, "eyebrow" | "meta">) {
+  return <ToolPageHeader eyebrow="Workspace" title={title} description={description} icon={icon} actions={actions} />;
 }
 
 export function ToolSectionHeading({ eyebrow, title, description, action }: {

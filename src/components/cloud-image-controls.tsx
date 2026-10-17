@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldSelect } from "@/components/ui/field-select";
+
 // The hosted-model half of the Image Studio's form, drawn from the capability
 // registry (src/lib/cloud-image-models.ts): a control exists only when the
 // selected model takes that parameter AND the router can deliver it, every
@@ -162,20 +164,20 @@ export default function CloudImageControls({
       )}
       {rule.kind === "flexible" && (
         <Row label="Size" hint="Multiples of 16, between 1:3 and 3:1, no edge over 3840px, 655,360–8,294,400 pixels">
-          <select
+          <FieldSelect
             aria-label="Size"
             disabled={disabled}
             value={customMode ? "__custom__" : value.size ?? rule.default}
-            onChange={(e) => {
-              if (e.target.value === "__custom__") { setCustomMode(true); set({ size: `${cw}x${ch}` }); }
-              else { setCustomMode(false); set({ size: e.target.value }); }
+            onValueChange={(selectedValue) => {
+              if (selectedValue === "__custom__") { setCustomMode(true); set({ size: `${cw}x${ch}` }); }
+              else { setCustomMode(false); set({ size: selectedValue }); }
             }}
             className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1.5 text-gray-300"
           >
             <option value="auto">auto (model picks)</option>
             {rule.presets.map((p) => <option key={p} value={p}>{p.replace("x", " × ")}{parseSize(p)!.w * parseSize(p)!.h > rule.experimentalAbovePixels ? " · experimental" : ""}</option>)}
             <option value="__custom__">Custom…</option>
-          </select>
+          </FieldSelect>
           {customMode && (
             <span className="inline-flex items-center gap-1">
               <input aria-label="Custom width" inputMode="numeric" value={cw} disabled={disabled}
@@ -193,11 +195,11 @@ export default function CloudImageControls({
       {rule.kind === "gemini" && (
         <>
           <Row label="Aspect ratio" hint="Unset = match the first reference image, or 1:1">
-            <select aria-label="Aspect ratio" disabled={disabled} value={value.aspect_ratio ?? ""} onChange={(e) => set({ aspect_ratio: e.target.value || undefined })}
+            <FieldSelect aria-label="Aspect ratio" disabled={disabled} value={value.aspect_ratio ?? ""} onValueChange={(selectedValue) => set({ aspect_ratio: selectedValue || undefined })}
               className="rounded-lg border border-gray-700 bg-gray-800 px-2 py-1.5 text-gray-300">
               <option value="">auto ({kind === "edit" ? "match input" : "1:1"})</option>
               {rule.aspectRatios.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
+            </FieldSelect>
           </Row>
           {rule.imageSizes && rule.imageSizes.length > 1 && (
             <Row label="Resolution">
