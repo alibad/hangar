@@ -1,5 +1,6 @@
 "use client";
 
+import { ToolPageHeader } from "./tool-page";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -488,8 +489,9 @@ export default function HomeCockpit({
   };
 
   return (
-    <div className="cockpit space-y-3">
-      <section className={`cockpit-surface overflow-hidden rounded-2xl border ${issueCount ? "border-amber-500/35 bg-amber-500/[0.04]" : "border-emerald-500/20 bg-gray-900/75"}`} aria-labelledby="system-brief-title">
+    <div className="cockpit tool-page space-y-4">
+      <ToolPageHeader eyebrow="Hangar" title="Your workspace" description="Create with local AI. Pick a tool or continue where you left off." icon={<Stack size={23} />} actions={<button type="button" className="workspace-secondary" onClick={() => onSelectTab("models")}>Explore models <ArrowRight size={14} /></button>} />
+      <details className="home-system-details"><summary><span>{issueCount ? issueCount + " items need attention" : "Machine ready"}</span><span>{readyNow} ready · {onDemand} on demand</span></summary><section className={`cockpit-surface overflow-hidden rounded-2xl border ${issueCount ? "border-amber-500/35 bg-amber-500/[0.04]" : "border-emerald-500/20 bg-gray-900/75"}`} aria-labelledby="system-brief-title">
         <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-orange-300">System brief</p>
@@ -519,8 +521,8 @@ export default function HomeCockpit({
             {unattributedSpend.length > 0 && <button type="button" onClick={() => onSelectTab("requests")} className="text-violet-300 hover:text-violet-200">{unattributedSpend.length} billable call{unattributedSpend.length === 1 ? "" : "s"} missing a caller</button>}
           </div>
         )}
-      </section>
-      <section className="cockpit-surface flex flex-col gap-3 rounded-2xl border border-sky-500/20 bg-gradient-to-r from-sky-500/[0.07] via-gray-900/75 to-gray-900/75 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
+      </section></details>
+      <details className="home-models-details"><summary>Set up another capability <span>Models & machine fit</span></summary><section className="cockpit-surface flex flex-col gap-3 rounded-2xl border border-sky-500/20 bg-gradient-to-r from-sky-500/[0.07] via-gray-900/75 to-gray-900/75 px-4 py-3 sm:flex-row sm:items-center sm:px-5">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/10 text-sky-300">
           <Stack size={21} weight="duotone" />
         </span>
@@ -535,7 +537,7 @@ export default function HomeCockpit({
         >
           Discover and set up models <ArrowRight size={14} />
         </button>
-      </section>
+      </section></details>
       <section className="cockpit-compose-grid grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="cockpit-hero cockpit-surface overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/75">
           {/* Bottom padding is not optional: the recent-prompt row below is

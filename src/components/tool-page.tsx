@@ -28,11 +28,6 @@ export function ToolPageHeader({ eyebrow, title, description, icon, meta, action
   );
 }
 
-/** Common workspace framing; page components keep their own task state. */
-export function WorkspaceIntro({ title, description, icon, actions }: Omit<ToolPageHeaderProps, "eyebrow" | "meta">) {
-  return <ToolPageHeader eyebrow="Workspace" title={title} description={description} icon={icon} actions={actions} />;
-}
-
 export function ToolSectionHeading({ eyebrow, title, description, action }: {
   eyebrow?: string;
   title: string;

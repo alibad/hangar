@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ToolPageHeader } from "./tool-page";
+import { ChartNoAxesCombined } from "lucide-react";
 import { RefreshCw } from "lucide-react";
 import RouterUsageView from "@/components/router-usage-view";
 import { useUsageSnapshot } from "@/components/use-usage-snapshot";
@@ -59,15 +61,9 @@ const estimate = (g: {
 export default function UsageView() {
   const [source, setSource] = useState<Source>("router");
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-100">AI usage</h1>
-          <p className="mt-1 text-xs text-gray-500">
-            Follow your token usage, explore models, and compare your coding
-            assistants.
-          </p>
-        </div>
+    <div className="tool-page usage-page space-y-5">
+      <ToolPageHeader eyebrow="Insights" title="AI Usage" description="Understand tokens, estimated cost and activity across your models and coding assistants." icon={<ChartNoAxesCombined size={23} />} />
+      <div className="usage-source-bar flex flex-wrap items-end justify-between gap-4">
         <div
           className="flex flex-wrap gap-1 rounded-xl border border-gray-800 p-1"
           aria-label="Usage source"

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ToolPageHeader } from "./tool-page";
+import { Server, List, LayoutGrid } from "lucide-react";
 import {
   ArrowRight,
   ArrowSquareOut,
@@ -118,28 +120,23 @@ export default function ServicesControlCenter({ services, catalogByService, serv
     });
   }, [catalogByService, filter, query, services]);
 
+  const [view, setView] = useState<"list" | "cards">("list");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const inspected = shown.find(service => service.id === selectedId) ?? shown[0];
+  const renderCard = (service: ManagedService) => <ServiceCard key={service.id} service={service} models={catalogByService[service.id] ?? []} footprint={footprints.get(service.id)} vramMb={serviceVram[service.id]?.used_mb ?? null} ramMb={serviceRam[service.id]?.rss_mb ?? null} busyAction={actionInProgress?.id === service.id ? actionInProgress.action : null} feedback={actionMessage?.id === service.id ? actionMessage : null} onDismissFeedback={() => onDismissActionMessage(service.id)} onAction={onServiceAction} onSelectTab={onSelectTab} />;
+
   return (
-    <div className="services-center space-y-4">
-      <section className="services-hero cockpit-surface overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/75">
-        <div className="flex flex-col gap-5 px-5 py-5 sm:px-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-orange-300">Local infrastructure</p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-[-0.025em] text-gray-100 sm:text-3xl">Services control center</h1>
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">Understand what each service does, inspect its footprint, and control it without hunting through Home.</p>
-          </div>
-          <label className="services-search flex h-10 w-full items-center gap-2 rounded-xl border border-gray-800 bg-gray-950/55 px-3 text-gray-500 transition focus-within:border-orange-500/50 lg:w-80">
+    <div className="tool-page services-center space-y-4">
+      <ToolPageHeader eyebrow="System" title="Services" description="Inspect local runtimes, their memory use, and what needs your attention." icon={<Server size={23} />} actions={<label className="services-search flex h-10 w-full items-center gap-2 rounded-xl border border-gray-800 bg-gray-950/55 px-3 text-gray-500 transition focus-within:border-orange-500/50 lg:w-80">
             <MagnifyingGlass size={16} />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search services or models" aria-label="Search services or models" className="min-w-0 flex-1 bg-transparent text-sm text-gray-100 outline-none placeholder:text-gray-600" />
-          </label>
-        </div>
-
-        <div className="grid grid-cols-2 border-t border-gray-800 sm:grid-cols-4">
+          </label>} />
+      <section className="services-status-strip"><div className="grid grid-cols-2 border-t border-gray-800 sm:grid-cols-4">
           <SummaryStat label="Ready now" value={`${counts.ready}/${services.length}`} hint="healthy processes" tone="good" />
           <SummaryStat label="On demand" value={String(counts.ondemand)} hint="ready to start" />
           <SummaryStat label="Needs attention" value={String(counts.attention)} hint={counts.attention ? "review now" : "no active issues"} tone={counts.attention ? "warn" : "good"} />
           <SummaryStat label="Using GPU" value={String(counts.gpu)} hint="resident footprints" />
-        </div>
-      </section>
+        </div></section>
 
       <section className="cockpit-surface overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/75">
         <div className="services-toolbar flex flex-col gap-3 border-b border-gray-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
@@ -150,7 +147,7 @@ export default function ServicesControlCenter({ services, catalogByService, serv
               </button>
             ))}
           </div>
-          <span className="text-[11px] tabular-nums text-gray-500">Showing {shown.length} of {services.length}</span>
+          <div className="flex items-center gap-3"><span className="text-[11px] tabular-nums text-gray-500">{shown.length} / {services.length}</span><div className="workspace-mode-switch" aria-label="Service layout"><button type="button" aria-label="Service list" aria-pressed={view === "list"} onClick={() => setView("list")}><List size={16} /></button><button type="button" aria-label="Service cards" aria-pressed={view === "cards"} onClick={() => setView("cards")}><LayoutGrid size={16} /></button></div></div>
         </div>
 
         {shown.length ? (
@@ -161,23 +158,12 @@ export default function ServicesControlCenter({ services, catalogByService, serv
              background showed as a solid slab beside the final service. Real
              borders and a real gap draw the same separation without needing
              anything to bleed through. */
-          <div className="grid gap-3 p-3 md:grid-cols-2 sm:p-4 xl:grid-cols-3">
-            {shown.map((service) => (
-              <ServiceCard
-                key={service.id}
-                service={service}
-                models={catalogByService[service.id] ?? []}
-                footprint={footprints.get(service.id)}
-                vramMb={serviceVram[service.id]?.used_mb ?? null}
-                ramMb={serviceRam[service.id]?.rss_mb ?? null}
-                busyAction={actionInProgress?.id === service.id ? actionInProgress.action : null}
-                feedback={actionMessage?.id === service.id ? actionMessage : null}
-                onDismissFeedback={() => onDismissActionMessage(service.id)}
-                onAction={onServiceAction}
-                onSelectTab={onSelectTab}
-              />
-            ))}
-          </div>
+          view === "cards" ? <div className="grid gap-3 p-3 md:grid-cols-2 sm:p-4 xl:grid-cols-3">{shown.map(renderCard)}</div> :
+          <div className="services-workbench"><div className="services-table" role="group" aria-label="Local services">{shown.map(service => <button type="button" key={service.id} className="services-table-row" aria-label={"Inspect " + service.name} aria-current={inspected?.id === service.id ? "true" : undefined} onClick={() => { setSelectedId(service.id); if (window.matchMedia("(max-width: 1050px)").matches) document.getElementById("selected-service")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+            <span><strong>{service.name}</strong><small>{catalogByService[service.id]?.map(model => model.id).join(" · ") || service.category}</small></span>
+            <span className={isReady(service) ? "text-emerald-400" : needsAttention(service) ? "text-amber-400" : "text-gray-500"}>{isReady(service) ? "Running" : isOnDemand(service) ? "On demand" : needsAttention(service) ? "Attention" : service.status}</span>
+            <span className="services-table-memory">{serviceVram[service.id]?.used_mb != null ? (serviceVram[service.id].used_mb / 1024).toFixed(1) + " GB VRAM" : serviceRam[service.id]?.rss_mb != null ? (serviceRam[service.id].rss_mb / 1024).toFixed(1) + " GB RAM" : "—"}</span><ArrowRight size={15} />
+          </button>)}</div><aside id="selected-service" className="services-inspector" aria-label="Selected service">{inspected && renderCard(inspected)}</aside></div>
         ) : (
           <div className="px-6 py-16 text-center">
             <MagnifyingGlass size={24} className="mx-auto text-gray-700" />

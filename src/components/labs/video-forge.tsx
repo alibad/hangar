@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Dialog from "@/components/dialog";
+import { ToolPageHeader } from "@/components/tool-page";
+import { Clapperboard } from "lucide-react";
 import type { LabComponentProps } from "@/lib/labs";
 import type { Bakeoff, ForgeItem, ForgeRuntime, ForgeSettings } from "@/lib/forge/forge";
 import type { Story } from "@/lib/forge/story";
@@ -102,12 +104,13 @@ export default function VideoForge({ lab }: LabComponentProps) {
   const history = items.filter((i) => !["review", "brief", "still", "rendering"].includes(i.status) && !i.video?.output);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-5 p-4 sm:p-6">
+    <div className="tool-page forge-page flex flex-col gap-5">
+      <ToolPageHeader eyebrow="Visual" title="Video Forge" description="Research a brief, make clips, and review the results before using them." icon={<Clapperboard size={23} />} />
       {/* ── right now ── */}
-      <section className="rounded-xl border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent p-5">
+      <section className="tool-panel forge-status p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold text-gray-100">{lab.label}</h1>
+            <h2 className="text-sm font-semibold text-gray-100">Automation status</h2>
             <p className="mt-1 text-sm text-gray-400">
               Listens to what is trending, has a local model research one topic and write a brief, and turns it into a short clip overnight. Nothing is published — every clip waits for you.
             </p>

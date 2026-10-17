@@ -193,8 +193,8 @@ export default function Sam3View() {
   return (
     <div className="tool-page vision-page segment-page space-y-6">
       <ToolPageHeader
-        eyebrow="Open-vocabulary vision"
-        title="Segment"
+        eyebrow="Visual"
+        title="Mask & Segment"
         description="Describe what matters, then mask every matching object in an image or track it across a video."
         icon={<SelectionAll size={24} weight="duotone" />}
         meta={<span className={`tool-page-chip ${ready ? "is-ready" : "is-offline"}`}>{ready ? "Model ready" : "On demand"}</span>}
@@ -245,6 +245,11 @@ export default function Sam3View() {
         </div>
 
         <div
+          role="button"
+          tabIndex={0}
+          aria-label={mode === "video" ? "Upload video to track" : "Upload image to segment"}
+          onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); fileRef.current?.click(); } }}
+          data-workspace-upload
           className={`rounded-xl border-2 border-dashed transition p-6 text-center cursor-pointer ${dragOver ? "border-indigo-500 bg-indigo-500/5" : "border-gray-700 hover:border-gray-500"}`}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -264,6 +269,7 @@ export default function Sam3View() {
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <input
+              aria-label="Concepts to detect"
               value={concepts}
               onChange={(e) => setConcepts(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") (mode === "video" ? track() : segment()); }}

@@ -425,7 +425,7 @@ export default function ArenaView() {
     <div className="tool-page arena-page space-y-5">
       <ToolPageHeader
         eyebrow="Comparison workstream"
-        title="Arena"
+        title="Model Arena"
         description="One prompt, several models, measured side by side — latency, tokens, cost, and error rates against a reference you supply."
         icon={<Swords size={24} />}
         meta={
@@ -447,7 +447,8 @@ export default function ArenaView() {
       )}
 
       {/* ── 1. prompt first: it is the thing you came to run ── */}
-      <section className="tool-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
+      <div className="arena-workbench">
+      <section className="arena-prompt tool-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
         <ToolSectionHeading
           eyebrow="Input"
           title="Prompt"
@@ -487,7 +488,7 @@ export default function ArenaView() {
       </section>
 
       {/* ── 2. contestants, in two lanes ── */}
-      <section className="tool-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
+      <section className="arena-models tool-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
         <ToolSectionHeading
           eyebrow="Contestants"
           title="Pick the models to compare"
@@ -701,7 +702,7 @@ export default function ArenaView() {
       </section>
 
       {/* ── 3. scoring ── */}
-      <section className="tool-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
+      <section className="arena-scoring tool-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
         <ToolSectionHeading
           eyebrow="Scoring"
           title="Optional reference"
@@ -751,6 +752,7 @@ export default function ArenaView() {
       </section>
 
       {/* ── 4. results ── */}
+      </div>
       {Object.keys(runs).length > 0 && (
         <section className="tool-panel bg-gray-900 rounded-xl border border-gray-800 p-4">
           <div className="mb-3 flex items-center justify-between gap-3">

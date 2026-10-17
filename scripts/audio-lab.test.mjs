@@ -9,18 +9,31 @@ import ts from "typescript";
 // Exercise the production modules in Node, resolving their bundler-style TS imports.
 const scratch = await mkdtemp(path.join(tmpdir(), "hangar-audio-test-"));
 process.env.AUDIO_LAB_DIR = path.join(scratch, "library");
-for (const file of ["audio-project", "audio-store", "audio-origin", "labs", "workstreams"]) {
+for (const file of ["audio-project", "audio-workspace", "audio-store", "audio-origin", "labs", "workstreams"]) {
   const source = await readFile(new URL(`../src/lib/${file}.ts`, import.meta.url), "utf8");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replaceAll('"./audio-project"', '"./audio-project.mjs"').replaceAll('"./labs"', '"./labs.mjs"');
   await writeFile(path.join(scratch, `${file}.mjs`), compiled);
 }
 const model = await import(pathToFileURL(path.join(scratch, "audio-project.mjs")));
+const workspace = await import(pathToFileURL(path.join(scratch, "audio-workspace.mjs")));
 const store = await import(pathToFileURL(path.join(scratch, "audio-store.mjs")));
 const { sameAudioOrigin } = await import(pathToFileURL(path.join(scratch, "audio-origin.mjs")));
 const { WORKSTREAMS, SYSTEM_LINKS } = await import(pathToFileURL(path.join(scratch, "workstreams.mjs")));
 const { BUILTIN_TABS, LABS } = await import(pathToFileURL(path.join(scratch, "labs.mjs")));
 const pilot = JSON.parse(await readFile(new URL("../public/audio-lab/pilot/project.json", import.meta.url), "utf8"));
 test.after(async () => { await rm(scratch, { recursive: true, force: true }); });
+
+test("empty sound drafts survive recovery without becoming renderable recipes", () => {
+  const draft = workspace.emptyAudioEvent();
+  assert.equal(workspace.validAudioDraft(draft.recipe), true);
+  assert.equal(model.validateAudioRecipe(draft.recipe), false);
+  for (const patch of [{ length: Infinity }, { length: 61 }, { notes: null }, { loop: "yes" }]) {
+    assert.equal(workspace.validAudioDraft({ ...draft.recipe, ...patch }), false);
+  }
+  const restored = workspace.restoreAudioEvents([draft, { ...draft, id: undefined }, { ...draft, id: "../escape" }, { ...draft, label: "" }, { ...draft, recipe: { ...draft.recipe, layers: [{}] } }]);
+  assert.deepEqual(restored, [draft]);
+  assert.equal(workspace.restoreAudioEvents([{ ...draft, recipe: pilot.events[0].recipe }]).length, 1);
+});
 
 test("all existing tools and registered Labs remain reachable through workstreams or system navigation", () => {
   const ids = [...WORKSTREAMS.flatMap(g => g.links.map(l => l.id)), ...SYSTEM_LINKS.map(l => l.id)];

@@ -152,7 +152,7 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
 
   if (status && !status.lab) {
     return (
-      <div className="space-y-5">
+      <div className="tool-page process-page space-y-5">
         <Header def={def} />
         <p className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-4 text-sm text-gray-200">
           Nothing on this machine serves business processes. The process lab runs on BeTenshi; to run it here, declare a service with{" "}
@@ -166,7 +166,7 @@ export default function ProcessLab({ lab: def }: LabComponentProps) {
   const waiting = live.filter((r) => r.state === "ACTIVE" && r.plain.status.tone === "you");
 
   return (
-    <div className="space-y-5">
+    <div className="tool-page process-page space-y-5">
       <Header
         def={def}
         meta={<ReadyPill status={status} ready={ready} />}
@@ -321,7 +321,7 @@ const STEPS: [string, string][] = [
 
 function HowItWorks({ onSend }: { onSend: () => void }) {
   return (
-    <div className="space-y-5">
+    <div className="tool-page process-page space-y-5">
       <ol className="space-y-4">
         {STEPS.map(([title, text], i) => (
           <li key={title} className="flex gap-3">

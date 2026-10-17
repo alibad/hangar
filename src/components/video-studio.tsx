@@ -49,11 +49,11 @@ export default function VideoStudio() {
   const videoStatus = runtimeStatus("video");
 
   return (
-    <div className="space-y-4">
+    <div className="tool-page video-studio-page space-y-4">
       <ToolPageHeader
-        eyebrow="Local creation"
+        eyebrow="Visual"
         title="Video Studio"
-        description="Generate video locally with Draw Things and Wan 2.2. Nothing is uploaded. Image-to-video accepts one optional starting frame."
+        description="Make a local video from a prompt and an optional starting frame. Choose a runtime configured for this machine."
         icon={<Film className="h-5 w-5" />}
       />
       {/* Driven by the profile's runtimes.video, not by a hostname. The old
@@ -70,8 +70,8 @@ export default function VideoStudio() {
           )}
         </div>
       )}
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,420px)_1fr]">
-        <div className="space-y-4 rounded-xl border border-gray-800 bg-gray-900 p-4">
+      <section className="video-studio-workbench">
+        <div className="video-studio-controls tool-panel space-y-4 p-5">
           <ModelPicker capability="video" compact />
           <label className="block text-xs font-medium text-gray-300">
             Prompt
@@ -98,10 +98,10 @@ export default function VideoStudio() {
             {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
             {busy ? "Generating locally…" : videoStatus === "verified" ? "Generate video" : "Video runtime unverified"}
           </button>
-          <p className="text-[11px] leading-relaxed text-gray-500">Wan video is compute-heavy and shares unified memory with the other local models. Hangar queues it so image, speech, and video jobs do not fight each other.</p>
+          <p className="text-[11px] leading-relaxed text-gray-500">Video shares memory with your other local models. Check machine capacity before starting a run.</p>
           {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">{error}</p>}
         </div>
-        <div className="flex min-h-[360px] items-center justify-center overflow-hidden rounded-xl border border-gray-800 bg-black/30 p-4">
+        <div className="video-studio-preview tool-panel flex min-h-[360px] items-center justify-center overflow-hidden p-4">
           {url ? <video src={url} controls autoPlay loop className="max-h-[70vh] w-full rounded-lg" /> : (
             <div className="max-w-sm text-center text-gray-600">
               <Film className="mx-auto mb-3 h-10 w-10" />

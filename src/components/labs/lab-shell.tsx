@@ -202,7 +202,7 @@ export default function LabShell<T>({
 
       {!browse && (
         <>
-        <div className="lab-workbench">
+        <div className={`lab-workbench${slots.length ? " has-results" : ""}`} data-output={lab.output}>
         {/* ── models on this host ── */}
         <section className="lab-model-panel tool-panel">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-800 px-4 py-2.5">
@@ -294,16 +294,16 @@ export default function LabShell<T>({
             {blockedReason && canRun && <span className="text-xs text-amber-300">{blockedReason}</span>}
           </div>
         </section>
-        </div>
 
         {/* ── results ── */}
         {slots.length > 0 && (
-          <section className={`grid gap-4 ${slots.length > 1 ? "lg:grid-cols-2" : ""}`}>
+          <section className={`lab-results grid gap-4 ${slots.length > 1 ? "lg:grid-cols-2" : ""}`} aria-label="Generation results">
             {slots.map((s, i) => (
               <ResultColumn key={`${s.model}-${i}`} slot={s} renderOutput={renderOutput} onReleased={load} />
             ))}
           </section>
         )}
+        </div>
         </>
       )}
 

@@ -1708,7 +1708,7 @@ export default function Home() {
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
                         <div className="chat-empty-mark"><ChatCircleText size={30} weight="duotone" /></div>
-                        <p className="text-gray-300 text-base font-semibold">Your local model is ready for a prompt</p>
+                        <p className="text-gray-300 text-base font-semibold">Start a conversation</p>
                         <p className="text-gray-500 text-xs mt-1">Ask for code, analysis, or a quick reasoning check.</p>
                         <div className="chat-starter-row">
                           {["Explain a code path", "Draft a unit test", "Think through a bug"].map((starter) => (
@@ -1820,9 +1820,9 @@ export default function Home() {
           ) : (
           <div className="tool-page speech-page">
             <ToolPageHeader
-              eyebrow="Voice workstream"
+              eyebrow="Audio"
               title={speechMode === "tts" ? "Voices & Speech" : "Speech Recognition"}
-              description="Transcribe recordings and synthesize natural speech from one focused local audio workspace."
+              description={speechMode === "tts" ? "Turn a script into natural speech with your chosen voice." : "Recognize speech from a recording or your microphone, then review the transcript."}
               icon={<WaveformIcon size={24} weight="duotone" />}
               meta={<span className="tool-page-chip">{SPEECH_ENGINES}</span>}
             />
@@ -1865,12 +1865,16 @@ export default function Home() {
                       : "bg-gray-800 hover:bg-gray-700 border border-gray-700"
                   } disabled:opacity-40`}
                 >
-                  <span className="text-3xl">{sttRecorder.recording ? "⏹" : "🎙"}</span>
+                  <Mic size={27} aria-hidden="true" />
                   <span className="text-xs text-gray-300">
                     {sttRecorder.recording ? `${(sttRecorder.ms / 1000).toFixed(1)}s — stop` : "Record"}
                   </span>
                 </button>
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Upload audio for speech recognition"
+                  onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); audioInputRef.current?.click(); } }}
                   className={`flex-1 bg-gray-900 rounded-xl border-2 border-dashed transition p-6 text-center cursor-pointer ${
                     dragOver ? "border-blue-500 bg-blue-500/5" : "border-gray-700 hover:border-gray-500"
                   }`}
@@ -1919,24 +1923,24 @@ export default function Home() {
             </section>
             )}
 
-            {speechMode === "tts" && <TankVoiceDirector />}
-
             {/* Text-to-Speech */}
             {speechMode === "tts" && (
             <section className="tool-panel speech-workspace">
               <ModelPicker capability="tts" className="mb-3" compact />
               <form onSubmit={speakText} className="bg-gray-900 rounded-xl border border-gray-800 p-5">
-                <div className="flex gap-3 mb-3">
+                <div className="speech-compose-row flex gap-3 mb-3">
                   {/* Dictating what to say aloud sounds circular, and is not:
                       this is the shortest path from a spoken thought to the
                       same thought in a cloned voice. */}
-                  <div className="relative flex-1">
-                    <textarea value={ttsText} onChange={(e) => setTtsText(e.target.value)}
-                      placeholder="Type text to speak..." rows={2}
+                  <div className="relative flex-1 min-w-0">
+                    <label htmlFor="speech-script" className="mb-2 block text-xs font-medium text-gray-300">Script</label>
+                    <textarea id="speech-script" aria-label="Speech script" dir="auto" value={ttsText} onChange={(e) => setTtsText(e.target.value)}
+                      placeholder="Write a script, narration, or message…" rows={6}
                       className="w-full bg-gray-800 rounded-xl pl-4 pr-14 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 placeholder-gray-500 resize-none" />
                     {speakDictation.mic}
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="speech-voice-controls flex flex-col gap-2">
+                    <span className="text-xs font-medium text-gray-300">Voice</span>
                     {/* The routed engine's own voices. Six names used to be
                         hardcoded here; they were right for Kokoro and wrong for
                         every cloud engine, and they hid the ~40 other voices
@@ -1944,6 +1948,7 @@ export default function Home() {
                     {ttsVoices && ttsVoices.voices.length === 0 ? (
                       <input
                         type="text"
+                        aria-label="Speech voice name"
                         value={ttsVoice}
                         onChange={(e) => setTtsVoice(e.target.value)}
                         placeholder="voice name"
@@ -1952,7 +1957,7 @@ export default function Home() {
                       />
                     ) : (
                       <Select value={ttsVoice} onValueChange={(v) => v && setTtsVoice(v)}>
-                        <SelectTrigger className="w-36 bg-gray-800 border-gray-700 text-xs text-gray-300">
+                        <SelectTrigger aria-label="Speech voice" className="w-36 bg-gray-800 border-gray-700 text-xs text-gray-300">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-gray-800 border-gray-700 text-gray-300">
@@ -1970,7 +1975,7 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-                <div className={`flex items-center gap-3 text-xs mt-3 ${ttsLatency === null ? "invisible" : ""}`}>
+                <div className={`flex items-center gap-3 text-xs mt-3 ${ttsLatency === null ? "hidden" : ""}`}>
                   <span className={ttsLatency !== null && ttsLatency < 0 ? "text-red-400" : "text-green-400"}>
                     {ttsLatency !== null && ttsLatency < 0 ? "Error" : ttsLatency !== null ? `${ttsLatency}ms` : ""}
                   </span>
@@ -2005,6 +2010,7 @@ export default function Home() {
               <ModelDiscovery capability="tts" label="text → speech" className="mt-3" />
             </section>
             )}
+            {speechMode === "tts" && <details className="workspace-experiment"><summary>Example project · RTS AI voice director</summary><p className="text-xs text-gray-500">An optional experiment for comparing character lines. General speech synthesis is above.</p><TankVoiceDirector /></details>}
             </div>
           </div>
           )}
