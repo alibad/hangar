@@ -138,7 +138,7 @@ export default function ServicesControlCenter({ services, catalogByService, serv
           <SummaryStat label="Using GPU" value={String(counts.gpu)} hint="resident footprints" />
         </div></section>
 
-      <section className="cockpit-surface overflow-hidden rounded-2xl border border-gray-800 bg-gray-900/75">
+      <section className="cockpit-surface overflow-clip rounded-2xl border border-gray-800 bg-gray-900/75">
         <div className="services-toolbar flex flex-col gap-3 border-b border-gray-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex flex-wrap gap-1.5" aria-label="Filter services">
             {filterLabels.map((item) => (
