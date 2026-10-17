@@ -19,12 +19,14 @@
 .hangar-sidebar-toggle { display: inline-flex; flex-shrink: 0; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 7px; color: var(--color-gray-500); }
 .hangar-sidebar-toggle:hover { background: var(--color-gray-900); color: var(--color-gray-100); }
 .hangar-sidebar-toggle:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 3px; }
-.hangar-nav-toolbar { position: sticky; top: -8px; z-index: 1; display: flex; flex-shrink: 0; justify-content: flex-end; padding: 2px 0 4px; background: var(--color-gray-950); }
+.hangar-nav-home { position: sticky; top: -8px; z-index: 1; display: flex; align-items: center; gap: 8px; background: var(--color-gray-950); }
+.hangar-nav-home > .hangar-nav-group { flex: 1; min-width: 0; width: auto; }
 .hangar-sidebar { scrollbar-width: none; }
 .hangar-sidebar::-webkit-scrollbar { display: none; }
 @media(min-width: 768px) {
   .hangar-sidebar.is-collapsed { width: 72px; padding-left: 10px; padding-right: 10px; }
-  .hangar-sidebar.is-collapsed .hangar-nav-toolbar { justify-content: center; }
+  .hangar-sidebar.is-collapsed .hangar-nav-home { flex-direction: column-reverse; gap: 0; }
+  .hangar-sidebar.is-collapsed .hangar-nav-home > .hangar-nav-group { flex: none; width: 100%; }
   .hangar-sidebar.is-collapsed ~ .hangar-content { margin-left: 72px; }
   .hangar-sidebar.is-collapsed :is(.hangar-nav-group,.hangar-nav-child) { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
   .hangar-sidebar.is-collapsed :is(.hangar-nav-group span,.hangar-nav-group > svg:last-child:not(:first-child),.hangar-nav-child span,.hangar-nav-child small) { display: none; }
@@ -32,7 +34,7 @@
   .hangar-sidebar.is-collapsed .hangar-nav-children { display: block; margin: 3px 0; padding: 3px 0; border-top: 1px solid var(--color-gray-800); }
   .hangar-sidebar.is-collapsed .hangar-nav-child { min-height: 32px; }
 }
-@media(max-width: 767px) { .hangar-nav-toolbar { display: none; } .hangar-sidebar :is(.hangar-nav-group,.hangar-nav-child) { min-height: 44px; } }
+@media(max-width: 767px) { .hangar-nav-home > .hangar-sidebar-toggle { display: none; } .hangar-sidebar :is(.hangar-nav-group,.hangar-nav-child) { min-height: 44px; } }
 .console-header > div { max-width: none; }
 .console-header .ml-auto { flex: 1; justify-content: flex-end; }
 .machine-capacity { position: relative; }

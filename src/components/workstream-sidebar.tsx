@@ -41,13 +41,13 @@ export default function WorkstreamSidebar({ active, onSelect, speechMode, collap
     <button type="button" className="hangar-mobile-nav" aria-label={mobileOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileOpen} aria-controls="hangar-sidebar" onClick={() => setMobileOpen(v => !v)}>{mobileOpen ? <X size={20} /> : <Menu size={20} />}</button>
     {mobileOpen && <button type="button" className="hangar-nav-backdrop" aria-label="Close navigation" onClick={() => setMobileOpen(false)} />}
     <aside id="hangar-sidebar" className={`hangar-sidebar${mobileOpen ? " is-open" : ""}${collapsed ? " is-collapsed" : ""}`} aria-label="Workstreams">
-      <div className="hangar-nav-toolbar">
-        <button type="button" className="hangar-sidebar-toggle" onClick={onToggle} aria-controls="hangar-sidebar" aria-expanded={!collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
-          {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-        </button>
-      </div>
       <nav aria-label="Primary navigation">
-        <button type="button" className="hangar-nav-group" aria-label="Home" title="Home" aria-current={active === "stack" ? "page" : undefined} onClick={() => go("stack")}><Home size={19} /><span>Home</span></button>
+        <div className="hangar-nav-home">
+          <button type="button" className="hangar-nav-group" aria-label="Home" title="Home" aria-current={active === "stack" ? "page" : undefined} onClick={() => go("stack")}><Home size={19} /><span>Home</span></button>
+          <button type="button" className="hangar-sidebar-toggle" onClick={onToggle} aria-controls="hangar-sidebar" aria-expanded={!collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        </div>
         {WORKSTREAMS.map(group => { const Icon = icons[group.id as keyof typeof icons]; const open = expanded.includes(group.id); return <section className="hangar-nav-section" key={group.id}>
           <button type="button" className={`hangar-nav-group${currentGroup === group.id ? " is-current" : ""}`} aria-label={group.label} title={group.label} aria-expanded={open} aria-controls={`nav-${group.id}`} onClick={() => setExpanded(e => open ? e.filter(id => id !== group.id) : [...e, group.id])}><Icon size={19} /><span>{group.label}</span><ChevronDown size={14} className={open ? "is-open" : ""} /></button>
           <div id={`nav-${group.id}`} className={`hangar-nav-children${open ? " is-group-open" : ""}`}>{group.links.map(link)}</div>

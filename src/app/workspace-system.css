@@ -29,7 +29,7 @@ html:root .console-shell .console-header { background: var(--workspace-panel); b
 .hangar-sidebar { top: 60px; width: var(--workspace-rail); padding: 10px 10px 16px; background: var(--workspace-panel); border-color: var(--workspace-line); }
 .hangar-content { margin-left: var(--workspace-rail); }
 .hangar-content > main { max-width: 1720px; padding: 26px 32px 36px; }
-.hangar-nav-toolbar { top: -10px; min-height: 34px; padding: 0 0 6px; justify-content: flex-start; background: var(--workspace-panel); }
+.hangar-nav-home { top: -10px; background: var(--workspace-panel); }
 .hangar-nav-group { min-height: 32px; padding: 6px 10px; gap: 10px; font-size: 13px; }
 .hangar-nav-section { margin-top: 14px; }
 .hangar-nav-section > .hangar-nav-group { min-height: 26px; font-size: 10px; font-weight: 650; letter-spacing: .065em; text-transform: uppercase; color: var(--workspace-muted); }
