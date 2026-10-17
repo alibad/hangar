@@ -72,8 +72,8 @@ export type LabDefinition = {
 
 export const LABS: LabDefinition[] = [
   {
-    id: "audio", label: "Effects", hint: "Layer, shape and compare sounds from your own recordings",
-    keywords: "audio sound effects sfx layers waveform compare library recording",
+    id: "audio", label: "Effects", hint: "Generate effects from text, layer recordings and compare variations",
+    keywords: "audio sound effects sfx generate text prompt layers waveform compare library recording",
     capability: "effects", input: "audio", output: "audio", cloudComparison: false,
     load: () => import("@/components/labs/audio-lab"),
   },

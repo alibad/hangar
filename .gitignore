@@ -36,3 +36,6 @@ docs/images/console/*/speech/desktop/step-03-spoken.png
 # Walkthrough output (screenshots and demo videos, ~100 MB). Nothing links to it,
 # the walkthrough skill regenerates it, and this repo is public: keep it local.
 public/walkthroughs/
+
+# Existing offline effect runtime; machine paths stay local.
+/config/effects-runtime.*.local.json

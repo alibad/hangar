@@ -9,7 +9,7 @@ import ts from "typescript";
 // Exercise the production modules in Node, resolving their bundler-style TS imports.
 const scratch = await mkdtemp(path.join(tmpdir(), "hangar-audio-test-"));
 process.env.AUDIO_LAB_DIR = path.join(scratch, "library");
-for (const file of ["audio-project", "audio-workspace", "audio-store", "audio-origin", "labs", "workstreams"]) {
+for (const file of ["audio-project", "audio-workspace", "audio-store", "audio-origin", "audio-generation", "labs", "workstreams"]) {
   const source = await readFile(new URL(`../src/lib/${file}.ts`, import.meta.url), "utf8");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replaceAll('"./audio-project"', '"./audio-project.mjs"').replaceAll('"./labs"', '"./labs.mjs"');
   await writeFile(path.join(scratch, `${file}.mjs`), compiled);
@@ -17,6 +17,7 @@ for (const file of ["audio-project", "audio-workspace", "audio-store", "audio-or
 const model = await import(pathToFileURL(path.join(scratch, "audio-project.mjs")));
 const workspace = await import(pathToFileURL(path.join(scratch, "audio-workspace.mjs")));
 const store = await import(pathToFileURL(path.join(scratch, "audio-store.mjs")));
+const { validEffectRequest } = await import(pathToFileURL(path.join(scratch, "audio-generation.mjs")));
 const { sameAudioOrigin } = await import(pathToFileURL(path.join(scratch, "audio-origin.mjs")));
 const { WORKSTREAMS, SYSTEM_LINKS } = await import(pathToFileURL(path.join(scratch, "workstreams.mjs")));
 const { BUILTIN_TABS, LABS } = await import(pathToFileURL(path.join(scratch, "labs.mjs")));
@@ -33,6 +34,25 @@ test("empty sound drafts survive recovery without becoming renderable recipes", 
   const restored = workspace.restoreAudioEvents([draft, { ...draft, id: undefined }, { ...draft, id: "../escape" }, { ...draft, label: "" }, { ...draft, recipe: { ...draft.recipe, layers: [{}] } }]);
   assert.deepEqual(restored, [draft]);
   assert.equal(workspace.restoreAudioEvents([{ ...draft, recipe: pilot.events[0].recipe }]).length, 1);
+});
+
+test("text effects accept descriptions without a source and reject unsafe or oversized requests", () => {
+  const request = { prompt: "A glass chime", length: 1.2, seed: 41, event: "sound-test", name: "Chime" };
+  assert.equal(validEffectRequest(request), true);
+  for (const patch of [{ prompt: "  " }, { prompt: "x".repeat(4001) }, { length: NaN }, { length: .01 }, { length: 31 }, { seed: -1 }, { seed: 1.2 }, { seed: 2147483648 }, { event: "../outside" }, { event: "https://example.com" }, { name: null }]) {
+    assert.equal(validEffectRequest({ ...request, ...patch }), false);
+  }
+});
+
+test("recording imports do not require a license claim; generator provenance survives library reads", async () => {
+  const bytes = Buffer.from(model.encodeAudioWav([new Float32Array(4800), new Float32Array(4800)], 48000));
+  const recording = await store.saveAudioImport(bytes, "recording.wav", "wav", "");
+  assert.equal(recording.license, "Source not specified");
+  const generation = { model: "Stable Audio 3 Small SFX", prompt: "A chime", seed: 41, steps: 8 };
+  const generated = await store.saveAudioImport(bytes, "generated.wav", "wav", "Generated locally", generation);
+  const library = await store.audioLibrary();
+  assert.deepEqual(library.assets.find(item => item.id === generated.id).generation, generation);
+  assert.deepEqual(await readFile(store.audioFile(`${recording.id}.wav`)), bytes);
 });
 
 test("all existing tools and registered Labs remain reachable through workstreams or system navigation", () => {

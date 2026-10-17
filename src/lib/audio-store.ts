@@ -37,9 +37,9 @@ export async function saveAudioRevision(bytes: Buffer, value: Omit<AudioRevision
   await writeSidecar(id, { type: "revision", ...revision });
   return revision;
 }
-export async function saveAudioImport(bytes: Buffer, name: string, ext: string, license: string) {
-  if (!/^(wav|mp3|ogg|flac|webm|m4a)$/.test(ext) || !bytes.length || bytes.length > 20000000 || !license.trim() || license.length > 1000 || name.length > 160) throw new Error("Invalid import: add a source/license note and an audio file under 20 MB");
-  const id = randomUUID(), item = { id, name, license, url: `/api/audio-lab/asset/${id}.${ext}` };
+export async function saveAudioImport(bytes: Buffer, name: string, ext: string, license: string, generation?: { model: string; prompt: string; seed: number; steps: number }) {
+  if (!/^(wav|mp3|ogg|flac|webm|m4a)$/.test(ext) || !bytes.length || bytes.length > 20000000 || license.length > 1000 || name.length > 160) throw new Error("Invalid import: choose an audio file under 20 MB");
+  const id = randomUUID(), item = { id, name, license: license.trim() || "Source not specified", ...(generation ? { generation } : {}), url: `/api/audio-lab/asset/${id}.${ext}` };
   await mkdir(audioDir(), { recursive: true });
   await writeFile(path.join(audioDir(), `${id}.${ext}`), bytes, { flag: "wx" });
   await writeSidecar(id, { type: "asset", ...item });

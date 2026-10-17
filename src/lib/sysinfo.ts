@@ -16,6 +16,17 @@ import { getHost } from "./host";
 
 const execFileP = promisify(execFile);
 
+/** End only the child tree owned by a local one-shot worker. */
+export async function terminateLocalWorker(pid: number): Promise<void> {
+  if (!Number.isInteger(pid) || pid < 1) throw new Error("Invalid worker PID");
+  if (getHost().platform === "win32") {
+    await execFileP("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, timeout: 10000 });
+  } else {
+    // Unix workers are started in their own process group.
+    process.kill(-pid, "SIGTERM");
+  }
+}
+
 // ── memory ───────────────────────────────────────────────────────────────────
 
 export type HostMemory = {

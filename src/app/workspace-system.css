@@ -229,3 +229,84 @@ html:root .console-shell .cockpit-compose { box-shadow: none; background: var(--
   .workspace-page .chat-canvas { height: max(400px,calc(100dvh - 310px)); }
 }
 @media(prefers-reduced-motion: reduce) { .console-shell * { scroll-behavior: auto !important; } }
+
+/* Shared form controls: labels and help text always occupy their own rows. */
+.control-field { display: grid; gap: 8px; min-width: 0; }
+.control-field > label { display: block; font-size: 12px; font-weight: 550; line-height: 1.4; color: var(--workspace-ink); }
+.control-input,.control-number { width: 100%; min-width: 0; border: 1px solid var(--workspace-line); border-radius: 9px; background: var(--workspace-panel); color: var(--workspace-ink); font-size: 13px; transition: border-color .15s,box-shadow .15s; }
+.control-input { min-height: 42px; padding: 10px 12px; }
+textarea.control-input { min-height: 100px; line-height: 1.65; resize: vertical; }
+.control-input::placeholder { color: var(--workspace-muted); opacity: .85; }
+.control-input:hover,.control-number:hover { border-color: color-mix(in oklab,var(--workspace-ink) 35%,var(--workspace-line)); }
+.control-input:focus-visible,.control-number:focus-within { outline: none !important; border-color: var(--workspace-accent); box-shadow: 0 0 0 3px color-mix(in oklab,var(--accent-500) 16%,transparent); }
+.control-field > small { font-size: 11px; line-height: 1.6; color: var(--workspace-muted); }
+.control-number { display: flex; align-items: center; overflow: hidden; min-height: 42px; }
+.control-number > input { width: 100%; min-width: 0; background: transparent; color: inherit; border: 0; padding: 10px 12px; font-size: 13px; outline: none !important; box-shadow: none; }
+.control-number > span { padding-inline-end: 12px; font-size: 11px; color: var(--workspace-muted); }
+.audio-create { border: 1px solid var(--workspace-line); border-radius: 14px; background: var(--workspace-panel); padding: 24px; margin: 0 0 20px; }
+.audio-create > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+.audio-create-title { display: flex; align-items: center; gap: 9px; color: var(--workspace-accent); }
+.audio-create-title h2 { font-size: 16px; }
+.audio-engine-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: var(--workspace-muted); background: var(--workspace-inset); padding: 5px 8px; border-radius: 6px; }
+.audio-engine-tag > span { width: 5px; height: 5px; border-radius: 50%; background: var(--color-emerald-500); }
+.audio-create form { display: grid; gap: 18px; }
+.audio-create .control-input { background: var(--workspace-canvas); }
+.audio-create textarea.control-input { min-height: 130px; font-size: 14px; }
+.audio-create-controls { display: grid; grid-template-columns: minmax(95px,1fr) minmax(145px,1.3fr) auto; gap: 16px; align-items: end; }
+.audio-seed-field { display: flex; align-items: end; gap: 6px; min-width: 0; }
+.audio-seed-field > .control-field { flex: 1; }
+.audio-create .audio-seed-field > button { height: 42px; width: 40px; padding: 0; }
+.audio-create .audio-generate-button { min-height: 42px; padding-inline: 18px; background: var(--accent-600); color: white; border-color: var(--accent-600); }
+.audio-engine-note { display: flex; align-items: center; gap: 7px; color: var(--workspace-muted); font-size: 10px; line-height: 1.6; }
+.audio-generator-status { font-size: 12px; line-height: 1.6; color: var(--workspace-muted); border-inline-start: 2px solid var(--workspace-accent); padding-inline-start: 12px; }
+.audio-create > footer { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--workspace-line); padding-top: 18px; margin-top: 22px; color: var(--workspace-muted); font-size: 12px; }
+.audio-create > footer > small { width: 100%; font-size: 10px; }
+.audio-create button { min-height: 38px; font-size: 12px; }
+.audio-import-card { display: grid; gap: 16px; margin-top: 18px; padding: 18px; border: 1px solid var(--workspace-line); border-radius: 10px; background: var(--workspace-canvas); }
+.audio-import-card > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; overflow-wrap: anywhere; }
+.audio-import-card > button { justify-self: start; }
+.audio-import-card > small { font-size: 11px; color: var(--workspace-muted); }
+.audio-add-layer { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
+.audio-add-layer > strong { font-size: 12px; margin-inline-end: auto; }
+.audio-add-layer > button { min-height: 38px; font-size: 12px; }
+.audio-inspector { min-width: 0; }
+.audio-inspector fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+.audio-inspector fieldset > section { display: grid; gap: 16px; padding-bottom: 24px; margin-bottom: 24px; }
+.audio-inspector h2 { margin: 0; }
+.audio-inspector header { gap: 12px; }
+.audio-inspector label { margin: 0; }
+.audio-inspector .control-field > label { display: block; font-size: 12px; color: var(--workspace-ink); }
+.audio-inspector :is(.control-input,.control-number) { border-radius: 9px; background: var(--workspace-panel); }
+.audio-inspector .control-input { padding: 10px 12px; font-size: 13px; }
+.audio-inspector .control-number > input { width: 100%; border: 0; background: transparent; padding: 10px 12px; font-size: 13px; }
+.audio-inspector .control-field small { margin: 0; }
+.audio-inspector .audio-checkbox { justify-content: flex-start; gap: 10px; min-height: 36px; }
+.audio-inspector input[type=checkbox] { width: 16px; height: 16px; flex-shrink: 0; }
+.audio-inspector button { margin: 0; min-height: 36px; }
+.audio-inspector .workspace-field-select { width: 100%; min-height: 40px; justify-content: space-between; }
+.audio-inspector .audio-layer-picker { display: grid; grid-template-columns: minmax(0,1fr); justify-content: stretch; align-items: stretch; gap: 8px; }
+.audio-layer-fields { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px 12px; }
+.audio-processing[open] { display: grid; gap: 14px; }
+.audio-processing > summary { margin: 0; min-height: 36px; line-height: 1.6; }
+.audio-inspector .workspace-experiment input { width: 100%; margin-bottom: 12px; }
+@container workspace (max-width: 980px) {
+  .audio-lab { grid-template-columns: minmax(0,1fr); }
+  .audio-inspector { border: 0; padding: 0; display: block; }
+  .audio-inspector fieldset { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; align-items: start; }
+  .audio-inspector fieldset > section { border: 1px solid var(--workspace-line); border-radius: 12px; padding: 20px; margin: 0; background: var(--workspace-panel); }
+}
+@media(max-width: 600px) {
+  .audio-create { padding: 18px; }
+  .audio-create-controls { grid-template-columns: minmax(0,.8fr) minmax(0,1.2fr); gap: 16px 12px; }
+  .audio-create .audio-generate-button { grid-column: 1/-1; width: 100%; }
+  .audio-inspector fieldset { grid-template-columns: minmax(0,1fr); }
+  .audio-add-layer > strong { width: 100%; }
+  .audio-project-row { gap: 16px 12px; }
+  .audio-project-row > .control-field { grid-column: 1 / -1; }
+}
+
+.audio-lab.is-empty { grid-template-columns: minmax(0,1fr); }
+.audio-project-row > .control-field { align-self: end; gap: 6px; }
+.audio-project-row > .control-field .control-input { min-height: 36px; padding: 7px 12px; }
+.audio-picker-popup { min-width: min(300px,calc(100vw - 32px)); max-width: min(480px,calc(100vw - 32px)); }
+.audio-picker-popup [role=option] { min-height: 36px; }

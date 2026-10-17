@@ -12,6 +12,7 @@ type FieldSelectProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "value" | 
   children: ReactNode;
   name?: string;
   required?: boolean;
+  popupClassName?: string;
 };
 
 // Existing option lists stay declarative. They are data only: no visible native
@@ -26,7 +27,7 @@ function choicesFrom(children: ReactNode, group?: string): Choice[] {
   });
 }
 
-export function FieldSelect({ value, defaultValue, onValueChange, children, className, name, required, disabled, ...triggerProps }: FieldSelectProps) {
+export function FieldSelect({ value, defaultValue, onValueChange, children, className, popupClassName, name, required, disabled, ...triggerProps }: FieldSelectProps) {
   const choices = choicesFrom(children);
   const selected = value == null ? undefined : String(value);
   const items = choices.map(choice => ({ value: choice.value, label: choice.label }));
@@ -36,7 +37,7 @@ export function FieldSelect({ value, defaultValue, onValueChange, children, clas
       <SelectTrigger {...triggerProps} className={cn("workspace-field-select", className)} aria-label={triggerProps["aria-label"] ?? (triggerProps["aria-labelledby"] ? undefined : "Choose option")}>
         <SelectValue />
       </SelectTrigger>
-      <SelectContent align="start" alignItemWithTrigger={false} className="workspace-picker-popup">
+      <SelectContent align="start" alignItemWithTrigger={false} className={cn("workspace-picker-popup", popupClassName)}>
         {groups.map(group => <SelectGroup key={group ?? "ungrouped"}>
           {group && <SelectLabel>{group}</SelectLabel>}
           {choices.filter(choice => choice.group === group).map(choice => <SelectItem key={choice.value} value={choice.value} disabled={choice.disabled}>{choice.label}</SelectItem>)}
