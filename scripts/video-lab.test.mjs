@@ -23,6 +23,16 @@ test("model ids are unique slugs", () => {
   for (const id of ids) assert.match(id, /^[a-z0-9][a-z0-9.-]*$/);
 });
 
+test("catalogue aliases resolve only to declared local video models", () => {
+  assert.equal(getVideoModel("local-wan2-2-ti2v-5b")?.id, "wan2.2-ti2v-5b");
+  assert.equal(getVideoModel("local-wan2-2-14b")?.id, "wan2.2-14b");
+  assert.equal(getVideoModel("local-ltx-2-5")?.id, "ltx-2.5");
+  assert.equal(getVideoModel("local-hunyuanvideo-1-5")?.id, "hunyuanvideo-1.5");
+  assert.equal(getVideoModel("local-minimax-h3")?.id, "minimax-h3");
+  assert.equal(getVideoModel("local-veo-3-1-fast"), undefined);
+  assert.equal(getVideoModel("local-unknown"), undefined);
+});
+
 test("frame counts land on each family's latent grid", () => {
   const wan5b = getVideoModel("wan2.2-ti2v-5b");
   assert.equal(framesFor(wan5b, 5), 121); // the template's default

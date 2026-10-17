@@ -232,7 +232,11 @@ export const VIDEO_MODELS: VideoModelSpec[] = [
 ];
 
 export function getVideoModel(id: string): VideoModelSpec | undefined {
-  return VIDEO_MODELS.find((m) => m.id === id);
+  // Host-only models reach LabShell through the catalogue's slugged local
+  // alias. Keep the native id authoritative instead of trying to reverse the
+  // lossy punctuation change (wan2.2 -> wan2-2, ltx-2.5 -> ltx-2-5).
+  return VIDEO_MODELS.find((m) => m.id === id || (m.local &&
+    `local-${m.id.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` === id));
 }
 
 /**

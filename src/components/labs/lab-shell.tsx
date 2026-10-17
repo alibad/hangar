@@ -2,7 +2,7 @@
 
 import { FieldSelect } from "@/components/ui/field-select";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { FlaskConical, Music, Box, Scale, Clapperboard } from "lucide-react";
 import { ToolPageHeader } from "@/components/tool-page";
 import ModelFootprint from "@/components/model-footprint";
@@ -70,6 +70,9 @@ export default function LabShell<T>({
   browse?: boolean;
 }) {
   const [payload, setPayload] = useState<LabModelsPayload | null>(null);
+  // Workspaces stay mounted across navigation. Radio groups must belong to
+  // this shell, otherwise a hidden Lab can uncheck the visible Lab's model.
+  const modelGroup = useId();
   const [loadError, setLoadError] = useState<string | null>(null);
   const [localId, setLocalId] = useState<string>("");
   const [compare, setCompare] = useState(false);
@@ -243,7 +246,7 @@ export default function LabShell<T>({
           ) : (
             <ul className="divide-y divide-gray-800/70">
               {locals.map((m) => (
-                <ModelRow key={m.id} model={m} selected={m.id === localId} onSelect={() => setLocalId(m.id)} probe={load} />
+                <ModelRow key={m.id} model={m} group={modelGroup} selected={m.id === localId} onSelect={() => setLocalId(m.id)} probe={load} />
               ))}
             </ul>
           )}
@@ -336,11 +339,13 @@ function DocBody({ path }: { path?: string }) {
 function ModelRow({
   model: m,
   selected,
+  group,
   onSelect,
   probe,
 }: {
   model: LabModel;
   selected: boolean;
+  group: string;
   onSelect: () => void;
   probe: () => Promise<LabModelsPayload | null>;
 }) {
@@ -348,7 +353,7 @@ function ModelRow({
   return (
     <li className={`flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 ${selected ? "bg-orange-500/[0.05]" : ""}`}>
       <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
-        <input type="radio" name="lab-model" checked={selected} onChange={onSelect} className="accent-orange-500" />
+        <input type="radio" name={group} checked={selected} onChange={onSelect} className="accent-orange-500" />
         <span className={`size-2 shrink-0 rounded-full ${ready ? "bg-emerald-400" : "bg-gray-600"}`} aria-hidden="true" />
         <span className="min-w-0">
           <span className="block truncate text-sm text-gray-100">{m.id}</span>

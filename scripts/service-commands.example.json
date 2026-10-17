@@ -177,6 +177,9 @@
       "main.py",
       "--port",
       "8188",
+      "--disable-dynamic-vram",
+      "--disable-async-offload",
+      "--disable-pinned-memory",
       "--extra-model-paths-config",
       "C:\\path\\to\\betenshi-console\\config\\comfy-model-paths.yaml"
     ],

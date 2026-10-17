@@ -1,4 +1,5 @@
 import fs from "fs";
+import { serviceBodyReady } from "@/lib/service-readiness";
 import path from "path";
 // Named import, not default: js-yaml v5's ESM build exports `load` and has no
 // default export, so `import yaml from "js-yaml"` fails to compile.
@@ -398,7 +399,8 @@ export async function localServiceHealthy(serviceId: string): Promise<boolean> {
     const res = await fetch(getServiceUrl(serviceId) + svc.healthPath, {
       signal: AbortSignal.timeout(2500),
     });
-    return res.ok;
+    if (!res.ok) return false;
+    return serviceBodyReady(await res.json().catch(() => null));
   } catch {
     return false;
   }
@@ -504,9 +506,13 @@ export async function getCatalogue(): Promise<{
 
   const models: CatalogModel[] = base.map(({ m, svcId }) => {
     const info = m.model_info ?? {};
-    const md: ModelMeta = meta[m.model_name] ?? {};
     const provider = info.litellm_provider ?? "unknown";
     const local = isLocalBase(m.litellm_params?.api_base);
+    const served = local ? m.litellm_params?.model?.replace(/^openai\//, "") : undefined;
+    // Synthesized aliases are slugs; metadata remains keyed by the runtime's
+    // native model id. An explicit alias entry still takes precedence.
+    const md: ModelMeta = meta[m.model_name] ??
+      (served ? meta[`local-${served}`] ?? meta[served] : undefined) ?? {};
     const keyEnv = local ? undefined : PROVIDER_KEY_ENV[provider];
 
     let status: ModelStatus = "ready";

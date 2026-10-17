@@ -509,6 +509,7 @@ class VideoQueue {
     const res = resolutionFor(spec, req.tier === "high" ? "high" : "low");
     const job: VideoJob = {
       ...req,
+      model: spec.id,
       prompt: req.prompt.trim().slice(0, 4000),
       seconds,
       tier: res.tier,
