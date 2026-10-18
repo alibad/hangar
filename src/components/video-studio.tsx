@@ -5,6 +5,7 @@ import { Film, LoaderCircle, Upload } from "lucide-react";
 import ModelPicker from "@/components/model-picker";
 import { ToolPageHeader } from "@/components/tool-page";
 import { runtimeStatus, runtimeSummary } from "@/lib/runtimes";
+import { TextAreaField } from "@/components/ui/form-field";
 
 export default function VideoStudio() {
   const [prompt, setPrompt] = useState("");
@@ -71,18 +72,14 @@ export default function VideoStudio() {
         </div>
       )}
       <section className="video-studio-workbench">
-        <div className="video-studio-controls tool-panel space-y-4 p-5">
+        <div className="video-studio-controls tool-panel">
           <ModelPicker capability="video" compact />
-          <label className="block text-xs font-medium text-gray-300">
-            Prompt
-            <textarea
+            <TextAreaField label="Prompt"
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               rows={6}
               placeholder="A paper kite glides above a quiet desert at golden hour…"
-              className="mt-2 w-full resize-y rounded-lg border border-gray-700 bg-gray-950 p-3 text-sm text-gray-100 outline-none focus:border-indigo-500"
             />
-          </label>
           <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-gray-700 px-3 py-3 text-xs text-gray-400 transition hover:border-gray-500 hover:text-gray-200">
             <Upload className="h-4 w-4" />
             {image ? "Starting frame selected · choose another" : "Optional starting frame"}

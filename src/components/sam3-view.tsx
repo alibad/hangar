@@ -1,4 +1,5 @@
 "use client";
+import { TextField } from "@/components/ui/form-field";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ServiceControls, ServiceStartupNote, useServiceLifecycle } from "./service-control";
@@ -267,14 +268,13 @@ export default function Sam3View() {
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <input
+          <div className="control-row segment-prompt-row">
+            <TextField label="Concepts to detect"
               aria-label="Concepts to detect"
               value={concepts}
               onChange={(e) => setConcepts(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") (mode === "video" ? track() : segment()); }}
               placeholder="person, car, dog"
-              className="flex-1 bg-gray-950 border border-gray-700 focus:border-indigo-500 outline-none rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600"
             />
             <button
               onClick={() => (mode === "video" ? track() : segment())}
@@ -284,7 +284,7 @@ export default function Sam3View() {
               {busy ? (mode === "video" ? "Tracking…" : "Segmenting…") : mode === "video" ? "Track" : "Segment"}
             </button>
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="vision-quick-actions flex items-center gap-2 flex-wrap">
             {QUICK.map((q) => (
               <button
                 key={q}

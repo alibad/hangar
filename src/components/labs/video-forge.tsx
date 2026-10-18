@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { TextField } from "@/components/ui/form-field";
 import Dialog from "@/components/dialog";
 import { ToolPageHeader } from "@/components/tool-page";
 import { Clapperboard } from "lucide-react";
@@ -757,11 +758,10 @@ function ReviewCard({
           </a>
         ))}
       </p>
-      <input
+      <TextField label="Review reason (optional)"
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="Why? (optional — the next briefs learn from it)"
-        className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-sm text-gray-200 placeholder:text-gray-600"
       />
       <div className="flex gap-2">
         <button onClick={() => onVerdict("approved", reason)} disabled={busy} className="flex-1 rounded-md bg-emerald-600/80 px-2 py-1 text-sm text-white hover:bg-emerald-600 disabled:opacity-40">

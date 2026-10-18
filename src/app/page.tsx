@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SelectField, TextAreaField, TextField } from "@/components/ui/form-field";
 import ModelPicker from "@/components/model-picker";
 import ModelDiscovery from "@/components/model-discovery";
 import QwenTab from "@/components/qwen-tab";
@@ -1898,7 +1899,7 @@ export default function Home() {
                       <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
                       <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
                       <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                      <span className="text-sm">Transcribing on GPU...</span>
+                      <span className="text-sm">Recognizing speech…</span>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full">
@@ -1924,7 +1925,7 @@ export default function Home() {
                       <span className="text-xs text-green-400">{transcribeResult.latency}ms</span>
                     </span>
                   </div>
-                  {transcribeResult.error ? <p role="alert" className="text-sm text-red-400">{transcribeResult.error}</p> : <><textarea aria-label="Transcript" dir="auto" rows={8} value={transcribeResult.text} onChange={event => { setTranscriptCopied(false); setTranscribeResult(result => result ? { ...result, text: event.target.value } : result); }} className="w-full bg-transparent text-sm text-gray-100 leading-relaxed" />{!transcribeResult.text && <p className="text-gray-500 italic text-xs">No speech detected</p>}</>}
+                  {transcribeResult.error ? <p role="alert" className="text-sm text-red-400">{transcribeResult.error}</p> : <><TextAreaField label="Recognized words" aria-label="Transcript" dir="auto" rows={8} value={transcribeResult.text} onChange={event => { setTranscriptCopied(false); setTranscribeResult(result => result ? { ...result, text: event.target.value } : result); }} />{!transcribeResult.text && <p className="text-gray-500 italic text-xs">No speech detected</p>}</>}
                   {transcribeResult.degraded && (
                     <p className="mt-2 text-[11px] text-amber-400">{transcribeResult.degraded}</p>
                   )}
@@ -1945,42 +1946,33 @@ export default function Home() {
                   {/* Dictating what to say aloud sounds circular, and is not:
                       this is the shortest path from a spoken thought to the
                       same thought in a cloned voice. */}
-                  <div className="relative flex-1 min-w-0">
-                    <label htmlFor="speech-script" className="mb-2 block text-xs font-medium text-gray-300">Script</label>
-                    <textarea id="speech-script" aria-label="Speech script" dir="auto" value={ttsText} onChange={(e) => setTtsText(e.target.value)}
+                  <div className="flex-1 min-w-0">
+                    <TextAreaField label="Script" id="speech-script" aria-label="Speech script" dir="auto" value={ttsText} onChange={(e) => setTtsText(e.target.value)}
                       placeholder="Write a script, narration, or message…" rows={6}
-                      className="w-full bg-gray-800 rounded-xl pl-4 pr-14 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50 placeholder-gray-500 resize-none" />
-                    {speakDictation.mic}
+                      accessory={speakDictation.mic} />
                   </div>
                   <div className="speech-voice-controls flex flex-col gap-2">
-                    <span className="text-xs font-medium text-gray-300">Voice</span>
                     {/* The routed engine's own voices. Six names used to be
                         hardcoded here; they were right for Kokoro and wrong for
                         every cloud engine, and they hid the ~40 other voices
                         Kokoro accepts by its own id. */}
                     {ttsVoices && ttsVoices.voices.length === 0 ? (
-                      <input
+                      <TextField label="Voice"
                         type="text"
                         aria-label="Speech voice name"
                         value={ttsVoice}
                         onChange={(e) => setTtsVoice(e.target.value)}
                         placeholder="voice name"
                         title={ttsVoices.detail}
-                        className="w-36 rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                       />
                     ) : (
-                      <Select value={ttsVoice} onValueChange={(v) => v && setTtsVoice(v)}>
-                        <SelectTrigger aria-label="Speech voice" className="w-36 bg-gray-800 border-gray-700 text-xs text-gray-300">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-gray-800 border-gray-700 text-gray-300">
+                      <SelectField label="Voice" aria-label="Speech voice" value={ttsVoice} onValueChange={(v) => v && setTtsVoice(v)}>
                           {(ttsVoices?.voices ?? [{ id: ttsVoice }]).map((v) => (
-                            <SelectItem key={v.id} value={v.id} className="text-xs">
+                            <option key={v.id} value={v.id}>
                               {v.label ?? v.id}
-                            </SelectItem>
+                            </option>
                           ))}
-                        </SelectContent>
-                      </Select>
+                      </SelectField>
                     )}
                     <button type="submit" disabled={ttsSpeaking || !ttsText.trim()}
                       className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 rounded-lg px-4 py-1.5 text-sm font-medium transition">

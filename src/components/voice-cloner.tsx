@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { TextField } from "@/components/ui/form-field";
 import { useAudioRecorder } from "@/lib/use-audio-recorder";
 import type { VoiceOption } from "@/app/api/tts/voices/route";
 
@@ -259,7 +260,7 @@ export function VoiceCloner({
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="voice-enroll-controls">
             <button
               type="button"
               onClick={recorder.recording ? recorder.stop : record}
@@ -291,12 +292,11 @@ export function VoiceCloner({
                 e.target.value = "";
               }}
             />
-            <input
+            <TextField label="Voice name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Name this voice"
-              className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
             />
           </div>
 

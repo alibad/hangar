@@ -1,9 +1,9 @@
 "use client";
 
-import { FieldSelect } from "@/components/ui/field-select";
+import { SelectField, TextField } from "@/components/ui/form-field";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Copy, Search, Wrench } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, Wrench } from "lucide-react";
 import Dialog, { buttonStyles } from "@/components/dialog";
 import MeshViewer from "./mesh-viewer";
 import type { MeshJobSummary, MeshJobsPage } from "@/app/api/labs/3d/jobs/route";
@@ -109,23 +109,18 @@ export default function MeshLibrary({ refreshKey = 0, onOpenInLab }: { refreshKe
     if (next < jobs.length) setOpenAt(next);
   };
 
-  const inputCls = "rounded-md border border-gray-700 bg-gray-950 px-2 py-1.5 text-sm text-gray-100 outline-none placeholder:text-gray-600 focus:border-gray-500";
   const segCls = (on: boolean) => `px-2.5 py-1 ${on ? "bg-gray-700 text-gray-100" : "text-gray-400 hover:bg-gray-800"}`;
 
   return (
     <section className="space-y-4 rounded-xl border border-gray-800 bg-gray-900/40 p-4" data-testid="mesh-library">
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="relative min-w-[14rem] flex-1">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
-          <input
+      <div className="control-row mesh-library-filters">
+          <TextField label="Search library"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search what was made: lotus, monk, tank, ladder…"
             aria-label="Search the library"
-            className={`${inputCls} w-full pl-7`}
           />
-        </label>
-        <FieldSelect value={group} onValueChange={(selectedValue) => setGroup(selectedValue)} className={inputCls} aria-label="Set">
+        <SelectField label="Set" value={group} onValueChange={(selectedValue) => setGroup(selectedValue)} aria-label="Set">
           <option value="">All sets</option>
           <option value="none">Made by hand in the Lab</option>
           {page?.groups.map((g) => (
@@ -133,7 +128,7 @@ export default function MeshLibrary({ refreshKey = 0, onOpenInLab }: { refreshKe
               {g.label} ({g.count})
             </option>
           ))}
-        </FieldSelect>
+        </SelectField>
         <div className="flex overflow-hidden rounded-md border border-gray-800 text-[11px]" role="radiogroup" aria-label="Kind">
           {(["all", "object", "person"] as const).map((k) => (
             <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={segCls(kind === k)}>

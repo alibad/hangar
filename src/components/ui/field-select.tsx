@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { cn } from "@/lib/utils";
 
 type Choice = { value: string; label: ReactNode; disabled: boolean; group?: string };
-type FieldSelectProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "value" | "defaultValue" | "onChange" | "children"> & {
+export type FieldSelectProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "value" | "defaultValue" | "onChange" | "children"> & {
   value?: string | number;
   defaultValue?: string | number;
   onValueChange: (value: string) => void;

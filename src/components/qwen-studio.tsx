@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { NumberField, SelectField, TextAreaField, TextField } from "@/components/ui/form-field";
+import { ControlPopover } from "@/components/ui/control-popover";
 import { SERVICE_REGISTRY } from "@/lib/services";
 
 /** Sentinel for the gallery root: "" is a real folder name but not a legal Select value. */
@@ -94,9 +96,6 @@ const SIZE_PRESETS = [
   { label: "720×1280 · 9:16", w: 720, h: 1280 },
   { label: "1080×1350 · Portrait", w: 1080, h: 1350 },
 ];
-
-// value→label maps so the shadcn Select trigger shows labels, not raw values
-const SIZE_ITEMS: Record<string, string> = Object.fromEntries(SIZE_PRESETS.map((p) => [`${p.w}x${p.h}`, p.label]));
 
 function fmtBytes(n?: number) {
   if (!n) return "";
@@ -433,7 +432,6 @@ export default function QwenStudio() {
   const [batchPrompts, setBatchPrompts] = useState<string[]>([]);
   const [batchShowPreview, setBatchShowPreview] = useState(false);
   const [batchDimsOpen, setBatchDimsOpen] = useState(false);
-  const dimsPopRef = useRef<HTMLDivElement>(null);
   const [batchPlanning, setBatchPlanning] = useState(false);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
 
@@ -734,18 +732,6 @@ export default function QwenStudio() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  // close dims popover on outside click
-  useEffect(() => {
-    if (!batchDimsOpen) return;
-    function onDown(e: MouseEvent) {
-      if (dimsPopRef.current && !dimsPopRef.current.contains(e.target as Node)) {
-        setBatchDimsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [batchDimsOpen]);
 
   // restore batch form settings on mount
   useEffect(() => {
@@ -2279,17 +2265,14 @@ export default function QwenStudio() {
           </div>
         )}
 
-        <div className="relative">
-          <textarea
+          <TextAreaField label={mode === "generate" ? "Image description" : "Edit instructions"} aria-label="Image prompt"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === "Enter") (mode === "generate" ? runGenerate() : runEdit()); }}
             placeholder={mode === "generate" ? "Describe the image you want…" : "Describe the edit — e.g. 'put the person from image 1 into the scene in image 2, cinematic lighting'"}
             rows={3}
-            className="w-full bg-gray-800 rounded-xl px-4 py-3 pr-28 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 placeholder-gray-500 resize-none"
+            accessory={renderMic()}
           />
-          {renderMic()}
-        </div>
 
         {renderVoiceBanner()}
 
@@ -2307,36 +2290,22 @@ export default function QwenStudio() {
           />
         )}
 
-        <div className="flex items-center gap-4 flex-wrap text-xs">
+        <div className="control-row image-generation-settings">
           {mode === "generate" && !activeSpec && (
-            <div className="flex items-center gap-2">
-              <label className="text-gray-500">Size</label>
-              <Select items={SIZE_ITEMS} value={`${width}x${height}`} onValueChange={(v) => { if (!v) return; const [w, h] = String(v).split("x").map(Number); setWidth(w); setHeight(h); }}>
-                <SelectTrigger className="h-8 bg-gray-800 border-gray-700 text-xs text-gray-300"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700 text-gray-300">
-                  {SIZE_PRESETS.map((p) => <SelectItem key={p.label} value={`${p.w}x${p.h}`}>{p.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+              <SelectField label="Size" fieldClassName="image-size-field" value={`${width}x${height}`} onValueChange={(v) => { const [w, h] = v.split("x").map(Number); setWidth(w); setHeight(h); }}>
+                  {SIZE_PRESETS.map((p) => <option key={p.label} value={`${p.w}x${p.h}`}>{p.label}</option>)}
+              </SelectField>
           )}
           {/* A hosted API has no denoising loop; it is never sent steps. */}
           {!activeSpec && (
-            <div className="flex items-center gap-2">
-              <label className="text-gray-500">Steps</label>
-              <input type="number" min={1} max={50} value={steps} onChange={(e) => setSteps(Number(e.target.value))}
-                className="w-16 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-300 tabular-nums" />
-            </div>
+              <NumberField label="Steps" min={1} max={50} step={1} value={steps} onValueChange={setSteps} />
           )}
           {/* Distilled FLUX ignores guidance and negative conditioning, so the
               controls are hidden rather than left there doing nothing. */}
           {activeModel.supportsCfg && (
-            <div className="flex items-center gap-2">
-              <label className="text-gray-500">CFG</label>
-              <input type="number" min={1} max={10} step={0.5} value={cfg} onChange={(e) => setCfg(Number(e.target.value))}
-                className="w-16 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-300 tabular-nums" />
-            </div>
+              <NumberField label="CFG" min={1} max={10} step={.5} value={cfg} onValueChange={setCfg} />
           )}
-          <button onClick={() => setAdvanced((a) => !a)} className="text-gray-500 hover:text-gray-300">
+          <button type="button" onClick={() => setAdvanced((a) => !a)} aria-expanded={advanced} className="image-advanced-toggle text-gray-500 hover:text-gray-300">
             {advanced ? "− less" : activeModel.supportsNegative ? "+ seed / negative" : "+ seed"}
           </button>
           {/* The button starts what it needs. It is disabled only for things it
@@ -2374,25 +2343,23 @@ export default function QwenStudio() {
         {advanced && (
           <div className="space-y-3 pt-1">
             {activeModel.supportsNegative && (
-              <input
+              <TextField label="Negative prompt"
                 value={negative}
                 onChange={(e) => setNegative(e.target.value)}
                 placeholder="Negative prompt — what to avoid (text, watermark, blurry…)"
-                className="w-full bg-gray-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-pink-500/40 placeholder-gray-600"
               />
             )}
-            <div className="flex items-center gap-3 text-xs">
+            <div className="control-row image-seed-controls">
               <label className="flex items-center gap-1.5 text-gray-400 cursor-pointer">
                 <input type="checkbox" checked={lockSeed} onChange={(e) => setLockSeed(e.target.checked)} />
                 Lock seed
               </label>
-              <input
+              <TextField label="Seed"
                 type="number"
                 value={seed}
                 onChange={(e) => setSeed(e.target.value)}
                 disabled={!lockSeed}
                 placeholder="random"
-                className="w-40 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-300 tabular-nums disabled:opacity-40"
               />
               <button onClick={() => setSeed(String(Math.floor(Math.random() * 2_147_483_647)))} disabled={!lockSeed}
                 className="text-gray-500 hover:text-gray-300 disabled:opacity-40">🎲 random</button>
@@ -2400,23 +2367,15 @@ export default function QwenStudio() {
           </div>
         )}
 
-        <label className="flex items-center gap-3 text-xs text-gray-400">Save to gallery
+        <div className="image-save-controls">
           {/* UNFILED is a sentinel: "" is not a legal Select value, but it IS
               the real folder name for the gallery root, so it is translated at
               this boundary and every reader of the state is unchanged. */}
-          <Select value={outputFolder || UNFILED} disabled={busy} onValueChange={(v) => { if (!v) return; setSelectedFolder(String(v) === UNFILED ? "" : String(v)); setGalleryBatchFilter(null); }}>
-            <SelectTrigger aria-label="Save to gallery" className="border-gray-700 bg-gray-800 px-3 text-gray-200">
-              {/* Explicit, because the sentinel is not a label: an empty folder
-                  name is the gallery ROOT, and a bare SelectValue renders the
-                  raw value, so the control read "__unfiled__". */}
-              <SelectValue>{outputFolder || "Unfiled"}</SelectValue>
-            </SelectTrigger>
-            <SelectContent className="border-gray-700 bg-gray-900 text-gray-200">
-              <SelectItem value={UNFILED}>Unfiled</SelectItem>
-              {folders.map((folder) => <SelectItem key={folder} value={folder}>{folder}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </label>
+          <SelectField label="Save to gallery" value={outputFolder || UNFILED} disabled={busy} onValueChange={(v) => { setSelectedFolder(v === UNFILED ? "" : v); setGalleryBatchFilter(null); }}>
+              <option value={UNFILED}>Unfiled</option>
+              {folders.map((folder) => <option key={folder} value={folder}>{folder}</option>)}
+          </SelectField>
+        </div>
         {busy && <button onClick={() => requestRef.current?.controller.abort()} className="text-xs text-gray-400 underline">Stop waiting</button>}
         {busy && renderStepProgress()}
         {/* Survives a run in flight, which `lastResult` alone does not: starting
@@ -2525,140 +2484,108 @@ export default function QwenStudio() {
 
           {/* ── Row 1: idea / manual list ── */}
           {batchVary === "manual" ? (
-            <textarea
+            <TextAreaField label="Prompts (one per line)"
               value={batchManual}
               onChange={(e) => { setBatchManual(e.target.value); setBatchPrompts([]); }}
               placeholder={"One prompt per line — each line = one image.\n\nE.g.:\na lone lighthouse at dusk, cinematic, moody\nsame lighthouse at dawn, warm palette\n..."}
               rows={6}
               disabled={batchSubmitting}
-              className="w-full bg-gray-800 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-pink-500/50 placeholder-gray-600 resize-y disabled:opacity-60"
+              className="font-mono"
             />
           ) : (
-            <div className="relative">
-              <textarea
+              <TextAreaField label="Base idea"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Base idea — the varier expands this into N distinct prompts."
                 rows={2}
                 disabled={batchSubmitting}
-                className="w-full bg-gray-800 rounded-xl px-4 py-3 pr-28 text-sm focus:outline-none focus:ring-2 focus:ring-pink-500/50 placeholder-gray-500 resize-none disabled:opacity-60"
+                accessory={!batchSubmitting ? renderMic() : undefined}
               />
-              {!batchSubmitting && renderMic()}
-            </div>
           )}
 
           {renderVoiceBanner()}
 
           {/* ── Row 2: count + vary ── */}
-          <div className="flex items-center gap-2 flex-wrap text-xs text-gray-400">
-            <span className="text-gray-600">Count</span>
+          <div className="control-row image-batch-controls">
+            <fieldset className="control-choice-field"><legend>Batch size</legend><div className="control-row">
             {[10, 25, 50, 100].map((n) => (
               <button key={n} onClick={() => setBatchCount(n)} disabled={batchSubmitting}
                 className={`px-2 py-1 rounded-md border transition ${batchCount === n ? "bg-pink-600 border-pink-600 on-accent" : "border-gray-700 hover:border-gray-500"} disabled:opacity-50`}>
                 {n}
               </button>
             ))}
-            <input type="number" min={1} max={500} value={batchCount} disabled={batchSubmitting}
-              onChange={(e) => setBatchCount(Math.max(1, Math.min(500, Number(e.target.value))))}
-              className="w-14 bg-gray-800 border border-gray-700 rounded-md px-2 py-1 tabular-nums" />
+            <NumberField label="Custom count" min={1} max={500} step={1} value={batchCount} disabled={batchSubmitting} onValueChange={setBatchCount} />
+            </div></fieldset>
 
-            <span className="text-gray-600 ml-2">Vary</span>
-            <Select items={[]} value={batchVary} onValueChange={(v) => { if (!v) return; setBatchVary(v as typeof batchVary); setBatchPrompts([]); }} disabled={batchSubmitting}>
-              <SelectTrigger className="h-7 bg-gray-800 border-gray-700 text-xs w-28"><SelectValue /></SelectTrigger>
-              <SelectContent className="bg-gray-800 border-gray-700 text-gray-300">
-                <SelectItem value="template">Template</SelectItem>
-                <SelectItem value="ai">AI (LLM)</SelectItem>
-                <SelectItem value="seed">Seed only</SelectItem>
-                <SelectItem value="manual">Manual list</SelectItem>
-              </SelectContent>
-            </Select>
+            <SelectField label="Variation" value={batchVary} onValueChange={(v) => { setBatchVary(v as typeof batchVary); setBatchPrompts([]); }} disabled={batchSubmitting}>
+                <option value="template">Template</option>
+                <option value="ai">AI (LLM)</option>
+                <option value="seed">Seed only</option>
+                <option value="manual">Manual list</option>
+            </SelectField>
           </div>
 
           {/* ── Row 3: quality + dims ── */}
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <span className="text-gray-600">Size</span>
-            <Select items={SIZE_ITEMS} value={`${width}x${height}`} disabled={batchSubmitting} onValueChange={(v) => { if (!v) return; const [w, h] = String(v).split("x").map(Number); setWidth(w); setHeight(h); }}>
-              <SelectTrigger className="h-7 bg-gray-800 border-gray-700 text-xs w-36"><SelectValue /></SelectTrigger>
-              <SelectContent className="bg-gray-800 border-gray-700 text-gray-300">
-                {SIZE_PRESETS.map((p) => <SelectItem key={p.label} value={`${p.w}x${p.h}`}>{p.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="control-row image-generation-settings">
+            <SelectField label="Size" fieldClassName="image-size-field" value={`${width}x${height}`} disabled={batchSubmitting} onValueChange={(v) => { const [w, h] = v.split("x").map(Number); setWidth(w); setHeight(h); }}>
+                {SIZE_PRESETS.map((p) => <option key={p.label} value={`${p.w}x${p.h}`}>{p.label}</option>)}
+            </SelectField>
 
-            <span className="text-gray-600 ml-2">Steps</span>
-            <input type="number" min={1} max={50} value={steps} disabled={batchSubmitting}
-              onChange={(e) => setSteps(Number(e.target.value))}
-              className="w-12 bg-gray-800 border border-gray-700 rounded-md px-2 py-1 tabular-nums" />
+            <NumberField label="Steps" min={1} max={50} step={1} value={steps} disabled={batchSubmitting} onValueChange={setSteps} />
 
             {activeModel.supportsCfg && (
-              <>
-                <span className="text-gray-600 ml-1">CFG</span>
-                <input type="number" min={1} max={20} step={0.5} value={cfg} disabled={batchSubmitting}
-                  onChange={(e) => setCfg(Number(e.target.value))}
-                  className="w-12 bg-gray-800 border border-gray-700 rounded-md px-2 py-1 tabular-nums" />
-              </>
+                <NumberField label="CFG" min={1} max={20} step={.5} value={cfg} disabled={batchSubmitting} onValueChange={setCfg} />
             )}
 
-            {/* dims trigger — self-contained relative anchor */}
+            {/* The popover keeps dimension controls within the viewport. */}
             {(batchVary === "template" || batchVary === "ai") && (() => {
               const activeDims = (["style", "lighting", "mood", "palette", "lens"] as DimKey[]).filter((d) => batchDims[d].on);
               const summary = activeDims.map((d) => batchDims[d].locked || d).join(" · ");
               return (
-                <div className="relative ml-auto" ref={dimsPopRef}>
-                  <button
-                    onClick={() => setBatchDimsOpen((o) => !o)}
+                <div className="relative ml-auto">
+                  <ControlPopover open={batchDimsOpen} onOpenChange={setBatchDimsOpen} label="Variation dimensions" className="image-variation-popover" trigger={<button
                     disabled={batchSubmitting}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] transition disabled:opacity-40 ${batchDimsOpen ? "border-pink-500/50 text-pink-300 bg-pink-500/10" : "border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"}`}
                   >
                     <span className="max-w-[200px] truncate">{summary || "no dims"}</span>
                     <ChevronDown className={`w-3 h-3 flex-shrink-0 transition-transform ${batchDimsOpen ? "rotate-180" : ""}`} />
-                  </button>
-
-                  {batchDimsOpen && (
-                    <div className="absolute right-0 bottom-full mb-2 w-80 rounded-xl shadow-2xl p-3 space-y-2 z-30"
-                      style={{ background: "rgb(20,20,28)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                      <p className="text-[10px] uppercase tracking-wider font-semibold pb-1" style={{ color: "rgba(255,255,255,0.35)" }}>Variation dimensions</p>
+                  </button>}>
                       {(["style", "lighting", "mood", "palette", "lens"] as DimKey[]).map((dim) => {
                         const d = batchDims[dim];
                         const pool = DIM_POOLS[dim] as readonly string[];
                         return (
                           <div key={dim} className="flex items-center gap-2 text-xs">
                             <button
+                              type="button" role="switch" aria-checked={d.on} aria-label={`Include ${dim} variation`}
                               onClick={() => setBatchDims((prev) => ({ ...prev, [dim]: { ...prev[dim], on: !prev[dim].on } }))}
-                              className={`w-7 h-3.5 rounded-full transition flex-shrink-0 ${d.on ? "bg-pink-500" : "bg-white/20"}`}
+                              className="variation-toggle"
                             >
-                              <span className={`block w-2.5 h-2.5 rounded-full bg-white mx-auto transition-transform ${d.on ? "translate-x-1" : "-translate-x-1"}`} />
+                              <span className={`variation-track ${d.on ? "is-on" : ""}`}><span /></span>
                             </button>
-                            <span className="w-12 flex-shrink-0 capitalize text-[11px]"
-                              style={{ color: d.on ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.25)" }}>{dim}</span>
+                            <span className="w-12 flex-shrink-0 capitalize text-[11px] text-gray-400">{dim}</span>
                             <Select
                               items={{ __rotate__: "rotate through all", ...Object.fromEntries(pool.map((v) => [v, v])) }}
                               value={d.locked || "__rotate__"} disabled={!d.on}
                               onValueChange={(v) => { setBatchDims((prev) => ({ ...prev, [dim]: { ...prev[dim], locked: v === "__rotate__" ? "" : (v ?? "") } })); setBatchPrompts([]); }}>
-                              <SelectTrigger className="h-6 flex-1 min-w-0 text-[11px] transition"
-                                style={d.on
-                                  ? { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)" }
-                                  : { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.2)", opacity: 0.5 }}>
+                              <SelectTrigger aria-label={`${dim} variation`} className="flex-1 min-w-0 text-[11px] transition">
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent className="bg-gray-900 border-gray-700 text-gray-200 text-xs max-h-52 overflow-y-auto">
-                                <SelectItem value="__rotate__"><span className="italic" style={{ color: "rgba(255,255,255,0.4)" }}>rotate through all</span></SelectItem>
+                              <SelectContent className="workspace-picker-popup control-picker-popup max-h-52 overflow-y-auto">
+                                <SelectItem value="__rotate__"><span className="italic text-gray-500">rotate through all</span></SelectItem>
                                 {pool.map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                               </SelectContent>
                             </Select>
                           </div>
                         );
                       })}
-                      <div className="pt-1.5" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                        <input
+                      <div className="pt-3 border-t border-gray-800">
+                        <TextField label="Append to every prompt"
                           value={batchSuffix}
                           onChange={(e) => { setBatchSuffix(e.target.value); setBatchPrompts([]); }}
                           placeholder="Always append — e.g. 'shot on Kodak Portra, grain'"
-                          className="w-full rounded-lg px-2.5 py-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-pink-500/40"
-                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)" }}
                         />
                       </div>
-                    </div>
-                  )}
+                  </ControlPopover>
                 </div>
               );
             })()}

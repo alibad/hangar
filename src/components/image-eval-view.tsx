@@ -1,6 +1,6 @@
 "use client";
 
-import { FieldSelect } from "@/components/ui/field-select";
+import { SelectField } from "@/components/ui/form-field";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cellKey, PICK, summarize, type EvalCell, type Verdicts } from "@/lib/image-eval";
@@ -137,13 +137,10 @@ export default function ImageEvalView() {
     <div className="space-y-4">
       <WhatWeLearned path={DOC} />
       <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <label className="flex items-center gap-2 text-gray-400">
-            Run
-            <FieldSelect aria-label="Saved run" value={run ?? ""} onValueChange={(selectedValue) => void load(selectedValue)} className="rounded bg-gray-800 border border-gray-700 px-2 py-1 text-gray-100">
+        <div className="control-row image-eval-controls">
+            <SelectField label="Saved run" aria-label="Saved run" value={run ?? ""} onValueChange={(selectedValue) => void load(selectedValue)}>
               {data.runs.map((r) => <option key={r} value={r}>{r}</option>)}
-            </FieldSelect>
-          </label>
+            </SelectField>
           <div className="flex rounded-lg border border-gray-700 overflow-hidden" role="tablist" aria-label="Study">
             {(["suite", "resolution", "edit"] as const).map((s) => (
               <button key={s} role="tab" aria-selected={study === s} onClick={() => { setStudy(s); setDimension("all"); }}
@@ -153,10 +150,10 @@ export default function ImageEvalView() {
             ))}
           </div>
           {dims.length > 1 && (
-            <FieldSelect value={dimension} onValueChange={(selectedValue) => setDimension(selectedValue)} className="rounded bg-gray-800 border border-gray-700 px-2 py-1 text-gray-100" aria-label="Dimension">
+            <SelectField label="Dimension" value={dimension} onValueChange={(selectedValue) => setDimension(selectedValue)} aria-label="Dimension">
               <option value="all">All dimensions</option>
               {dims.map((d) => <option key={d} value={d}>{d}</option>)}
-            </FieldSelect>
+            </SelectField>
           )}
           <button onClick={() => void load(run)} className="rounded bg-gray-800 border border-gray-700 px-2 py-1 text-gray-300 hover:bg-gray-700">Refresh</button>
           <span className="ml-auto text-xs text-gray-500">

@@ -1,4 +1,5 @@
 "use client";
+import { TextAreaField } from "@/components/ui/form-field";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IMAGE_MODELS } from "@/lib/image-models";
@@ -338,16 +339,13 @@ export default function CompareView() {
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
-        <div className="relative">
-          <textarea
+          <TextAreaField label="Comparison prompt"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="One prompt, run on every model you pick…"
             rows={3}
-            className="w-full rounded-lg bg-gray-950 border border-gray-800 pl-3 pr-14 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-gray-600 resize-y"
+            accessory={voice.mic}
           />
-          {voice.mic}
-        </div>
         {voice.banner}
 
         <div className="flex flex-wrap gap-2">

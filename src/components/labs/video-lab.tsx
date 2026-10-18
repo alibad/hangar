@@ -1,6 +1,6 @@
 "use client";
 
-import { FieldSelect } from "@/components/ui/field-select";
+import { SelectField, TextAreaField, TextField } from "@/components/ui/form-field";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LabShell from "./lab-shell";
@@ -123,7 +123,7 @@ export default function VideoLab({ lab }: LabComponentProps) {
 
           {mode === "i2v" && <SourcePicker value={source} onChange={setSource} />}
 
-          <textarea
+          <TextAreaField label="Shot description"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             rows={4}
@@ -133,54 +133,43 @@ export default function VideoLab({ lab }: LabComponentProps) {
                 : "Describe the shot: subject, setting, camera move, light, mood."
             }
             aria-label="Prompt"
-            className="w-full resize-y rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-600 focus:border-gray-500"
           />
 
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-gray-400">
-            <label className="flex items-center gap-2">
-              Length
-              <FieldSelect aria-label="Duration" value={seconds} onValueChange={(selectedValue) => setSeconds(Number(selectedValue))} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
+          <div className="control-grid video-generation-settings">
+              <SelectField label="Length" aria-label="Duration" value={seconds} onValueChange={(selectedValue) => setSeconds(Number(selectedValue))}>
                 {LENGTHS.map((s) => (
                   <option key={s} value={s}>
                     {s} s
                   </option>
                 ))}
-              </FieldSelect>
-            </label>
-            <label className="flex items-center gap-2">
-              Resolution
-              <FieldSelect aria-label="Video quality" value={tier} onValueChange={(selectedValue) => setTier(selectedValue as VideoTier)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
+              </SelectField>
+              <SelectField label="Resolution" aria-label="Video quality" value={tier} onValueChange={(selectedValue) => setTier(selectedValue as VideoTier)}>
                 <option value="low">Low (~480p)</option>
                 <option value="high">High (~720p)</option>
-              </FieldSelect>
-            </label>
-            <label className="flex items-center gap-2">
-              Seed
-              <input
+              </SelectField>
+              <TextField label="Seed"
                 value={seed}
                 onChange={(e) => setSeed(e.target.value)}
                 inputMode="numeric"
                 placeholder="random"
-                className={`w-28 rounded-md border bg-gray-950 px-2 py-1 text-gray-200 ${seedValid ? "border-gray-700" : "border-red-500"}`}
+                aria-invalid={!seedValid}
               />
-            </label>
-            <label className="flex items-center gap-2">
-              Also on cloud
-              <FieldSelect aria-label="Comparison model" value={cloud} onValueChange={(selectedValue) => setCloud(selectedValue)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-gray-200">
+            <div>
+              <SelectField label="Cloud comparison" aria-label="Comparison model" value={cloud} onValueChange={(selectedValue) => setCloud(selectedValue)}>
                 <option value="">no</option>
                 {CLOUD.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.label} · ${m.usdPerSecond?.toFixed(2)}/s
                   </option>
                 ))}
-              </FieldSelect>
+              </SelectField>
               {cloudSpec && (
                 <span className="text-[11px] text-sky-300">
                   {cloudSeconds} s ≈ ${(cloudSeconds * (cloudSpec.usdPerSecond ?? 0)).toFixed(2)}
                   {cloudSeconds !== seconds ? ` (it only does ${cloudSpec.allowedSeconds?.join("/")} s)` : ""}
                 </span>
               )}
-            </label>
+            </div>
           </div>
           <p className="text-[11px] text-gray-600">
             Lengths and sizes snap to what each model accepts. The first run of a model loads 20–45 GB of weights; later runs in a row are faster
@@ -336,18 +325,18 @@ function SourcePicker({ value, onChange }: { value: string | null; onChange: (p:
           )}
         </div>
         {tab === "make" && (
-          <div className="flex flex-wrap items-center gap-2">
-            <input
+          <div className="video-still-form">
+            <TextAreaField label="Starting-frame description" rows={2}
               value={still}
               onChange={(e) => setStill(e.target.value)}
               placeholder="The still: e.g. Aerial view of Lisbon's Alfama rooftops at golden hour, photorealistic"
-              className="min-w-0 w-full flex-1 rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200"
             />
-            <FieldSelect value={stillModel} onValueChange={(selectedValue) => setStillModel(selectedValue)} className="rounded-md border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-gray-200" aria-label="Image model for the still">
+            <div className="control-row">
+            <SelectField label="Image model" value={stillModel} onValueChange={(selectedValue) => setStillModel(selectedValue)} aria-label="Image model for the still">
               <option value="z-image-turbo">Z-Image Turbo (ComfyUI)</option>
               <option value="flux2-klein-4b">FLUX.2 Klein 4B (ComfyUI)</option>
               <option value="qwen-image">Qwen-Image</option>
-            </FieldSelect>
+            </SelectField>
             <button
               type="button"
               disabled={busy || !still.trim()}
@@ -356,6 +345,7 @@ function SourcePicker({ value, onChange }: { value: string | null; onChange: (p:
             >
               {busy ? "Making…" : "Make still"}
             </button>
+            </div>
           </div>
         )}
         {tab === "gallery" && (

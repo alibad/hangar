@@ -286,7 +286,7 @@ export default function ModelPicker({
             <ServiceControl id={ROUTER_ID} up={false} probe={async () => !!(await load())?.routerUp} />
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-800 bg-gray-900 px-2.5 py-2">
+        <div className="model-picker-controls flex flex-wrap items-center gap-3 rounded-xl border border-gray-800 bg-gray-900 px-3 py-3">
           {/* The live dot belongs next to the NAME, not in a list far from it —
               "which model, and is it up" is one question. */}
           <span
@@ -295,10 +295,10 @@ export default function ModelPicker({
             }`}
           />
           <Select value={active ?? ""} onValueChange={(v) => v && select(v)}>
-            <SelectTrigger className="h-7 w-[13.5rem] border-gray-700 bg-gray-800 text-xs text-gray-100">
+            <SelectTrigger aria-label={`Model for ${cap?.label ?? capability}`} className="model-picker-trigger w-[13.5rem] border-gray-700 bg-gray-800 text-xs text-gray-100">
               <SelectValue placeholder={`Pick a ${cap?.label.toLowerCase() ?? capability} model`} />
             </SelectTrigger>
-            <SelectContent className="border-gray-700 bg-gray-800 text-gray-300">
+            <SelectContent className="workspace-picker-popup control-picker-popup">
               {local.length > 0 && (
                 <SelectGroup>
                   <SelectLabel className="text-[10px] uppercase tracking-wider text-gray-500">

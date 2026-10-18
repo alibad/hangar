@@ -43,10 +43,12 @@ export function cloudFormErrors(spec: CloudImageSpec, value: CloudImageParams, c
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="w-24 shrink-0 text-gray-500" title={hint}>{label}</span>
+    <fieldset className="cloud-control-row">
+      <legend title={hint}>{label}</legend>
+      <div className="control-row">
       {children}
-    </div>
+      </div>
+    </fieldset>
   );
 }
 

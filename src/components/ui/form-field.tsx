@@ -1,21 +1,27 @@
 "use client";
 
-import { useEffect, useId, useState, type InputHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useEffect, useId, useState, type ComponentPropsWithRef, type InputHTMLAttributes, type ReactNode } from "react";
+import { FieldSelect, type FieldSelectProps } from "./field-select";
+import { cn } from "@/lib/utils";
 
-type Field = { label: string; hint?: string };
-export function TextField({ label, hint, ...props }: Field & InputHTMLAttributes<HTMLInputElement>) {
-  const id = useId();
-  return <div className="control-field"><label htmlFor={id}>{label}</label><input {...props} id={id} className="control-input" aria-describedby={hint ? `${id}-hint` : undefined} />{hint && <small id={`${id}-hint`}>{hint}</small>}</div>;
+type Field = { label: string; hint?: string; fieldClassName?: string };
+export function TextField({ label, hint, fieldClassName, className, id, ...props }: Field & ComponentPropsWithRef<"input">) {
+  const generated = useId(), fieldId = id ?? generated;
+  return <div className={cn("control-field", fieldClassName)}><label htmlFor={fieldId}>{label}</label><input {...props} id={fieldId} className={cn("control-input", className)} aria-describedby={[props["aria-describedby"], hint ? `${fieldId}-hint` : ""].filter(Boolean).join(" ") || undefined} />{hint && <small id={`${fieldId}-hint`}>{hint}</small>}</div>;
 }
-export function TextAreaField({ label, hint, ...props }: Field & TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const id = useId();
-  return <div className="control-field"><label htmlFor={id}>{label}</label><textarea {...props} id={id} className="control-input" aria-describedby={hint ? `${id}-hint` : undefined} />{hint && <small id={`${id}-hint`}>{hint}</small>}</div>;
+export function TextAreaField({ label, hint, fieldClassName, accessory, className, id, ...props }: Field & ComponentPropsWithRef<"textarea"> & { accessory?: ReactNode }) {
+  const generated = useId(), fieldId = id ?? generated;
+  return <div className={cn("control-field", accessory && "has-accessory", fieldClassName)}><label htmlFor={fieldId}>{label}</label><div className="control-input-shell"><textarea {...props} id={fieldId} className={cn("control-input", className)} aria-describedby={[props["aria-describedby"], hint ? `${fieldId}-hint` : ""].filter(Boolean).join(" ") || undefined} />{accessory}</div>{hint && <small id={`${fieldId}-hint`}>{hint}</small>}</div>;
 }
-export function NumberField({ label, hint, value, onValueChange, unit, ...props }: Field & { value: number; onValueChange: (value: number) => void; unit?: string; min: number; max: number; step: number; disabled?: boolean }) {
-  const id = useId();
+export function SelectField({ label, hint, fieldClassName, id, ...props }: Field & FieldSelectProps) {
+  const generated = useId(), fieldId = id ?? generated;
+  return <div className={cn("control-field", fieldClassName)}><label htmlFor={fieldId}>{label}</label><FieldSelect {...props} id={fieldId} aria-label={props["aria-label"] ?? label} aria-describedby={[props["aria-describedby"], hint ? `${fieldId}-hint` : ""].filter(Boolean).join(" ") || undefined} popupClassName={cn("control-picker-popup", props.popupClassName)} />{hint && <small id={`${fieldId}-hint`}>{hint}</small>}</div>;
+}
+export function NumberField({ label, hint, fieldClassName, value, onValueChange, unit, id: providedId, ...props }: Field & Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "onChange" | "min" | "max" | "step"> & { value: number; onValueChange: (value: number) => void; unit?: string; min: number; max: number; step: number }) {
+  const generated = useId(), id = providedId ?? generated;
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
-  return <div className="control-field"><label htmlFor={id}>{label}</label><div className="control-number"><input id={id} type="number" inputMode="decimal" aria-describedby={[unit ? `${id}-unit` : "", hint ? `${id}-hint` : ""].filter(Boolean).join(" ") || undefined} {...props} value={draft} onChange={e => {
+  return <div className={cn("control-field", fieldClassName)}><label htmlFor={id}>{label}</label><div className="control-number"><input {...props} id={id} type="number" inputMode="decimal" aria-describedby={[props["aria-describedby"], unit ? `${id}-unit` : "", hint ? `${id}-hint` : ""].filter(Boolean).join(" ") || undefined} value={draft} onChange={e => {
     const next = e.target.value; setDraft(next);
     const number = Number(next);
     if (next.trim() && Number.isFinite(number) && number >= props.min && number <= props.max) onValueChange(number);

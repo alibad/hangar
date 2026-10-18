@@ -1,6 +1,6 @@
 "use client";
 
-import { FieldSelect } from "@/components/ui/field-select";
+import { SelectField, TextField } from "@/components/ui/form-field";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Hammer, Library, PersonStanding } from "lucide-react";
@@ -313,7 +313,6 @@ export default function MeshLab({ lab }: LabComponentProps) {
 
   const shellLab = useMemo(() => ({ ...lab, capability: capabilityFor(subject3d) }), [lab, subject3d]);
 
-  const inputCls = "rounded-md border border-gray-700 bg-gray-950 px-2 py-1.5 text-sm text-gray-100 outline-none placeholder:text-gray-600 focus:border-gray-500";
   const btnCls =
     "rounded-lg border border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-100 transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40";
   const segCls = (on: boolean) => `px-2.5 py-1 ${on ? "bg-gray-700 text-gray-100" : "text-gray-400 hover:bg-gray-800"}`;
@@ -389,10 +388,10 @@ export default function MeshLab({ lab }: LabComponentProps) {
       below={view === "library" ? <MeshLibrary refreshKey={historyKey} onOpenInLab={openInLab} /> : undefined}
       canRun={!!job && (person || seedValid)}
       input={
-        <div className="space-y-4">
+        <div className="mesh-input-steps">
           {/* ── 1. the picture ── */}
           <div
-            className={`space-y-2 rounded-lg ${dragging ? "outline outline-2 outline-dashed outline-orange-500/60 outline-offset-4" : ""}`}
+            className={`mesh-source-step rounded-lg ${dragging ? "outline outline-2 outline-dashed outline-orange-500/60 outline-offset-4" : ""}`}
             onDragOver={(e) => {
               e.preventDefault();
               setDragging(true);
@@ -405,7 +404,7 @@ export default function MeshLab({ lab }: LabComponentProps) {
               if (f) void upload(f);
             }}
           >
-            <div className="flex items-center gap-3">
+            <div className="mesh-step-heading">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{copy.step1}</h3>
               <div className="flex overflow-hidden rounded-md border border-gray-800 text-[11px]" role="tablist">
                 {(["upload", "describe"] as const).map((m) => (
@@ -415,36 +414,29 @@ export default function MeshLab({ lab }: LabComponentProps) {
                 ))}
               </div>
             </div>
-            <input
+            <TextField label={srcMode === "describe" ? (person ? "Describe the person and pose" : "Describe the object") : "Image label (optional)"}
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder={srcMode === "upload" ? (person ? "What's in the photo? (optional — just a label)" : "What is it? (optional — a label, and the noun to cut out)") : copy.placeholder}
               aria-label="Object"
-              className={`${inputCls} w-full`}
             />
             {srcMode === "describe" ? (
-              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
-                <label className="flex items-center gap-2">
-                  Image model
-                  <FieldSelect value={imageModel} onValueChange={(selectedValue) => setImageModel(selectedValue)} className={inputCls} aria-label="Image model">
+              <div className="control-row mesh-image-controls">
+                  <SelectField label="Image model" value={imageModel} onValueChange={(selectedValue) => setImageModel(selectedValue)} aria-label="Image model">
                     {IMAGE_MODELS.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.name}
                       </option>
                     ))}
-                  </FieldSelect>
-                </label>
-                <label className="flex items-center gap-2">
-                  Seed
-                  <input
+                  </SelectField>
+                  <TextField label="Seed"
                     value={seed}
                     onChange={(e) => setSeed(e.target.value)}
                     inputMode="numeric"
                     placeholder="random"
                     aria-label="Seed"
-                    className={`${inputCls} w-24 ${seedValid ? "" : "border-red-500"}`}
+                    aria-invalid={!seedValid}
                   />
-                </label>
                 <button type="button" onClick={generate} disabled={!subject.trim() || !!busy || !seedValid} className={btnCls}>
                   {busy === "source" ? "Generating…" : person ? "Generate photo" : "Generate image"}
                 </button>
@@ -474,9 +466,10 @@ export default function MeshLab({ lab }: LabComponentProps) {
           </div>
 
           {/* ── 2. cutout / pick the person ── */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="mesh-cutout-step">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{copy.step2}</h3>
-            <input
+            <div className="control-row mesh-cutout-controls">
+            <TextField label="Concept to segment"
               value={concept}
               onChange={(e) => {
                 setConcept(e.target.value);
@@ -484,7 +477,6 @@ export default function MeshLab({ lab }: LabComponentProps) {
               }}
               placeholder="noun to segment"
               aria-label="Concept to segment"
-              className={`${inputCls} w-40`}
             />
             <button type="button" onClick={cutout} disabled={!job || !concept.trim() || !!busy || sam3Up === false} className={btnCls}>
               {busy === "cutout" ? "Segmenting…" : copy.step2Button}
@@ -495,6 +487,7 @@ export default function MeshLab({ lab }: LabComponentProps) {
                 <ServiceControl id="sam3" up={false} probe={probeSam3} showLogs={false} />
               </span>
             )}
+            </div>
             <span className="text-[11px] text-gray-500">{copy.step2Hint}</span>
           </div>
 
