@@ -24,6 +24,10 @@ repository. Keep receipts under ignored `var/` or Atlas's `.atlas/`.
 > Verify Projects, World, Sessions, Machines and Models with actual local data.
 > Check island selection, search, live-work lens, home/expand controls, dark/light
 > themes and narrow layouts. Do not archive or regroup real sessions during tests.
+> Check that a project opens a pane without leaving Projects, that Repository
+> shows Atlas's full tools, and that building right-click and visible actions
+> menus both work. Open All repository tools and verify its filters. Test hiding
+> and restoring only with disposable data; never delete a real checkout for QA.
 >
 > Locate an existing trusted SSH alias for the first machine. Ask the owner only
 > if none exists or if SSH installation/admin access is needed. Keep SSH host-key

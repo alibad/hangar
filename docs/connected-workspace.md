@@ -118,6 +118,25 @@ observed by Hangar, including warm island beacons. Running apps have separate
 labels. A failed 3D renderer offers the project list instead of a permanent spinner.
 Keyboard search, focus states, reduced motion and light graphics remain supported.
 
+## Project panes and actions
+
+Selecting a project opens a pane in the current World or Projects view. Live work
+holds jobs, sessions and PlanQuest; Repository restores Atlas's notes, district
+assignment, checkout/editor actions, app controls, commits and Git changes. This
+pane reuses Atlas's repository interface without starting a second WebGL renderer.
+Update both Hangar and Atlas to use it.
+
+Right-click a building, project tile or explorer row, or use its visible actions
+button. Focus marks important work; Park puts it aside; Remove from world hides it
+from the map and ordinary lists. Projects → Hidden restores it. These actions save
+Atlas metadata only: they never delete a checkout, GitHub repository or session.
+
+All repository tools restores Changes, Apps, All, Focus, Here, Not here, Shipped,
+Parked, Hidden and Spare folders, including rescan and Atlas's checked pull/push
+operations. History & map exposes the original timeline; Activity and Shipped
+lenses remain available. Remote desktop and app-launch controls remain restricted
+to their host; use Live work for managed remote coding jobs.
+
 ## Public source and handoff
 
 Standard dev/start commands bind to loopback. Never expose the unauthenticated

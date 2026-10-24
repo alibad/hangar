@@ -31,7 +31,9 @@ try {
   assert.deepEqual(JSON.parse(request.body), { model: "fixture-model", prompt: "fixture prompt" });
   assert.equal((await post("/api/fleet/local/inference", { model: "no-such-model", prompt: "never run" })).status, 409);
   assert.equal((await fetch(`${base}/api/atlas/local/view/atlas.json`)).status, 404);
-  assert.equal((await post("/api/atlas/local/proxy/git", { action: "push" })).status, 404);
+  // Git is restored, but malformed requests are rejected by Atlas before a write.
+  assert.equal((await post("/api/atlas/local/proxy/git", { action: "push" })).status, 400);
+  assert.equal((await post("/api/atlas/local/proxy/delete", { repo: "test" })).status, 404);
   await new Promise(resolve => fixture.close(resolve));
   assert.equal((await fetch(`${base}/api/fleet/${peerId}/status`)).status, 503);
   assert.equal((await fetch(`${base}/api/atlas/${peerId}/proxy/work`)).status, 503);

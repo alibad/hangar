@@ -46,3 +46,21 @@ explicit linking and responsive layouts at desktop and 390px phone width, in
 light and dark themes. No real project link was changed for these checks.
 PlanQuest discovery was checked against the live provider. A real account consent
 and authenticated plan lookup are still required; fixture tests do not prove them.
+
+## Project usability restoration
+
+- Hangar production build passes; Node suite: 317 passed, one existing skip.
+- Atlas selftest: 55 passed, including a temporary-storage Focus → Park → Hide →
+  restore round trip that preserves notes and checkout metadata.
+- Browser checks cover right-click on an actual world building and project tile,
+  visible actions buttons, keyboard menu navigation, cancellation of removal,
+  in-place repository panes, original tool filters and desktop/390px layouts.
+- A browser-only disposable project verifies Focus filtering, confirmed hiding,
+  Hidden recovery and restoration. Its writes are intercepted and never reach
+  Atlas. The fixture is removed by reloading; real projects are not modified.
+- The HTTP transport fixture verifies the restored Git route rejects malformed
+  requests and arbitrary delete routes remain unavailable. No real Git mutation,
+  app start/stop, project removal or session mutation is performed for QA.
+- Repository panes synchronize with light/dark themes. Screenshots remain local
+  in ignored runtime storage. The world, repository tools and live-work pane use
+  the same project identity; the repository pane starts no second 3D renderer.

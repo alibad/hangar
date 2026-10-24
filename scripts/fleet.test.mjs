@@ -20,7 +20,9 @@ test("Atlas bridge is an allowlist, not an arbitrary filesystem or URL proxy", (
   assert.equal(atlasPathAllowed("proxy", ["sessions", "library"], "GET"), true);
   assert.equal(atlasPathAllowed("proxy", ["sessions", "library"], "POST"), true);
   assert.equal(atlasPathAllowed("proxy", ["sessions", "delete"], "POST"), false);
-  assert.equal(atlasPathAllowed("proxy", ["git"], "POST"), false);
+  assert.equal(atlasPathAllowed("proxy", ["git"], "POST"), true);
+  assert.equal(atlasPathAllowed("proxy", ["delete"], "POST"), false);
+  assert.equal(atlasPathAllowed("proxy", ["git", "delete"], "POST"), false);
   assert.equal(atlasPathAllowed("view", ["js", "main.js"], "POST"), false);
 });
 test("peer configuration only accepts a loopback port and safe SSH display alias", () => {
