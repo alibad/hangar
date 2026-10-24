@@ -7,7 +7,7 @@ to preview its milestones and key results, then choose **Link plan**.
 
 This is an OAuth connection to `https://my.plans.quest/mcp`. No API-key copying or
 manual title/URL entry is needed. Hangar requests only `plans:read`. Linking
-changes Atlas's local project association; it never changes a plan, completes a
+changes Hangar's local project association; it never changes a plan, completes a
 milestone or infers progress from coding activity. Existing manual links remain
 readable and can be replaced through the picker.
 
@@ -30,7 +30,7 @@ client restricts tools with an allowlist, add these names:
 | `planquest_link` | Save an explicitly authorized project/plan association |
 
 For example: “Find plans about the desktop experience. Suggest which one belongs
-to this Atlas project, show the milestones, and wait for my choice before linking.”
+to this Hangar project, show the milestones, and wait for my choice before linking.”
 
 The agent must look up real project and plan IDs. The server re-reads the chosen
 plan before saving its canonical title and URL, so an agent cannot invent a plan
@@ -48,7 +48,7 @@ Hangar host, with automatically refreshed access tokens.
 
 Only local loopback requests and approved SSH-forwarded Hangar ports are used.
 The browser's Hangar host reads PlanQuest. Linking a project on another machine
-sends only its project ID and the verified plan title/URL to that machine's Atlas.
+sends only its project ID and the verified plan title/URL to that machine's engine.
 No PlanQuest credentials are transferred between machines. Disconnecting the
 tunnel makes saving fail visibly without silently selecting a different machine.
 

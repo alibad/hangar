@@ -30,7 +30,7 @@ export default function PlanQuestLink({ machine, repo, projectName }: { machine:
   const [revision, setRevision] = useState(0);
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const prefix = `/api/atlas/${machine}/proxy/plans`;
+  const prefix = `/api/world/${machine}/proxy/plans`;
   const reload = useCallback(() => setRevision(v => v + 1), []);
 
   useEffect(() => {

@@ -2,31 +2,31 @@
 
 Copy the prompt below into Codex or Claude Code on the other machine. The actual
 machine names, credentials, paths and SSH aliases are intentionally not in this
-repository. Keep receipts under ignored `var/` or Atlas's `.atlas/`.
+repository. Keep receipts under ignored `var/`.
 
 > Set up and verify the connected Hangar workspace on this machine. Read this
 > repo's instructions and `docs/connected-workspace.md` first. Inspect existing
 > checkouts, processes and configuration before changing anything. Preserve
-> uncommitted work. Fetch and fast-forward the `main` branches of Hangar and
-> repo-atlas; never reset, force-push or create duplicate checkouts. If Atlas is
-> inaccessible, report that explicitly; do not substitute an unrelated repository.
+> uncommitted work. Fetch and fast-forward Hangar's main branch; never reset,
+> force-push or create duplicate checkouts. Hangar is self-contained: do not clone
+> or require Atlas.
 >
-> Use Node 22+ and Python 3.9+. Run `npm ci`, `npm test`, `npx tsc --noEmit` and
-> `npm run build` in Hangar. Run `python3 atlas.py selftest` and
-> `python3 -m unittest atlas.session_library_test atlas.session_topics_test` in
-> Atlas (`py -3` on Windows). Use the machine's existing host profile; do not copy
-> another machine's service registry, paths, credentials or model weights.
+> Use Node 22+, Python 3.10+ and Git. Run `npm ci`, `npm test`,
+> `npx tsc --noEmit`, `python engine/selftest.py` and `npm run build`.
+> Use the machine's existing host profile; do not copy another machine's service
+> registry, paths, credentials, catalog or model weights. Review local scan roots
+> in `var/engine/roots.json`. GitHub CLI authentication is optional for local-only
+> discovery. The bundled engine starts automatically when World opens.
 >
-> Start Atlas on loopback with `python3 atlas.py serve --no-open`; let the owner
-> choose repository roots and GitHub authentication if not already configured.
 > Start Hangar on loopback using `npm start`. Do not stop an existing listener
 > without identifying its owner. Use different explicit ports for isolated tests.
 > Verify Projects, World, Sessions, Machines and Models with actual local data.
 > Check island selection, search, live-work lens, home/expand controls, dark/light
 > themes and narrow layouts. Do not archive or regroup real sessions during tests.
 > Check that a project opens a pane without leaving Projects, that Repository
-> shows Atlas's full tools, and that building right-click and visible actions
-> menus both work. Open All repository tools and verify its filters. Test hiding
+> shows Hangar's full tools, and that building right-click and visible actions
+> menus both work. Inspect Architecture, Timeline and replay. Open Review categories
+> and confirm the entire catalog is available without changing real categories. Open All repository tools and verify its filters. Test hiding
 > and restoring only with disposable data; never delete a real checkout for QA.
 >
 > Locate an existing trusted SSH alias for the first machine. Ask the owner only

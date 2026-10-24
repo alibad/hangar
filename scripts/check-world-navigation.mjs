@@ -6,7 +6,7 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const errors = []; page.on("pageerror", e => errors.push(String(e)));
 try {
   await page.goto(`${process.env.HANGAR_URL || "http://127.0.0.1:8003"}/#world`, { waitUntil: "domcontentloaded" });
-  const element = page.locator('iframe[title^="Atlas project world"]');
+  const element = page.locator('iframe[title^="Hangar project world"]');
   await element.waitFor({ timeout: 60000 });
   const frame = await (await element.elementHandle()).contentFrame();
   await frame.waitForFunction(() => !!window.atlas, { timeout: 60000 });
@@ -21,10 +21,10 @@ try {
   await page.getByRole("button", { name: "Show all islands", exact: true }).click();
   await page.getByRole("button", { name: "Live work", exact: true }).click();
   // Presentation-only synthetic work; no API call, real agent or session mutation.
-  await page.evaluate(id => document.querySelector('iframe[title^="Atlas project world"]').contentWindow.postMessage({ source: "hangar", type: "work", jobs: [{ id: "visual-fixture", repo: id, provider: "codex", state: "running" }] }, location.origin), first.id);
+  await page.evaluate(id => document.querySelector('iframe[title^="Hangar project world"]').contentWindow.postMessage({ source: "hangar", type: "work", jobs: [{ id: "visual-fixture", repo: id, provider: "codex", state: "running" }] }, location.origin), first.id);
   await frame.waitForFunction(id => window.atlas.buildings.find(b => b.repo.id === id).target.glow === 1, first.id);
   assert.equal(await frame.locator('.district-label.has-work').count(), 1);
-  await page.evaluate(() => document.querySelector('iframe[title^="Atlas project world"]').contentWindow.postMessage({ source: "hangar", type: "work", jobs: [] }, location.origin));
+  await page.evaluate(() => document.querySelector('iframe[title^="Hangar project world"]').contentWindow.postMessage({ source: "hangar", type: "work", jobs: [] }, location.origin));
   await frame.waitForFunction(() => !document.querySelector('.district-label.has-work'));
   await page.getByRole("button", { name: "Expand world", exact: true }).click();
   assert.equal(await page.locator('.connected-workspace.is-expanded').count(), 1);

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { isHostedRuntime } from "./runtime";
 import { localRequestAllowed, validatePeer, type Peer } from "./fleet-policy";
+import { ensureProjectEngine } from "./project-engine";
 
 const CONFIG = join(process.cwd(), "var", "fleet.json");
 export function fleetGuard(request: Request): Response | null {
@@ -33,8 +34,5 @@ export async function peerBase(id: string): Promise<string> {
   if (!peer) throw new Error("Machine is not connected. Add its SSH-forwarded port in Machines.");
   return `http://127.0.0.1:${peer.port}`;
 }
-export function atlasBase(): string {
-  const port = Number(process.env.ATLAS_PORT || 7788);
-  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("ATLAS_PORT must be a local port.");
-  return `http://127.0.0.1:${port}`;
-}
+// Compatibility name for older API callers; always resolves the bundled engine.
+export const atlasBase = ensureProjectEngine;

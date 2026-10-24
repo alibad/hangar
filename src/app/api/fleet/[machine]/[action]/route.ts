@@ -19,7 +19,7 @@ export async function GET(request: Request, context: Context) {
     }
     if (action === "models") return Response.json(await getCatalogue());
     let atlas = false;
-    try { const r = await fetch(`${atlasBase()}/api/status`, { signal: AbortSignal.timeout(1800), cache: "no-store" }); atlas = r.ok && "generatedAt" in await r.json(); } catch { /* Show a disconnected engine. */ }
+    try { const r = await fetch(`${await atlasBase()}/api/status`, { signal: AbortSignal.timeout(1800), cache: "no-store" }); atlas = r.ok && (await r.json()).protocol === "hangar-engine-v1"; } catch { /* Show a disconnected engine. */ }
     const host = getHost();
     return Response.json({ protocol: "hangar-fleet-v1", machine: hostname(), name: host.name, profile: host.id,
       platform: host.platform, memory: host.memory, atlas, observedAt: new Date().toISOString() });

@@ -1,0 +1,123 @@
+"""Exercise a clean Hangar engine with synthetic data; no other checkout is used."""
+import json
+import os
+from pathlib import Path
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+import urllib.error
+import urllib.request
+
+
+class IndependentEngine(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp = tempfile.TemporaryDirectory(prefix="hangar-engine-test-")
+        cls.root = Path(cls.temp.name)
+        cls.bundle = cls.root / "hangar"
+        shutil.copytree(Path(__file__).parent, cls.bundle / "engine", ignore=shutil.ignore_patterns("__pycache__"))
+        cls.repo = cls.root / "projects" / "sample"
+        (cls.repo / "src" / "ui").mkdir(parents=True)
+        (cls.repo / "src" / "core").mkdir()
+        (cls.repo / "src/ui/main.ts").write_text('import { value } from "../core/value";\nexport const result = value;\n')
+        (cls.repo / "src/core/value.ts").write_text('export const value = 1;\n')
+        (cls.repo / "package.json").write_text(json.dumps({"name": "sample", "dependencies": {"react": "*"}}))
+        (cls.repo / ".env.example").write_text("EXAMPLE_ONLY=placeholder\n")
+        cls.env = {**os.environ, "HANGAR_ENGINE_DATA_DIR": str(cls.bundle / "var/engine"),
+                   "HANGAR_ENGINE_REFRESH_MIN": "0", "HANGAR_ENGINE_WATCH": "0", "PYTHONUTF8": "1",
+                   "HOME": str(cls.root / "home"), "USERPROFILE": str(cls.root / "home"),
+                   "CODEX_HOME": str(cls.root / "home/.codex"), "CLAUDE_CONFIG_DIR": str(cls.root / "home/.claude"),
+                   "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+        (cls.root / "home").mkdir()
+        def git(*args, date=None):
+            env = {**cls.env, **({"GIT_AUTHOR_DATE": date, "GIT_COMMITTER_DATE": date} if date else {})}
+            subprocess.run(["git", "-C", str(cls.repo), *args], check=True, capture_output=True, env=env)
+        git("init")
+        git("config", "user.name", "Test")
+        git("config", "user.email", "test@example.invalid")
+        git("add", ".")
+        git("commit", "-m", "feat: introduce core and interface", date="2025-01-10T12:00:00Z")
+        git("tag", "v0.1")
+        (cls.repo / "src/core/value.ts").write_text('export const value = 2;\n')
+        git("commit", "-am", "fix: correct core value", date="2025-02-10T12:00:00Z")
+        storage = cls.bundle / "var/engine"
+        storage.mkdir(parents=True)
+        (storage / "roots.json").write_text(json.dumps({"roots": {"TEST": str(cls.repo.parent)}, "canonical": ["TEST"], "maxDepth": 3, "owners": []}))
+        subprocess.run([sys.executable, str(cls.bundle / "engine/main.py"), "scan", "--local"], check=True,
+                       env=cls.env, cwd=cls.bundle, capture_output=True, timeout=60)
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            cls.port = sock.getsockname()[1]
+        cls.base = f"http://127.0.0.1:{cls.port}"
+        cls.log = open(cls.root / "engine.log", "w", encoding="utf-8")
+        cls.process = subprocess.Popen([sys.executable, str(cls.bundle / "engine/main.py"), "serve", "--port", str(cls.port)],
+                                       env=cls.env, cwd=cls.bundle, stdout=cls.log, stderr=cls.log,
+                                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        for _ in range(80):
+            try:
+                cls.read("/api/status")
+                break
+            except OSError:
+                time.sleep(.1)
+        else:
+            cls.tearDownClass()
+            raise RuntimeError("Isolated engine did not start")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.process.terminate()
+        cls.process.wait(timeout=10)
+        cls.log.close()
+        cls.temp.cleanup()
+
+    @classmethod
+    def read(cls, path):
+        with urllib.request.urlopen(cls.base + path, timeout=30) as response:
+            return json.load(response)
+
+    def project(self):
+        doc = self.read("/api/atlas")
+        self.assertEqual(len(doc["repos"]), 1)
+        return doc["repos"][0]
+
+    def test_independent_discovery_and_storage(self):
+        self.assertEqual(self.read("/api/status")["protocol"], "hangar-engine-v1")
+        self.assertEqual(self.project()["name"], "sample")
+        self.assertTrue(list((self.bundle / "var/engine/machines").glob("*.json")))
+        self.assertFalse((self.bundle / "engine/world/atlas.json").exists())
+
+    def test_world_assets_are_bundled(self):
+        for path in ("/index.html", "/js/main.js", "/js/project-pane.js", "/css/atlas.css", "/vendor/three/build/three.module.min.js"):
+            with urllib.request.urlopen(self.base + path) as response:
+                self.assertEqual(response.status, 200)
+                self.assertGreater(len(response.read()), 100)
+
+    def test_architecture_and_complete_small_history(self):
+        result = self.read("/api/insights?repo=" + self.project()["id"])
+        self.assertTrue(result["available"])
+        graph = result["architecture"]
+        self.assertIn("react", graph["frameworks"])
+        self.assertTrue(any(e["from"] == "src/ui" and e["to"] == "src/core" for e in graph["edges"]))
+        self.assertNotIn(".env.example", json.dumps(graph))
+        history = result["timeline"]
+        self.assertEqual(history["commits"], 2)
+        self.assertEqual([c["month"] for c in history["chapters"]], ["2025-02", "2025-01"])
+        self.assertEqual(history["tags"][0]["name"], "v0.1")
+        self.assertFalse(history["truncated"])
+
+    def test_unknown_projects_and_cross_origin_writes_rejected(self):
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.read("/api/insights?repo=unknown")
+        self.assertEqual(error.exception.code, 400)
+        request = urllib.request.Request(self.base + "/api/notes", data=b"{}", headers={"X-Hangar": "1", "Origin": "https://outside.example"})
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(request)
+        self.assertEqual(error.exception.code, 403)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

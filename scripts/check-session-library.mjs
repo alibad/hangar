@@ -10,10 +10,10 @@ page.on("pageerror", e => errors.push(String(e)));
 try {
   // The real React view talks to Atlas's real HTTP handler and persistence in a
   // disposable fixture process. Native mutations update only fixture records.
-  await page.route("**/api/atlas/local/proxy/sessions/library", async route => {
+  await page.route("**/api/world/local/proxy/sessions/library", async route => {
     const request = route.request();
     const result = await fetch(`${fixture}/api/sessions/library`, { method: request.method(),
-      headers: { "Content-Type": "application/json", "X-Atlas": "1" }, body: request.postData() || undefined });
+      headers: { "Content-Type": "application/json", "X-Hangar": "1" }, body: request.postData() || undefined });
     await route.fulfill({ status: result.status, contentType: "application/json", body: await result.text() });
   });
   await page.goto(`${base}/#sessions`, { waitUntil: "domcontentloaded", timeout: 90000 });

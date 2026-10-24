@@ -12,7 +12,7 @@ await mkdir(output, { recursive: true });
 try {
   await page.goto(`${base}/#world`, { waitUntil: "domcontentloaded", timeout: 90000 });
   await page.getByRole("heading", { name: "A world of work." }).waitFor({ timeout: 90000 });
-  const frameElement = page.locator('iframe[title^="Atlas project world"]');
+  const frameElement = page.locator('iframe[title^="Hangar project world"]');
   await frameElement.waitFor({ timeout: 60000 });
   const frame = await (await frameElement.elementHandle()).contentFrame();
   await frame.waitForFunction(() => !!window.atlas, { timeout: 60000 });
@@ -21,9 +21,9 @@ try {
   assert.ok(await frame.evaluate(() => window.atlas.buildings.length) > 0);
   await page.getByRole("button", { name: "Projects", exact: true }).click();
   await page.getByRole("heading", { name: "Your projects." }).waitFor();
-  await page.getByRole("searchbox", { name: "Find a project" }).filter({ visible: true }).fill("repo-atlas");
-  await page.locator(".cw-project-tile").filter({ hasText: "repo-atlas" }).first().click();
-  await page.getByRole("heading", { name: "repo-atlas", exact: true }).waitFor();
+  await page.getByRole("searchbox", { name: "Find a project" }).filter({ visible: true }).fill("hangar");
+  await page.locator(".cw-project-tile").filter({ hasText: "hangar" }).first().click();
+  await page.getByRole("heading", { name: "hangar", exact: true }).waitFor();
   await page.getByRole("button", { name: "Start a coding task" }).click();
   await page.getByRole("dialog").waitFor();
   await page.getByRole("textbox", { name: "What do you want done?" }).fill("Inspect this project and report what needs doing. Do not modify files.");
@@ -57,5 +57,5 @@ try {
   await page.waitForTimeout(1000);
   await page.screenshot({ path: `${output}/world-light.png`, fullPage: true });
   assert.deepEqual(errors, []);
-  console.log("PASS: real Atlas world, project selection, composer, session continuation, machines, models, 320/390/1440 layouts and light mode; no browser errors.");
+  console.log("PASS: real Hangar world, project selection, composer, session continuation, machines, models, 320/390/1440 layouts and light mode; no browser errors.");
 } finally { await browser.close(); }

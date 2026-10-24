@@ -56,12 +56,12 @@ async function handle(request: NextRequest, context: Context) {
         if (typeof input.repo !== "string" || !input.repo || input.repo.length > 200) return json({ error: "Choose an indexed project." }, 400);
         const machine = input.machine ?? "local";
         if (typeof machine !== "string" || !/^[a-z][a-z0-9-]{0,30}$/.test(machine)) return json({ error: "Choose a connected machine." }, 400);
-        const base = machine === "local" ? atlasBase() : await peerBase(machine);
+        const base = machine === "local" ? await atlasBase() : await peerBase(machine);
         // The client supplies an ID, never a title/URL. Verify access and fetch
         // canonical metadata before changing the project's local association.
         const plan = await planquest.plan(typeof input.plan_id === "string" ? input.plan_id : "");
         if (plan.archived) return json({ error: "Choose an active plan." }, 400);
-        const response = await fetch(`${base}${machine === "local" ? "/api/plans" : "/api/atlas/local/proxy/plans"}`, {
+        const response = await fetch(`${base}${machine === "local" ? "/api/plans" : "/api/world/local/proxy/plans"}`, {
           method: "POST", headers: { "Content-Type": "application/json", "X-Atlas": "1", "X-Hangar": "1" },
           body: JSON.stringify({ repo: input.repo, title: plan.title, url: plan.url }), redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000),
         });

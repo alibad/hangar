@@ -84,8 +84,7 @@
 .cw-island-picker button[aria-pressed=true]{color:var(--cw-accent);background:color-mix(in srgb,var(--cw-accent) 14%,var(--cw-panel))}
 .cw-island-picker small{font-size:10px;opacity:.8}.cw-result-count{font-size:11px;color:var(--cw-muted);margin-bottom:8px}
 .cw-empty>img{display:block;margin:0 auto 20px;object-fit:contain}.cw-empty>button{margin:12px}
-.is-expanded .cw-world-layout{grid-template-columns:1fr}.is-expanded .cw-world{height:78dvh;min-height:480px}.is-expanded .cw-inspector{border-left:0;border-top:1px solid var(--cw-line);max-height:none}
-.is-expanded .cw-island-picker{max-height:none}.is-expanded .cw-inspector>.cw-project-row{display:inline-flex;width:48%;margin-inline-end:2%}
+.is-expanded .cw-island-picker{max-height:none}
 .cw-model-tile{background:linear-gradient(140deg,color-mix(in srgb,var(--accent-500) 4%,var(--color-gray-950)),var(--color-gray-950))}
 .cw-model-tile:has(button:hover){border-color:var(--cw-accent)}
 .cw-primary{background:var(--accent-600)!important;color:var(--on-accent)!important}
@@ -95,3 +94,7 @@
 .connected-workspace .cw-project-row>.cw-project-emblem{flex:0 0 32px}
 .connected-workspace .cw-lenses button[aria-pressed=true]:hover{color:#fff}
 @media(max-width:550px){.cw-world-caption{left:12px;top:14px;max-width:calc(100% - 100px);padding:8px 10px}.cw-world-caption .cw-eyebrow{font-size:8px}.cw-world-tools{right:10px;top:16px;gap:4px}.cw-world-tools button{width:32px;min-height:34px}.cw-lenses{top:100px;left:12px;max-width:calc(100% - 24px)}.cw-lenses button{font-size:10px;min-height:34px}.cw-map-hint{font-size:10px;left:12px;bottom:94px}.cw-live-strip{right:12px;bottom:14px}.cw-live-strip button{display:inline-flex;font-size:10px}.cw-live-strip{flex-wrap:wrap}.is-expanded .cw-inspector>.cw-project-row{display:flex;width:100%;margin:0}.cw-world{height:530px}}
+
+.cw-lenses button{display:flex;align-items:center;gap:5px}.cw-lenses button[aria-pressed=true]{background:#ffffff20;box-shadow:inset 0 0 0 1px #ffffff30;color:#fff}.cw-lenses button:hover{background:#ffffff12}
+
+.cw-map-hint{bottom:132px;pointer-events:none}@media(max-width:550px){.cw-map-hint{bottom:142px}}

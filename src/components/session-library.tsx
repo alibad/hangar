@@ -40,7 +40,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const dialog = useRef<HTMLElement>(null);
   const updateRef = useRef(onUpdate); updateRef.current = onUpdate;
   const busyRef = useRef(false);
-  const endpoint = `/api/atlas/${machine}/proxy/sessions/library`;
+  const endpoint = `/api/world/${machine}/proxy/sessions/library`;
   const rows = data?.sessions || [];
   const targetRow = rows.find(s => s.key === target?.key);
 

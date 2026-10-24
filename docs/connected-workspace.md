@@ -1,25 +1,37 @@
 # Connected workspace
 
-Hangar now opens on Atlas's actual project world. Atlas remains a separate Python
-engine and vendored Three.js viewer; Hangar supplies the navigation, machine scope,
-project inspector, job controls and model access. Existing studios and resource
-controls remain available.
+Hangar ships its project engine in `engine/hangar_engine` and its 3D renderer in
+`engine/world`. It runs independently: no private repository, sibling checkout,
+Atlas process or Atlas installation is required.
 
 ## Local setup
 
-Run Hangar locally and install `repo-atlas` beside it. The supervisor's `atlas`
-entry runs `scripts/start-atlas.mjs`; set `ATLAS_REPO_DIR` if the checkout is
-elsewhere. `ATLAS_PYTHON` and `ATLAS_PORT` can override the Python launcher and
-loopback port. For Windows installations with an existing ignored
-`scripts/service-commands.json`, add the `atlas` entry from the example.
+Install Node 22+, Python 3.10+ and Git. Run `npm ci`, then `npm run dev` (or
+`npm run build` and `npm start`). Opening World starts the bundled Python engine
+on loopback port 7789 automatically. `node scripts/start-engine.mjs` starts it
+explicitly. Set `HANGAR_ENGINE_PYTHON` to a Python executable if needed;
+`HANGAR_ENGINE_PORT` changes the engine port.
 
-Atlas uses its own ignored `.atlas/` directory for repository roots, session
-metadata, project-plan links and job history. Hangar stores paired machine ports
-in ignored `var/fleet.json`. Neither belongs in Git or in a public deployment.
+The first scan discovers common code folders under your home directory. Review
+`var/engine/roots.json` to choose roots, canonical root IDs, scan depth and GitHub
+owners. Run `python engine/main.py scan --local` for local-only discovery, or
+use Rescan in All repository tools after changing roots. GitHub CLI (`gh auth
+login`) adds your accessible GitHub inventory; an unavailable GitHub connection
+leaves local discovery working.
+
+All catalogs, machine paths, notes, plan associations, caches and session metadata
+live under ignored `var/engine/`. Category preferences are in `var/islands.json`;
+paired machines are in `var/fleet.json`. `HANGAR_ENGINE_DATA_DIR` overrides the
+engine storage directory. Never commit runtime files.
+
+Existing users can optionally run `node scripts/import-atlas.mjs <old-checkout>`
+once to copy allowlisted catalog/preferences into private Hangar storage. It
+never overwrites existing Hangar files and never copies credentials or live jobs.
+The source remains untouched; it is not used at runtime.
 
 ## A second machine
 
-Install this Hangar version and this Atlas version on that machine. Authenticate
+Install this Hangar version on that machine. Authenticate
 the desired coding agents there. With an already configured SSH host alias, run:
 
 ```sh
@@ -28,7 +40,7 @@ ssh -o ExitOnForwardFailure=yes -N -L 127.0.0.1:18003:127.0.0.1:8003 your-host
 
 In Machines, enter its name, SSH alias and forwarded local port. Hangar verifies
 that a different machine answers before saving the entry. Select that machine
-in the persistent machine rail. Its Atlas supplies its own map, checkouts, apps,
+in the persistent machine rail. Its bundled engine supplies its own map, checkouts, apps,
 history and managed jobs; its Hangar supplies its model catalogue and inference.
 Models are selected per request without changing either host's global routing.
 
@@ -40,15 +52,15 @@ coding jobs return their output to the requesting Hangar.
 
 ## What the states mean
 
-- **Running app:** Atlas observed a listening process and matched it to a project.
-- **Running coding job:** this Atlas server started and still owns that process.
+- **Running app:** Hangar observed a listening process and matched it to a project.
+- **Running coding job:** this Hangar engine started and still owns that process.
   At most two jobs run at once, and only one per checkout. Stop targets that job's
   process tree. Existing permission/sandbox settings remain in force.
 - **Session history:** private Claude/Codex metadata. Successful edit operations
   match the deepest containing checkout; cwd is explicitly labeled as fallback.
   Shell edits and tools that do not emit structured file changes may be missed.
   State records the last observed turn, never inferred live process status.
-- **Unobserved job:** Atlas restarted while a job was active. Its process may
+- **Unobserved job:** The engine restarted while a job was active. Its process may
   remain alive; inspect it externally and explicitly acknowledge it before
   launching another writer in that checkout.
 - **Plan link:** an explicitly chosen PlanQuest plan. Connect once with OAuth,
@@ -97,13 +109,6 @@ too” actions use the native Codex app-server protocol. Claude grouping/archivi
 is a Hangar overlay; its original transcripts remain untouched. New activity
 resurfaces a Hangar-archived session. Metadata is private to the selected machine.
 
-`tools/session-library-fixture.py <port>` in Atlas creates a disposable backend
-for `scripts/check-session-library.mjs`. Set `SESSION_FIXTURE_URL` if its port is
-not 7791. The browser test covers unread ordering, protection, archive/restore,
-native section moves, mixed-agent groups, snoozes and phone layouts. All mutations
-stay in that temporary fixture. Native Codex section reads were also verified
-against the installed app; real user sessions were not archived or moved by tests.
-
 ## Identity and world navigation
 
 The default palette is Hangar cobalt with basalt surfaces and warm portal light.
@@ -121,19 +126,19 @@ Keyboard search, focus states, reduced motion and light graphics remain supporte
 ## Project panes and actions
 
 Selecting a project opens a pane in the current World or Projects view. Live work
-holds jobs, sessions and PlanQuest; Repository restores Atlas's notes, district
+holds jobs, sessions and PlanQuest; Repository restores Hangar's notes, district
 assignment, checkout/editor actions, app controls, commits and Git changes. This
-pane reuses Atlas's repository interface without starting a second WebGL renderer.
-Update both Hangar and Atlas to use it.
+pane reuses Hangar's repository interface without starting a second WebGL renderer.
+It is included in Hangar.
 
 Right-click a building, project tile or explorer row, or use its visible actions
 button. Focus marks important work; Park puts it aside; Remove from world hides it
 from the map and ordinary lists. Projects → Hidden restores it. These actions save
-Atlas metadata only: they never delete a checkout, GitHub repository or session.
+local Hangar metadata only: they never delete a checkout, GitHub repository or session.
 
 All repository tools restores Changes, Apps, All, Focus, Here, Not here, Shipped,
-Parked, Hidden and Spare folders, including rescan and Atlas's checked pull/push
-operations. History & map exposes the original timeline; Activity and Shipped
+Parked, Hidden and Spare folders, including rescan and Hangar's checked pull/push
+operations. History & replay exposes project arrivals by creation date (not historical code snapshots); Activity and Shipped
 lenses remain available. Remote desktop and app-launch controls remain restricted
 to their host; use Live work for managed remote coding jobs.
 
@@ -144,8 +149,30 @@ local console on a LAN or public tunnel. Use the explicit SSH forwarding above.
 Before publishing changes, run `node scripts/check-public-source.mjs origin/main`;
 it checks every outgoing commit as well as the working tree and reports matching
 file names without printing secret values. Manually review screenshots and prose.
-Private `.atlas/`, `var/`, environment files and captures remain ignored.
+Private `var/`, environment files and captures remain ignored.
 
 Use `docs/second-machine-handoff.md` for the other machine. Production compilation,
 automated tests and a disposable second-node fixture do not replace that physical
 two-machine verification.
+
+## Organize and inspect projects
+
+Review categories presents the entire catalog, including hidden projects, with
+purpose, current island and a persistent reviewed state. Select projects, choose
+or create a destination, inspect the preview and Apply category. Keep categories
+marks reviewed without moving anything. Manage islands can hide/restore a whole
+island; this never deletes files, sessions or plan links. Individually hidden
+projects remain hidden when the island is restored.
+
+Project panes include Architecture and Timeline. Architecture reports tracked
+folders and resolved JS/TS imports, with source-file evidence. It is a bounded
+static analysis, not a verified runtime or deployment diagram. Timeline groups
+local Git history across refs into monthly chapters with commit subjects and
+local tags. It includes up to 20,000 commits; absent remote history needs a fetch.
+Both require a checkout on the selected machine. No source bodies are sent to an
+external model.
+
+Run `python engine/selftest.py` for an isolated engine test: it copies only the
+bundled source into a temporary directory, creates a synthetic repository and
+checks discovery, HTTP, architecture, chronology and origin restrictions. No
+Atlas checkout or service is consulted.

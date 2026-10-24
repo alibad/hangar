@@ -1,5 +1,25 @@
 # Connected workspace verification — 24 October 2026
 
+## Independent engine checkpoint
+
+Hangar now bundles its Python engine and Three.js world. The separate checkout
+requirement described in older checkpoints below is superseded.
+
+- Clean-room engine integration: 4 tests pass using only copied bundled source,
+  temporary storage and a synthetic Git repository.
+- Hangar suite: 328 pass, 1 skip; TypeScript and production compilation pass.
+- Browser checks: counters open their corresponding repository filters; history
+  plays and pauses; real project architecture and monthly Git chronology render
+  in the right pane; whole-island hide presents its affected-project preview.
+- Category review shows the complete catalog and a batch preview before Apply.
+  No real projects were reassigned or hidden during these checks.
+- Narrow-screen inspection confirms the timeline pane and category review remain
+  accessible. Screenshots and local verification data remain under ignored `var/`.
+- Public-source checks pass. A physical second-machine acceptance run remains
+  separate from local integration testing.
+
+## Earlier integration checkpoints
+
 This checkpoint covers the connected workspace, visual identity, embedded Atlas
 world, and session organization. It does not certify every existing media studio.
 

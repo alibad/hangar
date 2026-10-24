@@ -92,7 +92,7 @@ export function middleware(req: NextRequest) {
   // real response status via withTraffic); and the dashboard's own status polling.
   const skip =
     pathname.startsWith("/api/planquest/") ||
-    (req.method === "GET" && (pathname.startsWith("/api/atlas/") || pathname.startsWith("/api/fleet"))) ||
+    (req.method === "GET" && ((pathname.startsWith("/api/atlas/") || pathname.startsWith("/api/world/")) || pathname.startsWith("/api/fleet"))) ||
     (req.method === "POST" && /^\/api\/fleet\/[^/]+\/inference$/.test(pathname)) ||
     pathname.startsWith("/api/traffic") ||
     pathname === "/api/qwen/generate" ||

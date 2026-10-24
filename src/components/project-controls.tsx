@@ -5,7 +5,7 @@ import { Eye, EyeOff, FolderOpen, PanelRightOpen, Star, Pause, X } from "lucide-
 import { useTheme } from "./theme-provider";
 import "./project-controls.css";
 
-export type ProjectChoice = { id: string; name: string; hidden?: boolean; attention?: string | null; sites: unknown[] };
+export type ProjectChoice = { id: string; name: string; hidden?: boolean; hiddenByIsland?: string; attention?: string | null; sites: unknown[] };
 export type ProjectMenuTarget = { project: ProjectChoice; x: number; y: number };
 type Attention = "focus" | "parked" | "hidden" | null;
 export function ProjectContextMenu({ target, local, onClose, onOpen, onAttention, onFolder }: {
@@ -68,12 +68,12 @@ export function RepositoryPane({ machine, repo, view, onClose, onSelect, onChang
     return () => window.removeEventListener("message", receive);
   }, [theme, onSelect, onChanged, onClose]);
   useEffect(() => { if (ready) frame.current?.contentWindow?.postMessage({ source: "hangar", type: "theme", night: theme === "dark" }, window.location.origin); }, [ready, theme]);
-  useEffect(() => { if (ready) return; const timer = setTimeout(() => setError("Repository tools did not load. Update Atlas and retry."), 20000); return () => clearTimeout(timer); }, [ready, machine, repo, view]);
+  useEffect(() => { if (ready) return; const timer = setTimeout(() => setError("Repository tools did not load. Refresh Hangar and retry."), 20000); return () => clearTimeout(timer); }, [ready, machine, repo, view]);
   const query = new URLSearchParams({ embed: "hangar", pane: repo ? "repo" : "tools", ...(repo ? { repo } : { view: view || "changes" }), ...(machine !== "local" ? { remote: "1" } : {}) });
   return <div className="repository-pane">
     {!repo && <div className="repository-toolbar"><span>Changes · apps · folders · notes</span><button disabled={!ready} onClick={() => frame.current?.contentWindow?.postMessage({ source: "hangar", type: "rescan" }, window.location.origin)}>Rescan projects</button></div>}
     {!ready && <div className="repository-loading" role="status">{error || "Opening repository tools…"}{error && <button onClick={() => { setError(""); if (frame.current) frame.current.src = frame.current.src; }}>Retry</button>}</div>}
-    <iframe ref={frame} title={repo ? "Repository tools and notes" : "Atlas project tools"} src={`/api/atlas/${machine}/view/index.html?${query}`} allow="clipboard-write" />
+    <iframe ref={frame} title={repo ? "Repository tools and notes" : "Hangar project tools"} src={`/api/world/${machine}/view/index.html?${query}`} allow="clipboard-write" />
   </div>;
 }
 

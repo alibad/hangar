@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Hangar World</title>
+  <meta name="description" content="One 3D map of every repository you own, and where each one lives on this machine." />
+  <link rel="icon" href="/brand/foundry.png" type="image/png" />
+
+  <link rel="apple-touch-icon" href="/brand/foundry.png" />
+  <meta name="theme-color" content="#141c31" />
+  <link rel="stylesheet" href="css/atlas.css" />
+  <link rel="stylesheet" href="css/embedded.css" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/build/three.module.min.js", "three/addons/": "./vendor/three/examples/jsm/" } }
+  </script>
+</head>
+<body class="booting">
+  <canvas id="scene" aria-label="A 3D map of your repositories. Use the search box or the list to reach any repo."></canvas>
+  <div id="labels"></div>
+
+  <header class="top">
+    <a class="brand" href="./" title="Back to the whole map">
+      <img src="/brand/foundry.png" alt="" width="28" height="28" />
+      <span>Hangar</span>
+    </a>
+    <div class="search" role="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Find a repo" autocomplete="off" spellcheck="false" aria-label="Find a repo" aria-controls="results" />
+      <kbd>/</kbd>
+      <ul id="results" class="results" role="listbox" hidden></ul>
+    </div>
+    <div id="chips" class="chips"></div>
+    <div class="tools">
+      <span id="fresh" class="fresh" hidden></span>
+      <button id="btn-install" class="install-btn" title="Install Hangar as an app on this computer" hidden></button>
+      <button id="btn-list" class="icon-btn" title="All repos as a list (L)" aria-label="All repos as a list"></button>
+      <button id="btn-time" class="icon-btn" title="Day or night (N)" aria-label="Day or night"></button>
+      <button id="btn-sound" class="icon-btn" title="Sounds (M)" aria-label="Sounds" aria-pressed="false"></button>
+      <button id="btn-scan" class="icon-btn" title="Rescan GitHub and this machine" aria-label="Rescan"></button>
+      <button id="btn-help" class="icon-btn" title="How to move around (?)" aria-label="Help"></button>
+    </div>
+  </header>
+
+  <aside id="card" class="card" hidden aria-live="polite"></aside>
+  <aside id="list" class="list" hidden></aside>
+
+  <div class="pad" aria-label="Move the camera">
+    <button data-pad="in" title="Closer (+)" aria-label="Closer"></button>
+    <button data-pad="out" title="Further (-)" aria-label="Further"></button>
+    <button data-pad="left" title="Turn left (Q)" aria-label="Turn left"></button>
+    <button data-pad="right" title="Turn right (E)" aria-label="Turn right"></button>
+    <button data-pad="home" title="Whole map (H)" aria-label="Whole map"></button>
+  </div>
+
+  <footer class="dock">
+    <div id="legend" class="legend"></div>
+    <nav id="lenses" class="lenses" aria-label="Lenses"></nav>
+    <div class="timeline" title="Project arrivals by creation date; current building sizes are retained.">
+      <span class="replay-label">Project arrivals</span>
+      <button id="play" class="icon-btn small" title="Replay project arrivals" aria-label="Replay project arrivals"></button>
+      <input id="when" type="range" min="0" max="1000" value="1000" step="1" aria-label="Show projects created by this date" />
+      <output id="when-label">Today</output>
+    </div>
+  </footer>
+
+  <div id="tip" class="tip" hidden></div>
+  <div id="hint" class="hint" hidden></div>
+  <div id="notice" class="notice" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+  <div id="loading" class="loading"><div class="spinner"></div><p>Drawing your world</p></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

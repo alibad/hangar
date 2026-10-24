@@ -14,6 +14,9 @@ test("fleet rejects hosted, cross-origin, rebinding and mutations without intent
   assert.equal(localRequestAllowed(request("localhost:8003", { origin: "http://localhost:8003", "x-hangar": "1" }, "POST"), false), true);
 });
 test("Atlas bridge is an allowlist, not an arbitrary filesystem or URL proxy", () => {
+  assert.equal(atlasPathAllowed("proxy", ["islands"], "GET"), true);
+  assert.equal(atlasPathAllowed("proxy", ["islands"], "POST"), true);
+  assert.equal(atlasPathAllowed("proxy", ["islands", "delete"], "POST"), false);
   assert.equal(atlasPathAllowed("view", ["vendor", "three", "build", "three.module.min.js"], "GET"), true);
   for (const path of [["..", "config.json"], ["%2e%2e", "foo.js"], ["js", "..", "atlas.json"], ["atlas.json"], ["js\\other.js"]]) assert.equal(atlasPathAllowed("view", path, "GET"), false);
   assert.equal(atlasPathAllowed("proxy", ["work"], "POST"), true);

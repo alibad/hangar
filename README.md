@@ -1,18 +1,18 @@
 # Hangar
 
 **Your projects, live work, models and machines in one workspace.** Explore
-projects as buildings on Atlas's floating islands, continue Claude and Codex work,
+projects as buildings on floating islands, continue Claude and Codex work,
 review idle sessions, and use models on a connected machine through SSH. Hangar
 also starts and stops local AI services, keeps them inside a memory budget, and
 shows the requests that pass through its gateway.
 
 Start with the [connected workspace setup](docs/connected-workspace.md), the
 [second-machine handoff](docs/second-machine-handoff.md), or the
-[visual identity](docs/brand.md). Atlas is a separate local Python engine; its
-checkout is required for projects and session history. Atlas currently requires
-repository access; it is not bundled with this public repository. Models and
-studios remain available without it. Machine configuration and session records
-stay local.
+[visual identity](docs/brand.md). The project engine and 3D world are bundled in
+this repository. No Atlas checkout, account access or separate Atlas service is
+required. Install Node 22+, Python 3.10+ and Git; GitHub CLI authentication enables
+remote repository discovery. Machine configuration and session records stay local
+under ignored `var/`.
 
 **Hangar is the product; Console is the operator surface.** The canonical public
 entry point is `hangar.humanquest.net`, with `console.humanquest.net` as a second

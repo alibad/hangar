@@ -13,16 +13,16 @@
   "commandsFile": "service-commands.b5.json",
   "services": [
     {
-      "id": "atlas",
-      "name": "Atlas project engine",
-      "localPort": 7788,
-      "localUrl": "http://127.0.0.1:7788",
-      "publicUrl": "http://127.0.0.1:7788",
+      "id": "project-engine",
+      "name": "Hangar project engine",
+      "localPort": 7789,
+      "localUrl": "http://127.0.0.1:7789",
+      "publicUrl": "http://127.0.0.1:7789",
       "localOnly": true,
       "healthPath": "/api/status",
       "category": "app",
       "authRequired": false,
-      "note": "Local project islands, session evidence and managed coding jobs. Install repo-atlas beside Hangar or set ATLAS_REPO_DIR. Never exposed through a public tunnel."
+      "note": "Local project islands, session evidence and managed coding jobs. Bundled with Hangar; starts automatically when the workspace opens. Never exposed through a public tunnel."
     },
     {
       "id": "manager",
