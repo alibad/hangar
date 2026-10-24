@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Hangar" },
   icons: {
-    icon: "/icons/icon.svg",
+    icon: [{ url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" }, { url: "/icons/icon-64.png", sizes: "64x64", type: "image/png" }],
     apple: "/icons/icon-192.png",
   },
   other: { "mobile-web-app-capable": "yes" },

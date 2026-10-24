@@ -106,9 +106,10 @@ against the installed app; real user sessions were not archived or moved by test
 ## Identity and world navigation
 
 The default palette is Hangar cobalt with basalt surfaces and warm portal light.
-Existing explicit palette choices remain available. The open-portal logo is used
-in the app and installation icons; the foundry illustration welcomes users into
-the world. See `docs/brand.md`.
+Existing explicit palette choices remain available. Foundry Island is the primary
+logo in the app header, installation icons and world entrance. Its faceted blue
+rock and warm doorway connect the identity to the actual island world. See
+`docs/brand.md`.
 
 Search dims unrelated buildings. Island chips focus a district; Home restores
 the whole map; Expand gives the world more space. Live work highlights only jobs
