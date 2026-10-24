@@ -35,6 +35,11 @@ type Destination = {
 };
 
 const DESTINATIONS: Destination[] = [
+  { id: "world", label: "World", hint: "Atlas islands, connected machines and live work", keywords: "atlas world islands home", icon: Server },
+  { id: "projects", label: "Projects", hint: "Find a project and start work", keywords: "repos repositories code", icon: Brain },
+  { id: "sessions", label: "Sessions", hint: "Coding jobs and agent history", keywords: "claude codex continue resume", icon: Activity },
+  { id: "machines", label: "Machines", hint: "Connect and inspect your computers", keywords: "ssh remote laptop desktop fleet", icon: Server },
+  { id: "model-settings", label: "Model settings", hint: "Local routing and downloads", keywords: "providers routes downloads", icon: Settings2 },
   { id: "stack", label: "Home", hint: "Workstreams, GPU, RAM and queue", keywords: "status health gpu resources stack", icon: Server },
   { id: "services", label: "Services", hint: "Inspect and control every local process", keywords: "start stop restart logs ports health infrastructure", icon: Settings2 },
   { id: "storage", label: "Storage", hint: "Local app · map drives and manage moves", keywords: "local machine disk drive files folders space duplicates cache watch move explorer", icon: HardDrive },

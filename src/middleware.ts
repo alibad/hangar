@@ -91,6 +91,8 @@ export function middleware(req: NextRequest) {
   // Skip: the /api/traffic ingest channel; qwen generate/edit (they self-report a
   // real response status via withTraffic); and the dashboard's own status polling.
   const skip =
+    (req.method === "GET" && (pathname.startsWith("/api/atlas/") || pathname.startsWith("/api/fleet"))) ||
+    (req.method === "POST" && /^\/api\/fleet\/[^/]+\/inference$/.test(pathname)) ||
     pathname.startsWith("/api/traffic") ||
     pathname === "/api/qwen/generate" ||
     pathname === "/api/qwen/edit" ||

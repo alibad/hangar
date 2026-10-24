@@ -1,6 +1,10 @@
 {
   "_doc": "TEMPLATE — copy to service-commands.json and replace every C:\\path\\to\\... with your own. The real file is gitignored, because start commands are absolute paths into one person's disk and the list of them names every other project on that machine. Which file a host reads is set by `commandsFile` in its config/hosts/<id>.json. docker = container name. cmd+args+cwd = spawn a process. skip = externally managed.",
   "_models-doc": "Model weights live on D: (see HF_HOME below), NOT the default C:\\Users\\<you>\\.cache\\huggingface. HF_HOME is set per-service rather than relied upon from the user environment: the manager runs as a scheduled task and inherits its environment at launch, so a user-level variable set afterwards would not reach spawned services until a re-login — they would silently fall back to the empty default path and re-download every model. Every service that loads Hugging Face weights must carry it.",
+  "atlas": {
+    "cmd": "node",
+    "args": ["scripts/start-atlas.mjs"]
+  },
   "vllm": {
     "docker": "vllm-coder"
   },

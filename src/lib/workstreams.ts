@@ -2,6 +2,13 @@ import { LABS, labTab, type ConsoleTab } from "./labs";
 
 export type WorkstreamLink = { id: ConsoleTab; label: string; hint: string };
 export type WorkstreamGroup = { id: string; label: string; links: WorkstreamLink[] };
+export const PRIMARY_LINKS: WorkstreamLink[] = [
+  { id: "world", label: "World", hint: "Atlas islands and live work" },
+  { id: "projects", label: "Projects", hint: "Repositories across your machines" },
+  { id: "sessions", label: "Sessions", hint: "Live jobs and coding history" },
+  { id: "models", label: "Models", hint: "Use models on a connected machine" },
+  { id: "machines", label: "Machines", hint: "Connect and inspect your machines" },
+];
 const labLink = (id: string, label?: string): WorkstreamLink => {
   const lab = LABS.find(l => l.id === id)!;
   return { id: labTab(id), label: label ?? lab.label, hint: lab.hint };
@@ -31,7 +38,7 @@ export const WORKSTREAMS: WorkstreamGroup[] = [
 
 export const SYSTEM_LINKS: WorkstreamLink[] = [
   { id: "services", label: "Services", hint: "Start, stop and inspect local services" },
-  { id: "models", label: "Models", hint: "Discover, route and manage models" },
+  { id: "model-settings", label: "Model settings", hint: "Local model routing and downloads" },
   { id: "requests", label: "Requests", hint: "Live traffic and failures" },
   { id: "usage", label: "AI Usage", hint: "Providers, tokens and cost" },
   { id: "storage", label: "Storage", hint: "Local files, drives and guarded moves" },

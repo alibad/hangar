@@ -53,7 +53,7 @@ export default function ConsoleHeader({
     <>
     <header className="console-header sticky top-0 z-30 border-b border-gray-800 bg-gray-950/90 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1500px] items-center gap-3 px-4 sm:px-6">
-        <button type="button" onClick={() => onSelect("stack")} className="flex h-11 shrink-0 items-center gap-2.5 md:h-auto" aria-label={`Open Hangar home for ${machine}`}>
+        <button type="button" onClick={() => onSelect("world")} className="flex h-11 shrink-0 items-center gap-2.5 md:h-auto" aria-label={`Open Hangar world for ${machine}`}>
           <Image src="/icons/icon.svg" alt="" width={24} height={24} priority className="h-6 w-6" />
           <span className="text-lg font-semibold tracking-[-0.02em] text-gray-100">Hangar</span>
           <span className="hidden rounded-full border border-gray-800 bg-gray-900 px-2 py-0.5 text-[10px] font-medium text-gray-500 lg:inline">

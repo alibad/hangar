@@ -23,6 +23,9 @@ import LabHost from "@/components/labs/lab-host";
 import { LABS, isConsoleTab, labForTab, labTab, type LabTab } from "@/lib/labs";
 import { KEEP_TABS, TabPane } from "@/components/tab-pane";
 import HomeCockpit from "@/components/home-cockpit";
+import dynamic from "next/dynamic";
+const ConnectedWorkspace = dynamic(() => import("@/components/connected-workspace"), { ssr: false });
+const WORLD_TABS = new Set(["world", "projects", "sessions", "machines", "models"]);
 import ForeignProfileNotice from "@/components/foreign-profile-notice";
 import TankVoiceDirector from "@/components/tank-voice-director";
 import WorkstreamSidebar, { useSidebarState } from "@/components/workstream-sidebar";
@@ -419,10 +422,10 @@ export default function Home() {
    */
   const [catalogByService, setCatalogByService] = useState<Record<string, CatalogEntry[]>>({});
   const [activeModels, setActiveModels] = useState<Record<string, string>>({});
-  const [tab, setTab] = useState<ConsoleTab>("stack");
+  const [tab, setTab] = useState<ConsoleTab>(HOSTED_RUNTIME ? "stack" : "world");
   // The tabs kept built (newest first) and where each was scrolled to — see TabPane.
   const [kept, setKept] = useState<ConsoleTab[]>([]);
-  const tabNow = useRef<ConsoleTab>("stack");
+  const tabNow = useRef<ConsoleTab>(HOSTED_RUNTIME ? "stack" : "world");
   const scrollByTab = useRef<Partial<Record<ConsoleTab, number>>>({});
   /** Leave the current tab where it was; open the next one where you left it (or at the top). */
   const switchTab = useCallback((next: ConsoleTab) => {
@@ -475,7 +478,7 @@ export default function Home() {
         saved = "qwen";
         window.history.replaceState({ tab: hash }, "", "#qwen");
       }
-      const next: ConsoleTab = isConsoleTab(hash) ? hash : isConsoleTab(saved) ? saved : "stack";
+      const next: ConsoleTab = isConsoleTab(hash) ? hash : isConsoleTab(saved) && saved !== "stack" ? saved : HOSTED_RUNTIME ? "stack" : "world";
       switchTab(next);
       setKept((k) => (k.length ? k : [next]));
     };
@@ -909,6 +912,11 @@ export default function Home() {
         {HOSTED_RUNTIME && <HostedRuntimeNotice />}
 
         <>
+
+        {!HOSTED_RUNTIME && (WORLD_TABS.has(tab) || kept.some(t => WORLD_TABS.has(t))) && <ConnectedWorkspace
+          view={(WORLD_TABS.has(tab) ? tab : "world") as "world" | "projects" | "sessions" | "machines" | "models"}
+          active={WORLD_TABS.has(tab)} onSelect={selectTab} />}
+        {HOSTED_RUNTIME && WORLD_TABS.has(tab) && <LocalMachineRequired title="Your connected world runs in local Hangar" description="Run Hangar and Atlas on your computer to explore projects, agent sessions and connected machines." available={["Atlas project islands", "Claude and Codex session history", "Connected machines through SSH"]} />}
 
         {/* ── STACK TAB (services + GPU) ── */}
         <TabPane {...pane("stack")}>
@@ -2074,7 +2082,7 @@ export default function Home() {
         <TabPane {...pane("sam3")}>{hostHasTab("sam3") ? <Sam3View /> : <HostUnavailable tab="sam3" title="Segment" />}</TabPane>
 
         {/* ── MODELS / AI ROUTER TAB ── */}
-        <TabPane {...pane("models")}>
+        <TabPane {...pane("model-settings")}>
           {HOSTED_RUNTIME ? (
             <LocalMachineRequired
               title="Model routing and downloads change the local installation"

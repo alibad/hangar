@@ -14,6 +14,18 @@
   "commandsFile": "service-commands.json",
   "services": [
     {
+      "id": "atlas",
+      "name": "Atlas project engine",
+      "localPort": 7788,
+      "localUrl": "http://127.0.0.1:7788",
+      "publicUrl": "http://127.0.0.1:7788",
+      "localOnly": true,
+      "healthPath": "/api/status",
+      "category": "app",
+      "authRequired": false,
+      "note": "Local project islands, session evidence and managed coding jobs. Install repo-atlas beside Hangar or set ATLAS_REPO_DIR. Never exposed through a public tunnel."
+    },
+    {
       "id": "manager",
       "name": "Service Manager",
       "localPort": 8099,

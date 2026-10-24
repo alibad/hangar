@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Home, Image, MessageSquare, Workflow, Server, Network, Activity, Gauge, HardDrive, Menu, X, Video, Clapperboard, Flame, Box, Scissors, Terminal, Swords, Scale, GitBranch, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { WORKSTREAMS, SYSTEM_LINKS, workstreamFor, type WorkstreamLink } from "@/lib/workstreams";
+import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Globe2, Image, MessageSquare, Workflow, Server, Network, Activity, Gauge, HardDrive, Menu, X, Video, Clapperboard, Flame, Box, Scissors, Terminal, Swords, Scale, GitBranch, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PRIMARY_LINKS, WORKSTREAMS, SYSTEM_LINKS, workstreamFor, type WorkstreamLink } from "@/lib/workstreams";
 import { hostHasTab } from "@/lib/host";
 import type { ConsoleTab } from "@/lib/labs";
 
 const icons = { audio: AudioLines, visual: Image, text: MessageSquare, process: Workflow };
-const systemIcons = { services: Server, models: Network, requests: Activity, usage: Gauge, storage: HardDrive };
+const systemIcons = { services: Server, "model-settings": Network, requests: Activity, usage: Gauge, storage: HardDrive };
+const primaryIcons = { projects: Layers, sessions: Terminal, models: Network, machines: Server };
 
 export function useSidebarState() {
   const [collapsed, setCollapsed] = useState(false);
@@ -43,17 +44,19 @@ export default function WorkstreamSidebar({ active, onSelect, speechMode, collap
     <aside id="hangar-sidebar" className={`hangar-sidebar${mobileOpen ? " is-open" : ""}${collapsed ? " is-collapsed" : ""}`} aria-label="Workstreams">
       <nav aria-label="Primary navigation">
         <div className="hangar-nav-home">
-          <button type="button" className="hangar-nav-group" aria-label="Home" title="Home" aria-current={active === "stack" ? "page" : undefined} onClick={() => go("stack")}><Home size={19} /><span>Home</span></button>
+          <button type="button" className="hangar-nav-group" aria-label="World" title="World" aria-current={active === "world" ? "page" : undefined} onClick={() => go("world")}><Globe2 size={19} /><span>World</span></button>
           <button type="button" className="hangar-sidebar-toggle" onClick={onToggle} aria-controls="hangar-sidebar" aria-expanded={!collapsed} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
+        {PRIMARY_LINKS.filter(item => item.id !== "world").map(({ id, label }) => { const Icon = primaryIcons[id as keyof typeof primaryIcons]; return <button key={id} className="hangar-nav-group" title={label} aria-label={label} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}><Icon size={19} /><span>{label}</span></button>; })}
+        <span className="hangar-nav-label">STUDIOS</span>
         {WORKSTREAMS.map(group => { const Icon = icons[group.id as keyof typeof icons]; const open = expanded.includes(group.id); return <section className="hangar-nav-section" key={group.id}>
           <button type="button" className={`hangar-nav-group${currentGroup === group.id ? " is-current" : ""}`} aria-label={group.label} title={group.label} aria-expanded={open} aria-controls={`nav-${group.id}`} onClick={() => setExpanded(e => open ? e.filter(id => id !== group.id) : [...e, group.id])}><Icon size={19} /><span>{group.label}</span><ChevronDown size={14} className={open ? "is-open" : ""} /></button>
           <div id={`nav-${group.id}`} className={`hangar-nav-children${open ? " is-group-open" : ""}`}>{group.links.map(link)}</div>
         </section>; })}
       </nav>
-      <nav className="hangar-system-nav" aria-label="System and insights">{SYSTEM_LINKS.map(item => { const Icon = systemIcons[item.id as keyof typeof systemIcons]; return <button key={item.id} type="button" className="hangar-nav-group" aria-label={item.label} title={item.label} aria-current={active === item.id ? "page" : undefined} onClick={() => go(item.id)}><Icon size={18} /><span>{item.label}</span></button>; })}</nav>
+      <nav className="hangar-system-nav" aria-label="System and insights">{SYSTEM_LINKS.filter(item => item.id !== "models").map(item => { const Icon = systemIcons[item.id as keyof typeof systemIcons]; return <button key={item.id} type="button" className="hangar-nav-group" aria-label={item.label} title={item.label} aria-current={active === item.id ? "page" : undefined} onClick={() => go(item.id)}><Icon size={18} /><span>{item.label}</span></button>; })}<button className="hangar-nav-group" onClick={() => go("stack")} title="Resource overview" aria-label="Resource overview" aria-current={active === "stack" ? "page" : undefined}><Gauge size={18} /><span>Resource overview</span></button></nav>
     </aside>
   </>;
 }
