@@ -52,6 +52,9 @@ The local integration tests cover a temporary second-node fixture. They cannot
 prove SSH reachability, authentication, installed models or agent permissions on
 another physical machine. Those are the purpose of this handoff.
 
-PlanQuest currently stores an explicit HTTPS plan link. It does not sync plan
-content or mark milestones complete. The world scopes to one machine at a time;
+PlanQuest now supports OAuth, plan search, milestone previews and explicit project
+links. Connect through a project's PlanQuest card on the Hangar host you browse.
+Credentials remain on that host; a remote project receives only the selected
+plan's title and URL. Test this after approving access; see `planquest.md`.
+Hangar never marks milestones complete. The world scopes to one machine at a time;
 there is no merged cross-machine filesystem view.

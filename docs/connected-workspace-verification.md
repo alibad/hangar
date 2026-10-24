@@ -29,5 +29,20 @@ machines. Added portals use shared geometry and no per-island point lights.
 
 Still required: the physical two-machine SSH connection, exact remote-model
 inference and an authenticated remote coding-agent task with continuation.
-Follow `second-machine-handoff.md`. PlanQuest currently provides explicit plan
-links only, and grouping suggestions use conservative native-title rules.
+Follow `second-machine-handoff.md`. Grouping suggestions use conservative
+native-title rules.
+
+## PlanQuest connection upgrade
+
+Production build and TypeScript checks pass. The Node suite now has 317 passing
+tests and one existing skip. Eight new tests cover OAuth PKCE, browser-bound and
+single-use state, expiry/denial, serialized refresh rotation, revoked access,
+MCP transport, canonical plan URLs and the agent lookup/link contracts.
+Live local API checks reject cross-origin requests, unauthenticated plan reads,
+mutations without the intent header, and malformed plan IDs.
+
+Browser checks used isolated sample plans to verify search, milestone previews,
+explicit linking and responsive layouts at desktop and 390px phone width, in
+light and dark themes. No real project link was changed for these checks.
+PlanQuest discovery was checked against the live provider. A real account consent
+and authenticated plan lookup are still required; fixture tests do not prove them.

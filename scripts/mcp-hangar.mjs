@@ -47,6 +47,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { videoAnalysisTools } from "./video-analysis.mjs";
+import { planquestTools } from "./planquest-tools.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MANAGER = process.env.MANAGER_URL ?? "http://localhost:8099";
@@ -655,6 +656,7 @@ async function videoJob({ id }) {
 // ── tool table ────────────────────────────────────────────────────────────────
 
 const TOOLS = [
+  ...planquestTools(consoleFetch),
   ...videoAnalysisTools(),
   {
     name: "list_services",

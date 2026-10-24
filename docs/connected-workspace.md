@@ -51,9 +51,10 @@ coding jobs return their output to the requesting Hangar.
 - **Unobserved job:** Atlas restarted while a job was active. Its process may
   remain alive; inspect it externally and explicitly acknowledge it before
   launching another writer in that checkout.
-- **Plan link:** a user-confirmed HTTPS PlanQuest link. It reads no plan content
-  and writes no milestone progress. Authenticated milestone synchronization is
-  not implemented.
+- **Plan link:** an explicitly chosen PlanQuest plan. Connect once with OAuth,
+  search active plans, preview milestones and link the verified plan to a project.
+  Hangar reads plan content but never writes milestone progress. See
+  [PlanQuest connection](planquest.md) for setup and agent tools.
 
 Project Git state shows its scan age; ahead counts refer to the last fetch.
 The map currently scopes to one selected machine at a time. There is no merged
