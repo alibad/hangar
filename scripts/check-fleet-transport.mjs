@@ -32,8 +32,12 @@ try {
   assert.equal((await post("/api/fleet/local/inference", { model: "no-such-model", prompt: "never run" })).status, 409);
   assert.equal((await fetch(`${base}/api/atlas/local/view/atlas.json`)).status, 404);
   assert.equal((await post("/api/atlas/local/proxy/git", { action: "push" })).status, 404);
-  console.log("PASS: second-node verification, scoped job reads, exact model request forwarding, remote desktop rejection, origin guard, no arbitrary Atlas proxy or model fallback.");
+  await new Promise(resolve => fixture.close(resolve));
+  assert.equal((await fetch(`${base}/api/fleet/${peerId}/status`)).status, 503);
+  assert.equal((await fetch(`${base}/api/atlas/${peerId}/proxy/work`)).status, 503);
+  assert.equal((await post(`/api/fleet/${peerId}/inference`, { model: "fixture-model", prompt: "disconnected fixture" })).status, 502);
+  console.log("PASS: second-node verification, scoped job reads, exact model forwarding, remote desktop rejection, origin guard, no arbitrary proxy/model fallback, disconnected node returns errors.");
 } finally {
   await post("/api/fleet", { action: "remove", id: peerId });
-  await new Promise(resolve => fixture.close(resolve));
+  if (fixture.listening) await new Promise(resolve => fixture.close(resolve));
 }

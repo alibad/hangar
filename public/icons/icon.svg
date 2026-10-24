@@ -1,4 +1,10 @@
-<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M48 18 Q55 41 78 48 Q55 55 48 78 Q41 55 18 48 Q41 41 48 18 Z" fill="#31439b"/>
-  <path d="M60.02 35.98 Q52 48 60.02 60.02 Q48 52 35.98 60.02 Q44 48 35.98 35.98 Q48 44 60.02 35.98 Z" fill="#7b85c7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <title>Hangar open portal</title>
+  <defs>
+    <linearGradient id="cobalt" x1="16" y1="16" x2="226" y2="240" gradientUnits="userSpaceOnUse"><stop stop-color="#174BFF"/><stop offset="1" stop-color="#0632C7"/></linearGradient>
+    <radialGradient id="light"><stop stop-color="#FFE4AA"/><stop offset="1" stop-color="#FFB85C"/></radialGradient>
+  </defs>
+  <path d="M20 16 108 68v28l-26 15v34l26 15v28l-88 52V16Zm216 0-88 52v28l26 15v34l-26 15v28l88 52V16Z" fill="url(#cobalt)"/>
+  <path d="m108 68 4 3v27l-26 15v30l26 15v28l-4 2v-28l-26-15v-34l26-15V68Zm40 0-4 3v27l26 15v30l-26 15v28l4 2v-28l26-15v-34l-26-15V68Z" fill="#171B24"/>
+  <path d="m128 105 36 23-36 23-36-23 36-23Z" fill="url(#light)"/>
 </svg>

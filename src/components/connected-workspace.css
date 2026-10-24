@@ -62,3 +62,36 @@
 @media(prefers-reduced-motion:reduce){.connected-workspace *{transition:none!important;animation:none!important}}
 .cw-model-tile>small{display:block}.cw-model-tile>button{display:flex;align-items:center;gap:8px}
 .cw-archive-nudge{font-size:12px!important;color:var(--cw-muted);margin-bottom:18px;text-align:start;justify-content:flex-start!important}
+
+/* The stage carries the landscape; the surrounding controls stay quiet. */
+.connected-workspace{--cw-accent:var(--accent-400);--cw-glow:var(--warn-300)}
+.cw-heading{border-bottom:1px solid var(--cw-line);padding-bottom:20px}
+.cw-machine.is-selected{background:linear-gradient(125deg,color-mix(in srgb,var(--accent-500) 12%,var(--cw-panel)),var(--cw-panel));box-shadow:inset 3px 0 var(--cw-accent)}
+.cw-world{background:var(--color-gray-950)}
+.cw-world-caption{background:#171b24d9;padding:10px 14px;border-radius:10px;max-width:calc(100% - 140px);text-shadow:none}
+.cw-world-caption p{color:#edf1ff}.cw-world-caption .cw-eyebrow{color:#b9c8e6}
+.cw-world-tools{position:absolute;right:18px;top:22px;z-index:4;display:flex;gap:6px}
+.cw-world-tools button{width:36px;background:#171b24ed;color:#edf1ff;border:1px solid #769aff44}
+.cw-lenses{top:105px;flex-wrap:wrap;background:#171b24ed;border-color:#769aff44}
+.cw-lenses button[aria-pressed=true]{background:#174bff;color:#fff}
+.cw-live-strip{background:#171b24ed;color:#edf1ff}.cw-live-strip button{color:#ffca81}
+.cw-world-loading{background:var(--color-gray-950);color:var(--cw-muted);padding:24px;text-align:center;pointer-events:auto}
+.cw-world-loading img{width:180px;height:auto;filter:drop-shadow(0 18px 35px #174bff25)}
+.cw-world-loading button{color:var(--cw-accent);pointer-events:auto}
+.cw-map-hint{position:absolute;z-index:2;left:22px;bottom:76px;color:#d4ddef;background:#171b24d9;padding:5px 9px;border-radius:6px;font-size:11px;pointer-events:none}
+.cw-island-picker{display:flex;flex-wrap:wrap;gap:5px;margin:16px 0;max-height:150px;overflow:auto;scrollbar-width:thin}
+.cw-island-picker button{font-size:11px;min-height:32px;padding:4px 9px;background:var(--cw-panel);color:var(--cw-muted);text-align:start}
+.cw-island-picker button[aria-pressed=true]{color:var(--cw-accent);background:color-mix(in srgb,var(--cw-accent) 14%,var(--cw-panel))}
+.cw-island-picker small{font-size:10px;opacity:.8}.cw-result-count{font-size:11px;color:var(--cw-muted);margin-bottom:8px}
+.cw-empty>img{display:block;margin:0 auto 20px;object-fit:contain}.cw-empty>button{margin:12px}
+.is-expanded .cw-world-layout{grid-template-columns:1fr}.is-expanded .cw-world{height:78dvh;min-height:480px}.is-expanded .cw-inspector{border-left:0;border-top:1px solid var(--cw-line);max-height:none}
+.is-expanded .cw-island-picker{max-height:none}.is-expanded .cw-inspector>.cw-project-row{display:inline-flex;width:48%;margin-inline-end:2%}
+.cw-model-tile{background:linear-gradient(140deg,color-mix(in srgb,var(--accent-500) 4%,var(--color-gray-950)),var(--color-gray-950))}
+.cw-model-tile:has(button:hover){border-color:var(--cw-accent)}
+.cw-primary{background:var(--accent-600)!important;color:var(--on-accent)!important}
+.cw-node-line{border-color:var(--cw-accent)}
+.cw-project-emblem{display:inline-flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;background:var(--cw-panel);border:1px solid var(--cw-line);border-radius:9px;color:var(--cw-accent);font-size:10px;font-weight:650;overflow:hidden}
+.cw-project-emblem img{width:100%;height:100%;object-fit:contain}.cw-project-tile>.cw-project-emblem{margin-top:16px;width:42px;height:42px}.cw-project-row>.cw-project-dot{margin-inline-start:auto;flex-shrink:0}
+.connected-workspace .cw-project-row>.cw-project-emblem{flex:0 0 32px}
+.connected-workspace .cw-lenses button[aria-pressed=true]:hover{color:#fff}
+@media(max-width:550px){.cw-world-caption{left:12px;top:14px;max-width:calc(100% - 100px);padding:8px 10px}.cw-world-caption .cw-eyebrow{font-size:8px}.cw-world-tools{right:10px;top:16px;gap:4px}.cw-world-tools button{width:32px;min-height:34px}.cw-lenses{top:100px;left:12px;max-width:calc(100% - 24px)}.cw-lenses button{font-size:10px;min-height:34px}.cw-map-hint{font-size:10px;left:12px;bottom:94px}.cw-live-strip{right:12px;bottom:14px}.cw-live-strip button{display:inline-flex;font-size:10px}.cw-live-strip{flex-wrap:wrap}.is-expanded .cw-inspector>.cw-project-row{display:flex;width:100%;margin:0}.cw-world{height:530px}}

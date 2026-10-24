@@ -23,7 +23,7 @@ Install this Hangar version and this Atlas version on that machine. Authenticate
 the desired coding agents there. With an already configured SSH host alias, run:
 
 ```sh
-ssh -N -L 18003:127.0.0.1:8003 your-host
+ssh -o ExitOnForwardFailure=yes -N -L 127.0.0.1:18003:127.0.0.1:8003 your-host
 ```
 
 In Machines, enter its name, SSH alias and forwarded local port. Hangar verifies
@@ -72,7 +72,7 @@ Both browser scripts accept `HANGAR_URL`. The UI script accepts `PLAYWRIGHT_CORE
 and `CHROMIUM` paths. Captures are private under `var/fleet-qa/`.
 
 A real local inference request through the fleet endpoint returned `READY` from
-the already-running `local-gemma4` model on BeTenshi. An actual second-machine SSH
+the already-running `local-gemma4` model on the local host. An actual second-machine SSH
 connection and an authenticated coding-agent run still require end-to-end
 verification on the intended machines. Fixtures do not substitute for those checks.
 
@@ -86,8 +86,11 @@ observed transcript/native activity or explicit Hangar open/review; visits in
 other apps cannot all be observed.
 
 Groups & sections mirrors native Codex sections and adds shared Hangar groups for
-both agents. Suggestions explain their evidence: confirmed edits or a tentative
-working-folder match. Multi-project sessions need a manual choice. Accepting a
+both agents. Suggestions first use native session titles to propose broad work topics across
+repositories and agents. These are conservative local keyword rules, not an LLM
+reading the full conversation. Ambiguous titles abstain; a single-project edit or
+working-folder match is an explicitly labeled fallback. No transcript bodies are
+stored for grouping or sent to a model. Claude custom titles are preserved. Accepting a
 suggestion changes Hangar only. Explicit “Move in Codex too” and “Archive in Codex
 too” actions use the native Codex app-server protocol. Claude grouping/archiving
 is a Hangar overlay; its original transcripts remain untouched. New activity
@@ -99,3 +102,29 @@ not 7791. The browser test covers unread ordering, protection, archive/restore,
 native section moves, mixed-agent groups, snoozes and phone layouts. All mutations
 stay in that temporary fixture. Native Codex section reads were also verified
 against the installed app; real user sessions were not archived or moved by tests.
+
+## Identity and world navigation
+
+The default palette is Hangar cobalt with basalt surfaces and warm portal light.
+Existing explicit palette choices remain available. The open-portal logo is used
+in the app and installation icons; the foundry illustration welcomes users into
+the world. See `docs/brand.md`.
+
+Search dims unrelated buildings. Island chips focus a district; Home restores
+the whole map; Expand gives the world more space. Live work highlights only jobs
+observed by Hangar, including warm island beacons. Running apps have separate
+labels. A failed 3D renderer offers the project list instead of a permanent spinner.
+Keyboard search, focus states, reduced motion and light graphics remain supported.
+
+## Public source and handoff
+
+Standard dev/start commands bind to loopback. Never expose the unauthenticated
+local console on a LAN or public tunnel. Use the explicit SSH forwarding above.
+Before publishing changes, run `node scripts/check-public-source.mjs origin/main`;
+it checks every outgoing commit as well as the working tree and reports matching
+file names without printing secret values. Manually review screenshots and prose.
+Private `.atlas/`, `var/`, environment files and captures remain ignored.
+
+Use `docs/second-machine-handoff.md` for the other machine. Production compilation,
+automated tests and a disposable second-node fixture do not replace that physical
+two-machine verification.

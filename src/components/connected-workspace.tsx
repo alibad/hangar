@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ArrowRight, Check, ChevronRight, Cpu, Globe2, Laptop, Layers, Play, Plus, RefreshCw, Search, Server, Square, Terminal, X } from "lucide-react";
+import { Activity, ArrowRight, Check, ChevronRight, Cpu, Globe2, Laptop, Play, Plus, RefreshCw, Search, Server, Square, Terminal, X, Maximize2, Minimize2, Home } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import type { ConsoleTab } from "@/lib/labs";
 import type { Peer } from "@/lib/fleet-policy";
 import "./connected-workspace.css";
 import SessionLibrary, { type LibrarySession, type SessionLibraryData } from "./session-library";
 
-type Site = { role: string; branch?: string; dirty?: number; ahead?: number; behind?: number; rel: string };
+type Site = { role: string; branch?: string; dirty?: number; ahead?: number; behind?: number; rel: string; logo?: { hash: string } };
 type Repo = { id: string; name: string; family: string; description?: string; purpose?: string; sites: Site[]; meaning?: { purpose?: string; next?: string }; risks?: { id: string; text: string }[] };
 type AtlasDoc = { generatedAt: string; repos: Repo[]; families: { id: string; name: string; repos: number }[]; apps: { id: string; name: string }[] };
 type Session = LibrarySession;
@@ -53,6 +53,8 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   const [family, setFamily] = useState("");
   const [lens, setLens] = useState("map");
   const [ready, setReady] = useState(false);
+  const [worldError, setWorldError] = useState("");
+  const [expanded, setExpanded] = useState(false);
   const [revision, setRevision] = useState(0);
   const [composer, setComposer] = useState(false);
   const [prompt, setPrompt] = useState("");
@@ -61,6 +63,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   const [busy, setBusy] = useState(false);
   const [inspectJob, setInspectJob] = useState<string | null>(null);
   const iframe = useRef<HTMLIFrameElement>(null);
+  const workspace = useRef<HTMLElement>(null);
   const prefix = `/api/atlas/${machine}/proxy`;
   const machineName = machines.find(m => m.id === machine)?.name || "This machine";
   const project = doc?.repos.find(r => r.id === selected);
@@ -72,7 +75,11 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
 
   useEffect(() => {
     const controller = new AbortController();
-    json<{ local: Machine; peers: Peer[] }>("/api/fleet", undefined, controller.signal).then(data => setMachines([data.local, ...data.peers])).catch(e => { if (!controller.signal.aborted) setError(e.message); });
+    json<{ local: Machine; peers: Peer[] }>("/api/fleet", undefined, controller.signal).then(data => {
+      if (controller.signal.aborted) return;
+      const nodes = [data.local, ...data.peers]; setMachines(nodes);
+      setMachine(current => nodes.some(n => n.id === current) ? current : "local");
+    }).catch(e => { if (!controller.signal.aborted) setError(e.message); });
     return () => controller.abort();
   }, [revision]);
   useEffect(() => {
@@ -94,7 +101,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   }, [active, machines, revision]);
   useEffect(() => {
     const controller = new AbortController();
-    setDoc(null); setError(""); setReady(false); setJobs([]); setApps([]); setSessions([]); setLibrary(null); setSessionsError("");
+    setDoc(null); setError(""); setReady(false); setWorldError(""); setJobs([]); setApps([]); setSessions([]); setLibrary(null); setSessionsError("");
     json<AtlasDoc>(`${prefix}/atlas`, undefined, controller.signal).then(setDoc).catch(e => { if (!controller.signal.aborted) setError(e.message); });
     json<SessionLibraryData>(`${prefix}/sessions/library`, undefined, controller.signal).then(receiveLibrary).catch(e => { if (!controller.signal.aborted) setSessionsError(e.message); });
     return () => controller.abort();
@@ -118,6 +125,9 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     const receive = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== iframe.current?.contentWindow || event.data?.source !== "atlas") return;
       if (event.data.type === "ready") setReady(true);
+      if (event.data.type === "error") setWorldError(String(event.data.message || "The world could not be drawn."));
+      if (event.data.type === "district") { setFamily(event.data.family || ""); if (!event.data.family) setQuery(""); }
+      if (event.data.type === "search") workspace.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
       if (event.data.type === "job") setInspectJob(event.data.id);
       if (event.data.type === "select") { setSelected(event.data.repo); setComposer(false); setResume(null); }
     };
@@ -125,14 +135,23 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     return () => window.removeEventListener("message", receive);
   }, []);
   useEffect(() => { if (ready) { send("theme", { night: theme === "dark" }); send("lens", { lens }); } }, [ready, theme, lens, send]);
+  useEffect(() => {
+    if (!doc || ready || !active || view !== "world") return;
+    const timer = setTimeout(() => setWorldError("The 3D world is taking too long to load. You can still browse your projects."), 30000);
+    return () => clearTimeout(timer);
+  }, [doc, ready, active, view]);
   useEffect(() => { if (ready) send("visibility", { visible: active && view === "world" }); }, [active, view, ready, send]);
   useEffect(() => { if (ready) send("work", { jobs: liveError ? [] : jobs.filter(running).map(j => ({ id: j.id, repo: j.repo, provider: j.provider, state: j.state })) }); }, [ready, jobs, liveError, send]);
-  useEffect(() => { setComposer(false); setResume(null); setMessage(""); setInspectJob(null); }, [machine]);
+  useEffect(() => { setComposer(false); setResume(null); setMessage(""); setInspectJob(null); setSelected(null); setFamily(""); setQuery(""); }, [machine]);
 
   const repos = useMemo(() => (doc?.repos ?? []).filter(r => (!family || r.family === family) && `${r.name} ${r.description ?? ""}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => {
     const score = (r: Repo) => jobs.some(j => j.repo === r.id && running(j)) ? 3 : apps.some(a => a.repo === r.id && a.running.length) ? 2 : r.sites.some(s => s.dirty) ? 1 : 0;
     return score(b) - score(a) || a.name.localeCompare(b.name);
   }), [doc, query, family, jobs, apps]);
+  useEffect(() => {
+    if (ready) send("filter", { repos: query || family ? repos.map(r => r.id) : null });
+  }, [ready, query, family, repos, send]);
+  const home = () => { setSelected(null); setFamily(""); setQuery(""); send("district", { family: null }); };
   const choose = (repo: Repo) => { setSelected(repo.id); setComposer(false); setResume(null); send("select", { repo: repo.id }); };
   async function act(path: string, body: unknown) {
     setBusy(true); setMessage("");
@@ -146,7 +165,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     setSelected(repo.id); setProvider(session.provider); setResume(session.id); setComposer(true); setPrompt("");
   };
 
-  return <section className="connected-workspace" aria-label="Connected workspace" hidden={!active}>
+  return <section ref={workspace} className={`connected-workspace ${expanded ? "is-expanded" : ""}`} aria-label="Connected workspace" hidden={!active}>
     <div className="cw-heading"><div><span className="cw-eyebrow">YOUR CONNECTED WORKSPACE</span><h1>{view === "world" ? "A world of work." : { projects: "Your projects.", sessions: "Work in motion.", machines: "One workspace. More power.", models: "Intelligence, wherever it runs." }[view]}</h1></div><button className="cw-icon" onClick={reload} aria-label="Refresh connected workspace"><RefreshCw size={18} /></button></div>
     <div className="cw-machine-rail" aria-label="Machine scope">
       {machines.map(node => { const status = statuses[node.id]; const online = status && !status.error; return <button key={node.id} className={`cw-machine ${machine === node.id ? "is-selected" : ""}`} aria-pressed={machine === node.id} onClick={() => setMachine(node.id)}><span className={`cw-led ${online ? "is-live" : status?.error ? "is-offline" : ""}`} />{node.id === "local" ? <Server size={18} /> : <Laptop size={18} />}<span><b>{node.name}</b><small>{status?.error ? "Connection lost" : online ? node.id === "local" ? "Hangar host" : "SSH connected" : "Checking connection"}</small></span><ChevronRight size={14} /></button>; })}
@@ -158,20 +177,21 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     <>
       {view === "machines" && <Machines machines={machines} statuses={statuses} onSaved={reload} onSelect={onSelect} />}
       {view === "models" && <FleetModels machine={machine} name={machineName} onSelect={onSelect} />}
-      {error && !["models", "machines"].includes(view) && <div className="cw-empty" role="alert"><Globe2 size={34} /><h2>The world is waiting for Atlas.</h2><p>{error}</p><button className="cw-primary" onClick={() => onSelect("machines")}>Open Machines <ArrowRight size={16} /></button></div>}
+      {error && !["models", "machines"].includes(view) && <div className="cw-empty" role="alert"><Globe2 size={34} /><img src="/brand/foundry.png" alt="" width="160" height="130" /><h2>Bring your projects into Hangar.</h2><p>{error}</p><p>Start the Atlas service, scan your project folders, then refresh this view.</p><button onClick={() => onSelect("services")}>Open service controls</button><button className="cw-primary" onClick={() => onSelect("machines")}>Open Machines <ArrowRight size={16} /></button></div>}
       <div className="cw-world-layout" hidden={view !== "world" || !!error}>
         <div className="cw-world">
+          <div className="cw-world-tools"><button aria-label="Show all islands" onClick={home}><Home size={16} /></button><button aria-label={expanded ? "Restore world layout" : "Expand world"} onClick={() => setExpanded(v => !v)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
           <div className="cw-world-caption"><span className="cw-eyebrow">{machineName} / PROJECT ATLAS</span><p>{doc ? `${doc.families.length} islands · ${doc.repos.length} projects` : "Connecting to your world…"}</p></div>
-          <div className="cw-lenses" aria-label="World lens">{[["map", "World"], ["changes", "Needs attention"], ["activity", "Activity"]].map(([id, name]) => <button key={id} aria-pressed={lens === id} onClick={() => setLens(id)}>{name}</button>)}</div>
+          <div className="cw-lenses" aria-label="World lens">{[["map", "World"], ["working", "Live work"], ["changes", "Needs attention"], ["where", "On this machine"]].map(([id, name]) => <button key={id} aria-pressed={lens === id} onClick={() => setLens(id)}>{name}</button>)}</div>
           {doc && <iframe ref={iframe} title={`Atlas project world on ${machineName}`} src={`/api/atlas/${machine}/view/index.html?embed=hangar&lens=map`} allow="clipboard-write" />}
-          {!ready && <div className="cw-world-loading"><Globe2 size={40} /><span>{doc ? "Drawing your islands…" : "Reading Atlas…"}</span></div>}
-          <div className="cw-live-strip"><span className={`cw-led ${!liveError ? "is-live" : "is-offline"}`} /><b>{liveError ? "Live connection lost" : `${liveJobs.length} coding ${liveJobs.length === 1 ? "job" : "jobs"} · ${appCount} running apps`}</b><button onClick={() => onSelect("sessions")}>Inspect work <ArrowRight size={14} /></button></div>
+          {!ready && <div className="cw-world-loading"><img src="/brand/foundry.png" alt="" width="180" height="150" /><span>{worldError || (doc ? "Drawing your islands…" : "Reading Atlas…")}</span>{worldError && <button onClick={() => onSelect("projects")}>Browse projects without 3D <ArrowRight size={16} /></button>}</div>}
+          <div className="cw-map-hint">Drag to explore · Scroll to zoom · / to find</div><div className="cw-live-strip"><span className={`cw-led ${!liveError ? "is-live" : "is-offline"}`} /><b>{liveError ? "Live connection lost" : `${liveJobs.length} coding ${liveJobs.length === 1 ? "job" : "jobs"} · ${appCount} running apps`}</b><button onClick={() => onSelect("sessions")}>Inspect work <ArrowRight size={14} /></button></div>
         </div>
         <aside className="cw-inspector" aria-label={project ? `${project.name} details` : "Explore projects"}>
-          {project ? <ProjectDetail project={project} machine={machine} machineName={machineName} sessions={projectSessions} jobs={jobs.filter(j => j.repo === project.id)} app={apps.find(a => a.repo === project.id)} busy={busy} onClose={() => { setSelected(null); send("select", { repo: null }); }} onStart={() => { setComposer(true); setResume(null); setPrompt(""); }} onContinue={continueSession} onAction={act} onJob={setInspectJob} onSelect={onSelect} /> : <><span className="cw-eyebrow">EXPLORE THE ISLANDS</span><h2>Pick up where<br />you left off.</h2><p className="cw-muted">Every building is a real project. Select one to see its work, sessions and running apps.</p><ProjectSearch query={query} setQuery={setQuery} />{repos.slice(0, 9).map(r => <ProjectRow key={r.id} repo={r} jobs={jobs} apps={apps} onClick={() => choose(r)} />)}<button className="cw-text-button" onClick={() => onSelect("projects")}>Explore all projects <ArrowRight size={15} /></button></>}
+          {project ? <ProjectDetail project={project} machine={machine} machineName={machineName} sessions={projectSessions} jobs={jobs.filter(j => j.repo === project.id)} app={apps.find(a => a.repo === project.id)} busy={busy} onClose={() => { setSelected(null); send("select", { repo: null }); }} onStart={() => { setComposer(true); setResume(null); setPrompt(""); }} onContinue={continueSession} onAction={act} onJob={setInspectJob} onSelect={onSelect} /> : <><span className="cw-eyebrow">EXPLORE THE ISLANDS</span><h2>{family ? doc?.families.find(f => f.id === family)?.name : "Find your next focus."}</h2><p className="cw-muted">Every building is a real project. Select one to see its work, sessions and running apps.</p><ProjectSearch query={query} setQuery={setQuery} /><div className="cw-island-picker" aria-label="Explore islands"><button aria-pressed={!family} onClick={home}>All islands</button>{doc?.families.filter(f => f.repos > 0).map(f => <button key={f.id} aria-pressed={family === f.id} onClick={() => { setFamily(f.id); setQuery(""); send("district", { family: f.id }); }}>{f.name}<small>{f.repos}</small></button>)}</div><div className="cw-result-count" aria-live="polite">{repos.length} matching projects</div>{repos.slice(0, 9).map(r => <ProjectRow key={r.id} repo={r} machine={machine} jobs={jobs} apps={apps} onClick={() => choose(r)} />)}<button className="cw-text-button" onClick={() => onSelect("projects")}>Browse project list <ArrowRight size={15} /></button></>}
         </aside>
       </div>
-      {view === "projects" && <div className="cw-project-browser"><div className="cw-browser-toolbar"><ProjectSearch query={query} setQuery={setQuery} /><span className="cw-muted">{repos.length} projects on this map</span></div><div className="cw-family-tabs"><button aria-pressed={!family} onClick={() => setFamily("")}>All islands</button>{doc?.families.map(f => <button key={f.id} aria-pressed={family === f.id} onClick={() => setFamily(f.id)}>{f.name}<small>{f.repos}</small></button>)}</div><div className="cw-project-grid">{repos.map(repo => <button className={`cw-project-tile ${repo.id === selected ? "is-selected" : ""}`} key={repo.id} onClick={() => { choose(repo); onSelect("world"); }}><span className="cw-eyebrow">{doc?.families.find(f => f.id === repo.family)?.name || repo.family}</span><Layers size={27} /><h2>{repo.name}</h2><p>{repo.meaning?.purpose || repo.description || "Open the project to explore its work."}</p><footer><span>{repo.sites.length ? `${repo.sites.length} local ${repo.sites.length === 1 ? "checkout" : "checkouts"}` : "Not on this machine"}</span><ArrowRight size={16} /></footer></button>)}</div>{doc && !repos.length && <p className="cw-empty">No projects match that search.</p>}</div>}
+      {view === "projects" && <div className="cw-project-browser"><div className="cw-browser-toolbar"><ProjectSearch query={query} setQuery={setQuery} /><span className="cw-muted">{repos.length} projects on this map</span></div><div className="cw-family-tabs"><button aria-pressed={!family} onClick={() => setFamily("")}>All islands</button>{doc?.families.map(f => <button key={f.id} aria-pressed={family === f.id} onClick={() => setFamily(f.id)}>{f.name}<small>{f.repos}</small></button>)}</div><div className="cw-project-grid">{repos.map(repo => <button className={`cw-project-tile ${repo.id === selected ? "is-selected" : ""}`} key={repo.id} onClick={() => { choose(repo); onSelect("world"); }}><span className="cw-eyebrow">{doc?.families.find(f => f.id === repo.family)?.name || repo.family}</span><ProjectEmblem repo={repo} machine={machine} /><h2>{repo.name}</h2><p>{repo.meaning?.purpose || repo.description || "Open the project to explore its work."}</p><footer><span>{repo.sites.length ? `${repo.sites.length} local ${repo.sites.length === 1 ? "checkout" : "checkouts"}` : "Not on this machine"}</span><ArrowRight size={16} /></footer></button>)}</div>{doc && !repos.length && <p className="cw-empty">No projects match that search.</p>}</div>}
       {view === "sessions" && <div className="cw-sessions"><div className="cw-section-title"><h2><Activity size={20} /> Live coding jobs</h2><span>{machineName}</span></div>{liveError && <p role="alert" className="cw-error">{liveError}. Last observed work may be stale.</p>}{jobs.length ? jobs.map(job => <button className="cw-job-row" key={job.id} onClick={() => setInspectJob(job.id)}><span className={`cw-led ${running(job) && !liveError ? "is-live" : ""}`} /><div><b>{job.project}</b><p>{job.prompt}</p></div><span>{job.provider}</span><span className="cw-status">{job.state}</span><ChevronRight size={16} /></button>) : <div className="cw-empty-inline"><Terminal size={24} /><div><b>No Hangar coding jobs observed.</b><p>Start a task from a project to see its output and control it here. Other apps’ sessions appear in history below.</p></div><button onClick={() => onSelect("projects")}>Choose project</button></div>}<SessionLibrary key={machine} machine={machine} data={library} error={sessionsError} onUpdate={receiveLibrary} onContinue={continueSession} /></div>}
     </>
     {composer && project && <div className="cw-dialog-backdrop" onClick={e => { if (e.target === e.currentTarget && !busy) setComposer(false); }}><section className="cw-dialog" role="dialog" aria-modal="true" aria-labelledby="cw-compose-title"><DialogFocus onClose={() => !busy && setComposer(false)} /><button className="cw-dialog-close" aria-label="Close task composer" disabled={busy} onClick={() => setComposer(false)}><X size={20} /></button><span className="cw-eyebrow">{machineName} / {project.name}</span><h2 id="cw-compose-title">{resume ? "Continue the work." : "Give this project a task."}</h2><div className="cw-segment" aria-label="Coding agent">{["codex", "claude"].map(p => <button key={p} aria-pressed={provider === p} disabled={!!resume} onClick={() => setProvider(p)}>{p === "codex" ? "Codex" : "Claude Code"}</button>)}</div><label className="cw-input-label">{resume ? "What should happen next?" : "What do you want done?"}<textarea autoFocus value={prompt} onChange={e => setPrompt(e.target.value)} maxLength={8000} placeholder="Describe the outcome, constraints and checks…" rows={6} /></label><p className="cw-muted">Runs in this project’s main checkout on {machineName}, using that machine’s agent login and permission settings. Changes remain in the checkout.</p><button className="cw-primary" disabled={busy || !prompt.trim() || jobs.some(j => j.repo === project.id && (running(j) || j.state === "unobserved"))} onClick={async () => { if (await act("work", { action: "start", repo: project.id, provider, prompt, session: resume })) { setComposer(false); onSelect("sessions"); } }}>{busy ? "Starting…" : resume ? "Continue session" : `Run on ${machineName}`}<Play size={15} /></button>{message && <p role="status">{message}</p>}</section></div>}
@@ -199,10 +219,16 @@ function DialogFocus({ onClose }: { onClose: () => void }) {
 function ProjectSearch({ query, setQuery }: { query: string; setQuery: (value: string) => void }) {
   return <label className="cw-search"><Search size={16} /><input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a project…" aria-label="Find a project" /></label>;
 }
-function ProjectRow({ repo, jobs, apps, onClick }: { repo: Repo; jobs: Job[]; apps: Apps[]; onClick: () => void }) {
+function ProjectEmblem({ repo, machine }: { repo: Repo; machine: string }) {
+  const logo = repo.sites.find(s => s.logo)?.logo;
+  const source = logo ? `/api/atlas/${machine}/proxy/logo?repo=${encodeURIComponent(repo.id)}&v=${encodeURIComponent(logo.hash)}` : "";
+  const [failed, setFailed] = useState("");
+  return <span className="cw-project-emblem" aria-hidden="true">{source && failed !== source ? <img src={source} alt="" loading="lazy" width="32" height="32" onError={() => setFailed(source)} /> : repo.name.slice(0, 2).toUpperCase()}</span>;
+}
+function ProjectRow({ repo, machine, jobs, apps, onClick }: { repo: Repo; machine: string; jobs: Job[]; apps: Apps[]; onClick: () => void }) {
   const job = jobs.find(j => j.repo === repo.id && running(j));
   const app = apps.find(a => a.repo === repo.id && a.running.length);
-  return <button className="cw-project-row" onClick={onClick}><span className={`cw-project-dot ${job || app ? "is-live" : ""}`} /><span><b>{repo.name}</b><small>{job ? `${job.provider} working` : app ? `App on :${app.running[0].port}` : repo.sites.some(s => s.dirty) ? "Uncommitted work" : repo.sites.length ? "On this machine" : "GitHub only"}</small></span><ChevronRight size={14} /></button>;
+  return <button className="cw-project-row" onClick={onClick}><ProjectEmblem repo={repo} machine={machine} /><span><b>{repo.name}</b><small>{job ? `${job.provider} working` : app ? `App on :${app.running[0].port}` : repo.sites.some(s => s.dirty) ? "Uncommitted work" : repo.sites.length ? "On this machine" : "GitHub only"}</small></span><span className={`cw-project-dot ${job || app ? "is-live" : ""}`} /><ChevronRight size={14} /></button>;
 }
 function ProjectDetail({ project, machine, machineName, sessions, jobs, app, busy, onClose, onStart, onContinue, onAction, onJob, onSelect }: { project: Repo; machine: string; machineName: string; sessions: Session[]; jobs: Job[]; app?: Apps; busy: boolean; onClose: () => void; onStart: () => void; onContinue: (s: Session) => void; onAction: (p: string, b: unknown) => Promise<boolean>; onJob: (id: string) => void; onSelect: (tab: ConsoleTab) => void }) {
   const local = project.sites.some(s => ["canonical", "orphan"].includes(s.role));
@@ -212,7 +238,7 @@ function ProjectDetail({ project, machine, machineName, sessions, jobs, app, bus
 function Machines({ machines, statuses, onSaved, onSelect }: { machines: Machine[]; statuses: Record<string, MachineStatus>; onSaved: () => void; onSelect: (t: ConsoleTab) => void }) {
   const [name, setName] = useState(""); const [alias, setAlias] = useState(""); const [port, setPort] = useState("18003");
   const [feedback, setFeedback] = useState(""); const [saving, setSaving] = useState(false);
-  return <div className="cw-machines"><div className="cw-topology"><div className="cw-topology-center"><Globe2 size={35} /><strong>Your world</strong><small>Projects stay where they live</small></div>{machines.map(node => { const status = statuses[node.id]; return <article className={`cw-machine-node ${status?.error ? "is-offline" : ""}`} key={node.id}><div className="cw-node-line" /><Server size={32} /><h2>{node.name}</h2><span className="cw-status">{status?.error ? "Disconnected" : status ? "Connected" : "Checking"}</span><p>{status?.platform || "Platform not observed"} · {node.id === "local" ? "Local" : "SSH tunnel"}</p><div className="cw-node-facts"><span>Atlas world<b>{status?.error ? "Unknown" : status?.atlas ? "Online" : "Not responding"}</b></span><span>Last observed<b>{since(status?.observedAt)}</b></span></div>{node.id === "local" ? <button onClick={() => onSelect("services")}>Manage services <ArrowRight size={15} /></button> : <button onClick={async () => { try { await json("/api/fleet", { action: "remove", id: node.id }); onSaved(); } catch (e) { setFeedback((e as Error).message); } }}>Disconnect this entry</button>}</article>; })}</div><div className="cw-connect-form"><div><span className="cw-eyebrow">BRING ANOTHER MACHINE INTO YOUR WORLD</span><h2>Connect through SSH.</h2><p>Run Hangar and Atlas on the other machine. Open an SSH tunnel using an existing, trusted SSH host alias, then add the forwarded port here.</p><code>ssh -N -L {Number(port) || 18003}:127.0.0.1:8003 {alias.replace(/[^a-zA-Z0-9._-]/g, "") || "your-host"}</code><p className="cw-tiny">The SSH client verifies the remote host key. This form does not install software, open firewall ports, or change SSH settings.</p></div><form onSubmit={async e => { e.preventDefault(); setSaving(true); setFeedback(""); try { await json("/api/fleet", { id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""), name, port: Number(port), ...(alias ? { sshAlias: alias } : {}) }); setFeedback("Machine connected."); onSaved(); } catch (error) { setFeedback((error as Error).message); } finally { setSaving(false); } }}><label>Machine name<input required value={name} onChange={e => setName(e.target.value)} placeholder="My laptop" maxLength={60} /></label><label>SSH host alias<input value={alias} onChange={e => setAlias(e.target.value)} placeholder="laptop" maxLength={64} /></label><label>Forwarded local port<input type="number" min={1024} max={65535} required value={port} onChange={e => setPort(e.target.value)} /></label><button className="cw-primary" disabled={saving}>{saving ? "Checking connection…" : "Verify & connect"}<ArrowRight size={16} /></button>{feedback && <p role="status">{feedback}</p>}</form></div></div>;
+  return <div className="cw-machines"><div className="cw-topology"><div className="cw-topology-center"><Globe2 size={35} /><strong>Your world</strong><small>Projects stay where they live</small></div>{machines.map(node => { const status = statuses[node.id]; return <article className={`cw-machine-node ${status?.error ? "is-offline" : ""}`} key={node.id}><div className="cw-node-line" /><Server size={32} /><h2>{node.name}</h2><span className="cw-status">{status?.error ? "Disconnected" : status ? "Connected" : "Checking"}</span><p>{status?.platform || "Platform not observed"} · {node.id === "local" ? "Local" : "SSH tunnel"}</p><div className="cw-node-facts"><span>Atlas world<b>{status?.error ? "Unknown" : status?.atlas ? "Online" : "Not responding"}</b></span><span>Last observed<b>{since(status?.observedAt)}</b></span></div>{node.id === "local" ? <button onClick={() => onSelect("services")}>Manage services <ArrowRight size={15} /></button> : <button onClick={async () => { try { await json("/api/fleet", { action: "remove", id: node.id }); onSaved(); } catch (e) { setFeedback((e as Error).message); } }}>Disconnect this entry</button>}</article>; })}</div><div className="cw-connect-form"><div><span className="cw-eyebrow">BRING ANOTHER MACHINE INTO YOUR WORLD</span><h2>Connect through SSH.</h2><p>Run Hangar and Atlas on the other machine. Open an SSH tunnel using an existing, trusted SSH host alias, then add the forwarded port here.</p><code>ssh -o ExitOnForwardFailure=yes -N -L 127.0.0.1:{Number(port) || 18003}:127.0.0.1:8003 {alias.replace(/[^a-zA-Z0-9._-]/g, "") || "your-host"}</code><p className="cw-tiny">The SSH client verifies the remote host key. This form does not install software, open firewall ports, or change SSH settings.</p></div><form onSubmit={async e => { e.preventDefault(); setSaving(true); setFeedback(""); try { await json("/api/fleet", { id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""), name, port: Number(port), ...(alias ? { sshAlias: alias } : {}) }); setFeedback("Machine connected."); onSaved(); } catch (error) { setFeedback((error as Error).message); } finally { setSaving(false); } }}><label>Machine name<input required value={name} onChange={e => setName(e.target.value)} placeholder="My laptop" maxLength={60} /></label><label>SSH host alias<input value={alias} onChange={e => setAlias(e.target.value)} placeholder="laptop" maxLength={64} /></label><label>Forwarded local port<input type="number" min={1024} max={65535} required value={port} onChange={e => setPort(e.target.value)} /></label><button className="cw-primary" disabled={saving}>{saving ? "Checking connection…" : "Verify & connect"}<ArrowRight size={16} /></button>{feedback && <p role="status">{feedback}</p>}</form></div></div>;
 }
 
 function PlanLink({ machine, repo, evidenceCount }: { machine: string; repo: string; evidenceCount: number }) {

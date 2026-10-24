@@ -76,7 +76,7 @@ const LIGHT_STOPS = [
 // chroma / hue derived from each palette's source brand color.
 const THEMES = [
   { id: "claude", accent: [0.131, 38.8], ok: [0.106, 142.8], warn: [0.127, 75.4], err: [0.143, 28.3], nu: [0.004, 84.6, 0.18] },
-  { id: "betenshi", accent: [0.162, 272.3], ok: [0.153, 163.2], warn: [0.164, 84.4], err: [0.166, 22.2], nu: [0.023, 283.8, 0.14] },
+  { id: "hangar", accent: [0.255, 264.3], ok: [0.125, 163.2], warn: [0.14, 73.5], err: [0.166, 22.2], nu: [0.018, 265, 0.22] },
   { id: "openai", accent: [0.124, 169.5], ok: [0.124, 169.5], warn: [0.155, 77.3], err: [0.21, 24.1], nu: [0.0, 0, 0.13] },
   { id: "gemini", accent: [0.18, 260.0], ok: [0.16, 148.5], warn: [0.17, 84.0], err: [0.206, 29.1], nu: [0.002, 286.2, 0.15] },
   // The only theme whose accent is LIGHTER than its surfaces. xAI's look is an

@@ -374,17 +374,17 @@ html:root[data-theme="claude"] {
 }
 
 html:root[data-theme="hangar"] {
-  --accent-c: 0.162;
-  --accent-h: 272.3;
-  --ok-c: 0.153;
+  --accent-c: 0.255;
+  --accent-h: 264.3;
+  --ok-c: 0.125;
   --ok-h: 163.2;
-  --warn-c: 0.164;
-  --warn-h: 84.4;
+  --warn-c: 0.14;
+  --warn-h: 73.5;
   --err-c: 0.166;
   --err-h: 22.2;
-  --nu-c: 0.023;
-  --nu-h: 283.8;
-  --nu-l: 0.14;
+  --nu-c: 0.018;
+  --nu-h: 265;
+  --nu-l: 0.22;
 
   /* Keep the shadcn token layer pointed at the same accent so any component
      using --primary/--ring agrees with the raw Tailwind classes. */

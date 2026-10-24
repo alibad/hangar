@@ -4,9 +4,9 @@
   "description": "One console for the AI services running on your own machines: start them, budget their memory, route work between them, and see every call.",
   "main": "index.js",
   "scripts": {
-    "dev": "next dev -p 8003",
+    "dev": "next dev -H 127.0.0.1 -p 8003",
     "build": "next build --webpack",
-    "start": "next start -p 8003",
+    "start": "next start -H 127.0.0.1 -p 8003",
     "test": "node --test scripts/*.test.cjs scripts/*.test.mjs"
   },
   "keywords": [],

@@ -1,13 +1,22 @@
 # Hangar
 
-**One console for the AI services running on your own machines.** It starts and
-stops them, keeps them inside a memory budget, routes work to whichever model
-should handle it, tells you what the box can and cannot run, and shows every
-call that went through it.
+**Your projects, live work, models and machines in one workspace.** Explore
+projects as buildings on Atlas's floating islands, continue Claude and Codex work,
+review idle sessions, and use models on a connected machine through SSH. Hangar
+also starts and stops local AI services, keeps them inside a memory budget, and
+shows the requests that pass through its gateway.
+
+Start with the [connected workspace setup](docs/connected-workspace.md), the
+[second-machine handoff](docs/second-machine-handoff.md), or the
+[visual identity](docs/brand.md). Atlas is a separate local Python engine; its
+checkout is required for projects and session history. Atlas currently requires
+repository access; it is not bundled with this public repository. Models and
+studios remain available without it. Machine configuration and session records
+stay local.
 
 **Hangar is the product; Console is the operator surface.** The canonical public
 entry point is `hangar.humanquest.net`, with `console.humanquest.net` as a second
-entry point. The private source repository is `alibad/hangar`; BeTenshi itself
+entry point. The source repository is `alibad/hangar`; BeTenshi itself
 is only one machine profile.
 
 The full console is a Next.js app you run on the machine itself. A hosted copy
