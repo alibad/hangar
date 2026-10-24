@@ -71,6 +71,7 @@ an agent or model. The fixture is removed in `finally`.
 Both browser scripts accept `HANGAR_URL`. The UI script accepts `PLAYWRIGHT_CORE`
 and `CHROMIUM` paths. Captures are private under `var/fleet-qa/`.
 
-An actual second-machine SSH connection and an authenticated agent/model run
-still require end-to-end verification on the intended machines. Tests do not
-substitute for that verification.
+A real local inference request through the fleet endpoint returned `READY` from
+the already-running `local-gemma4` model on BeTenshi. An actual second-machine SSH
+connection and an authenticated coding-agent run still require end-to-end
+verification on the intended machines. Fixtures do not substitute for those checks.
