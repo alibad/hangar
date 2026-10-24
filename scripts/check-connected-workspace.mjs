@@ -33,7 +33,7 @@ try {
   await page.getByRole("heading", { name: "Session history", exact: true }).waitFor();
   await page.locator(".cw-session-row").first().waitFor({ timeout: 90000 });
   await page.screenshot({ path: `${output}/sessions-desktop.png`, fullPage: false });
-  await page.locator(".cw-session-row button:not(:disabled)").first().click();
+  await page.getByRole("button", { name: "Continue", exact: true }).and(page.locator(":enabled")).first().click();
   await page.getByRole("heading", { name: "Continue the work." }).waitFor();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Machines", exact: true }).click();

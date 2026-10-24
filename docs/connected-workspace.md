@@ -75,3 +75,27 @@ A real local inference request through the fleet endpoint returned `READY` from
 the already-running `local-gemma4` model on BeTenshi. An actual second-machine SSH
 connection and an authenticated coding-agent run still require end-to-end
 verification on the intended machines. Fixtures do not substitute for those checks.
+
+## Session organization
+
+Sessions includes an archive review queue (seven idle days by default), unread
+priority when Codex exposes a receipt, seven-day snoozing and reversible archives.
+Nothing is archived on a timer. Missing read state stays unknown. Pinned sessions
+and projects with active/unobserved Hangar jobs are protected. Idle means no
+observed transcript/native activity or explicit Hangar open/review; visits in
+other apps cannot all be observed.
+
+Groups & sections mirrors native Codex sections and adds shared Hangar groups for
+both agents. Suggestions explain their evidence: confirmed edits or a tentative
+working-folder match. Multi-project sessions need a manual choice. Accepting a
+suggestion changes Hangar only. Explicit “Move in Codex too” and “Archive in Codex
+too” actions use the native Codex app-server protocol. Claude grouping/archiving
+is a Hangar overlay; its original transcripts remain untouched. New activity
+resurfaces a Hangar-archived session. Metadata is private to the selected machine.
+
+`tools/session-library-fixture.py <port>` in Atlas creates a disposable backend
+for `scripts/check-session-library.mjs`. Set `SESSION_FIXTURE_URL` if its port is
+not 7791. The browser test covers unread ordering, protection, archive/restore,
+native section moves, mixed-agent groups, snoozes and phone layouts. All mutations
+stay in that temporary fixture. Native Codex section reads were also verified
+against the installed app; real user sessions were not archived or moved by tests.

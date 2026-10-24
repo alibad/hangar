@@ -22,8 +22,8 @@ export function validatePeer(raw: unknown): Peer {
   return { id: p.id, name: p.name.trim(), port: Number(p.port), ...(p.sshAlias ? { sshAlias: String(p.sshAlias) } : {}) };
 }
 
-const READS = new Set(["atlas", "apps", "status", "sessions", "work", "logo", "changes", "plans"]);
-const WRITES = new Set(["open", "notes", "rescan", "apps", "sessions/resume", "work", "plans"]);
+const READS = new Set(["atlas", "apps", "status", "sessions", "sessions/library", "work", "logo", "changes", "plans"]);
+const WRITES = new Set(["open", "notes", "rescan", "apps", "sessions/resume", "sessions/library", "work", "plans"]);
 export function atlasPathAllowed(kind: string, parts: string[], method: string): boolean {
   if (!parts.length || parts.some(p => !p || p === "." || p === ".." || /[\\%?#\0]/.test(p))) return false;
   const path = parts.join("/");

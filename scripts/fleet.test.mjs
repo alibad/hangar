@@ -17,6 +17,9 @@ test("Atlas bridge is an allowlist, not an arbitrary filesystem or URL proxy", (
   assert.equal(atlasPathAllowed("view", ["vendor", "three", "build", "three.module.min.js"], "GET"), true);
   for (const path of [["..", "config.json"], ["%2e%2e", "foo.js"], ["js", "..", "atlas.json"], ["atlas.json"], ["js\\other.js"]]) assert.equal(atlasPathAllowed("view", path, "GET"), false);
   assert.equal(atlasPathAllowed("proxy", ["work"], "POST"), true);
+  assert.equal(atlasPathAllowed("proxy", ["sessions", "library"], "GET"), true);
+  assert.equal(atlasPathAllowed("proxy", ["sessions", "library"], "POST"), true);
+  assert.equal(atlasPathAllowed("proxy", ["sessions", "delete"], "POST"), false);
   assert.equal(atlasPathAllowed("proxy", ["git"], "POST"), false);
   assert.equal(atlasPathAllowed("view", ["js", "main.js"], "POST"), false);
 });
