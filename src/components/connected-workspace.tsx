@@ -24,7 +24,7 @@ type Site = { role: string; branch?: string; dirty?: number; ahead?: number; beh
 type Repo = { homepage?: string | null; onMachine?: boolean; recency?: string; lastActivity?: string; url?: string; openPRs?: number; organizationReviewed?: boolean; fullName?: string; hiddenByIsland?: string; hidden?: boolean; attention?: string | null; id: string; name: string; family: string; description?: string; purpose?: string; sites: Site[]; meaning?: { purpose?: string; next?: string }; risks?: { id: string; text: string }[] };
 type AtlasDoc = { islands?: Island[]; generatedAt: string; repos: Repo[]; families: { id: string; name: string; repos: number }[]; apps: { id: string; name: string }[] };
 type Session = LibrarySession;
-type Job = { id: string; repo: string; project: string; provider: string; prompt: string; state: string; startedAt: string; endedAt: string | null; exitCode: number | null; session?: string; output: { at: string; text: string }[] };
+type Job = { id: string; repo: string; project: string; provider: string; prompt: string; state: string; kind?: string; startedAt: string; endedAt: string | null; exitCode: number | null; session?: string; output: { at: string; text: string }[] };
 type Apps = { repo: string; running: { port: number; by: string }[]; apps: { label: string; dir: string; targets: { id: string; label: string; ok: boolean; why: string; port?: number; type?: string }[] }[]; jobs?: Record<string, { state?: string; port?: number; message?: string }> };
 type Model = { id: string; target: string; provider: string; mode: string; status: string; local: boolean; detail?: string; resident?: boolean };
 type Machine = { id: string; name: string; port?: number; sshAlias?: string };
@@ -378,6 +378,14 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     catch (e) { setMessage((e as Error).message); return false; }
     finally { setBusy(false); }
   }
+  async function openSession(provider: string, id: string) {
+    setBusy(true); setMessage("");
+    try {
+      const result = await json<{ where?: string }>(`${prefix}/sessions/resume`, { provider, id });
+      setMessage(result.where === "app" ? "Opened in the Codex app." : `Opened in a terminal with ${provider === "codex" ? "codex resume" : "claude --resume"}.`);
+    } catch (e) { setMessage((e as Error).message); }
+    finally { setBusy(false); }
+  }
   const continueSession = (session: Session) => {
     const repo = session.projects.find(p => p.id === selected) || session.projects.find(p => doc?.repos.some(r => r.id === p.id));
     if (!repo) return;
@@ -422,7 +430,15 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     <div className="cw-tools-pane-head"><h2>Repository tools</h2><button aria-label="Close repository tools" onClick={() => setToolsView(null)}><X size={18} /></button></div>
     <RepositoryPane key={`tools-${machine}-${toolsView}`} machine={machine} view={toolsView} onClose={() => setToolsView(null)} onSelect={id => { setToolsView(null); setSelected(id); }} onChanged={refreshProjects} />
   </aside>;
-  const jobRow = (job: (typeof jobs)[number]) => <button className="cw-job-row" key={job.id} onClick={() => setInspectJob(job.id)}><span className={`cw-led ${running(job) && !liveError ? "is-live" : ""}`} /><div><b>{job.project}</b><p>{job.prompt}</p></div><span>{job.provider}</span><span className="cw-status">{job.state}</span><ChevronRight size={16} /></button>;
+  const jobRow = (job: (typeof jobs)[number]) => <div className="jv-row" key={job.id}>
+    <button className="jv-row-main" onClick={() => setInspectJob(job.id)} title="See what the agent did">
+      <span className={`jv-agent is-${job.provider === "codex" ? "codex" : "claude"}`}>{job.provider === "codex" ? "CX" : "CL"}</span>
+      <span className="jv-row-text"><b>{job.project}</b><small>{job.kind === "architecture" ? "Architecture drawing" : "Coding task"} · {job.prompt}</small></span>
+      <span className={`jv-state is-${running(job) && !liveError ? "running" : job.state}`}>{jobState(job)}</span>
+      <span className="jv-when">{since(job.endedAt || job.startedAt)}</span>
+    </button>
+    {job.session && job.kind !== "architecture" && machine === "local" && <button className="cw-pill" disabled={busy} onClick={() => void openSession(job.provider, job.session!)}>Open in {job.provider === "codex" ? "Codex" : "Claude Code"}</button>}
+  </div>;
   const actionCounts = <nav className="cw-action-counts" aria-label="Repository actions">{[
     { id: "push", label: "to push", count: visibleProjects.filter(r => r.risks?.some(k => ["unpushed", "offmap"].includes(k.id))).length, color: "var(--hangar-secondary)" },
     { id: "pull", label: "to pull", count: visibleProjects.filter(r => r.risks?.some(k => k.id === "pull")).length, color: "var(--hangar-primary)" },
@@ -474,17 +490,60 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
           <button className="cw-text-button" onClick={() => onSelect("projects")}>Open the project grid <ArrowRight size={15} /></button></aside>)}
       </div>
       {view === "projects" && <div className={project || toolsView ? "cw-project-list-layout" : ""}><div className="cw-project-browser"><div className="cw-browser-toolbar"><ProjectSearch query={query} setQuery={setQuery} onPick={() => repos[0] && choose(repos[0])} /><span className="cw-muted">{repos.length} {projectFilter === "hidden" ? "projects off the map" : "projects on this map"}</span></div><div className="cw-family-tabs"><button aria-pressed={!family} onClick={() => setFamily("")}>All islands</button>{listFamilies.map(f => <button key={f.id} aria-pressed={family === f.id} onContextMenu={e => { e.preventDefault(); setOperation({ kind: "islands", island: f.id }); }} onClick={() => setFamily(f.id)}>{f.name}<small>{f.repos}</small></button>)}</div><ProjectGrid repos={repos} islands={doc?.islands || doc?.families || []} machine={machine} jobs={jobs} apps={apps} sessions={sessions} selected={selected} status={gridStatus} setStatus={setGridStatus} sort={gridSort} setSort={setGridSort} onOpen={repo => choose(repo)} onMenu={(repo, x, y) => setMenu({ project: repo, x, y })} />{doc && !repos.length && <p className="cw-empty">No projects match that search.</p>}</div>{project ? projectPane : toolsPane}</div>}
-      {view === "sessions" && <div className="cw-sessions"><div className="cw-section-title"><h2><Activity size={20} /> Live coding jobs</h2><span>{machineName}</span></div>{liveError && <p role="alert" className="cw-error">{liveError}. Last observed work may be stale.</p>}{jobs.length ? <>{jobs.filter(job => running(job) || job.state === "unobserved").map(jobRow)}{jobs.some(job => !running(job) && job.state !== "unobserved") && <details className="cw-finished-jobs"><summary>{jobs.filter(job => !running(job) && job.state !== "unobserved").length} finished jobs</summary>{jobs.filter(job => !running(job) && job.state !== "unobserved").map(jobRow)}</details>}</> : <div className="cw-empty-inline"><Terminal size={24} /><div><b>No Hangar coding jobs observed.</b><p>Start a task from a project to see its output and control it here. Other apps’ sessions appear in history below.</p></div><button onClick={() => onSelect("projects")}>Choose project</button></div>}<SessionLibrary key={machine} machine={machine} data={library} error={sessionsError} onUpdate={receiveLibrary} onContinue={continueSession} /></div>}
+      {view === "sessions" && <div className="cw-sessions"><div className="cw-section-title"><h2><Activity size={20} /> Jobs Hangar ran</h2><span>{machineName}</span></div><p className="jv-help">Tasks you started from Hangar. Open one to see what the agent did, or open its conversation in Claude Code or Codex to carry on.</p>{liveError && <p role="alert" className="cw-error">{liveError}. Last observed work may be stale.</p>}{jobs.length ? <>{jobs.filter(job => running(job) || job.state === "unobserved").map(jobRow)}{jobs.some(job => !running(job) && job.state !== "unobserved") && <details className="cw-finished-jobs"><summary>{jobs.filter(job => !running(job) && job.state !== "unobserved").length} finished jobs</summary>{jobs.filter(job => !running(job) && job.state !== "unobserved").map(jobRow)}</details>}</> : <div className="cw-empty-inline"><Terminal size={24} /><div><b>No Hangar coding jobs observed.</b><p>Start a task from a project to see its output and control it here. Other apps’ sessions appear in history below.</p></div><button onClick={() => onSelect("projects")}>Choose project</button></div>}<SessionLibrary key={machine} machine={machine} data={library} error={sessionsError} onUpdate={receiveLibrary} onContinue={continueSession} onOpen={machine === "local" ? s => void openSession(s.provider, s.id) : undefined} /></div>}
     </>
     {menu && <ProjectContextMenu target={menu} local={machine === "local"} app={apps.find(a => a.repo === menu.project.id)} onApp={body => void act("apps", { repo: menu.project.id, ...body })} onClose={() => setMenu(null)} onOpen={(id, tab) => { const repo = doc?.repos.find(r => r.id === id); if (repo) choose(repo, tab); }} onAttention={(repo, value) => void attention(repo, value)} onFolder={repo => void act("open", { repo, with: "folder" })} />}
     {removing && <RemoveProjectDialog project={removing} busy={busy} error={removeError} onClose={() => setRemoving(null)} onConfirm={() => void attention(removing, "hidden")} />}
     {reviewing && <ProjectReview projects={doc?.repos || []} islands={doc?.islands || []} machine={machine} onClose={() => setReviewing(false)} onChanged={refreshProjects} onInspect={id => { const repo = doc?.repos.find(r => r.id === id); if (repo) choose(repo); }} />}
     {operation && <WorkspaceOperations key={`${machine}-${operation.kind}-${operation.repo?.id || operation.island || ""}`} panel={operation} machine={machine} machineName={machineName} projects={doc?.repos || []} onClose={() => setOperation(null)} onChanged={refreshProjects} />}
     {composer && project && <TaskComposer project={project} machineName={machineName} sessions={projectSessions} initialSession={resume} initialProvider={provider} blocked={jobs.some(j => j.repo === project.id && (running(j) || j.state === "unobserved"))} onClose={() => setComposer(false)} onSubmit={async body => { const ok = await act("work", { action: "start", repo: project.id, ...body }); if (ok) { setComposer(false); onSelect("sessions"); } return ok; }} />}
-    {inspectJob && (() => { const job = jobs.find(j => j.id === inspectJob); if (!job) return null; return <div className="cw-dialog-backdrop"><section className="cw-dialog cw-output-dialog" role="dialog" aria-modal="true" aria-labelledby="cw-job-title"><DialogFocus onClose={() => setInspectJob(null)} /><button className="cw-dialog-close" aria-label="Close job output" onClick={() => setInspectJob(null)}><X size={20} /></button><span className="cw-eyebrow">{machineName} / {job.provider} / {job.state}</span><h2 id="cw-job-title">{job.project}</h2><p>{job.prompt}</p><div className="cw-output" role="log" aria-label="Coding job output">{job.output.length ? job.output.map((line, i) => <p key={`${i}-${line.at}`}><time>{new Date(line.at).toLocaleTimeString()}</time>{line.text}</p>) : <HangarLoading compact label="Waiting for the agent’s first output" steps={["Starting the agent", "Reading the project", "Planning the first step"]} />}</div>{job.state === "unobserved" ? <button disabled={busy} onClick={() => act("work", { action: "acknowledge", id: job.id })}>I verified this job is no longer running</button> : running(job) ? <button disabled={busy || job.state === "stopping"} onClick={() => act("work", { action: "stop", id: job.id })}><Square size={14} />{job.state === "stopping" ? "Stopping…" : "Stop this job"}</button> : <p className="cw-muted">Ended {since(job.endedAt || undefined)} · exit {job.exitCode}</p>}{message && <p role="status">{message}</p>}</section></div>; })()}
+    {inspectJob && (() => { const job = jobs.find(j => j.id === inspectJob); if (!job) return null; return <JobView job={job} machineName={machineName} local={machine === "local"} busy={busy} message={message} live={running(job) && !liveError} onClose={() => setInspectJob(null)} onStop={() => act("work", { action: "stop", id: job.id })} onAcknowledge={() => act("work", { action: "acknowledge", id: job.id })} onOpen={() => job.session && void openSession(job.provider, job.session)} />; })()}
   </section>;
 }
 
+/** A job's state in words. */
+function jobState(job: Job) {
+  return { running: "Running", stopping: "Stopping", completed: "Finished", failed: "Failed", stopped: "Stopped", unobserved: "Not seen", acknowledged: "Closed" }[job.state] || job.state;
+}
+/** What a job did, as readable steps: the agent's words as text, its tool calls as compact action lines; and where to go on from here. */
+function JobView({ job, machineName, local, busy, message, live, onClose, onStop, onAcknowledge, onOpen }: {
+  job: Job; machineName: string; local: boolean; busy: boolean; message: string; live: boolean;
+  onClose: () => void; onStop: () => void; onAcknowledge: () => void; onOpen: () => void;
+}) {
+  const log = useRef<HTMLDivElement>(null);
+  const stick = useRef(true);
+  // Older jobs logged bare event names; they carry nothing to read.
+  const lines = job.output.filter(l => !/^(system|user|assistant|result|rate_limit_event|stream_event|Agent activity)( · .*)?$/.test(l.text.trim()));
+  useEffect(() => { const el = log.current; if (el && stick.current) el.scrollTop = el.scrollHeight; }, [lines.length]);
+  const agent = job.provider === "codex" ? "Codex" : "Claude Code";
+  const action = (t: string) => /^(Ran|Read|Edited|Wrote|Searched|Looked for|Changed|Used|Updated its plan|Asked a helper|Started)\b/.test(t);
+  // Drawing jobs run read-only and ephemeral: there is no conversation to reopen even when one was recorded.
+  const openable = !!job.session && job.kind !== "architecture";
+  // Long structured replies (a drawing's JSON) fold away instead of filling the view.
+  const bulky = (t: string) => t.length > 600 && /^\s*(\{|\[|```)/.test(t);
+  const took = job.endedAt ? Math.max(0, Math.round((Date.parse(job.endedAt) - Date.parse(job.startedAt)) / 60000)) : null;
+  return <div className="cw-dialog-backdrop"><section className="cw-dialog jv" role="dialog" aria-modal="true" aria-labelledby="cw-job-title"><DialogFocus onClose={onClose} />
+    <button className="cw-dialog-close" aria-label="Close job output" onClick={onClose}><X size={20} /></button>
+    <span className="cw-eyebrow">{machineName} · {job.project} · {job.kind === "architecture" ? "Architecture drawing" : "Coding task"}</span>
+    <h2 id="cw-job-title">{job.prompt}</h2>
+    <div className="jv-facts"><span><i className={`jv-dot is-${job.provider === "codex" ? "codex" : "claude"}`} />{agent}</span><span className={`jv-state is-${live ? "running" : job.state}`}>{jobState(job)}</span><span>Started {new Date(job.startedAt).toLocaleTimeString()}{took !== null ? ` · took ${took < 1 ? "under a minute" : `${took} min`}` : ""}</span></div>
+    <div className="jv-log" ref={log} role="log" aria-label="What the agent did" onScroll={e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40; }}>
+      {lines.length ? lines.map((line, i) => action(line.text)
+        ? <p key={`${i}-${line.at}`} className="jv-step"><time>{new Date(line.at).toLocaleTimeString()}</time><span>{line.text}</span></p>
+        : bulky(line.text) ? <details key={`${i}-${line.at}`} className="jv-bulky"><summary><time>{new Date(line.at).toLocaleTimeString()}</time>Structured reply · {line.text.split("\n").length} lines</summary><pre>{line.text}</pre></details>
+        : <div key={`${i}-${line.at}`} className="jv-say"><time>{new Date(line.at).toLocaleTimeString()}</time><p>{line.text}</p></div>)
+        : live ? <HangarLoading compact label="Waiting for the agent’s first step" steps={["Starting the agent", "Reading the project", "Planning the first step"]} /> : <p className="cw-muted">This job left no readable output.</p>}
+    </div>
+    <div className="jv-actions">
+      {openable && local && <button className="cw-primary" disabled={busy} onClick={onOpen}>Open in {agent}<ArrowRight size={15} /></button>}
+      {job.state === "unobserved" ? <button disabled={busy} onClick={onAcknowledge}>I checked: this job is no longer running</button>
+        : live && <button disabled={busy || job.state === "stopping"} onClick={onStop}><Square size={14} />{job.state === "stopping" ? "Stopping…" : "Stop this job"}</button>}
+      {!openable && !live && <p className="cw-muted">{job.kind === "architecture" ? "A read-only drawing job keeps no conversation to open." : "No conversation was recorded for this job."}</p>}
+      {!live && job.exitCode !== null && job.exitCode !== 0 && <p className="cw-muted">The agent stopped with exit code {job.exitCode}.</p>}
+    </div>
+    {message && <p role="status" className="jv-message">{message}</p>}
+  </section></div>;
+}
 function DialogFocus({ onClose }: { onClose: () => void }) {
   const ref = useRef<HTMLSpanElement>(null);
   const close = useRef(onClose); close.current = onClose;

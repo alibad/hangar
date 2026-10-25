@@ -15,7 +15,7 @@ export type LibrarySession = {
 };
 type Group = { id: string; name: string; source: string; nativeId?: string };
 export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; truncated: boolean; observedAt: string };
-type Props = { machine: string; data: SessionLibraryData | null; error: string; onUpdate: (data: SessionLibraryData) => void; onContinue: (session: LibrarySession) => void };
+type Props = { machine: string; data: SessionLibraryData | null; error: string; onUpdate: (data: SessionLibraryData) => void; onContinue: (session: LibrarySession) => void; onOpen?: (session: LibrarySession) => void };
 type Mode = "active" | "projects" | "review" | "groups" | "archived";
 type Agent = "all" | "claude" | "codex";
 const DAY = 86400000;
@@ -42,7 +42,7 @@ async function request<T>(url: string, body?: unknown, signal?: AbortSignal): Pr
   return result;
 }
 
-export default function SessionLibrary({ machine, data, error: loadError, onUpdate, onContinue }: Props) {
+export default function SessionLibrary({ machine, data, error: loadError, onUpdate, onContinue, onOpen }: Props) {
   const [mode, setMode] = useState<Mode>("active");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("");
@@ -199,12 +199,14 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
               const files = [...new Set(p.files)];
               return <div key={p.id}><b>{p.name}</b>{p.evidence === "working-directory" ? <p>Working directory match; no confirmed edit evidence.</p> : <ul>{files.slice(0, 30).map(f => <li key={f}>{f}</li>)}{files.length > 30 && <li>{files.length - 30} more files</li>}</ul>}</div>;
             })}</details>
-            {selected.suggestion && <div className="sl-inline-suggestion"><span><b>Suggested: {selected.suggestion.name}</b><small>{selected.suggestion.reason}{selected.suggestion.confidence === "tentative" ? " · tentative" : ""}</small></span><button disabled={busy} onClick={() => act({ action: "acceptSuggestion", keys: [selected.key] }, "Grouped in Hangar. Native Codex sections are unchanged.")}>Accept group <Check size={14} /></button></div>}
+            {selected.suggestion && <div className="sl-inline-suggestion"><span><b>Suggested: {selected.suggestion.name}</b><small>{selected.suggestion.reason}{selected.suggestion.confidence === "tentative" ? " · tentative" : ""}</small></span><button disabled={busy} title="Put this session in that Hangar group. Claude and Codex are not changed." onClick={() => act({ action: "acceptSuggestion", keys: [selected.key] }, "Grouped in Hangar. Native Codex sections are unchanged.")}>Add to this group <Check size={14} /></button></div>}
             <div className="sl-session-actions">{selected.archived ? <button disabled={busy || selected.protected || (selected.archiveScope === "codex" && !selected.nativeKnown)} onClick={() => act({ action: "restore", keys: [selected.key], scope: selected.archiveScope }, "Session restored; archive suggestions snoozed for seven days.")}>Restore in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</button> : <>
-              <button disabled={busy || !selected.canResume || !selected.projects.length} onClick={async () => { if (await act({ action: "opened", keys: [selected.key] }, "Session opened in Hangar.")) onContinue(selected); }}>Continue <ArrowRight size={14} /></button>
-              <button disabled={busy} onClick={() => { setChosenGroup(selected.group || ""); setTarget({ key: selected.key, purpose: "group" }); }}>Organize</button>
+              {onOpen && <button className="sl-open" disabled={busy} title={`Open this conversation in ${selected.provider === "codex" ? "the Codex app, or codex resume in a terminal" : "a terminal with claude --resume"}`} onClick={() => onOpen(selected)}>Open in {selected.provider === "codex" ? "Codex" : "Claude Code"} <ArrowRight size={14} /></button>}
+              <button disabled={busy || !selected.canResume || !selected.projects.length} title="Give it a new task from Hangar, with its history" onClick={async () => { if (await act({ action: "opened", keys: [selected.key] }, "Session opened in Hangar.")) onContinue(selected); }}>Continue from Hangar</button>
+              <button disabled={busy} title="Hangar groups sort sessions from both agents together" onClick={() => { setChosenGroup(selected.group || ""); setTarget({ key: selected.key, purpose: "group" }); }}>Group…</button>
               <button disabled={busy || selected.protected || selected.pinned} onClick={() => setTarget({ key: selected.key, purpose: "archive" })}>{selected.reviewDue ? "Review archive" : "Archive…"}</button>
               {selected.reviewDue && <button disabled={busy} onClick={() => act({ action: "snooze", keys: [selected.key] }, "Kept active. Ask again in seven days.")}>Keep for 7 days</button>}
+              <p className="sl-actions-help">Groups and archive are Hangar’s own tidy-up and change nothing in Claude Code. For a Codex session, archiving can also archive it in Codex; you choose that in the next step.</p>
             </>}</div>
           </div>
           </article>}
