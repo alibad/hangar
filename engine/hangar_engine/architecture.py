@@ -27,7 +27,7 @@ RULES = ("This task only reads: do not create, edit or delete any file, and do n
          "Reply with the complete candidate in one ```json block and nothing else: schema_version 1, diagram_type "
          "\"architecture\", meta.title, meta.quality_profile \"showcase\", meta.locale \"en\", components with pos and size, "
          "labelled connections, and repository-relative sources (path, line, end_line) on each key component. "
-         "Keep the canvas readable on a laptop: start near [40, 40], keep every component's x + width within 1240, and add "
+         "Keep the canvas readable on a laptop: start near [40, 40], keep every component's x + width within 1150 (frames and labels add margin), and add "
          "rows rather than columns when it gets crowded. Show the main journey and the pieces that matter; leave minor "
          "helpers out rather than crossing lines over each other. Cards explain the system to a reader: never describe "
          "how you drew or repaired the drawing, what you ran, or the state of the working tree. "
@@ -185,7 +185,7 @@ def conclude(doc, overlay, task, job, reply):
     if issues is None:
         publish(out, data, task["provider"], task["revision"])
         work.note(job["id"], "Archify checks passed. The drawing is ready.")
-        return set_state(rid, state="ready", message=None)
+        return set_state(rid, state="ready", message=None, problems=None)
     if task["round"] >= ROUNDS or "Node.js" in issues:
         work.note(job["id"], "Archify checks still fail after the last repair.")
         return set_state(rid, state="failed", message=issues)
