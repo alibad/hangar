@@ -52,7 +52,7 @@ try {
   const box = await status(delayed).boundingBox();
   assert.ok(box.width <= 420 && box.height < 160, "slow loading notice must stay compact");
   assert.equal(await status(delayed).locator("img").count(), 0);
-  assert.ok(await delayed.getByRole("searchbox", { name: "Find a project", exact: true }).isEnabled());
+  assert.ok(await delayed.getByRole("combobox", { name: "Find a project", exact: true }).isEnabled());
   const frame = await (await world(delayed).elementHandle()).contentFrame();
   assert.equal(await frame.locator("#loading").isVisible(), false, "embedded viewer must not put another splash over the map");
   await mkdir("var/world-loading-qa", { recursive: true });

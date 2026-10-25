@@ -20,7 +20,7 @@ import SessionLibrary, { type LibrarySession, type SessionLibraryData } from "./
 import "./workspace-focus.css";
 
 type Site = { role: string; branch?: string; dirty?: number; ahead?: number; behind?: number; rel: string; logo?: { hash: string } };
-type Repo = { url?: string; openPRs?: number; organizationReviewed?: boolean; fullName?: string; hiddenByIsland?: string; hidden?: boolean; attention?: string | null; id: string; name: string; family: string; description?: string; purpose?: string; sites: Site[]; meaning?: { purpose?: string; next?: string }; risks?: { id: string; text: string }[] };
+type Repo = { homepage?: string | null; onMachine?: boolean; recency?: string; lastActivity?: string; url?: string; openPRs?: number; organizationReviewed?: boolean; fullName?: string; hiddenByIsland?: string; hidden?: boolean; attention?: string | null; id: string; name: string; family: string; description?: string; purpose?: string; sites: Site[]; meaning?: { purpose?: string; next?: string }; risks?: { id: string; text: string }[] };
 type AtlasDoc = { islands?: Island[]; generatedAt: string; repos: Repo[]; families: { id: string; name: string; repos: number }[]; apps: { id: string; name: string }[] };
 type Session = LibrarySession;
 type Job = { id: string; repo: string; project: string; provider: string; prompt: string; state: string; startedAt: string; endedAt: string | null; exitCode: number | null; session?: string; output: { at: string; text: string }[] };
@@ -31,6 +31,9 @@ type MachineStatus = { machine: string; name: string; atlas: boolean; platform: 
 type View = "world" | "projects" | "sessions" | "machines" | "models";
 export const WORLD_TABS = new Set<string>(["world", "projects", "sessions", "machines", "models"]);
 const running = (j: Job) => j.state === "running" || j.state === "stopping";
+/** Waiting on you: uncommitted work, commits not on GitHub, a pull to make or pull requests to review (the map's Needs attention lens). */
+const needsYou = (r: Repo) => r.sites.some(s => s.dirty) || !!r.risks?.some(k => ["unpushed", "offmap", "pull"].includes(k.id)) || !!r.openPRs;
+const LENS_NAMES: Record<string, string> = { map: "World", working: "Live work", changes: "Needs attention", where: "On this machine", activity: "Activity", shipped: "Shipped" };
 function since(value?: string) {
   if (!value) return "Not observed";
   const min = Math.max(0, Math.floor((Date.now() - Date.parse(value)) / 60000));
@@ -78,6 +81,8 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   const [worldSlow, setWorldSlow] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [paneWidth, setPaneWidth] = useState(42);
+  const [exploreWidth, setExploreWidth] = useState(26);
+  const [showAll, setShowAll] = useState(false);
   const [paneExpanded, setPaneExpanded] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -242,6 +247,15 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     const score = (r: Repo) => jobs.some(j => j.repo === r.id && running(j)) ? 3 : apps.some(a => a.repo === r.id && a.running.length) ? 2 : r.sites.some(s => s.dirty) ? 1 : 0;
     return score(b) - score(a) || a.name.localeCompare(b.name);
   }), [doc, query, family, projectFilter, jobs, apps]);
+  const lensMatch = useCallback((r: Repo) => lens === "changes" ? needsYou(r) : lens === "shipped" ? !!r.homepage : lens === "where" ? !!r.onMachine : lens === "working" ? jobs.some(j => j.repo === r.id && running(j)) : true, [lens, jobs]);
+  const pool = useMemo(() => (doc?.repos ?? []).filter(r => (projectFilter === "hidden" ? !!r.hidden : !r.hidden && (projectFilter === "visible" || r.attention === projectFilter)) && `${r.name} ${r.description ?? ""}`.toLowerCase().includes(query.toLowerCase()) && lensMatch(r)), [doc, projectFilter, query, lensMatch]);
+  const islandCounts = useMemo(() => { const counts = new Map<string, number>(); for (const r of pool) counts.set(r.family, (counts.get(r.family) || 0) + 1); return counts; }, [pool]);
+  const listed = useMemo(() => {
+    const list = repos.filter(lensMatch);
+    return lens === "activity" ? [...list].sort((a, b) => (Date.parse(b.lastActivity || "") || 0) - (Date.parse(a.lastActivity || "") || 0)) : list;
+  }, [repos, lensMatch, lens]);
+  useEffect(() => setShowAll(false), [family, lens, query, projectFilter]);
+  const searchResults = useMemo(() => query.trim() ? (doc?.repos ?? []).filter(r => !r.hidden && `${r.name} ${r.description ?? ""}`.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 8).map(repo => ({ repo, island: (doc?.islands || doc?.families)?.find(f => f.id === repo.family)?.name || repo.family })) : [], [doc, query]);
   const listFamilies = useMemo(() => {
     if (projectFilter !== "hidden") return doc?.families || [];
     const counts = new Map<string, number>();
@@ -306,6 +320,16 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   }
   useEffect(() => { if (ready) send("map-controls", { visible: mapControls }); }, [ready, mapControls, send]);
   useEffect(() => {
+    if (!active || view !== "world") return;
+    // "/" finds a project from anywhere on the World page, as it does inside the map.
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement | null)?.closest?.("input,textarea,select,[contenteditable=true]")) return;
+      e.preventDefault(); workspace.current?.querySelector<HTMLInputElement>('.cw-world-bar input[type="search"]')?.focus();
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [active, view]);
+  useEffect(() => {
     if (!toolsView) return;
     const escape = (e: KeyboardEvent) => { if (e.key === "Escape" && !e.defaultPrevented && !operation && !menu) setToolsView(null); };
     window.addEventListener("keydown", escape);
@@ -366,7 +390,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     { id: "apps", label: "running", count: apps.filter(a => a.running.length && visibleProjects.some(r => r.id === a.repo)).length, color: "var(--ok-400)" },
   ].map(item => <button key={item.id} style={{ "--chip-color": item.color } as CSSProperties} disabled={!doc} onClick={() => openTools(item.id)}><i aria-hidden="true" /><b>{item.count}</b>{item.label}</button>)}</nav>;
 
-  return <section ref={workspace} style={{ "--cw-pane-width": `${paneWidth}%` } as CSSProperties} className={`connected-workspace ${expanded ? "is-expanded" : ""} ${project || toolsView ? "has-project" : ""} ${project && paneExpanded ? "is-pane-expanded" : ""}`} aria-label="Connected workspace" hidden={!active}>
+  return <section ref={workspace} style={{ "--cw-pane-width": `${paneWidth}%`, "--cw-explore-width": `${exploreWidth}%` } as CSSProperties} className={`connected-workspace ${expanded ? "is-expanded" : ""} ${project || toolsView ? "has-project" : ""} ${project && paneExpanded ? "is-pane-expanded" : ""}`} aria-label="Connected workspace" hidden={!active}>
     <div className="cw-topbar"><h1>{{ world: "World", projects: "Projects", sessions: "Sessions", machines: "Machines", models: "Models" }[view]}</h1>
     {view === "world" && doc && <span className="cw-topbar-count">{doc.families.length} islands · {doc.repos.filter(r => !r.hidden).length} projects</span>}
     <div className="cw-machine-rail" aria-label="Machine scope">
@@ -377,7 +401,8 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     {view === "world" && !!library?.reviewCount && <button className="cw-live-chip" onClick={() => onSelect("sessions")} title={`Sessions idle for ${library.idleDays}+ days`}>{library.reviewCount} idle sessions</button>}
     {["world", "projects"].includes(view) && toolsMenu}
     <button className="cw-icon" onClick={reload} aria-label="Refresh connected workspace"><RefreshCw size={16} /></button></div>
-    {["world", "projects"].includes(view) && <div className="cw-toolbar">{filters}{actionCounts}</div>}
+    {view === "projects" && <div className="cw-toolbar">{filters}{actionCounts}</div>}
+    {view === "world" && <div className="cw-toolbar cw-world-bar"><ProjectSearch query={query} setQuery={setQuery} results={searchResults} onChoose={repo => { setQuery(""); choose(repo); }} onPick={() => repos[0] && choose(repos[0])} shortcut />{actionCounts}</div>}
     {liveError && doc && !["models", "machines"].includes(view) && <p className="cw-error" role="status">Live updates unavailable. App and job state below is the last observation.</p>}
     {message && <div className="cw-message" role="status">{message}<button aria-label="Dismiss message" onClick={() => setMessage("")}><X size={15} /></button></div>}
     <>
@@ -387,7 +412,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
       <div className="cw-world-layout" hidden={view !== "world" || !!error}>
         <div className="cw-focus-bar"><span><img src="/brand/foundry.png" alt="" width="28" height="24" />World <span className="cw-muted">/ {machineName}</span></span>{actionCounts}<button ref={exitWorld} onClick={() => setExpanded(false)} aria-label="Exit expanded world"><Minimize2 size={16} />Exit expanded view</button></div>
         <div className="cw-world">
-          <div className="cw-world-tools">{family && <button className="cw-island-tools" onClick={() => setOperation({ kind: "islands", island: family })}>Island actions</button>}<button className="cw-map-controls" aria-pressed={mapControls} aria-label="History and replay" title="History and replay" onClick={() => setMapControls(v => !v)}><History size={16} /></button><button aria-label="Show all islands" onClick={home}><Home size={16} /></button><button aria-label={expanded ? "Restore world layout" : "Expand world"} onClick={() => setExpanded(v => !v)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
+          <div className="cw-world-tools"><button className="cw-map-controls" aria-pressed={mapControls} aria-label="History and replay" title="History and replay" onClick={() => setMapControls(v => !v)}><History size={16} /></button><button aria-label="Show all islands" onClick={home}><Home size={16} /></button><button aria-label={expanded ? "Restore world layout" : "Expand world"} onClick={() => setExpanded(v => !v)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
           <div className="cw-lenses" aria-label="World lens">{[["map", "World"], ["working", "Live work"], ["changes", "Needs attention"], ["where", "On this machine"], ["activity", "Activity"], ["shipped", "Shipped"]].map(([id, name]) => <button key={id} aria-pressed={lens === id} onClick={() => setLens(id)}>{{ map: <Globe2 size={13} />, working: <Activity size={13} />, changes: <TriangleAlert size={13} />, where: <Laptop size={13} />, activity: <Clock3 size={13} />, shipped: <Flag size={13} /> }[id]}{name}</button>)}</div>
           {doc && <iframe key={`${machine}-${worldRevision}`} ref={iframe} title={`Hangar project world on ${machineName}`} src={`/api/world/${machine}/view/index.html?embed=hangar&lens=map`} onLoad={() => send("status")} allow="clipboard-write" />}
           {!ready && <div className="cw-world-status" role="status" aria-label="Map loading status">
@@ -398,7 +423,14 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
           </div>}
           <div className="cw-map-hint" hidden={!ready || mapControls}>Drag to explore · Right-click for actions · / to find</div>
         </div>
-        {view === "world" && (project ? projectPane : toolsPane || <aside className="cw-inspector" aria-label="Explore projects"><><span className="cw-eyebrow">EXPLORE THE ISLANDS</span><h2>{family ? doc?.families.find(f => f.id === family)?.name : "Find your next focus."}</h2><p className="cw-muted">Every building is a real project. Select one to see its work, sessions and running apps.</p><ProjectSearch query={query} setQuery={setQuery} onPick={() => repos[0] && choose(repos[0])} /><div className="cw-island-picker" aria-label="Explore islands"><button aria-pressed={!family} onClick={home}>All islands</button>{doc?.families.filter(f => f.repos > 0).map(f => <button key={f.id} aria-pressed={family === f.id} onContextMenu={e => { e.preventDefault(); setOperation({ kind: "islands", island: f.id }); }} onClick={() => { setFamily(f.id); setQuery(""); send("district", { family: f.id }); }}>{f.name}<small>{f.repos}</small></button>)}</div><div className="cw-result-count" aria-live="polite">{repos.length} matching projects</div>{repos.slice(0, 9).map(r => <ProjectRow key={r.id} repo={r} machine={machine} jobs={jobs} apps={apps} onClick={() => choose(r)} onMenu={(x, y) => setMenu({ project: r, x, y })} />)}<button className="cw-text-button" onClick={() => onSelect("projects")}>Browse project list <ArrowRight size={15} /></button></></aside>)}
+        {view === "world" && (project ? projectPane : toolsPane || <aside className="cw-inspector cw-explore" aria-label="Explore projects"><ProjectPaneResize width={exploreWidth} onChange={setExploreWidth} min={20} max={50} reset={26} label="Resize project list" /><div className="cw-explore-head"><span className="cw-eyebrow">EXPLORE THE ISLANDS</span>{family && <button className="cw-island-tools" onClick={() => setOperation({ kind: "islands", island: family })}>Island actions</button>}</div><h2>{family ? doc?.families.find(f => f.id === family)?.name : "Find your next focus."}</h2><p className="cw-muted">Every building is a real project. Select one to see its work, sessions and running apps.</p>
+          <div className="cw-explore-filter" role="group" aria-label="Which projects">{[["visible", "All", "Every project on the map"], ["focus", "Focus", "Marked important"], ["parked", "Parked", "Set aside for later"], ["hidden", "Off the map", "Moved off the map"]].map(([id, label, hint]) => <button key={id} title={hint} aria-pressed={projectFilter === id} onClick={() => setProjectFilter(id)}>{label}</button>)}</div>
+          <div className="cw-island-picker" aria-label="Explore islands"><button aria-pressed={!family} onClick={home}>All islands<small>{pool.length}</small></button>{doc?.families.filter(f => islandCounts.get(f.id) || family === f.id).map(f => <button key={f.id} aria-pressed={family === f.id} onContextMenu={e => { e.preventDefault(); setOperation({ kind: "islands", island: f.id }); }} onClick={() => { setFamily(f.id); setQuery(""); send("district", { family: f.id }); }}>{f.name}<small>{islandCounts.get(f.id) || 0}</small></button>)}</div>
+          <div className="cw-result-count" aria-live="polite">{listed.length} {lens === "changes" ? (listed.length === 1 ? "needs attention" : "need attention") : lens === "shipped" ? "shipped" : lens === "where" ? "on this machine" : lens === "working" ? "with an agent working" : listed.length === 1 ? "project" : "projects"}{lens === "activity" ? " · most recent first" : ""}</div>
+          {(showAll ? listed : listed.slice(0, 12)).map(r => <ProjectRow key={r.id} repo={r} machine={machine} jobs={jobs} apps={apps} onClick={() => choose(r)} onMenu={(x, y) => setMenu({ project: r, x, y })} />)}
+          {!showAll && listed.length > 12 && <button className="cw-text-button" onClick={() => setShowAll(true)}>Show all {listed.length} <ChevronRight size={15} /></button>}
+          {doc && !listed.length && <div className="cw-explore-empty"><p>Nothing here{projectFilter !== "visible" ? ` in ${{ focus: "Focus", parked: "Parked", hidden: "Off the map" }[projectFilter]}` : ""}{lens !== "map" && lens !== "activity" ? ` for ${LENS_NAMES[lens]}` : ""}{query ? ` matching “${query}”` : ""}.</p><button onClick={() => { setProjectFilter("visible"); setQuery(""); setLens("map"); }}>Show every project</button></div>}
+          <button className="cw-text-button" onClick={() => onSelect("projects")}>Open the project grid <ArrowRight size={15} /></button></aside>)}
       </div>
       {view === "projects" && <div className={project || toolsView ? "cw-project-list-layout" : ""}><div className="cw-project-browser"><div className="cw-browser-toolbar"><ProjectSearch query={query} setQuery={setQuery} onPick={() => repos[0] && choose(repos[0])} /><span className="cw-muted">{repos.length} {projectFilter === "hidden" ? "projects off the map" : "projects on this map"}</span></div><div className="cw-family-tabs"><button aria-pressed={!family} onClick={() => setFamily("")}>All islands</button>{listFamilies.map(f => <button key={f.id} aria-pressed={family === f.id} onContextMenu={e => { e.preventDefault(); setOperation({ kind: "islands", island: f.id }); }} onClick={() => setFamily(f.id)}>{f.name}<small>{f.repos}</small></button>)}</div><div className="cw-project-grid">{repos.map(repo => <div className="cw-project-tile-wrap" key={repo.id}><button className={`cw-project-tile ${repo.id === selected ? "is-selected" : ""}`} key={repo.id} onClick={() => choose(repo)} onContextMenu={e => { e.preventDefault(); setMenu({ project: repo, x: e.clientX, y: e.clientY }); }}><span className="cw-eyebrow">{(doc?.islands || doc?.families)?.find(f => f.id === repo.family)?.name || repo.family}</span><ProjectEmblem repo={repo} machine={machine} /><h2>{repo.name}</h2><p>{repo.meaning?.purpose || repo.description || "Open the project to explore its work."}</p><footer><span>{repo.sites.length ? `${repo.sites.length} local ${repo.sites.length === 1 ? "checkout" : "checkouts"}` : "Not on this machine"}</span><ArrowRight size={16} /></footer></button><button className="cw-tile-more" aria-label={`More actions for ${repo.name}`} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ project: repo, x: r.left, y: r.bottom + 4 }); }}><MoreHorizontal size={17} /></button></div>)}</div>{doc && !repos.length && <p className="cw-empty">No projects match that search.</p>}</div>{project ? projectPane : toolsPane}</div>}
       {view === "sessions" && <div className="cw-sessions"><div className="cw-section-title"><h2><Activity size={20} /> Live coding jobs</h2><span>{machineName}</span></div>{liveError && <p role="alert" className="cw-error">{liveError}. Last observed work may be stale.</p>}{jobs.length ? <>{jobs.filter(job => running(job) || job.state === "unobserved").map(jobRow)}{jobs.some(job => !running(job) && job.state !== "unobserved") && <details className="cw-finished-jobs"><summary>{jobs.filter(job => !running(job) && job.state !== "unobserved").length} finished jobs</summary>{jobs.filter(job => !running(job) && job.state !== "unobserved").map(jobRow)}</details>}</> : <div className="cw-empty-inline"><Terminal size={24} /><div><b>No Hangar coding jobs observed.</b><p>Start a task from a project to see its output and control it here. Other apps’ sessions appear in history below.</p></div><button onClick={() => onSelect("projects")}>Choose project</button></div>}<SessionLibrary key={machine} machine={machine} data={library} error={sessionsError} onUpdate={receiveLibrary} onContinue={continueSession} /></div>}
@@ -429,9 +461,19 @@ function DialogFocus({ onClose }: { onClose: () => void }) {
   }, []);
   return <span ref={ref} hidden />;
 }
-function ProjectSearch({ query, setQuery, onPick }: { query: string; setQuery: (value: string) => void; onPick?: () => void }) {
-  // Enter opens the best match, the way a search box is expected to finish.
-  return <label className="cw-search"><Search size={16} /><input type="search" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && query.trim() && onPick) { e.preventDefault(); onPick(); } }} placeholder="Find a project…" aria-label="Find a project" /></label>;
+function ProjectSearch({ query, setQuery, onPick, results, onChoose, shortcut }: { query: string; setQuery: (value: string) => void; onPick?: () => void; results?: { repo: Repo; island: string }[]; onChoose?: (repo: Repo) => void; shortcut?: boolean }) {
+  // Enter opens the best match, the way a search box is expected to finish; with results, a short list opens under the box.
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const list = results && query.trim() ? results : [];
+  const pick = (repo: Repo) => { onChoose?.(repo); setOpen(false); };
+  return <div className="cw-search-wrap"><label className="cw-search"><Search size={16} /><input type="search" value={query} onChange={e => { setQuery(e.target.value); setActive(0); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}
+    onKeyDown={e => {
+      if (list.length && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); setOpen(true); setActive(i => Math.max(0, Math.min(list.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)))); }
+      else if (e.key === "Enter" && query.trim()) { e.preventDefault(); if (list[active] && onChoose) pick(list[active].repo); else onPick?.(); }
+      else if (e.key === "Escape" && results) { e.preventDefault(); setQuery(""); e.currentTarget.blur(); }
+    }} placeholder="Find a project…" aria-label="Find a project" role={results ? "combobox" : undefined} aria-expanded={results ? open && list.length > 0 : undefined} aria-controls={results ? "cw-search-results" : undefined} aria-autocomplete={results ? "list" : undefined} />{shortcut && !query && <kbd aria-hidden="true">/</kbd>}</label>
+    {open && list.length > 0 && <ul id="cw-search-results" className="cw-search-results" role="listbox" aria-label="Matching projects">{list.map(({ repo, island }, i) => <li key={repo.id} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onMouseDown={e => { e.preventDefault(); pick(repo); }}><b>{repo.name}</b><small>{island}</small></li>)}</ul>}</div>;
 }
 function ProjectEmblem({ repo, machine }: { repo: Repo; machine: string }) {
   const logo = repo.sites.find(s => s.logo)?.logo;

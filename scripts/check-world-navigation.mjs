@@ -12,9 +12,9 @@ try {
   await frame.waitForFunction(() => !!window.atlas, { timeout: 60000 });
   await page.getByRole("button", { name: "Show all islands", exact: true }).click();
   const first = await frame.evaluate(() => ({ id: window.atlas.buildings[0].repo.id, name: window.atlas.buildings[0].repo.name, family: window.atlas.buildings[0].repo.family }));
-  await page.locator('.cw-inspector input[type="search"]').fill(first.name);
+  await page.locator('.cw-world-bar input[type="search"]').fill(first.name);
   await frame.waitForFunction(id => window.atlas.buildings.some(b => b.repo.id !== id && b.target.dim >= 0.9), first.id);
-  assert.equal(await page.locator('.cw-inspector input[type="search"]').inputValue(), first.name, "Home must not erase a newer search");
+  assert.equal(await page.locator('.cw-world-bar input[type="search"]').inputValue(), first.name, "Home must not erase a newer search");
   await page.getByRole("button", { name: "Show all islands", exact: true }).click();
   await page.locator('.cw-island-picker button').nth(1).click();
   assert.ok(await page.locator('.cw-island-picker button[aria-pressed="true"]').count() === 1);
