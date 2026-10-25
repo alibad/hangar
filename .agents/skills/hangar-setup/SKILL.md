@@ -164,7 +164,10 @@ Do not silently enable these:
 - Background startup: `./scripts/install-agents.sh` on macOS, or the Windows
   scheduled-task flow using `scripts/start-console.ps1`.
 - Agent access: use the Services page's configuration for Claude Code or Codex,
-  backed by `scripts/mcp-hangar.mjs`.
+  backed by `scripts/mcp-hangar.mjs` (the local AI stack and the project world:
+  `hangar_pending`, `hangar_brief`, `hangar_sessions`, `hangar_jobs`, …). By hand:
+  `claude mcp add --scope user hangar -- node <repo>/scripts/mcp-hangar.mjs` and
+  `codex mcp add hangar -- node <repo>/scripts/mcp-hangar.mjs`.
 - Visual capture: `node scripts/walk-console.mjs --host <id>`.
 
 ## Report

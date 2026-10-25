@@ -308,10 +308,14 @@ Ask before doing any of these; none is part of "describe this machine":
 - **Run it in the background** — `./scripts/install-agents.sh` (macOS launchd;
   it retires any pre-rename `com.betenshi.*` agents). Windows uses a Scheduled
   Task via `scripts/start-console.ps1`. Needs `npm run build` first.
-- **Give an agent the stack** — the Services page has an *Agent access* panel
-  with ready config for Claude Code and Codex, pointing at
-  `scripts/mcp-hangar.mjs`. Nine tools: start/stop services, read logs and GPU,
-  transcribe, speak, generate an image.
+- **Give an agent the stack and the world** — the Services page has an *Agent
+  access* panel with ready config for Claude Code and Codex, pointing at
+  `scripts/mcp-hangar.mjs`. One server: start/stop services, read logs and GPU,
+  transcribe, speak, generate images, music, video and 3D, and the project world
+  (`hangar_pending`, `hangar_brief`, `hangar_sessions`, `hangar_jobs`, …) read
+  from the bundled engine. Registering it by hand:
+  `claude mcp add --scope user hangar -- node <repo>/scripts/mcp-hangar.mjs` and
+  `codex mcp add hangar -- node <repo>/scripts/mcp-hangar.mjs`.
 - **Capture what it looks like** — `node scripts/walk-console.mjs --host <id>`.
 
 ---
