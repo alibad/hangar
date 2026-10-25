@@ -29,6 +29,45 @@ class PurposeCategories(unittest.TestCase):
         self.assertTrue(projects[0]["hidden"])
 
 
+class ArchitectureDrawings(unittest.TestCase):
+    def test_reply_parsing_keeps_only_an_architecture_candidate(self):
+        from hangar_engine.architecture import candidate
+        reply = 'Notes first.\n```json\n{"diagram_type": "workflow", "meta": {}}\n```\nFinal:\n```json\n{"schema_version": 1, "diagram_type": "architecture", "meta": {"title": "T"}}\n```'
+        self.assertEqual(candidate(reply)["meta"]["title"], "T")
+        with self.assertRaises(ValueError):
+            candidate("I could not draw it.")
+
+    def test_hangar_pins_output_and_repository(self):
+        from hangar_engine.architecture import github_url, prepare
+        data = prepare({"diagram_type": "architecture", "meta": {"output": "../../elsewhere.html", "repository": {"url": "x"}}},
+                       "https://github.com/owner/name", "a" * 40)
+        self.assertEqual(data["meta"]["output"], "diagram.html")
+        self.assertEqual(data["meta"]["repository"], {"url": "https://github.com/owner/name", "revision": "a" * 40, "provider": "github", "link_mode": "web"})
+        self.assertEqual(data["meta"]["quality_profile"], "showcase")
+        self.assertNotIn("repository", prepare({"meta": {"repository": {"url": "x"}}}, None, None)["meta"])
+        self.assertIsNone(github_url({"url": "https://example.com/owner/name"}))
+
+    def test_drawing_agents_get_reading_tools_only(self):
+        from hangar_engine import launch, work
+        original = launch.cli
+        launch.cli = lambda name: name
+        try:
+            claude = work.command("claude", Path("project"), "task", read_dirs=[Path("skill")])
+            codex = work.command("codex", Path("project"), "task", read_dirs=[Path("skill")])
+        finally:
+            launch.cli = original
+        tools = claude[claude.index("--tools") + 1:claude.index("--add-dir")]
+        self.assertEqual(tools, ["Read", "Grep", "Glob"])
+        self.assertIn("--no-session-persistence", claude)
+        self.assertEqual(codex[codex.index("--sandbox") + 1], "read-only")
+        self.assertIn("--ephemeral", codex)
+
+    def test_expired_agent_sign_in_gets_a_plain_next_step(self):
+        from hangar_engine.work import sign_in_hint
+        self.assertIn("sign in", sign_in_hint("Failed to authenticate. API Error: 401 OAuth access token is invalid."))
+        self.assertIsNone(sign_in_hint("All tests passed."))
+
+
 class IndependentEngine(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -124,6 +163,22 @@ class IndependentEngine(unittest.TestCase):
         self.assertEqual([c["month"] for c in history["chapters"]], ["2025-02", "2025-01"])
         self.assertEqual(history["tags"][0]["name"], "v0.1")
         self.assertFalse(history["truncated"])
+
+    def test_architecture_drawing_needs_archify(self):
+        rid = self.project()["id"]
+        status = self.read("/api/architecture?repo=" + rid)
+        self.assertFalse(status["archify"])
+        self.assertIn("archify", status["install"])
+        self.assertIsNone(status["diagram"])
+        request = urllib.request.Request(self.base + "/api/architecture", data=json.dumps({"repo": rid, "provider": "codex"}).encode(),
+                                         headers={"X-Hangar": "1", "Content-Type": "application/json"})
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(request)
+        self.assertEqual(error.exception.code, 400)
+        self.assertIn("Archify is not installed", json.loads(error.exception.read())["error"])
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            urllib.request.urlopen(self.base + "/api/architecture/view?repo=" + rid)
+        self.assertEqual(error.exception.code, 404)
 
     def test_unknown_projects_and_cross_origin_writes_rejected(self):
         with self.assertRaises(urllib.error.HTTPError) as error:

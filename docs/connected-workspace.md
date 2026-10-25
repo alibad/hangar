@@ -174,13 +174,21 @@ marks reviewed without moving anything. Manage islands can hide/restore a whole
 island; this never deletes files, sessions or plan links. Individually hidden
 projects remain hidden when the island is restored.
 
-Project panes include Architecture and Timeline. Architecture reports tracked
-folders and resolved JS/TS imports, with source-file evidence. It is a bounded
-static analysis, not a verified runtime or deployment diagram. Timeline groups
-local Git history across refs into monthly chapters with commit subjects and
-local tags. It includes up to 20,000 commits; absent remote history needs a fetch.
-Both require a checkout on the selected machine. No source bodies are sent to an
-external model.
+Project panes include Architecture and Timeline. Architecture shows an
+[Archify](https://github.com/tt-a1i/archify) drawing of the project. Nothing is
+drawn until you press Draw: then Claude Code or Codex, signed in with your own
+account, reads the checkout and replies with an Archify candidate. Hangar saves
+it, runs Archify's checks (validation, source evidence pinned to the current
+commit, a real-browser readability check) and sends the problems back for up to
+two repairs. A drawing replaces the previous one only after it passes. The run
+only reads: Claude gets reading tools only; Codex is asked to read only, but its
+sandbox is not enforced on every platform. Drawings stay in local engine storage
+(`var/engine/architecture/`) and open in a sandboxed frame with no network. Install
+the skill once with `npx skills add tt-a1i/archify -g`; Node.js runs its checks.
+
+Timeline groups local Git history across refs into monthly chapters with commit
+subjects and local tags. It includes up to 20,000 commits; absent remote history
+needs a fetch. Both views require a checkout on the selected machine.
 
 Run `python engine/selftest.py` for an isolated engine test: it copies only the
 bundled source into a temporary directory, creates a synthetic repository and

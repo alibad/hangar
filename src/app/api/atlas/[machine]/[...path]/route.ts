@@ -7,6 +7,11 @@ import { workspaceResponse } from "@/lib/workspace-response";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ machine: string; path: string[] }> };
+// An architecture drawing is self-contained HTML built from an agent's reply. It runs in an
+// opaque sandbox with no network, so nothing in it can reach Hangar's APIs or leave the machine.
+const DRAWING_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; "
+  + "media-src data: blob:; worker-src blob:; connect-src 'none'; frame-ancestors 'self'; "
+  + "sandbox allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox";
 
 async function proxy(request: Request, context: Context) {
   const denied = fleetGuard(request);
@@ -80,7 +85,7 @@ async function proxy(request: Request, context: Context) {
     return new Response(response.body, { status: response.status, headers: {
       "Content-Type": response.headers.get("content-type") || "application/json",
       "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": kind === "view" ? "frame-ancestors 'self'" : "default-src 'none'; frame-ancestors 'none'",
+      "Content-Security-Policy": kind === "view" ? "frame-ancestors 'self'" : operation === "architecture/view" ? DRAWING_CSP : "default-src 'none'; frame-ancestors 'none'",
     } });
   } catch (error) {
     if (error instanceof IslandInputError) return Response.json({ error: error.message }, { status: 400 });

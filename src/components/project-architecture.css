@@ -1,0 +1,26 @@
+.project-architecture{padding-top:16px;display:flex;flex-direction:column;gap:12px}
+.project-architecture .pa-quiet{color:var(--cw-muted);font-size:12px;line-height:1.6}
+.pa-empty{border:1px dashed var(--cw-line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.pa-empty h3{margin:0!important;font-size:14px!important;text-transform:none!important;letter-spacing:-.01em!important;color:var(--cw-ink)!important}
+.pa-empty p{margin:0;font-size:12px;line-height:1.6;color:var(--cw-muted)}
+.pa-empty code{font-size:11px;padding:6px 9px;border-radius:7px;background:var(--color-gray-900);user-select:all}
+.pa-actions{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pa-agents{display:inline-flex;border:1px solid var(--cw-line);border-radius:8px;overflow:hidden}
+.pa-agents button{font-size:11px;padding:5px 10px!important;border-radius:0!important;color:var(--cw-muted)}
+.pa-agents button[aria-pressed=true]{background:var(--cw-ink);color:var(--color-gray-950)}
+.pa-draw{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:6px 11px!important;border-radius:8px;background:var(--cw-accent);color:var(--color-gray-950)}
+.pa-draw:disabled{opacity:.5}
+.pa-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--cw-muted)}
+.pa-bar>span:first-child{flex:1;min-width:160px}
+.pa-bar code{font-size:10px}.pa-bar em{font-style:normal;color:var(--cw-glow)}
+.pa-bar a{display:inline-flex;padding:6px;border-radius:7px;color:var(--cw-muted)}.pa-bar a:hover{color:var(--cw-ink)}
+.pa-frame{width:100%;height:max(520px,calc(100vh - 300px));border:1px solid var(--cw-line);border-radius:12px;background:var(--color-gray-950)}
+.pa-progress{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--cw-line);border-radius:12px}
+.pa-progress b{display:block;font-size:12px;font-weight:600}.pa-progress small{display:block;font-size:11px;color:var(--cw-muted);margin-top:3px}
+.pa-progress>div{flex:1;min-width:0}.pa-progress button{font-size:11px;padding:5px 10px!important;border:1px solid var(--cw-line);border-radius:8px}
+.pa-pulse{width:9px;height:9px;border-radius:50%;background:var(--cw-accent);flex-shrink:0;animation:pa-pulse 1.4s ease-in-out infinite}
+@keyframes pa-pulse{50%{opacity:.25;transform:scale(.7)}}
+.pa-alert{font-size:12px;line-height:1.6;color:var(--danger-300,#f2a7a7);border:1px solid color-mix(in srgb,currentColor 35%,transparent);border-radius:10px;padding:10px 12px}
+.pa-alert pre{white-space:pre-wrap;font-size:11px;margin:6px 0 0;max-height:220px;overflow:auto}
+@media(prefers-reduced-motion:reduce){.pa-pulse{animation:none}}
+.pa-found{font-size:11px;color:var(--cw-muted)}.pa-found summary{cursor:pointer}.pa-found pre{white-space:pre-wrap;font-size:10px;margin:6px 0 0;max-height:180px;overflow:auto}

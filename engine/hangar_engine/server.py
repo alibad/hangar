@@ -124,6 +124,13 @@ def make_handler(state, port):
                     return self._send(200, insights.inspect(state.doc or state.load(), scanner.overlay(), (parse_qs(url.query).get("repo") or [""])[0]))
                 except ValueError as error:
                     return self._send(400, {"error": str(error)})
+            if path == "/api/architecture":
+                from . import architecture
+                return self._send(200, architecture.status(state.doc or state.load(), scanner.overlay(), (parse_qs(url.query).get("repo") or [""])[0]))
+            if path == "/api/architecture/view":
+                from . import architecture
+                page = architecture.view((parse_qs(url.query).get("repo") or [""])[0])
+                return self._send(200, page, "text/html; charset=utf-8") if page else self._send(404, b"no drawing", "text/plain")
             if path == "/api/apps":
                 return self._send(200, apps.status(state.doc or state.load(), self._folders(), owner=True))
             if path == "/api/logo":
@@ -180,6 +187,12 @@ def make_handler(state, port):
                 try:
                     return self._send(200, plan_links.save(state.doc or state.load(), body))
                 except ValueError as e:
+                    return self._send(400, {"error": str(e)})
+            if path == "/api/architecture":
+                from . import architecture
+                try:
+                    return self._send(202, architecture.start(state.doc or state.load(), scanner.overlay(), body))
+                except (ValueError, OSError) as e:
                     return self._send(400, {"error": str(e)})
             if path == "/api/work":
                 from . import work
