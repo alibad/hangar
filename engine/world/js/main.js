@@ -4,7 +4,7 @@ import { createWorld, detectQuality } from "./world.js";
 import { layout, reconcileLayout } from "./layout.js";
 import { Building, buildIsland, buildSheds, createShared, decorate, islandGeometry, setModelStyle, currentModelStyle } from "./city.js";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
-import { lensById, pending, CHANGE } from "./lenses.js";
+import { lensById, pending, CHANGE, LAYERS } from "./lenses.js";
 import { createUI } from "./ui.js";
 import { icon } from "./icons.js";
 import { sound } from "./sound.js";
@@ -99,6 +99,7 @@ function start(doc, local, quality) {
     if (b.marker) return;
     tag.addEventListener("click", (e) => { e.stopPropagation(); select(b.repo, { fly: true }); });
     const obj = new CSS2DObject(tag);
+    obj.userData.repo = b.repo.id;
     obj.position.set(0, Math.max(b.height, b.flagTop || 0) + 2.6, 0);
     obj.visible = false;
     b.group.add(obj);
@@ -111,14 +112,16 @@ function start(doc, local, quality) {
   // camera moves and come back when it rests, so moving costs what it did before there were markers.
   let markersShown = true;
   function syncMarkers() {
-    for (const m of markers) m.visible = markersShown && state.lens === "changes" && m.parent !== state.selected?.group;
+    const layer = (id) => state.lens !== "default" || state.layers[id];
+    const badges = state.lens === "changes" || (state.lens === "default" && state.layers.attention);
+    for (const m of markers) m.visible = markersShown && badges && m.parent !== state.selected?.group && (!state.filter || state.filter.has(m.userData.repo));
     let appLabels = 0;
     for (const [repo, mk] of runMarks) {
       const match = !state.filter || state.filter.has(repo);
       const close = camera.position.distanceTo(controls.target) < plan.extent;
-      mk.visible = markersShown && mk.userData.live && match && (!embedded || innerWidth >= 600 || close || appLabels++ < 2);
+      mk.visible = markersShown && mk.userData.live && match && layer("apps") && (!embedded || innerWidth >= 600 || close || appLabels++ < 2);
     }
-    for (const mk of workMarks.values()) mk.visible = markersShown && mk.userData.live;
+    for (const mk of workMarks.values()) mk.visible = markersShown && mk.userData.live && layer("work");
   }
 
   // A green tag over every repo whose app is running on this machine, in every lens; kept fresh from /api/apps.
@@ -154,7 +157,7 @@ function start(doc, local, quality) {
         }
       }
     }
-    if (state.lens === "working") setLens("working");
+    if (state.lens === "working" || state.lens === "default") setLens(state.lens);
     syncMarkers(); wake();
   }
   let appTimer;
@@ -170,7 +173,12 @@ function start(doc, local, quality) {
         if (live.length && !mk) {
           const tag = document.createElement("button");
           tag.className = "run-mark";
-          tag.addEventListener("click", (e) => { e.stopPropagation(); select(b.repo, { fly: true }); });
+          tag.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const port = Number(e.target.closest?.("[data-port]")?.dataset.port);
+            if (port && app.canControlApps !== false) appAction("open", b.repo, { port, how: "window" });
+            else select(b.repo, { fly: true });
+          });
           mk = new CSS2DObject(tag);
           mk.position.set(0, Math.max(b.height, b.flagTop || 0) + (b.marker ? 4.8 : 2.6), 0);
           b.group.add(mk);
@@ -181,8 +189,8 @@ function start(doc, local, quality) {
           if (mk.userData.ports !== ports) {  // touch the page only when something changed
             const logo = (b.repo.sites || []).find((s) => s.logo)?.logo;
             mk.element.innerHTML = (logo ? `<img class="logo" alt="" src="${api(`/api/logo?repo=${encodeURIComponent(b.repo.id)}&v=${logo.hash}`)}">` : icon("play"))
-              + `<span>${ports}</span>`;
-            mk.element.title = `${b.repo.name} is running`;
+              + live.map((x) => `<span class="port" data-port="${Number(x.port)}" title="Open :${Number(x.port)} in its own window">:${Number(x.port)}</span>`).join("");
+            mk.element.title = `${b.repo.name} is running · click a port to open it`;
             mk.userData.ports = ports;
             mk.userData.live = live.length > 0;
             touched = true;
@@ -219,7 +227,7 @@ function start(doc, local, quality) {
 
   // ---------- state ----------
   const state = {
-    lens: "map", night: 0, nightTarget: 0, time: null, hover: null, selected: null, fly: null, filter: null,
+    lens: "map", layers: { ...LAYERS }, night: 0, nightTarget: 0, time: null, hover: null, selected: null, fly: null, filter: null,
     dirty: true, lastInput: performance.now(), autoRotate: quality.tier !== "low" && !reducedMotion,
     moving: new Set(), renderMs: [], downgraded: false, started: performance.now(),
   };
@@ -442,7 +450,8 @@ function start(doc, local, quality) {
     if (state.ready && lens.id !== state.lens) sound.click();
     state.lens = lens.id;
     for (const b of buildings) {
-      const target = lens.target(b.repo, b);
+      const target = lens.target(b.repo, b, state.layers);
+      if (lens.id === "default" && state.layers.work && workMarks.get(b.repo.id)?.userData.live) target.glow = 1;
       if (lens.id === "working") {
         target.dim = workMarks.get(b.repo.id)?.userData.live ? 0 : 0.85;
         target.glow = workMarks.get(b.repo.id)?.userData.live ? 1 : 0;
@@ -451,9 +460,9 @@ function start(doc, local, quality) {
       b.setTarget(target);
       state.moving.add(b);
     }
-    ui.showLens(lens.id);
+    ui.showLens(lens.id === "default" ? "map" : lens.id);
     syncMarkers();
-    if (lens.id === "where" || lens.id === "map") for (const i of islands) i.sheds && (i.sheds.visible = true);
+    if (lens.id === "where" || lens.id === "map" || lens.id === "default") for (const i of islands) i.sheds && (i.sheds.visible = true);
     wake();
   }
   function setTime(t, user) {
@@ -890,7 +899,12 @@ function start(doc, local, quality) {
       if (repo) select(repo, { fly: true });
       else if (message.repo === null) deselect();
     }
-    if (message.type === "lens" && ["map", "changes", "where", "activity", "shipped", "working"].includes(message.lens)) setLens(message.lens);
+    if (message.type === "lens" && ["default", "map", "changes", "where", "activity", "shipped", "working"].includes(message.lens)) setLens(message.lens);
+    if (message.type === "layers" && message.layers && typeof message.layers === "object") {
+      for (const id of Object.keys(LAYERS)) state.layers[id] = message.layers[id] === undefined ? LAYERS[id] : !!message.layers[id];
+      if (state.lens === "default") setLens("default"); else syncMarkers();
+      wake();
+    }
     if (message.type === "district") {
       const island = islands.find(i => i.spot.id === message.family);
       // The host already applied this choice. Echoing it can erase a newer search.

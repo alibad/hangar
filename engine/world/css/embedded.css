@@ -73,3 +73,7 @@ body.atlas-pane .app-section .target, body.atlas-pane .app-section .running-row 
 }
 body.atlas-pane .tag { background: color-mix(in oklab, var(--ink) 6%, var(--panel-solid)); }
 body.atlas-pane .card .steppers { right: 0; }
+/* A running app's tag: each port is its own button that opens the app. */
+body.hangar-embedded .run-mark .port { padding: 1px 4px; border-radius: 5px; cursor: pointer; }
+body.hangar-embedded .run-mark .port + .port { margin-left: 2px; }
+body.hangar-embedded .run-mark .port:hover { background: color-mix(in oklab, var(--h-ok, #65cda2) 35%, transparent); text-decoration: underline; }

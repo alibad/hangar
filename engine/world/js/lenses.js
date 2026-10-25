@@ -72,6 +72,16 @@ export const LENSES = [
   },
 ];
 
+/** Hangar's one everyday view: the map as it is, with the layers the host turns on instead of separate lenses. */
+export const DEFAULT_VIEW = {
+  id: "default", name: "Map", icon: "map", hint: "", legend: [],
+  target: (r, b, layers = {}) => ({
+    tint: layers.activity ? ACTIVITY[r.recency] || ACTIVITY.unknown : b.base, dim: 0,
+    ghost: !!layers.where && !r.onMachine, glow: layers.websites && r.homepage ? 1 : 0,
+  }),
+};
+export const LAYERS = { attention: true, apps: true, work: true, where: true, activity: false, websites: false };
+
 const OLD = { pulse: "activity", live: "shipped", risk: "changes" }; // links made before the rename keep working
-export const lensById = (id) => LENSES.find((l) => l.id === (OLD[id] || id)) || LENSES.find(l => l.id === "changes");
+export const lensById = (id) => id === "default" ? DEFAULT_VIEW : LENSES.find((l) => l.id === (OLD[id] || id)) || LENSES.find(l => l.id === "changes");
 export const riskLevel = level;
