@@ -52,6 +52,51 @@ class EngineModules(unittest.TestCase):
         self.assertEqual(popen.call_args[0][0], ["C:/browser.exe", "--app=http://localhost:3939/", "--new-window"])
 
 
+class AgentSignIn(unittest.TestCase):
+    def test_signing_in_again_outranks_an_older_failed_job(self):
+        from unittest import mock
+        from hangar_engine import agents
+        from datetime import datetime, timezone
+        at = lambda h, m: datetime(2026, 10, 25, h, m, tzinfo=timezone.utc).timestamp()
+        with mock.patch.object(agents.work, "sign_in_failures", return_value={"claude": "2026-10-25T19:16:03+00:00"}):
+            self.assertTrue(agents._from_jobs("claude", True, since=at(20, 6))["signedIn"])    # signed in after the failed job
+            self.assertFalse(agents._from_jobs("claude", True, since=at(18, 0))["signedIn"])   # sign-in file older than the failure
+            self.assertFalse(agents._from_jobs("claude", True)["signedIn"])
+
+    def test_sign_in_opens_the_browser_without_a_window_and_falls_back_to_a_terminal(self):
+        import subprocess
+        from unittest import mock
+        from hangar_engine import agents
+        slow = mock.Mock(); slow.wait.side_effect = subprocess.TimeoutExpired("claude", 4)
+        quick = mock.Mock(); quick.wait.return_value = 1
+        with mock.patch.object(agents.launch, "cli", return_value="claude.exe"), mock.patch.object(agents.launch, "_terminal") as terminal, \
+                mock.patch.object(agents.threading, "Timer"), mock.patch.object(agents.config, "LOCAL", Path(tempfile.gettempdir())):
+            with mock.patch.object(agents.subprocess, "Popen", return_value=slow) as popen:
+                self.assertEqual(agents.sign_in("claude")["where"], "browser")
+                self.assertEqual(popen.call_args[0][0], ["claude.exe", "auth", "login", "--claudeai"])
+                terminal.assert_not_called()
+            with mock.patch.object(agents.subprocess, "Popen", return_value=quick):
+                self.assertEqual(agents.sign_in("claude")["where"], "terminal")
+                terminal.assert_called_once()
+
+    def test_claude_app_sessions_open_in_the_app_and_others_in_a_terminal(self):
+        from unittest import mock
+        from hangar_engine import desktop_sessions
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d) / "org" / "account"
+            folder.mkdir(parents=True)
+            (folder / "local_abc.json").write_text(json.dumps({"sessionId": "local_abc", "cliSessionId": "cli-123", "cwd": "C:/x", "isArchived": False, "big": "x" * 9000}), encoding="utf-8")
+            (folder / "local_old.json").write_text(json.dumps({"sessionId": "local_old", "cliSessionId": "cli-old", "isArchived": True}), encoding="utf-8")
+            desktop_sessions._cache["at"] = 0
+            with mock.patch.object(desktop_sessions, "_roots", return_value=[Path(d)]), mock.patch.object(desktop_sessions, "app_ready", return_value=True):
+                self.assertEqual(desktop_sessions.claude_app_ids(), {"cli-123": "local_abc"})
+                self.assertEqual(desktop_sessions.opens_in("claude", "cli-123"), "app")
+                self.assertEqual(desktop_sessions.opens_in("claude", "cli-old"), "terminal")
+                self.assertEqual(desktop_sessions.app_link("claude", "cli-123"), "claude://code/continue?session=local_abc")
+                self.assertEqual(desktop_sessions.opens_in("codex", "anything"), "app")
+            desktop_sessions._cache["at"] = 0
+
+
 class ArchitectureDrawings(unittest.TestCase):
     def test_reply_parsing_keeps_only_an_architecture_candidate(self):
         from hangar_engine.architecture import candidate

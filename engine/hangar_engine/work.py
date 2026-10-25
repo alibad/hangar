@@ -80,13 +80,17 @@ def failure_hint(text):
     return sign_in_hint(text)
 
 
-def signed_out():
-    """Agents whose most recent finished job failed on sign-in; a later success clears it."""
+def sign_in_failures():
+    """Each agent whose most recent finished job failed on sign-in, with when that job ended; a later success clears it."""
     latest = {}
     for job in snapshot()["jobs"]:  # newest first
         if job.get("endedAt") and job["provider"] not in latest:
             latest[job["provider"]] = job
-    return [p for p, job in latest.items() if job["state"] == "failed" and sign_in_hint(" ".join(o["text"] for o in job["output"]))]
+    return {p: job["endedAt"] for p, job in latest.items() if job["state"] == "failed" and sign_in_hint(" ".join(o["text"] for o in job["output"]))}
+
+
+def signed_out():
+    return list(sign_in_failures())
 
 
 def checkout(doc, overlay, rid):

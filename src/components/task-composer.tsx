@@ -62,7 +62,7 @@ export default function TaskComposer({ project, machine, machineName, sessions, 
       </button>;
     })}</div> : <div className="tc-agents" role="radiogroup" aria-label="Coding agent">{AGENTS.map(a => <button key={a.id} role="radio" aria-checked={provider === a.id} disabled={busy} onClick={() => setProvider(a.id)}><i className={`tc-dot is-${a.id}`} aria-hidden="true" />{a.name}</button>)}</div>}
 
-    <SignInNoticeView status={sign} waiting={signs.waiting} error={signs.error} onSignIn={id => void signs.signIn(id)} machineName={machineName} local={machine === "local"} compact done={signedAgain} />
+    <SignInNoticeView status={sign} waiting={signs.waiting} where={signs.where} error={signs.error} onSignIn={id => void signs.signIn(id)} machineName={machineName} local={machine === "local"} compact done={signedAgain} />
 
     <label className="tc-label" htmlFor="tc-ask">{session ? "What should it pick up?" : "What should happen?"}</label>
     {!session && <div className="tc-asks" aria-label="Ready-made tasks">

@@ -11,6 +11,7 @@ export type AgentStatus = { id: string; name: string; installed: boolean; signed
 export function useAgents(machine: string) {
   const [agents, setAgents] = useState<AgentStatus[]>([]);
   const [waiting, setWaiting] = useState<string | null>(null);
+  const [where, setWhere] = useState("browser");
   const [error, setError] = useState("");
   const base = `/api/world/${machine}/proxy`;
   const refresh = useCallback(async () => {
@@ -37,22 +38,22 @@ export function useAgents(machine: string) {
       const response = await fetch(`${base}/agents/login`, { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json", "X-Hangar": "1" }, body: JSON.stringify({ agent: id }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not open the sign-in.");
-      setWaiting(id);
+      setWhere(data.where || "browser"); setWaiting(id); void refresh();
     } catch (e) { setError((e as Error).message); }
-  }, [base]);
-  return { agents, waiting, error, signIn, refresh };
+  }, [base, refresh]);
+  return { agents, waiting, where, error, signIn, refresh };
 }
 
 /** The notice itself, for a caller that already keeps the agents' state (to also block a Run button, say). */
-export function SignInNoticeView({ status, waiting, error, onSignIn, machineName, local, compact, done }: {
-  status?: AgentStatus; waiting: string | null; error: string; onSignIn: (id: string) => void; machineName: string; local: boolean; compact?: boolean; done?: boolean;
+export function SignInNoticeView({ status, waiting, where = "browser", error, onSignIn, machineName, local, compact, done }: {
+  status?: AgentStatus; waiting: string | null; where?: string; error: string; onSignIn: (id: string) => void; machineName: string; local: boolean; compact?: boolean; done?: boolean;
 }) {
   if (done && status) return <div className={`asi is-done ${compact ? "is-compact" : ""}`} role="status"><Check size={15} />{status.name} is signed in. You can run it now.</div>;
   if (!status || !status.installed || status.signedIn !== false) return null;
   return <div className={`asi ${compact ? "is-compact" : ""}`} role="alert">
     <span className="asi-text"><b>{status.name} needs you to sign in on {machineName}.</b><small>{status.reason} Hangar runs agents on your own account, never an API key.</small></span>
     {local ? waiting === status.id
-      ? <span className="asi-wait">A terminal opened: finish signing in in your browser. This updates by itself.</span>
+      ? <span className="asi-wait">{where === "terminal" ? "A terminal opened for the sign-in: follow it there." : "Your browser opened: finish signing in there."} This updates by itself.</span>
       : <button className="asi-go" onClick={() => onSignIn(status.id)}><LogIn size={14} />Sign in to {status.name}</button>
       : <code className="asi-cmd">{status.id === "claude" ? "claude auth login" : "codex login"}</code>}
     {error && <small className="asi-error">{error}</small>}
@@ -72,8 +73,8 @@ export function useSignedInAgain(status?: AgentStatus) {
 
 /** A notice for one agent that cannot run on its own sign-in, with the way to sign in. Renders nothing when it can. */
 export function SignInNotice({ machine, machineName, agent, compact }: { machine: string; machineName: string; agent: string; compact?: boolean }) {
-  const { agents, waiting, error, signIn } = useAgents(machine);
+  const { agents, waiting, where, error, signIn } = useAgents(machine);
   const status = agents.find(a => a.id === agent);
   const done = useSignedInAgain(status);
-  return <SignInNoticeView status={status} waiting={waiting} error={error} onSignIn={id => void signIn(id)} machineName={machineName} local={machine === "local"} compact={compact} done={done} />;
+  return <SignInNoticeView status={status} waiting={waiting} where={where} error={error} onSignIn={id => void signIn(id)} machineName={machineName} local={machine === "local"} compact={compact} done={done} />;
 }
