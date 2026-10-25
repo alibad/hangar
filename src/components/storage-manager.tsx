@@ -447,7 +447,7 @@ export default function StorageManager() {
           <section className="storage-panel storage-largest-files">
             <div className="storage-panel-heading"><div><p>Largest files</p><h2>Heavy individual items</h2></div></div>
             <div className="storage-file-list">
-              {largestFiles.slice(0, 10).map((file) => <button key={file.path} type="button" onClick={() => { setSelected(file); setMode("explorer"); setItems(largestFiles); setCurrentPath("Largest files"); }}><File /><span><strong>{file.name}</strong><small>{file.parent}</small></span><b>{formatBytes(file.size)}</b></button>)}
+              {largestFiles.slice(0, 12).map((file) => <button key={file.path} type="button" onClick={() => { setSelected(file); setMode("explorer"); setItems(largestFiles); setCurrentPath("Largest files"); }}><File /><span><strong>{file.name}</strong><small>{file.parent}</small></span><b>{formatBytes(file.size)}</b></button>)}
             </div>
           </section>
 
