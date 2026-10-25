@@ -9,7 +9,7 @@ const rules = [
   ["personal home path", /(?:[A-Z]:[\\/]+Users[\\/]+(?!Public\b|Default\b|example\b|user\b|you\b)[\w.-]+|\/Users\/(?!example\b|user\b|you\b)[\w.-]+)[\\/]/i],
   ["private network identity", /[\w.-]+\.ts\.net\b/],
 ];
-const privatePath = /(^|\/)(?:var|\.atlas|archive|generated|screenshots|\.vercel|\.claude|\.codex)(\/|$)|(^|\/)\.env(?:\.(?!example$|sample$)[^/]*)?$|(^|\/)service-commands\.json$/;
+const privatePath = /(^|\/)(?:var|\.atlas|archive|generated|screenshots|\.vercel|\.claude(?!\/skills\/)|\.codex)(\/|$)|(^|\/)\.env(?:\.(?!example$|sample$)[^/]*)?$|(^|\/)service-commands\.json$/;
 const findings = new Set();
 let file = "";
 function inspect(diff, source) {
