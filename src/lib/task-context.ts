@@ -2,7 +2,7 @@ export type TaskProject = { name: string; description?: string; meaning?: { purp
 export type TaskSession = { id: string; provider: string; title?: string; summary: string; updatedAt: string; canResume: boolean; archived: boolean };
 
 export function taskContext(project: TaskProject, sessions: TaskSession[]) {
-  const main = project.sites.find(s => s.role === "canonical" || s.role === "orphan");
+  const main = project.sites.find(s => ["canonical", "orphan", "vendor"].includes(s.role));
   return [
     `Project: ${project.name}`,
     `Purpose: ${(project.meaning?.purpose || project.description || "Not recorded").slice(0, 600)}`,
