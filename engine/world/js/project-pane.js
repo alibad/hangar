@@ -1,6 +1,6 @@
 // Reuse Hangar's complete repository UI without starting a second WebGL world.
 import { createUI } from "./ui.js";
-import { api, tellHost, listenHost } from "./host.js";
+import { api, tellHost, listenHost, applyPalette } from "./host.js";
 
 export async function startProjectPane(doc, params) {
   document.body.classList.add("atlas-pane");
@@ -73,7 +73,7 @@ export async function startProjectPane(doc, params) {
     try { app.apps = await read("/api/apps"); ui.apps(app.apps); } catch (e) { ui.toast(e.message, true); }
   }
   listenHost(message => {
-    if (message.type === "theme") { document.body.classList.toggle("night", !!message.night); ui.showNight(!!message.night); }
+    if (message.type === "theme") { document.body.classList.toggle("night", !!message.night); ui.showNight(!!message.night); applyPalette(message.palette); }
     if (message.type === "rescan") void app.rescan();
   });
   window.addEventListener("keydown", e => { if (e.key === "Escape" && !e.target.closest("input,textarea")) { e.preventDefault(); app.deselect(); } });

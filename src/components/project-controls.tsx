@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { mapPalette } from "@/lib/map-palette";
 import { Eye, EyeOff, FolderOpen, PanelRightOpen, Star, Pause, X } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import "./project-controls.css";
@@ -51,14 +52,14 @@ export function RepositoryPane({ machine, repo, view, onClose, onSelect, onChang
   machine: string; repo?: string; view?: string; onClose: () => void; onSelect: (repo: string) => void; onChanged: () => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
-  const { theme } = useTheme();
+  const { theme, palette } = useTheme();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => { setReady(false); setError(""); }, [machine, repo, view]);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== frame.current?.contentWindow || event.data?.source !== "atlas") return;
-      if (event.data.type === "pane-ready") { setReady(true); frame.current?.contentWindow?.postMessage({ source: "hangar", type: "theme", night: theme === "dark" }, window.location.origin); }
+      if (event.data.type === "pane-ready") { setReady(true); frame.current?.contentWindow?.postMessage({ source: "hangar", type: "theme", night: theme === "dark", palette: mapPalette() }, window.location.origin); }
       if (event.data.type === "pane-select" && typeof event.data.repo === "string") onSelect(event.data.repo);
       if (event.data.type === "pane-changed") onChanged();
       if (event.data.type === "pane-close") onClose();
@@ -67,7 +68,12 @@ export function RepositoryPane({ machine, repo, view, onClose, onSelect, onChang
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
   }, [theme, onSelect, onChanged, onClose]);
-  useEffect(() => { if (ready) frame.current?.contentWindow?.postMessage({ source: "hangar", type: "theme", night: theme === "dark" }, window.location.origin); }, [ready, theme]);
+  useEffect(() => {
+    if (!ready) return;
+    // After the theme provider has applied the new palette to the document.
+    const next = requestAnimationFrame(() => frame.current?.contentWindow?.postMessage({ source: "hangar", type: "theme", night: theme === "dark", palette: mapPalette() }, window.location.origin));
+    return () => cancelAnimationFrame(next);
+  }, [ready, theme, palette]);
   useEffect(() => { if (ready) return; const timer = setTimeout(() => setError("Repository tools did not load. Refresh Hangar and retry."), 20000); return () => clearTimeout(timer); }, [ready, machine, repo, view]);
   const query = new URLSearchParams({ embed: "hangar", pane: repo ? "repo" : "tools", ...(repo ? { repo } : { view: view || "changes" }), ...(machine !== "local" ? { remote: "1" } : {}) });
   return <div className="repository-pane">

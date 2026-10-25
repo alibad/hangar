@@ -50,9 +50,13 @@ body.atlas-pane .list .filters { flex-wrap: wrap; flex-shrink: 0; }
 /* History and replay sits on the bottom edge between the corners; the camera pad keeps the bottom-right corner. */
 body.hangar-embedded.show-map-controls .dock { display: flex !important; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: calc(100vw - 260px); }
 body.hangar-embedded.show-map-controls .dock .lenses { display: none; }
-body.hangar-embedded .timeline { width: min(520px, calc(100vw - 260px)); }
+body.hangar-embedded .timeline { width: min(380px, calc(100vw - 260px)); padding: 2px 12px 2px 4px; gap: 8px; }
+body.hangar-embedded .timeline output { min-width: 70px; font-size: 12px; }
+body.hangar-embedded .timeline .icon-btn.small { width: 28px; height: 28px; }
 @media(max-width:600px) { body.hangar-embedded.show-map-controls .dock { max-width: calc(100vw - 28px); } body.hangar-embedded .timeline { width: calc(100vw - 28px); } }
 
 .timeline input{min-width:0}.replay-label{font-size:10px;color:var(--ink-3);white-space:nowrap}@media(max-width:600px){.replay-label{display:none}.timeline output{min-width:64px;font-size:11px}}
 /* The host owns one compact loading status; never cover the canvas twice. */
 body.hangar-embedded #loading { display: none; }
+/* In a Hangar side pane the pane itself has the close button. */
+body.atlas-pane:not(.pane-repo) .list [aria-label="Close list"] { display: none; }

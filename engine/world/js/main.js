@@ -10,7 +10,7 @@ import { icon } from "./icons.js";
 import { sound } from "./sound.js";
 import { createLife } from "./life.js";
 import { clamp, easeInOut, lerp } from "./util.js";
-import { api, embedded, tellHost, listenHost } from "./host.js";
+import { api, embedded, tellHost, listenHost, applyPalette } from "./host.js";
 import { createHarbors } from "./harbors.js";
 import { homeView } from "./camera-view.js";
 
@@ -901,13 +901,10 @@ function start(doc, local, quality) {
     }
     if (message.type === "theme") {
       toggleNight(message.night ? 1 : 0);
-      // Hangar's theme colours for the map's labels and controls: plain colour values only, never url().
-      const palette = message.palette && typeof message.palette === "object" ? message.palette : {};
-      for (const [name, value] of Object.entries(palette)) {
-        if (/^[a-z-]{2,20}$/.test(name) && typeof value === "string" && value.length < 200 && /^[\w\s#().,%+*/-]*$/.test(value) && !/url/i.test(value)) {
-          document.body.style.setProperty(`--h-${name}`, value);
-        }
-      }
+      const palette = applyPalette(message.palette);
+      harbors?.setColors(palette);
+      if (/^#[0-9a-f]{6}$/i.test(palette.door || "")) selRing.material.color.set(palette.door);
+      wake();
     }
     if (message.type === "map-controls") document.body.classList.toggle("show-map-controls", !!message.visible);
     if (message.type === "work") showWork(message.jobs);

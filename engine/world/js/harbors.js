@@ -1,4 +1,5 @@
 // Small architectural portals at the island edge. Only observed work lights a beam.
+// The doors take Hangar's primary colour and the core its warm secondary, so the gates follow the chosen theme.
 import * as THREE from "three";
 
 export function createHarbors(islands) {
@@ -7,6 +8,8 @@ export function createHarbors(islands) {
   const box = new THREE.BoxGeometry(1, 1, 1);
   const diamond = new THREE.OctahedronGeometry(0.8);
   const beamGeometry = new THREE.CylinderGeometry(0.1, 1.1, 14, 8, 1, true);
+  const glow = new THREE.MeshBasicMaterial({ color: "#ffb85c" });
+  const light = new THREE.MeshBasicMaterial({ color: "#ffca81", transparent: true, opacity: 0.17, depthWrite: false, side: THREE.DoubleSide });
   const docks = [];
   function add(island) {
     const group = new THREE.Group();
@@ -18,16 +21,21 @@ export function createHarbors(islands) {
       door.scale.set(0.8, 5, 2.6); door.position.set(side * 2, 2.7, 0);
       door.rotation.y = side * -0.35; group.add(door);
     }
-    const glow = new THREE.MeshBasicMaterial({ color: "#ffb85c" });
     const core = new THREE.Mesh(diamond, glow); core.position.y = 2.8; group.add(core);
-    const beam = new THREE.Mesh(beamGeometry, new THREE.MeshBasicMaterial({ color: "#ffca81", transparent: true, opacity: 0.17, depthWrite: false, side: THREE.DoubleSide }));
+    const beam = new THREE.Mesh(beamGeometry, light);
     beam.position.y = 10; beam.visible = false; group.add(beam);
     island.group.add(group);
     docks.push({ island, group, core, beam });
   }
   islands.forEach(add);
+  const hex = (value) => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
   return {
     add,
+    setColors({ door, glow: core, beam } = {}) {
+      if (hex(door)) cobalt.color.set(door);
+      if (hex(core)) glow.color.set(core);
+      if (hex(beam)) light.color.set(beam);
+    },
     setWork(jobs) {
       const active = new Set(jobs.filter(j => ["running", "stopping"].includes(j.state)).map(j => j.repo));
       for (const dock of docks) {

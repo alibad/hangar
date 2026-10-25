@@ -13,6 +13,17 @@ export function tellHost(type, payload = {}) {
 listenHost(message => {
   if (message.type === "status" && lastStatus) tellHost(lastStatus.type, lastStatus.payload);
 });
+/** Hangar's theme colours as --h-* variables: plain colour values only, never url(). */
+export function applyPalette(palette) {
+  if (!palette || typeof palette !== "object") return {};
+  for (const [name, value] of Object.entries(palette)) {
+    if (/^[a-z-]{2,20}$/.test(name) && typeof value === "string" && value.length < 200 && /^[\w\s#().,%+*/-]*$/.test(value) && !/url/i.test(value)) {
+      document.body.style.setProperty(`--h-${name}`, value);
+    }
+  }
+  return palette;
+}
+
 export function listenHost(onMessage) {
   if (!embedded) return;
   window.addEventListener("message", (event) => {
