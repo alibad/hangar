@@ -47,3 +47,14 @@
 .cw-facts>div>span.has-work{color:var(--hangar-secondary)}
 .cw-spare-worktrees{margin-top:6px;font-size:11px;color:var(--cw-muted)}.cw-spare-worktrees summary{cursor:pointer;padding:9px 0;list-style-position:inside}.cw-spare-worktrees .cw-facts{margin-top:0}
 .cw-inspector .cw-text-button + .cw-text-button{margin-inline-start:18px}
+
+/* One side panel width for the list, a project and the repository tools, in the page and the expanded world. */
+@media(min-width:851px){
+  .connected-workspace:not(.has-project) .cw-world-layout,.connected-workspace.has-project .cw-world-layout,.connected-workspace.is-expanded .cw-world-layout,
+  .connected-workspace.has-project .cw-project-list-layout{grid-template-columns:minmax(0,1fr) minmax(360px,var(--cw-pane-width))}
+  .connected-workspace.is-expanded .cw-world-layout{grid-template-rows:48px minmax(0,1fr)}
+}
+.cw-explore-header{margin-bottom:14px}
+.cw-pane-actions .cw-pane-more>summary{display:grid;place-items:center;width:32px;min-height:36px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--cw-muted);cursor:pointer;list-style:none}
+.cw-pane-actions .cw-pane-more>summary::-webkit-details-marker{display:none}
+.cw-pane-actions .cw-pane-more>summary:hover,.cw-pane-actions .cw-pane-more[open]>summary{background:var(--accent);color:var(--foreground)}

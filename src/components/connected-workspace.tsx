@@ -32,6 +32,8 @@ type MachineStatus = { machine: string; name: string; atlas: boolean; platform: 
 type View = "world" | "projects" | "sessions" | "machines" | "models";
 export const WORLD_TABS = new Set<string>(["world", "projects", "sessions", "machines", "models"]);
 const running = (j: Job) => j.state === "running" || j.state === "stopping";
+/** The side panel's width as a share of the workspace; the CSS floor keeps it at least as wide as its content needs. */
+const SIDE = { min: 20, max: 72, reset: 20 };
 /** A project's own working copy here: its main clone, a local-only repo, or a clone of someone else's repo (same rule as the engine). */
 const MAIN_ROLES = ["canonical", "orphan", "vendor"];
 /** Waiting on you: uncommitted work, commits not on GitHub, a pull to make or pull requests to review (the map's Needs attention lens). */
@@ -100,8 +102,13 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   const [worldError, setWorldError] = useState("");
   const [worldSlow, setWorldSlow] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [paneWidth, setPaneWidth] = useState(42);
-  const [exploreWidth, setExploreWidth] = useState(26);
+  // One side panel beside the map: the island list, a project and the repository tools share its width, and it
+  // starts as narrow as its content allows. Dragging any of them resizes all of them; the width is kept per browser.
+  const [paneWidth, setPaneWidthState] = useState(SIDE.reset);
+  useEffect(() => {
+    try { const saved = Number(localStorage.getItem("hangar-side-width")); if (saved >= SIDE.min && saved <= SIDE.max) setPaneWidthState(saved); } catch { /* the default width */ }
+  }, []);
+  const setPaneWidth = (width: number) => { setPaneWidthState(width); try { localStorage.setItem("hangar-side-width", String(width)); } catch { /* kept for this visit */ } };
   const [showAll, setShowAll] = useState(false);
   const [paneExpanded, setPaneExpanded] = useState(false);
   const [narrow, setNarrow] = useState(false);
@@ -132,7 +139,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     update(); query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
-  const fullPage = active && ((view === "world" && expanded) || (!!project && ["world", "projects"].includes(view) && (paneExpanded || narrow)));
+  const fullPage = active && ((view === "world" && (expanded || paneExpanded)) || (!!project && ["world", "projects"].includes(view) && (paneExpanded || narrow)));
   useEffect(() => {
     if (!fullPage) return;
     const previous = document.body.style.overflow;
@@ -375,13 +382,13 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   };
 
   const projectPane = project && <aside ref={inspector} className={`cw-inspector ${projectTab === "repository" ? "has-repository-pane" : ""}`} aria-label={`${project.name} details`}>
-    <ProjectPaneResize width={paneWidth} onChange={setPaneWidth} />
+    <ProjectPaneResize width={paneWidth} onChange={setPaneWidth} {...SIDE} />
     <div className="cw-pane-header">
       <div className="cw-pane-top">
         <ProjectCategory key={`category-${machine}-${project.id}`} machine={machine} project={project} islands={doc?.islands || doc?.families || []} onChanged={refreshProjects} />
       <div className="cw-pane-actions">
         <button aria-label={`More actions for ${project.name}`} title="Project actions" onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ project, x: r.left, y: r.bottom + 4, inPane: true }); }}><MoreHorizontal size={17} /></button>
-        <button className="cw-pane-expand" aria-label={paneExpanded ? "Restore project pane" : "Expand project pane"} title={paneExpanded ? "Restore pane" : "Expand pane"} aria-pressed={paneExpanded} onClick={() => setPaneExpanded(v => !v)}>{paneExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
+        <button className="cw-pane-expand" aria-label={paneExpanded ? "Restore side panel" : "Expand side panel"} title={paneExpanded ? "Restore panel" : "Expand panel"} aria-pressed={paneExpanded} onClick={() => setPaneExpanded(v => !v)}>{paneExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button>
         <button aria-label="Close project pane" title="Close pane" onClick={() => { setPaneExpanded(false); setSelected(null); send("select", { repo: null }); }}><X size={18} /></button>
       </div>
       </div>
@@ -392,17 +399,23 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   </aside>;
   const filters = <div className="cw-project-controls" aria-label="Project visibility">{[["visible", "On the map"], ["focus", "Focus"], ["parked", "Parked"], ["hidden", "Off the map"]].map(([id, label]) => <button key={id} aria-pressed={projectFilter === id} className={projectFilter === id ? "is-active" : ""} onClick={() => { setProjectFilter(id); setFamily(""); setSelected(null); setToolsView(null); send("select", { repo: null }); }}>{label}{id === "hidden" ? ` (${doc?.repos.filter(r => r.hidden).length || 0})` : ""}</button>)}</div>;
   const closeMenu = (e: ReactMouseEvent) => { const menu = e.currentTarget.closest("details"); if (menu) menu.open = false; };
-  const toolsMenu = <details className="cw-tools-menu"><summary><SlidersHorizontal size={14} />Tools</summary><div role="menu">
+  const toolsItems = <div role="menu">
     <button role="menuitem" onClick={e => { closeMenu(e); setReviewing(true); }}>Review categories</button>
     <button role="menuitem" onClick={e => { closeMenu(e); setOperation({ kind: "islands" }); }}>Manage islands</button>
     <button role="menuitem" onClick={e => { closeMenu(e); setOperation({ kind: "pull" }); }}>Pull repositories…</button>
     <button role="menuitem" onClick={e => { closeMenu(e); openTools("changes"); }}>All repository tools</button>
-  </div></details>;
+    {view === "world" && <button role="menuitem" onClick={e => { closeMenu(e); onSelect("projects"); }}>Open the project grid</button>}
+  </div>;
+  const toolsMenu = <details className="cw-tools-menu"><summary><SlidersHorizontal size={14} />Tools</summary>{toolsItems}</details>;
+  // The list panel's header matches a project's: its actions under "…", and expand.
+  const sideActions = (more: React.ReactNode) => <div className="cw-pane-actions">{more}
+    <button className="cw-pane-expand" aria-label={paneExpanded ? "Restore side panel" : "Expand side panel"} title={paneExpanded ? "Restore panel" : "Expand panel"} aria-pressed={paneExpanded} onClick={() => setPaneExpanded(v => !v)}>{paneExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>;
 
   const visibleProjects = doc?.repos.filter(r => !r.hidden) || [];
   // Repository tools open in the side pane beside the map, like a project, not in a dialog over everything.
   const openTools = (view: string) => { setSelected(null); send("select", { repo: null }); setToolsView(view); };
   const toolsPane = toolsView && <aside className="cw-inspector has-repository-pane cw-tools-pane" aria-label="Repository tools">
+    <ProjectPaneResize width={paneWidth} onChange={setPaneWidth} {...SIDE} label="Resize side panel" />
     <div className="cw-tools-pane-head"><h2>Repository tools</h2><button aria-label="Close repository tools" onClick={() => setToolsView(null)}><X size={18} /></button></div>
     <RepositoryPane key={`tools-${machine}-${toolsView}`} machine={machine} view={toolsView} onClose={() => setToolsView(null)} onSelect={id => { setToolsView(null); setSelected(id); }} onChanged={refreshProjects} />
   </aside>;
@@ -415,7 +428,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     { id: "apps", label: "running", count: apps.filter(a => a.running.length && visibleProjects.some(r => r.id === a.repo)).length, color: "var(--ok-400)" },
   ].map(item => <button key={item.id} style={{ "--chip-color": item.color } as CSSProperties} disabled={!doc} onClick={() => openTools(item.id)}><i aria-hidden="true" /><b>{item.count}</b>{item.label}</button>)}</nav>;
 
-  return <section ref={workspace} style={{ "--cw-pane-width": `${paneWidth}%`, "--cw-explore-width": `${exploreWidth}%` } as CSSProperties} className={`connected-workspace ${expanded ? "is-expanded" : ""} ${project || toolsView ? "has-project" : ""} ${project && paneExpanded ? "is-pane-expanded" : ""}`} aria-label="Connected workspace" hidden={!active}>
+  return <section ref={workspace} style={{ "--cw-pane-width": `${paneWidth}%` } as CSSProperties} className={`connected-workspace ${expanded ? "is-expanded" : ""} ${project || toolsView ? "has-project" : ""} ${(project || view === "world") && paneExpanded ? "is-pane-expanded" : ""}`} aria-label="Connected workspace" hidden={!active}>
     <div className="cw-topbar"><h1>{{ world: "World", projects: "Projects", sessions: "Sessions", machines: "Machines", models: "Models" }[view]}</h1>
     {view === "world" && doc && <span className="cw-topbar-count">{doc.families.length} islands · {doc.repos.filter(r => !r.hidden).length} projects</span>}
     <div className="cw-machine-rail" aria-label="Machine scope">
@@ -424,7 +437,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     </div>
     {view === "world" && <button className="cw-live-chip" onClick={() => onSelect("sessions")} title="Coding jobs Hangar is running"><span className={`cw-led ${!liveError ? (liveJobs.length ? "is-live" : "") : "is-offline"}`} />{liveError ? "Live connection lost" : liveJobs.length ? `${liveJobs.length} coding ${liveJobs.length === 1 ? "job" : "jobs"}` : "No coding jobs"}</button>}
     {view === "world" && !!library?.reviewCount && <button className="cw-live-chip" onClick={() => onSelect("sessions")} title={`Sessions idle for ${library.idleDays}+ days`}>{library.reviewCount} idle sessions</button>}
-    {["world", "projects"].includes(view) && toolsMenu}
+    {view === "projects" && toolsMenu}
     <button className="cw-icon" onClick={reload} aria-label="Refresh connected workspace"><RefreshCw size={16} /></button></div>
     {view === "projects" && <div className="cw-toolbar">{filters}{actionCounts}</div>}
     {view === "world" && <div className="cw-toolbar cw-world-bar">{actionCounts}</div>}
@@ -447,7 +460,8 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
           </div>}
           <div className="cw-map-hint" hidden={!ready || mapControls}>Drag to explore · Right-click for actions · / to find</div>
         </div>
-        {view === "world" && (project ? projectPane : toolsPane || <aside className="cw-inspector cw-explore" aria-label="Explore projects"><ProjectPaneResize width={exploreWidth} onChange={setExploreWidth} min={20} max={50} reset={26} label="Resize project list" /><span className="cw-eyebrow">EXPLORE THE ISLANDS</span><h2>{family ? doc?.families.find(f => f.id === family)?.name : "Find your next focus."}</h2><p className="cw-muted">Every building is a real project. Select one to see its work, sessions and running apps.</p>
+        {view === "world" && (project ? projectPane : toolsPane || <aside className="cw-inspector cw-explore" aria-label="Explore projects"><ProjectPaneResize width={paneWidth} onChange={setPaneWidth} {...SIDE} label="Resize side panel" />
+          <div className="cw-pane-header cw-explore-header"><div className="cw-pane-top"><span className="cw-eyebrow">EXPLORE THE ISLANDS</span>{sideActions(<details className="cw-tools-menu cw-pane-more"><summary aria-label="World actions" title="World actions"><MoreHorizontal size={17} /></summary>{toolsItems}</details>)}</div></div><h2>{family ? doc?.families.find(f => f.id === family)?.name : "Find your next focus."}</h2><p className="cw-muted">Every building is a real project. Select one to see its work, sessions and running apps.</p>
           <div className="cw-explore-filter" role="group" aria-label="Which projects">{[["visible", "All", "Every project on the map"], ["focus", "Focus", "Marked important"], ["parked", "Parked", "Set aside for later"], ["hidden", "Off the map", "Moved off the map"]].map(([id, label, hint]) => <button key={id} title={hint} aria-pressed={projectFilter === id} onClick={() => setProjectFilter(id)}>{label}</button>)}</div>
           <div className="cw-island-picker" aria-label="Explore islands"><button aria-pressed={!family} onClick={home}>All islands<small>{pool.length}</small></button>{doc?.families.filter(f => islandCounts.get(f.id) || family === f.id).map(f => <button key={f.id} aria-pressed={family === f.id} onContextMenu={e => { e.preventDefault(); setOperation({ kind: "islands", island: f.id }); }} onClick={() => { setFamily(f.id); setQuery(""); send("district", { family: f.id }); }}>{f.name}<small>{islandCounts.get(f.id) || 0}</small></button>)}</div>
           <div className="cw-result-count" aria-live="polite">{listed.length} {listed.length === 1 ? "project" : "projects"}{waiting ? ` · ${waiting} ${waiting === 1 ? "needs" : "need"} you` : ""}</div>

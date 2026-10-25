@@ -190,7 +190,7 @@
 .cw-explore-empty{padding:16px 0 4px;font-size:12px;color:var(--cw-muted)}
 .cw-explore-empty p{margin:0 0 10px;line-height:1.6}
 .connected-workspace .cw-explore-empty button{padding:6px 12px;border:1px solid var(--cw-line);border-radius:999px;font-size:12px;color:var(--hangar-primary)}
-@media(min-width:851px){.connected-workspace:not(.has-project) .cw-world-layout{grid-template-columns:minmax(0,1fr) minmax(280px,var(--cw-explore-width,26%))}}
+
 .connected-workspace .cw-search input:focus,.connected-workspace .cw-search input:focus-visible{outline:none;box-shadow:none;border:0}
 .connected-workspace .cw-search:focus-within{border-color:var(--hangar-primary)}
 .cw-search input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
