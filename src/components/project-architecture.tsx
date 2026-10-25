@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, RefreshCw } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
 import "./project-architecture.css";
+import HangarLoading from "./hangar-loading";
 
 type Agent = "claude" | "codex";
 type Drawing = { state: "drawing" | "checking" | "ready" | "failed"; round?: number; job?: string | null; provider?: Agent; message?: string | null; problems?: string | null };
@@ -67,7 +68,7 @@ export default function ProjectArchitecture({ machine, repo, onJob }: { machine:
   </span>;
   const drawButton = (label: string) => <button className="pa-draw" disabled={!chosen || starting || busy} onClick={draw}><RefreshCw size={14} />{starting ? "Starting…" : label}</button>;
   return <section className="project-architecture" aria-label="Project architecture">
-    {!status && !error && <p role="status" className="pa-quiet">Looking for this project’s drawing…</p>}
+    {!status && !error && <HangarLoading label="Looking for this project’s drawing" steps={["Checking for a saved drawing", "Checking Archify and the agents on this machine"]} shape="card" />}
     {error && <p role="alert" className="pa-alert">{error}</p>}
     {status && !status.archify && <div className="pa-empty">
       <h3>Archify is not installed on this machine</h3>

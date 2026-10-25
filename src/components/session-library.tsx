@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArrowRight, Check, Folder, Layers, Pin, X } from "lucide-react";
 import "./session-library.css";
+import HangarLoading from "./hangar-loading";
 
 export type LibrarySession = {
   id: string; key: string; provider: string; model: string; title: string; updatedAt: string; activityAt: string;
@@ -132,7 +133,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     <div className="sl-toolbar"><div className="cw-family-tabs" aria-label="Session view">{([['active', 'Active'], ['review', 'Archive review'], ['groups', 'Groups & sections'], ['archived', 'Archived']] as const).map(([id, label]) => <button key={id} aria-pressed={mode === id} onClick={() => chooseMode(id)}>{label}{id === "review" && !!data?.reviewCount && <small>{data.reviewCount}</small>}</button>)}</div><div className="sl-threshold" aria-label="Idle threshold"><span>Idle after</span>{[7, 14, 30].map(days => <button key={days} aria-pressed={data?.idleDays === days} disabled={busy || !data} onClick={() => act({ action: "settings", idleDays: days }, `Review threshold set to ${days} days.`)}>{days}d</button>)}</div></div>
     {(loadError || error) && <p className="cw-error" role="alert">{error || loadError}</p>}
     {notice && <p className="sl-notice" role="status"><Check size={15} />{notice}</p>}
-    {!data ? <p className="cw-muted">Reading local session history and organization…</p> : <>
+    {!data ? <HangarLoading label="Reading session history" steps={["Indexing Claude Code sessions", "Indexing Codex sessions", "Grouping them by project"]} shape="rows" /> : <>
       {!data.nativeAvailable && <p className="cw-muted">Codex section and read state are unavailable on this machine. Hangar groups still work.</p>}
       {data.truncated && <p className="cw-muted">This is a bounded index; older sessions may be outside this scan.</p>}
       {mode === "groups" ? <>

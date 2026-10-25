@@ -16,6 +16,7 @@ import { CAPABILITY_LABELS } from "@/lib/capabilities";
 import { getHost } from "@/lib/host";
 import type { LabDefinition } from "@/lib/labs";
 import type { LabModel, LabModelsPayload, LabRunResult } from "@/lib/lab-types";
+import HangarLoading from "@/components/hangar-loading";
 
 /**
  * The Lab contract, implemented once.
@@ -218,7 +219,7 @@ export default function LabShell<T>({
             )}
           </div>
           {!payload ? (
-            <p className="px-4 py-6 text-xs text-gray-500">Loading…</p>
+            <div className="px-4 py-3"><HangarLoading compact label="Loading" /></div>
           ) : locals.length === 0 ? (
             <div className="space-y-3 px-4 py-4">
               <p className="text-sm text-gray-300">
@@ -333,7 +334,7 @@ function DocBody({ path }: { path?: string }) {
       .then((j) => (j.markdown ? setMd(j.markdown) : setErr(j.error ?? "Could not load.")))
       .catch((e) => setErr(String(e)));
   }, [path]);
-  return err ? <p className="text-sm text-red-300">{err}</p> : md ? <Markdown>{md}</Markdown> : <p className="text-sm text-gray-500">Loading…</p>;
+  return err ? <p className="text-sm text-red-300">{err}</p> : md ? <Markdown>{md}</Markdown> : <HangarLoading compact label="Loading" />;
 }
 
 function ModelRow({
@@ -461,7 +462,7 @@ export function ExperimentDoc({ path }: { path?: string }) {
         What we learned <span className="ml-1 text-[11px] font-normal text-gray-500">{path}</span>
       </summary>
       <div className="max-h-[32rem] overflow-y-auto border-t border-gray-800 px-4 py-3">
-        {err ? <p className="text-xs text-red-300">{err}</p> : md ? <Markdown>{md}</Markdown> : <p className="text-xs text-gray-500">Loading…</p>}
+        {err ? <p className="text-xs text-red-300">{err}</p> : md ? <Markdown>{md}</Markdown> : <HangarLoading compact label="Loading" />}
       </div>
     </details>
   );

@@ -1,0 +1,28 @@
+/* One loading state for the console: an orbiting dot in the theme colour, the current step, the seconds so far, and a
+   shimmering outline of what is coming. Quiet under reduced motion. */
+.hangar-loading{display:flex;flex-direction:column;gap:20px;width:100%;padding:14px 2px;color:var(--cw-ink,var(--foreground))}
+.hangar-loading.is-compact{gap:0;padding:6px 0}
+.hl-head{display:flex;align-items:center;gap:12px;min-width:0}
+.hl-orbit{position:relative;flex:0 0 22px;height:22px;border-radius:50%;border:2px solid color-mix(in oklab,var(--hangar-primary) 22%,transparent);animation:hl-spin 1.1s linear infinite}
+.hl-orbit i{position:absolute;top:-4px;left:50%;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--hangar-primary);box-shadow:0 0 0 3px color-mix(in oklab,var(--hangar-primary) 22%,transparent)}
+.is-compact .hl-orbit{flex-basis:16px;height:16px}
+.is-compact .hl-orbit i{width:6px;height:6px;margin-left:-3px;top:-3px}
+.hl-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hl-text b{font-size:13px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.is-compact .hl-text b{font-size:12px}
+.hl-text small{font-size:11.5px;color:var(--cw-muted,var(--muted-foreground));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;animation:hl-in .45s ease both}
+.hl-time{margin-inline-start:auto;padding-inline-start:8px;font:11px/1 ui-monospace,monospace;color:var(--cw-muted,var(--muted-foreground));font-variant-numeric:tabular-nums}
+.hl-skeleton{display:flex;flex-direction:column;gap:11px}
+.hl-line,.hl-chips>span,.hl-tiles>span,.hl-dot{display:block;border-radius:8px;background:linear-gradient(90deg,color-mix(in oklab,var(--hangar-primary) 6%,transparent) 0%,color-mix(in oklab,var(--hangar-primary) 15%,transparent) 50%,color-mix(in oklab,var(--hangar-primary) 6%,transparent) 100%);background-size:200% 100%;animation:hl-shimmer 1.5s ease-in-out infinite}
+.hl-line{height:11px;width:100%}
+.hl-line.is-title{height:20px;width:55%}
+.hl-line.is-short{width:62%}
+.hl-chips{display:flex;gap:8px}.hl-chips>span{height:24px;width:72px;border-radius:999px}
+.hl-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.hl-tiles>span{height:58px;border-radius:12px}
+.hl-row{display:flex;align-items:center;gap:12px;animation:hl-in .5s ease both}
+.hl-dot{flex:0 0 32px;height:32px;border-radius:9px}
+.hl-lines{display:flex;flex-direction:column;gap:7px;flex:1;min-width:0}
+@keyframes hl-spin{to{transform:rotate(360deg)}}
+@keyframes hl-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@keyframes hl-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.hl-orbit,.hl-line,.hl-chips>span,.hl-tiles>span,.hl-dot,.hl-row,.hl-text small{animation:none}}

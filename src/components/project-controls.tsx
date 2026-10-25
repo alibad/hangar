@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { mapPalette } from "@/lib/map-palette";
 import { AppWindow, Eye, EyeOff, FolderOpen, PanelRightOpen, Play, Square, Star, Pause, X } from "lucide-react";
 import { useTheme } from "./theme-provider";
+import HangarLoading from "./hangar-loading";
 import "./project-controls.css";
 
 export type ProjectChoice = { id: string; name: string; hidden?: boolean; hiddenByIsland?: string; attention?: string | null; sites: unknown[] };
@@ -97,8 +98,10 @@ export function RepositoryPane({ machine, repo, view, onClose, onSelect, onChang
   const query = new URLSearchParams({ embed: "hangar", pane: repo ? "repo" : "tools", ...(repo ? { repo } : { view: view || "changes" }), ...(machine !== "local" ? { remote: "1" } : {}) });
   return <div className="repository-pane">
     {!repo && <div className="repository-toolbar"><button disabled={!ready} onClick={() => frame.current?.contentWindow?.postMessage({ source: "hangar", type: "rescan" }, window.location.origin)}>Rescan projects</button></div>}
-    {!ready && <div className="repository-loading" role="status">{error || "Opening repository tools…"}{error && <button onClick={() => { setError(""); if (frame.current) frame.current.src = frame.current.src; }}>Retry</button>}</div>}
-    <iframe ref={frame} title={repo ? "Repository tools and notes" : "Hangar project tools"} src={`/api/world/${machine}/view/index.html?${query}`} allow="clipboard-write" />
+    {!ready && <div className={`repository-loading ${error ? "has-error" : ""}`}>{error ? <><p role="alert">{error}</p><button onClick={() => { setError(""); if (frame.current) frame.current.src = frame.current.src; }}>Retry</button></> : repo
+      ? <HangarLoading label="Opening the repository" steps={["Reading the project card", "Checking changes on this machine", "Looking for apps that can run", "Collecting recent commits"]} shape="card" />
+      : <HangarLoading label="Opening repository tools" steps={["Reading every project", "Checking what is waiting on you", "Looking for running apps"]} shape="rows" />}</div>}
+    <iframe ref={frame} className={ready ? "is-ready" : ""} title={repo ? "Repository tools and notes" : "Hangar project tools"} src={`/api/world/${machine}/view/index.html?${query}`} allow="clipboard-write" />
   </div>;
 }
 
