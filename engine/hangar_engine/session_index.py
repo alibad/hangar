@@ -229,6 +229,10 @@ def resume(provider, session_id):
     from . import launch
     if provider not in ("claude", "codex") or not isinstance(session_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", session_id):
         raise ValueError("Invalid session")
+    if provider == "codex" and (launch._protocol("codex") or launch._mac_app("Codex")):
+        # The Codex app opens the thread itself, with its history, where you normally read it.
+        launch._open_os(f"codex://threads/{session_id}")
+        return {"opened": True, "provider": provider, "where": "app"}
     entry = next((e for e in collect()["files"].values() if e["provider"] == provider and e["id"] == session_id), None)
     if not entry or not entry["cwd"] or not Path(entry["cwd"]).is_dir():
         raise ValueError("The session's working folder is no longer available on this machine.")
@@ -236,4 +240,4 @@ def resume(provider, session_id):
     if not exe:
         raise ValueError(f"Install the {provider} CLI to resume this session.")
     launch._terminal(entry["cwd"], [exe, "--resume" if provider == "claude" else "resume", session_id])
-    return {"opened": True, "provider": provider}
+    return {"opened": True, "provider": provider, "where": "terminal"}

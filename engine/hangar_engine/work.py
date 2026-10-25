@@ -47,6 +47,25 @@ def command(provider, folder, prompt, session=None, read_dirs=None):
     raise ValueError("Choose Claude or Codex.")
 
 
+def short(path, folder):
+    """A path as the project sees it."""
+    path, root = str(path or ""), str(folder or "")
+    return path[len(root):].lstrip("\\/") if root and path.lower().startswith(root.lower()) else path
+
+
+def step(block, folder):
+    """One line a person can read for an assistant block: its words, or what a tool call did."""
+    if block.get("type") == "text":
+        return block.get("text", "")
+    name, args = block.get("name", ""), block.get("input") or {}
+    target = short(args.get("file_path") or args.get("path") or args.get("notebook_path") or "", folder)
+    lines = {"Read": f"Read {target}", "Edit": f"Edited {target}", "MultiEdit": f"Edited {target}", "Write": f"Wrote {target}",
+             "NotebookEdit": f"Edited {target}", "Grep": f"Searched for \"{args.get('pattern', '')}\"", "Glob": f"Looked for {args.get('pattern', '')}",
+             "Bash": f"Ran {args.get('command', '')}", "WebFetch": f"Read {args.get('url', '')}", "WebSearch": f"Searched the web for {args.get('query', '')}",
+             "TodoWrite": "Updated its plan", "Task": f"Asked a helper agent: {args.get('description', '')}"}
+    return lines.get(name, f"Used {name}")[:300]
+
+
 def sign_in_hint(text):
     """A plain next step when the agent's own command-line sign-in has lapsed."""
     if re.search(r"Failed to authenticate|OAuth access token|401\b.*(token|auth)|Not logged in|Please run /login", text or "", re.I):
@@ -180,14 +199,23 @@ def begin(doc, overlay, rid, provider, prompt, session=None, kind="code", read_d
                         reply = item.get("text", "")
                         text = reply[:2000]
                     elif event.get("type") == "assistant":
-                        text = "\n".join(b.get("text", "") for b in event.get("message", {}).get("content", []) if b.get("type") == "text")[:2000]
+                        text = "\n".join(step(b, folder) for b in event.get("message", {}).get("content", []) if b.get("type") in ("text", "tool_use"))[:2000]
                     elif item.get("type") == "command_execution":
                         text = f"Ran {item.get('command', '')}"[:300] if event.get("type") == "item.completed" else ""
+                    elif item.get("type") == "file_change" and event.get("type") == "item.completed":
+                        text = "Changed " + ", ".join(short(c.get("path", ""), folder) for c in item.get("changes", [])[:6])
+                    elif item.get("type") == "web_search" and event.get("type") == "item.completed":
+                        text = f"Searched the web for {item.get('query', '')}"[:300]
+                    elif event.get("type") == "system" and event.get("subtype") == "init":
+                        text = f"Started {event.get('model') or 'the agent'} in {short(event.get('cwd') or str(folder), folder) or 'the project folder'}"
                     elif event.get("type") == "result":
                         reply = str(event.get("result") or "")
                         text = (reply or str(event.get("subtype", "")))[:2000]
+                    elif event.get("type") == "error" or item.get("type") == "error":
+                        text = str(event.get("message") or item.get("message") or "The agent reported an error.")[:600]
                     else:
-                        text = event.get("type", "Agent activity") + (" · " + item.get("type", "") if item else "")
+                        # Hooks, tool results, rate limits and turn markers say nothing a person needs to read.
+                        text = ""
                 except (ValueError, TypeError, AttributeError):
                     if len(line) > 600:  # a fragment of an event too large for one read, not a message
                         text = ""
