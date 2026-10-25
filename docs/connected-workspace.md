@@ -214,6 +214,12 @@ gliders, prop planes, jets and jumbos). Both use the same facts: stage sets the
 size, the island colour the paint, recent work the lit windows. The choice is
 kept per browser, and switching it swaps the models in place.
 
+To draw every project on this machine in one go, run
+`node scripts/draw-architecture-all.mjs` (your own repos, two at a time, Claude by
+default; `--provider codex`, `--include-vendor`, `--redraw`, `--only a,b`, and
+`--out <folder>` to export copies under an index page). A drawing already at the
+checkout's HEAD is skipped.
+
 Timeline groups local Git history across refs into monthly chapters with commit
 subjects and local tags. It includes up to 20,000 commits; absent remote history
 needs a fetch. Both views require a checkout on the selected machine.
