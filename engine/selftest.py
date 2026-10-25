@@ -66,6 +66,9 @@ class ArchitectureDrawings(unittest.TestCase):
         from hangar_engine.work import sign_in_hint
         self.assertIn("sign in", sign_in_hint("Failed to authenticate. API Error: 401 OAuth access token is invalid."))
         self.assertIsNone(sign_in_hint("All tests passed."))
+        from hangar_engine.work import failure_hint
+        self.assertIn("too old", failure_hint("error: unknown option '--no-session-persistence'"))
+        self.assertIn("sign in", failure_hint("Please run /login"))
 
 
 class IndependentEngine(unittest.TestCase):

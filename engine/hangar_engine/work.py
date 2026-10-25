@@ -54,6 +54,13 @@ def sign_in_hint(text):
     return None
 
 
+def failure_hint(text):
+    """A plain next step for failures the owner fixes on the machine, not in the task."""
+    if re.search(r"unknown option|unexpected argument|unrecognized (option|argument)", text or "", re.I):
+        return "This agent's command-line tool is too old for Hangar's options. Update Claude Code or Codex, then try again."
+    return sign_in_hint(text)
+
+
 def signed_out():
     """Agents whose most recent finished job failed on sign-in; a later success clears it."""
     latest = {}
@@ -193,7 +200,7 @@ def begin(doc, overlay, rid, provider, prompt, session=None, kind="code", read_d
             with _lock:
                 job.update(state="stopped" if job["state"] == "stopping" else "completed" if code == 0 else "failed",
                            exitCode=code, endedAt=now())
-                hint = code and sign_in_hint(" ".join(o["text"] for o in job["output"]))
+                hint = code and failure_hint(" ".join(o["text"] for o in job["output"]))
                 if hint:
                     job["output"].append({"at": now(), "text": hint})
                 _processes.pop(jid, None)

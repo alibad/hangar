@@ -126,18 +126,27 @@ def check(data, folder, out, skill):
         result = json.loads(run.stdout[run.stdout.index("{"):])
     except ValueError:
         return f"Archify did not report a result: {(run.stderr or run.stdout).strip()[:600]}"
-    if result.get("ok") and (draft / "diagram.html").is_file():
+    if not (draft / "diagram.html").is_file():
+        return problems(result)
+    if result.get("ok"):
+        return None
+    codes = {d.get("code") for d in result.get("diagnostics") or []}
+    # No browser is a fact about this machine, not about the drawing: keep it and say the check did not run.
+    if result.get("failedStage") == "browser-check" and codes == {"viewer/chrome-unavailable"}:
+        data["meta"]["_unchecked"] = "Archify's browser readability check did not run: install Chrome or Chromium, or set ARCHIFY_CHROME."
         return None
     return problems(result)
 
 
 def publish(out, data, provider, revision):
+    unchecked = data["meta"].pop("_unchecked", None)
     draft = out / "draft"
     os.replace(draft / "diagram.html", out / "diagram.html")
     os.replace(draft / "candidate.json", out / "candidate.json")
     shutil.rmtree(draft, ignore_errors=True)
     config.write_json(out / "meta.json", {"title": data["meta"].get("title"), "drawnAt": now(), "provider": provider,
-                                          "revision": revision, "components": len(data.get("components") or [])})
+                                          "revision": revision, "components": len(data.get("components") or []),
+                                          **({"unchecked": unchecked} if unchecked else {})})
 
 
 def set_state(rid, **fields):
@@ -175,7 +184,7 @@ def conclude(doc, overlay, task, job, reply):
     rid, out = task["repo"], storage(task["repo"])
     if job["state"] != "completed":
         failed = " ".join(o["text"] for o in job["output"])
-        return set_state(rid, state="failed", message=work.sign_in_hint(failed) or "The agent stopped before replying with a drawing.")
+        return set_state(rid, state="failed", message=work.failure_hint(failed) or "The agent stopped before replying with a drawing.")
     set_state(rid, state="checking")
     try:
         data = prepare(candidate(reply), task["url"], task["revision"])

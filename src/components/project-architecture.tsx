@@ -8,7 +8,7 @@ type Agent = "claude" | "codex";
 type Drawing = { state: "drawing" | "checking" | "ready" | "failed"; round?: number; job?: string | null; provider?: Agent; message?: string | null; problems?: string | null };
 type Status = {
   archify: boolean; install: string; checkout: boolean; agents: Agent[]; signedOut?: Agent[]; behind: number | null; drawing: Drawing | null;
-  diagram: { title?: string; drawnAt: string; provider: Agent; revision?: string | null; components: number } | null;
+  diagram: { title?: string; drawnAt: string; provider: Agent; revision?: string | null; components: number; unchecked?: string } | null;
 };
 const NAMES: Record<Agent, string> = { claude: "Claude", codex: "Codex" };
 
@@ -92,6 +92,7 @@ export default function ProjectArchitecture({ machine, repo, onJob }: { machine:
           {status.checkout && status.agents.length > 0 && <span className="pa-actions">{agents}{drawButton("Redraw")}</span>}
           <a href={view} target="_blank" rel="noreferrer" aria-label="Open the drawing in a new tab"><ExternalLink size={14} /></a>
         </div>
+        {d.unchecked && <p className="pa-quiet">{d.unchecked}</p>}
         <iframe key={frame} className="pa-frame" src={view} title={d.title || "Architecture drawing"} sandbox="allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox" allowFullScreen referrerPolicy="no-referrer" />
       </>}
       {!d && !busy && status.checkout && status.agents.length > 0 && <div className="pa-empty">

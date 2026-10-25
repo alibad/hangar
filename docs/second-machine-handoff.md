@@ -45,6 +45,16 @@ repository. Keep receipts under ignored `var/`.
 > either agent's sandbox or permission settings. Confirm that disconnecting the
 > tunnel shows unavailable state and never silently falls back to local execution.
 >
+> Architecture drawings: install the Archify skill once with
+> `npx skills add tt-a1i/archify -g` (Chrome or Chromium lets Archify run its
+> browser readability check; without one the drawing is kept and marked
+> unchecked). Hangar's coding jobs use each agent's command-line sign-in, not the
+> desktop app's: run `claude` and `codex` once in a terminal and confirm they
+> answer without asking to log in. Then open a project, choose Architecture, press
+> Draw with an agent that is signed in, watch the progress, and confirm the
+> drawing appears with its commit and opens in a new tab. The run only reads the
+> checkout; do not grant it write access.
+>
 > Report exact commits, passed checks, failures, and any steps that still require
 > owner input. Keep all session transcripts, screenshots, model responses, SSH
 > details and machine-specific config out of Git. Do not publish or deploy fixes
