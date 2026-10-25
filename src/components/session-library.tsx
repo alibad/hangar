@@ -37,7 +37,9 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const [target, setTarget] = useState<{ key: string; purpose: "archive" | "group" } | null>(null);
   const [chosenGroup, setChosenGroup] = useState("");
   const [limit, setLimit] = useState(40);
+  const [selectedKey, setSelectedKey] = useState("");
   const dialog = useRef<HTMLElement>(null);
+  const detail = useRef<HTMLElement>(null);
   const updateRef = useRef(onUpdate); updateRef.current = onUpdate;
   const busyRef = useRef(false);
   const endpoint = `/api/world/${machine}/proxy/sessions/library`;
@@ -96,6 +98,25 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     if (mode === "review") list = [...list].sort((a, b) => Number(b.unread === true) - Number(a.unread === true) || (b.idleDays || 0) - (a.idleDays || 0));
     return list;
   }, [rows, mode, filter, query]);
+  // Active work reads by topic; archive review and the archive stay one queue in their own order.
+  const sections = useMemo(() => {
+    const shown = visible.slice(0, limit);
+    if (mode !== "active" || filter) return [{ id: "all", name: "", rows: shown }];
+    const topics = new Map<string, { id: string; name: string; rows: LibrarySession[] }>();
+    for (const row of shown) {
+      const id = row.group ? `group:${row.group}` : row.suggestion ? `suggestion:${row.suggestion.id}` : "other";
+      const name = row.group ? data?.groups.find(g => g.id === row.group)?.name || "Group"
+        : row.suggestion ? `${row.suggestion.name} · suggested` : "Other sessions";
+      if (!topics.has(id)) topics.set(id, { id, name, rows: [] });
+      topics.get(id)!.rows.push(row);
+    }
+    return [...topics.values()].sort((a, b) => Number(a.id === "other") - Number(b.id === "other"));
+  }, [visible, limit, mode, filter, data]);
+  const selected = visible.find(row => row.key === selectedKey) ?? sections[0]?.rows[0] ?? null;
+  const pick = (key: string) => {
+    setSelectedKey(key);
+    requestAnimationFrame(() => { if (window.matchMedia("(max-width: 1000px)").matches) detail.current?.scrollIntoView({ block: "start", behavior: "smooth" }); });
+  };
   const proposals = useMemo(() => {
     const map = new Map<string, { id: string; name: string; count: number; strong: number }>();
     for (const row of rows) if (row.suggestion) {
@@ -108,7 +129,6 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
 
   return <section className="sl-library" aria-label="Session organization">
     <div className="cw-section-title"><h2>Session history</h2><span>Claude + Codex</span></div>
-    {data && <div className="sl-review-banner"><Archive size={26} /><div><h3>{data.reviewCount ? `${data.reviewCount} sessions could leave your active space.` : "Room for the work that matters."}</h3><p>{data.reviewCount ? `${data.idleDays}+ days without observed activity${data.unreadReviewCount ? ` · ${data.unreadReviewCount} unread in Codex` : ""}. Review before archiving.` : `Quiet sessions surface here after ${data.idleDays} days. Nothing is archived automatically.`}</p></div><button onClick={() => chooseMode("review")}>Review idle sessions <ArrowRight size={16} /></button></div>}
     <div className="sl-toolbar"><div className="cw-family-tabs" aria-label="Session view">{([['active', 'Active'], ['review', 'Archive review'], ['groups', 'Groups & sections'], ['archived', 'Archived']] as const).map(([id, label]) => <button key={id} aria-pressed={mode === id} onClick={() => chooseMode(id)}>{label}{id === "review" && !!data?.reviewCount && <small>{data.reviewCount}</small>}</button>)}</div><div className="sl-threshold" aria-label="Idle threshold"><span>Idle after</span>{[7, 14, 30].map(days => <button key={days} aria-pressed={data?.idleDays === days} disabled={busy || !data} onClick={() => act({ action: "settings", idleDays: days }, `Review threshold set to ${days} days.`)}>{days}d</button>)}</div></div>
     {(loadError || error) && <p className="cw-error" role="alert">{error || loadError}</p>}
     {notice && <p className="sl-notice" role="status"><Check size={15} />{notice}</p>}
@@ -125,27 +145,39 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
         <div className="sl-suggestions">{proposals.map(p => <button key={p.id} onClick={() => chooseMode("active", `suggestion:${p.id}`)}><Layers size={19} /><span><b>{p.name}</b><small>{p.count} sessions · {p.strong} with confirmed edits</small></span><span>Review <ArrowRight size={15} /></span></button>)}</div>{!proposals.length && <p className="cw-muted">No unassigned sessions have a clear project match.</p>}
       </> : <>
         <div className="sl-list-heading"><label><span className="sr-only">Find a session</span><input type="search" placeholder="Find a session or project…" value={query} onChange={e => { setQuery(e.target.value); setLimit(40); }} /></label><span>{visible.length} sessions</span>{filter && <button onClick={() => setFilter("")}>Clear group filter <X size={14} /></button>}</div>
-        {mode === "review" && <p className="sl-help">Unread sessions come first so useful results are not buried. Pinned sessions and projects with active or unobserved jobs are protected.</p>}
-        {visible.slice(0, limit).map(session => <article className={`sl-session cw-session-row ${session.unread ? "sl-unread" : ""}`} key={session.key}>
-          <div className="cw-session-provider">{session.provider === "codex" ? "CX" : "CL"}</div>
-          <div className="sl-session-body"><div className="sl-session-title"><h3>{session.title}</h3>{session.pinned && <Pin size={14} aria-label="Pinned in Codex" />}</div>
-            <div className="sl-tags"><span>{session.unread === true ? "Unread in Codex" : session.unread === false ? "Read in Codex" : "Read state unknown"}</span>{session.reviewed && <span>Reviewed in Hangar</span>}<span>{session.idleDays === null ? "Activity unknown" : `${session.idleDays}d idle`}</span>{session.group && <span>{data.groups.find(g => g.id === session.group)?.name}</span>}{session.protected && <span>Active project · protected</span>}{session.archived && <span>Archived in {session.archiveScope === "codex" ? "Codex" : "Hangar"}</span>}</div>
-            <p>{session.summary}</p>
-            <details><summary>File evidence & session ID</summary><code>{session.id}</code>{session.projects.map(p => {
+        {mode === "review" && <p className="sl-help">{data.reviewCount ? `${data.reviewCount} sessions have had no observed activity for ${data.idleDays}+ days${data.unreadReviewCount ? `, ${data.unreadReviewCount} unread in Codex` : ""}. Nothing is archived without your choice. ` : ""}Unread sessions come first so useful results are not buried. Pinned sessions and projects with active or unobserved jobs are protected.</p>}
+        {!!visible.length && <div className="sl-inbox">
+          <div className="sl-list" aria-label="Sessions">
+            {sections.map(section => <div className="sl-section" key={section.id}>
+              {section.name && <h4>{section.name}<small>{section.rows.length}</small></h4>}
+              {section.rows.map(row => <button type="button" key={row.key} aria-pressed={selected?.key === row.key} className={`sl-row ${row.unread ? "sl-unread" : ""}`} onClick={() => pick(row.key)}>
+                <span className="cw-session-provider">{row.provider === "codex" ? "CX" : "CL"}</span>
+                <span className="sl-row-text"><b>{row.title}</b><small>{[row.projects.map(p => p.name).join(", ") || "No project", row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).join(" · ")}</small></span>
+                {row.unread === true && <i className="sl-dot" aria-label="Unread in Codex" />}
+                {row.pinned && <Pin size={13} aria-label="Pinned in Codex" />}
+              </button>)}
+            </div>)}
+            {visible.length > limit && <button className="sl-more" onClick={() => setLimit(n => n + 40)}>Show 40 more sessions</button>}
+          </div>
+          {selected && <article ref={detail} className={`sl-detail sl-session ${selected.unread ? "sl-unread" : ""}`} aria-label={`Session: ${selected.title}`}>
+            <div className="sl-session-body"><div className="sl-session-title"><h3>{selected.title}</h3>{selected.pinned && <Pin size={14} aria-label="Pinned in Codex" />}</div>
+            <div className="sl-tags"><span>{selected.unread === true ? "Unread in Codex" : selected.unread === false ? "Read in Codex" : "Read state unknown"}</span>{selected.reviewed && <span>Reviewed in Hangar</span>}<span>{selected.idleDays === null ? "Activity unknown" : `${selected.idleDays}d idle`}</span>{selected.group && <span>{data.groups.find(g => g.id === selected.group)?.name}</span>}{selected.protected && <span>Active project · protected</span>}{selected.archived && <span>Archived in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</span>}</div>
+            <p>{selected.summary}</p>
+            <details><summary>File evidence & session ID</summary><code>{selected.id}</code>{selected.projects.map(p => {
               const files = [...new Set(p.files)];
               return <div key={p.id}><b>{p.name}</b>{p.evidence === "working-directory" ? <p>Working directory match; no confirmed edit evidence.</p> : <ul>{files.slice(0, 30).map(f => <li key={f}>{f}</li>)}{files.length > 30 && <li>{files.length - 30} more files</li>}</ul>}</div>;
             })}</details>
-            {session.suggestion && <div className="sl-inline-suggestion"><span><b>Suggested: {session.suggestion.name}</b><small>{session.suggestion.reason}{session.suggestion.confidence === "tentative" ? " · tentative" : ""}</small></span><button disabled={busy} onClick={() => act({ action: "acceptSuggestion", keys: [session.key] }, "Grouped in Hangar. Native Codex sections are unchanged.")}>Accept group <Check size={14} /></button></div>}
-            <div className="sl-session-actions">{session.archived ? <button disabled={busy || session.protected || (session.archiveScope === "codex" && !session.nativeKnown)} onClick={() => act({ action: "restore", keys: [session.key], scope: session.archiveScope }, "Session restored; archive suggestions snoozed for seven days.")}>Restore in {session.archiveScope === "codex" ? "Codex" : "Hangar"}</button> : <>
-              <button disabled={busy || !session.canResume || !session.projects.length} onClick={async () => { if (await act({ action: "opened", keys: [session.key] }, "Session opened in Hangar.")) onContinue(session); }}>Continue <ArrowRight size={14} /></button>
-              <button disabled={busy} onClick={() => { setChosenGroup(session.group || ""); setTarget({ key: session.key, purpose: "group" }); }}>Organize</button>
-              <button disabled={busy || session.protected || session.pinned} onClick={() => setTarget({ key: session.key, purpose: "archive" })}>{session.reviewDue ? "Review archive" : "Archive…"}</button>
-              {session.reviewDue && <button disabled={busy} onClick={() => act({ action: "snooze", keys: [session.key] }, "Kept active. Ask again in seven days.")}>Keep for 7 days</button>}
+            {selected.suggestion && <div className="sl-inline-suggestion"><span><b>Suggested: {selected.suggestion.name}</b><small>{selected.suggestion.reason}{selected.suggestion.confidence === "tentative" ? " · tentative" : ""}</small></span><button disabled={busy} onClick={() => act({ action: "acceptSuggestion", keys: [selected.key] }, "Grouped in Hangar. Native Codex sections are unchanged.")}>Accept group <Check size={14} /></button></div>}
+            <div className="sl-session-actions">{selected.archived ? <button disabled={busy || selected.protected || (selected.archiveScope === "codex" && !selected.nativeKnown)} onClick={() => act({ action: "restore", keys: [selected.key], scope: selected.archiveScope }, "Session restored; archive suggestions snoozed for seven days.")}>Restore in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</button> : <>
+              <button disabled={busy || !selected.canResume || !selected.projects.length} onClick={async () => { if (await act({ action: "opened", keys: [selected.key] }, "Session opened in Hangar.")) onContinue(selected); }}>Continue <ArrowRight size={14} /></button>
+              <button disabled={busy} onClick={() => { setChosenGroup(selected.group || ""); setTarget({ key: selected.key, purpose: "group" }); }}>Organize</button>
+              <button disabled={busy || selected.protected || selected.pinned} onClick={() => setTarget({ key: selected.key, purpose: "archive" })}>{selected.reviewDue ? "Review archive" : "Archive…"}</button>
+              {selected.reviewDue && <button disabled={busy} onClick={() => act({ action: "snooze", keys: [selected.key] }, "Kept active. Ask again in seven days.")}>Keep for 7 days</button>}
             </>}</div>
           </div>
-        </article>)}
+          </article>}
+        </div>}
         {!visible.length && <div className="sl-empty"><Check size={24} /><h3>{mode === "review" ? "Nothing needs an archive decision." : "No sessions in this view."}</h3></div>}
-        {visible.length > limit && <button className="sl-more" onClick={() => setLimit(n => n + 40)}>Show 40 more sessions</button>}
       </>}
     </>}
     {target && targetRow && <div className="cw-dialog-backdrop"><section ref={dialog} className="cw-dialog sl-dialog" role="dialog" aria-modal="true" aria-labelledby="sl-dialog-title"><button className="cw-dialog-close" aria-label="Close session review" disabled={busy} onClick={() => setTarget(null)}><X size={20} /></button><span className="cw-eyebrow">{targetRow.provider} · {targetRow.idleDays ?? "?"} DAYS IDLE</span><h2 id="sl-dialog-title">{target.purpose === "archive" ? "Keep it, or clear the space?" : "Give this work a home."}</h2><h3>{targetRow.title}</h3>

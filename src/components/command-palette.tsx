@@ -40,7 +40,7 @@ const DESTINATIONS: Destination[] = [
   { id: "sessions", label: "Sessions", hint: "Coding jobs and agent history", keywords: "claude codex continue resume", icon: Activity },
   { id: "machines", label: "Machines", hint: "Connect and inspect your computers", keywords: "ssh remote laptop desktop fleet", icon: Server },
   { id: "model-settings", label: "Model settings", hint: "Local routing and downloads", keywords: "providers routes downloads", icon: Settings2 },
-  { id: "stack", label: "Home", hint: "Workstreams, GPU, RAM and queue", keywords: "status health gpu resources stack", icon: Server },
+  { id: "stack", label: "Engine room", hint: "Local AI: services, GPU, RAM, queue and what to try", keywords: "status health gpu resources stack", icon: Server },
   { id: "services", label: "Services", hint: "Inspect and control every local process", keywords: "start stop restart logs ports health infrastructure", icon: Settings2 },
   { id: "storage", label: "Storage", hint: "Local app · map drives and manage moves", keywords: "local machine disk drive files folders space duplicates cache watch move explorer", icon: HardDrive },
   { id: "llm", label: "Chat & Code", hint: "Chat with the active text model", keywords: "chat text vllm qwen", icon: Brain },

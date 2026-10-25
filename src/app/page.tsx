@@ -23,6 +23,7 @@ import LabHost from "@/components/labs/lab-host";
 import { LABS, isConsoleTab, labForTab, labTab, type LabTab } from "@/lib/labs";
 import { KEEP_TABS, TabPane } from "@/components/tab-pane";
 import HomeCockpit from "@/components/home-cockpit";
+import EngineRoomTabs from "@/components/engine-room-tabs";
 import dynamic from "next/dynamic";
 const ConnectedWorkspace = dynamic(() => import("@/components/connected-workspace"), { ssr: false });
 const WORLD_TABS = new Set(["world", "projects", "sessions", "machines", "models"]);
@@ -862,7 +863,7 @@ export default function Home() {
     // them, one duplicating their controls under a GPU header. Merged into
     // "Stack": the GPU is the shared constraint every service competes for, so
     // it belongs above the cards rather than in a tab of its own.
-    { id: "stack" as const, label: "Stack", count: runningServices + "/" + managedServices.length },
+    { id: "stack" as const, label: "Engine room", count: runningServices + "/" + managedServices.length },
     { id: "services" as const, label: "Services" },
     { id: "storage" as const, label: "Storage" },
     { id: "llm" as const, label: "LLM" },
@@ -920,6 +921,7 @@ export default function Home() {
 
         {/* ── STACK TAB (services + GPU) ── */}
         <TabPane {...pane("stack")}>
+          <EngineRoomTabs active={tab} onSelect={selectTab} />
         {!HOSTED_RUNTIME && host && host.matchesProfile === false && (
           <ForeignProfileNotice profile={host.name} profileId={host.id} machine={host.machine ?? "this machine"} />
         )}
@@ -945,6 +947,7 @@ export default function Home() {
         </TabPane>
 
         <TabPane {...pane("services")}>
+          <EngineRoomTabs active={tab} onSelect={selectTab} />
           <ServicesControlCenter
             services={managedServices}
             catalogByService={catalogByService}
@@ -959,6 +962,7 @@ export default function Home() {
         </TabPane>
 
         <TabPane {...pane("storage")}>
+          <EngineRoomTabs active={tab} onSelect={selectTab} />
           {HOSTED_RUNTIME ? (
             <LocalMachineRequired
               title="Storage Manager runs on the machine whose disks it manages"
@@ -2059,6 +2063,7 @@ export default function Home() {
 
         {/* ── REQUESTS TAB ── */}
         <TabPane {...pane("requests")}>
+          <EngineRoomTabs active={tab} onSelect={selectTab} />
           {HOSTED_RUNTIME ? (
             <LocalMachineRequired
               title="Request history is recorded by the local Hangar process"
@@ -2070,6 +2075,7 @@ export default function Home() {
 
         {/* ── USAGE TAB ── */}
         <TabPane {...pane("usage")}>
+          <EngineRoomTabs active={tab} onSelect={selectTab} />
           {HOSTED_RUNTIME ? (
             <LocalMachineRequired
               title="AI usage is read from local Codex, Claude, and router history"
@@ -2083,6 +2089,7 @@ export default function Home() {
 
         {/* ── MODELS / AI ROUTER TAB ── */}
         <TabPane {...pane("model-settings")}>
+          <EngineRoomTabs active={tab} onSelect={selectTab} />
           {HOSTED_RUNTIME ? (
             <LocalMachineRequired
               title="Model routing and downloads change the local installation"

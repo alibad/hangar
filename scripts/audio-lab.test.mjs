@@ -19,7 +19,7 @@ const workspace = await import(pathToFileURL(path.join(scratch, "audio-workspace
 const store = await import(pathToFileURL(path.join(scratch, "audio-store.mjs")));
 const { validEffectRequest } = await import(pathToFileURL(path.join(scratch, "audio-generation.mjs")));
 const { sameAudioOrigin } = await import(pathToFileURL(path.join(scratch, "audio-origin.mjs")));
-const { PRIMARY_LINKS, WORKSTREAMS, SYSTEM_LINKS } = await import(pathToFileURL(path.join(scratch, "workstreams.mjs")));
+const { PRIMARY_LINKS, WORKSTREAMS, ENGINE_ROOM_LINKS } = await import(pathToFileURL(path.join(scratch, "workstreams.mjs")));
 const { BUILTIN_TABS, LABS } = await import(pathToFileURL(path.join(scratch, "labs.mjs")));
 const pilot = JSON.parse(await readFile(new URL("../public/audio-lab/pilot/project.json", import.meta.url), "utf8"));
 test.after(async () => { await rm(scratch, { recursive: true, force: true }); });
@@ -55,10 +55,10 @@ test("recording imports do not require a license claim; generator provenance sur
   assert.deepEqual(await readFile(store.audioFile(`${recording.id}.wav`)), bytes);
 });
 
-test("all existing tools and registered Labs remain reachable through workstreams or system navigation", () => {
-  const ids = [...PRIMARY_LINKS.map(l => l.id), ...WORKSTREAMS.flatMap(g => g.links.map(l => l.id)), ...SYSTEM_LINKS.map(l => l.id)];
+test("all existing tools and registered Labs remain reachable through workstreams or the Engine room", () => {
+  const ids = [...PRIMARY_LINKS.map(l => l.id), ...WORKSTREAMS.flatMap(g => g.links.map(l => l.id)), ...ENGINE_ROOM_LINKS.map(l => l.id)];
   assert.equal(new Set(ids).size, ids.length);
-  for (const id of BUILTIN_TABS.filter(id => !["stack", "speech"].includes(id))) assert.ok(ids.includes(id), `${id} is unreachable`);
+  for (const id of BUILTIN_TABS.filter(id => id !== "speech")) assert.ok(ids.includes(id), `${id} is unreachable`);
   for (const lab of LABS) assert.ok(ids.includes(`lab-${lab.id}`));
 });
 test("pilot recipes accept only bounded finite controls and local audio assets", () => {

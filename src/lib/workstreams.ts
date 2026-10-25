@@ -36,11 +36,13 @@ export const WORKSTREAMS: WorkstreamGroup[] = [
   { id: "process", label: "Decisions & Processes", links: [labLink("decide"), labLink("process")] },
 ];
 
-export const SYSTEM_LINKS: WorkstreamLink[] = [
+/** Hangar's local-AI home and the system pages it gathers, in the order of its tab strip. */
+export const ENGINE_ROOM_LINKS: WorkstreamLink[] = [
+  { id: "stack", label: "Overview", hint: "What is running, what fits this machine, and what to try" },
   { id: "services", label: "Services", hint: "Start, stop and inspect local services" },
   { id: "model-settings", label: "Model settings", hint: "Local model routing and downloads" },
   { id: "requests", label: "Requests", hint: "Live traffic and failures" },
-  { id: "usage", label: "AI Usage", hint: "Providers, tokens and cost" },
+  { id: "usage", label: "Usage", hint: "Providers, tokens and cost" },
   { id: "storage", label: "Storage", hint: "Local files, drives and guarded moves" },
 ];
 

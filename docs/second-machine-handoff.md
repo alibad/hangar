@@ -25,8 +25,11 @@ repository. Keep receipts under ignored `var/`.
 > themes and narrow layouts. Do not archive or regroup real sessions during tests.
 > Check that a project opens a pane without leaving Projects, that Repository
 > shows Hangar's full tools, and that building right-click and visible actions
-> menus both work. Inspect Architecture, Timeline and replay. Open Review categories
-> and confirm the entire catalog is available without changing real categories. Open All repository tools and verify its filters. Test hiding
+> menus both work. Inspect Architecture, Timeline and replay. From the Tools menu,
+> open Review categories and confirm the entire catalog is available without
+> changing real categories, then open All repository tools and verify its filters.
+> The Engine room (under World in the nav) holds Services, Model settings,
+> Requests, Usage and Storage as tabs. Test hiding
 > and restoring only with disposable data; never delete a real checkout for QA.
 >
 > Locate an existing trusted SSH alias for the first machine. Ask the owner only

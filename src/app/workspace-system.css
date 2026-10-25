@@ -419,3 +419,12 @@ textarea.control-input { min-height: 100px; line-height: 1.65; resize: vertical;
   .video-still-form > .control-row > button { width: 100%; }
   .model-picker-controls > :is([role=combobox],.model-footprint) { max-width: 100%; }
 }
+
+/* Engine room: one strip across Hangar's local-AI pages. */
+.engine-room-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; }
+.engine-room-tabs button { min-height: 32px; padding: 5px 12px; border: 1px solid var(--workspace-line, rgb(255 255 255 / 0.1)); border-radius: 10px; font-size: 12px; color: var(--workspace-muted, #9aa4b2); background: transparent; }
+.engine-room-tabs button:hover { color: var(--workspace-ink, #e8edf5); }
+.engine-room-tabs button[aria-current] { color: var(--workspace-ink, #e8edf5); border-color: var(--workspace-accent); background: color-mix(in oklab, var(--accent-500) 12%, transparent); }
+
+/* The sidebar is on every page, so its section label cannot depend on a page's stylesheet. */
+.hangar-nav-label{display:block;padding:25px 12px 8px;font-size:9px;letter-spacing:.13em;color:var(--color-gray-500)}.hangar-sidebar.is-collapsed .hangar-nav-label{display:none}

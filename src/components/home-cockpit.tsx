@@ -490,7 +490,7 @@ export default function HomeCockpit({
 
   return (
     <div className="cockpit tool-page space-y-4">
-      <ToolPageHeader eyebrow="Hangar" title="Your workspace" description="Create with local AI. Pick a tool or continue where you left off." icon={<Stack size={23} />} actions={<button type="button" className="workspace-secondary" onClick={() => onSelectTab("models")}>Explore models <ArrowRight size={14} /></button>} />
+      <ToolPageHeader eyebrow="Hangar" title="Engine room" description="Your local AI: what is running, what fits this machine, and what to try." icon={<Stack size={23} />} actions={<button type="button" className="workspace-secondary" onClick={() => onSelectTab("models")}>Explore models <ArrowRight size={14} /></button>} />
       <details className="home-system-details"><summary><span>{issueCount ? issueCount + " items need attention" : "Machine ready"}</span><span>{readyNow} ready · {onDemand} on demand</span></summary><section className={`cockpit-surface overflow-hidden rounded-2xl border ${issueCount ? "border-amber-500/35 bg-amber-500/[0.04]" : "border-emerald-500/20 bg-gray-900/75"}`} aria-labelledby="system-brief-title">
         <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
