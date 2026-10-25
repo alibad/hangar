@@ -21,11 +21,22 @@ export async function startProjectPane(doc, params) {
     if (!response.ok) throw new Error(data.error || "The action could not be completed.");
     return data;
   };
+  // In a narrow side pane only the island, logo and name stay at the top; the description, tags and buttons scroll
+  // with the rest, so the content under them gets the height.
+  const compactHead = () => {
+    const card = document.getElementById("card"), head = card?.querySelector(".head"), body = card?.querySelector(".body");
+    if (!head || !body || head.dataset.compact) return;
+    const intro = document.createElement("section");
+    intro.className = "intro";
+    for (const node of [...head.children]) if (!node.matches(".steppers, .close, .eyebrow, h2")) intro.append(node);
+    body.prepend(intro);
+    head.dataset.compact = "1";
+  };
   const report = action => async (...args) => { try { return await action(...args); } catch (e) { ui.toast(e.message, true); } };
   const show = () => {
     const repo = doc.repos.find(r => r.id === selected);
     document.body.classList.toggle("pane-repo", !!repo);
-    if (repo) { ui.toggleList(false); ui.showRepo(repo); }
+    if (repo) { ui.toggleList(false); ui.showRepo(repo); compactHead(); }
     else { ui.hideCard(); const kind = ["commit", "push", "pull", "prs"].includes(view) ? view : null; ui.toggleList(true, kind, kind ? null : view); view = null; }
   };
   async function refresh() {

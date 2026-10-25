@@ -87,3 +87,8 @@ body.hangar-embedded ::-webkit-scrollbar-thumb:hover, body.atlas-pane ::-webkit-
 @supports not selector(::-webkit-scrollbar) {
   body.hangar-embedded *, body.atlas-pane * { scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--accent) 32%, transparent) transparent; }
 }
+/* Repo tab: a compact frozen header (island, logo, name); the description, tags and buttons scroll with the rest. */
+body.atlas-pane .card .head[data-compact] { padding-top: 8px; padding-bottom: 10px; }
+body.atlas-pane .card .head[data-compact] h2 { font-size: 19px; }
+body.atlas-pane .card .body > .intro { padding: 4px 0 14px; border-bottom: 1px solid var(--panel-line); }
+body.atlas-pane .card .body > .intro > :first-child { margin-top: 6px; }
