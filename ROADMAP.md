@@ -96,10 +96,13 @@ different line of work.
   value was the same as Production's. Commit to `main`; a push to `main` is a
   production deploy. Still open: merge or close the scout PR #2 and the two other
   unmerged scout branches.
-- **Three finished worktrees to remove**, all clean and merged:
-  `../betenshi-console-video` (video-forge), `../betenshi-console-wt-cloudimg`
-  (feature/cloud-image-params) and `.claude/worktrees/vigilant-shtern-1ba9f3`.
-  Their only unique files are two test images and a regenerated routing file.
+- **Three finished worktrees: removed 2026-10-26.** `../betenshi-console-video`
+  (video-forge), `../betenshi-console-wt-cloudimg` (feature/cloud-image-params)
+  and `.claude/worktrees/vigilant-shtern-1ba9f3` were fully merged and clean; the
+  three branches are deleted. Their unique ignored files (two generated images and
+  an older `.env`) are kept under `var/retired-worktrees/`. For next time: the
+  video worktree's `node_modules` was a junction into the main checkout, which
+  `git worktree remove` cannot delete; remove the junction with `rmdir` first.
 - **A build check before a push.** Nothing ran the production build before
   9baf5ae went out; a pre-push hook or CI job running it would have caught it.
 
