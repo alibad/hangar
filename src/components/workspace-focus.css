@@ -40,3 +40,9 @@
 .connected-workspace .cw-pane-header .cw-pane-tabs button:hover{color:var(--cw-ink)}
 .connected-workspace .cw-pane-header .cw-pane-tabs button[aria-pressed=true],.connected-workspace .cw-pane-header .cw-pane-tabs button[aria-pressed=true]:hover{background:transparent;color:var(--hangar-primary);border-bottom-color:var(--hangar-primary)}
 .cw-pane-top .project-category{margin:0;flex:1;min-width:0}
+/* Calls to action in the project pane are soft pills in the theme colour, the same family as the chips on the other tabs. */
+.connected-workspace .cw-inspector .cw-primary,.connected-workspace .cw-inspector .pq-card .pq-primary{display:inline-flex;align-items:center;gap:8px;min-height:34px;padding:7px 15px;border-radius:999px;border:1px solid color-mix(in oklab,var(--hangar-primary) 28%,transparent)!important;background:var(--hangar-primary-soft)!important;color:var(--hangar-primary)!important;font-size:12.5px;font-weight:600;filter:none}
+.connected-workspace .cw-inspector .cw-primary:hover:not(:disabled),.connected-workspace .cw-inspector .pq-card .pq-primary:hover:not(:disabled){background:var(--hangar-primary-fill)!important;border-color:var(--hangar-primary-fill)!important;color:var(--hangar-on-primary)!important}
+.connected-workspace .cw-inspector .cw-primary svg,.connected-workspace .cw-inspector .pq-card .pq-primary svg{width:15px;height:15px}
+.cw-facts>div>span.has-work{color:var(--hangar-secondary)}
+.cw-spare-worktrees{margin-top:6px;font-size:11px;color:var(--cw-muted)}.cw-spare-worktrees summary{cursor:pointer;padding:9px 0;list-style-position:inside}.cw-spare-worktrees .cw-facts{margin-top:0}
