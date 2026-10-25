@@ -113,6 +113,9 @@ class ArchitectureDrawings(unittest.TestCase):
         self.assertEqual(data["meta"]["repository"], {"url": "https://github.com/owner/name", "revision": "a" * 40, "provider": "github", "link_mode": "web"})
         self.assertEqual(data["meta"]["quality_profile"], "showcase")
         self.assertNotIn("repository", prepare({"meta": {"repository": {"url": "x"}}}, None, None)["meta"])
+        # A project with no GitHub repository keeps its components but loses the file links Archify cannot pin.
+        local = prepare({"meta": {}, "components": [{"id": "api", "sources": [{"path": "src/api.py", "line": 1}]}]}, None, None)
+        self.assertEqual(local["components"], [{"id": "api"}])
         self.assertIsNone(github_url({"url": "https://example.com/owner/name"}))
 
     def test_drawing_agents_get_reading_tools_only(self):

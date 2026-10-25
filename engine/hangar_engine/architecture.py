@@ -92,7 +92,12 @@ def prepare(data, url, revision):
     if url and revision:
         meta["repository"] = {"url": url, "revision": revision, "provider": "github", "link_mode": "web"}
     else:
+        # No GitHub repository to link to: Archify refuses source evidence without one, so a local-only
+        # project is drawn without file links rather than failing every round on the same gate.
         meta.pop("repository", None)
+        for component in data.get("components") or []:
+            if isinstance(component, dict):
+                component.pop("sources", None)
     return data
 
 
