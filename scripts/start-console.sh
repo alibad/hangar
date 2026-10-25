@@ -31,6 +31,14 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
+# The same bare PATH hides Homebrew, and with it what the console and its engine
+# shell out to: gh (GitHub inventory came back as "gh is not installed"), a
+# Python new enough for the engine, ollama. Both prefixes: Apple silicon, Intel.
+for d in /usr/local/bin /opt/homebrew/bin; do
+  [ -d "$d" ] && case ":$PATH:" in *":$d:"*) ;; *) PATH="$d:$PATH" ;; esac
+done
+export PATH
+
 # Highest installed Node >= 22, or whatever is on PATH if nvm is not present.
 node_bin=""
 if [ -d "$HOME/.nvm/versions/node" ]; then
