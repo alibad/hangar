@@ -234,3 +234,5 @@
 .connected-workspace .cw-pill.is-quiet{background:transparent;border-color:var(--cw-line);color:var(--cw-muted)}
 .connected-workspace .cw-pill.is-quiet:hover:not(:disabled){background:color-mix(in oklab,var(--err-400) 14%,transparent);border-color:var(--err-400);color:var(--err-400)}
 @media(max-width:600px){.cw-map-left{max-width:calc(100% - 110px)}.cw-map-left .cw-search kbd{display:none}}
+/* Hangar's own scrolling panes use the same thin thumb in the theme colour. */
+.connected-workspace *{scrollbar-color:color-mix(in oklab,var(--hangar-primary) 32%,transparent) transparent}

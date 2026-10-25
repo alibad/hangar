@@ -77,3 +77,13 @@ body.atlas-pane .card .steppers { right: 0; }
 body.hangar-embedded .run-mark .port { padding: 1px 4px; border-radius: 5px; cursor: pointer; }
 body.hangar-embedded .run-mark .port + .port { margin-left: 2px; }
 body.hangar-embedded .run-mark .port:hover { background: color-mix(in oklab, var(--h-ok, #65cda2) 35%, transparent); text-decoration: underline; }
+/* Scrollbars inside Hangar: a thin rounded thumb in the theme colour, no arrows and no grey track. */
+body.hangar-embedded ::-webkit-scrollbar, body.atlas-pane ::-webkit-scrollbar { width: 6px; height: 6px; }
+body.hangar-embedded ::-webkit-scrollbar-track, body.atlas-pane ::-webkit-scrollbar-track,
+body.hangar-embedded ::-webkit-scrollbar-corner, body.atlas-pane ::-webkit-scrollbar-corner { background: transparent; }
+body.hangar-embedded ::-webkit-scrollbar-button, body.atlas-pane ::-webkit-scrollbar-button { display: none; }
+body.hangar-embedded ::-webkit-scrollbar-thumb, body.atlas-pane ::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--accent) 32%, transparent); border-radius: 999px; }
+body.hangar-embedded ::-webkit-scrollbar-thumb:hover, body.atlas-pane ::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, var(--accent) 60%, transparent); }
+@supports not selector(::-webkit-scrollbar) {
+  body.hangar-embedded *, body.atlas-pane * { scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--accent) 32%, transparent) transparent; }
+}
