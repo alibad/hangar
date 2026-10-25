@@ -165,3 +165,5 @@
 /* The lens row wraps before it reaches the map icons on the right. */
 .connected-workspace .cw-world-layout .cw-lenses{max-width:calc(100% - 200px)}
 @media(max-width:700px){.connected-workspace .cw-world-layout .cw-lenses{max-width:calc(100% - 28px)}}
+/* Rescan sits on the repo count line inside the tools, not on a row of its own. */
+.cw-tools-pane .repository-toolbar{position:absolute;top:8px;right:12px;z-index:2;padding:0}.cw-tools-pane .repository-toolbar button{padding:6px 10px;border:1px solid var(--cw-line);border-radius:999px;background:transparent}

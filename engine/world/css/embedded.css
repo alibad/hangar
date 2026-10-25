@@ -60,3 +60,16 @@ body.hangar-embedded .timeline .icon-btn.small { width: 28px; height: 28px; }
 body.hangar-embedded #loading { display: none; }
 /* In a Hangar side pane the pane itself has the close button. */
 body.atlas-pane:not(.pane-repo) .list [aria-label="Close list"] { display: none; }
+/* Inside a Hangar pane the pane already gives the background, the edge and the close button: no card inside a card. */
+body.atlas-pane .card .close { display: none !important; }
+body.atlas-pane .card .head:has(.steppers) .eyebrow { padding-right: 76px; }
+body.atlas-pane .card .head, body.atlas-pane .card .foot { padding-inline: 2px; }
+body.atlas-pane .card .body { padding-inline: 2px; }
+/* Tiles take a whisper of the theme colour with a hairline, instead of a flat grey block, in day and night. */
+body.atlas-pane .fact, body.atlas-pane .site, body.atlas-pane .waiting .wait,
+body.atlas-pane .app-section .target, body.atlas-pane .app-section .running-row {
+  background: color-mix(in oklab, var(--accent) 3.5%, var(--panel-solid));
+  border: 1px solid color-mix(in oklab, var(--accent) 10%, var(--panel-line));
+}
+body.atlas-pane .tag { background: color-mix(in oklab, var(--ink) 6%, var(--panel-solid)); }
+body.atlas-pane .card .steppers { right: 0; }
