@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /**
- * An MCP server that hands a coding agent this box's local AI stack.
+ * An MCP server that hands a coding agent this box's local AI stack, and Hangar's
+ * project world: what is waiting on the owner, a project brief, recent sessions
+ * and the coding jobs Hangar runs (scripts/world-tools.mjs, read from the bundled
+ * project engine on :7789, the same one World and Sessions show).
  *
  * Claude Code and Codex both spawn it over stdio and get the same tools: run the
  * services, see what the GPU is holding, and use the things they cannot do
@@ -48,6 +51,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { videoAnalysisTools } from "./video-analysis.mjs";
 import { planquestTools } from "./planquest-tools.mjs";
+import { worldTools } from "./world-tools.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MANAGER = process.env.MANAGER_URL ?? "http://localhost:8099";
@@ -656,6 +660,7 @@ async function videoJob({ id }) {
 // ── tool table ────────────────────────────────────────────────────────────────
 
 const TOOLS = [
+  ...worldTools(),
   ...planquestTools(consoleFetch),
   ...videoAnalysisTools(),
   {
@@ -948,7 +953,12 @@ async function handle(msg) {
         // surface is stable across the revisions that differ elsewhere.
         protocolVersion: params?.protocolVersion ?? "2025-06-18",
         capabilities: { tools: {} },
-        serverInfo: { name: "hangar", version: "2.0.0" },
+        serverInfo: { name: "hangar", version: "2.1.0" },
+        instructions:
+          "Hangar runs this machine's local AI services and maps the user's projects. " +
+          "When the user asks what needs doing, what is uncommitted or unpushed, or where they left a project, start with hangar_pending or hangar_brief; " +
+          "hangar_sessions finds the Claude Code or Codex conversation to continue. " +
+          "list_services and gpu_status come first before starting or stopping a local model.",
       });
 
     case "tools/list":

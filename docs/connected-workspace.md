@@ -109,6 +109,28 @@ too” actions use the native Codex app-server protocol. Claude grouping/archivi
 is a Hangar overlay; its original transcripts remain untouched. New activity
 resurfaces a Hangar-archived session. Metadata is private to the selected machine.
 
+## Agents
+
+`scripts/mcp-hangar.mjs` is the one MCP server Claude Code and Codex start for
+Hangar. Besides the local AI stack it exposes the project world, read from the
+bundled engine on loopback (`HANGAR_ENGINE_URL` overrides `127.0.0.1:7789`):
+
+| Tool | Answers |
+| --- | --- |
+| `hangar_pending` | What is waiting on you: uncommitted, not pushed, a pull needed, open pull requests. Your own repos by default; `scope: all` adds vendor copies and forks. |
+| `hangar_brief` | One project: purpose, island, what needs you, folder and branch state, recent commits, running app, Hangar jobs, recent sessions. |
+| `hangar_find` | Projects by name or description, with folders and what is waiting. |
+| `hangar_sessions` | Recent Claude Code and Codex sessions, by project, agent and age, with where each opens. |
+| `hangar_jobs`, `hangar_job` | The jobs Hangar ran and their steps; start, stop or acknowledge one (same limits as the task composer). |
+| `hangar_open`, `hangar_note`, `hangar_apps`, `hangar_rescan` | Open a folder in an agent or editor; focus / park / hide and a next step; running apps and ports; rescan. |
+
+The tools read the same engine the World and Sessions pages read, so an agent and
+the owner see one answer. If the engine is not running the first call starts it
+the way opening World does. Writes go through the engine's own checks: folders
+are resolved by project id, jobs run fixed agent commands, and notes land in
+Hangar's private metadata, never in a repo. Session history is evidence of past
+work, not proof that a process is running.
+
 ## Identity and world navigation
 
 The default palette is Hangar cobalt with basalt surfaces and warm portal light.

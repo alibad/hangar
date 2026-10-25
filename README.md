@@ -272,7 +272,11 @@ Ollama below exists because the Ollama menu-bar app started it, not the manager.
 
 Below the cards, **Agent access** hands the same stack to a coding agent over a
 single MCP server: start and stop services, read logs and the GPU, generate an
-image, transcribe audio.
+image, transcribe audio. The same server carries the project world, so an agent
+reads what you read: `hangar_pending` (what is waiting on you, repo by repo),
+`hangar_brief` (a project's purpose, folder state, commits, app and recent
+sessions), `hangar_sessions`, `hangar_jobs` and `hangar_job`, plus focus / park /
+hide, a note, open-in-agent and rescan. See [Connected workspace](docs/connected-workspace.md#agents).
 
 ![The services control center](docs/images/console/betenshi/services/desktop/step-01-arrive.png)
 
