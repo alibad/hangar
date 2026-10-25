@@ -78,6 +78,39 @@ test("concurrent creations do not lose updates, duplicate names are rejected", a
   assert.equal((await store.apply(doc)).islands.length, 3);
 });
 
+test("rename keeps category identity, members, hidden state and work status across reloads", async t => {
+  const { store, file } = await fixture(t), doc = document();
+  await store.update(doc, { action: "hide-island", island: "product" });
+  await store.update(doc, { action: "set-project-state", repos: ["one"], attention: "parked" });
+  await store.update(doc, { action: "rename-island", island: "product", name: " Useful products " });
+  const world = await createIslandStore(file).apply(doc);
+  assert.equal(world.islands.find(i => i.id === "product").name, "Useful products");
+  assert.equal(world.islands.find(i => i.id === "product").hidden, true);
+  assert.equal(world.repos[0].family, "product");
+  assert.equal(world.repos[0].attention, "parked");
+  assert.equal(world.repos[0].hiddenByIsland, "product");
+  assert.equal(world.repos[1].hidden, true);
+  assert.equal(doc.families[0].name, "Product");
+});
+
+test("create and assign is atomic and preserves relevance; rename rejects collisions", async t => {
+  const { store, file } = await fixture(t), doc = document();
+  await store.update(doc, { action: "set-project-state", repos: ["one"], attention: "focus" });
+  const before = await readFile(file, "utf8");
+  await assert.rejects(store.update(doc, { action: "create-island", name: "Research", repos: ["one", "unknown"] }));
+  assert.equal(await readFile(file, "utf8"), before);
+  const { island } = await store.update(doc, { action: "create-island", name: "Research", repos: ["one", "two"] });
+  await store.update(doc, { action: "rename-island", island, name: "Discovery" });
+  const saved = await readFile(file, "utf8");
+  for (const body of [{ action: "rename-island", island, name: " Product " }, { action: "rename-island", island, name: " " }, { action: "rename-island", island: "missing", name: "Missing" }, { action: "create-island", name: "discovery" }]) await assert.rejects(store.update(doc, body));
+  assert.equal(await readFile(file, "utf8"), saved);
+  const world = await store.apply(doc);
+  assert.equal(world.repos[0].family, island);
+  assert.equal(world.repos[0].attention, "focus");
+  assert.equal(world.repos[1].hidden, true);
+  assert.equal(world.islands.find(i => i.id === island).name, "Discovery");
+});
+
 test("corrupt preferences are preserved, not silently replaced", async t => {
   const { store, file } = await fixture(t);
   await writeFile(file, "broken");

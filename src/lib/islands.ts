@@ -5,7 +5,7 @@ import { dirname } from "node:path";
 export type Island = { id: string; name: string; repos: number; hidden?: boolean; custom?: boolean };
 type Project = { id: string; family: string; hidden?: boolean; hiddenByIsland?: string; notes?: Record<string, unknown>; [key: string]: unknown };
 export type WorldDocument = { repos: Project[]; families: Island[]; islands?: Island[]; stats?: Record<string, unknown>; [key: string]: unknown };
-type Preferences = { version: 1; custom: Record<string, string>; hidden: Record<string, boolean>; assignments: Record<string, string>; reviewed?: Record<string, boolean>; projectVisibility?: Record<string, boolean>; attention?: Record<string, "focus" | "parked" | null> };
+type Preferences = { version: 1; names?: Record<string, string>; custom: Record<string, string>; hidden: Record<string, boolean>; assignments: Record<string, string>; reviewed?: Record<string, boolean>; projectVisibility?: Record<string, boolean>; attention?: Record<string, "focus" | "parked" | null> };
 const empty = (): Preferences => ({ version: 1, custom: {}, hidden: {}, assignments: {}, reviewed: {} });
 const owns = (value: object, key: string) => Object.hasOwn(value, key);
 
@@ -51,6 +51,7 @@ export function organizeWorld(doc: WorldDocument, prefs: Preferences): WorldDocu
     }
     return repo;
   });
+  for (const island of islands.values()) if (prefs.names && owns(prefs.names, island.id)) island.name = prefs.names[island.id];
   const all = [...islands.values()].sort((a, b) => b.repos - a.repos || a.name.localeCompare(b.name));
   const visibleCounts = new Map<string, number>();
   for (const repo of repos) if (!repo.hidden) visibleCounts.set(repo.family, (visibleCounts.get(repo.family) || 0) + 1);
@@ -85,9 +86,26 @@ function change(doc: WorldDocument, previous: Preferences, raw: unknown): { pref
     if (Object.keys(preferences.custom).length >= 300) throw new IslandInputError("The maximum of 300 custom islands has been reached.");
     const island = `custom-${randomUUID()}`;
     preferences.custom[island] = name;
+    if (body.repos !== undefined) {
+      if (!Array.isArray(body.repos) || !body.repos.length || body.repos.length > 300 || body.repos.some(id => typeof id !== "string" || !doc.repos.some(r => r.id === id))) throw new IslandInputError("Choose indexed projects to move.");
+      for (const id of body.repos) {
+        Object.defineProperty(preferences.assignments, id, { value: island, enumerable: true, writable: true, configurable: true });
+        Object.defineProperty(preferences.reviewed, id, { value: true, enumerable: true, writable: true, configurable: true });
+      }
+    }
     return { preferences, island };
   }
   const island = typeof body.island === "string" ? islands.find(f => f.id === body.island) : undefined;
+  if (body.action === "rename-island") {
+    if (!island) throw new IslandInputError("Choose an existing category.");
+    if (island.id === "uncategorized") throw new IslandInputError("Uncategorized is the holding area. Create a named category instead.");
+    if (typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 60) throw new IslandInputError("Name the category (up to 60 characters).");
+    const name = body.name.trim();
+    if (islands.some(f => f.id !== island.id && f.name.toLocaleLowerCase() === name.toLocaleLowerCase())) throw new IslandInputError("A category already has that name.");
+    preferences.names ||= {};
+    Object.defineProperty(preferences.names, island.id, { value: name, enumerable: true, writable: true, configurable: true });
+    return { preferences, island: island.id };
+  }
   if (body.action === "hide-island" || body.action === "restore-island") {
     if (!island) throw new IslandInputError("Choose an island from this world.");
     preferences.hidden[island.id] = body.action === "hide-island";
@@ -124,7 +142,7 @@ export function createIslandStore(file: string) {
     catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return empty(); throw new IslandStorageError("Island preferences could not be read. The saved file has been left intact."); }
     const prefs = raw as Preferences;
     const recordOf = (value: unknown, kind: string) => !!value && typeof value === "object" && !Array.isArray(value) && Object.values(value).every(v => typeof v === kind);
-    if (!prefs || prefs.version !== 1 || !recordOf(prefs.custom, "string") || !recordOf(prefs.hidden, "boolean") || !recordOf(prefs.assignments, "string") || (prefs.reviewed !== undefined && !recordOf(prefs.reviewed, "boolean")) || (prefs.projectVisibility !== undefined && !recordOf(prefs.projectVisibility, "boolean")) || (prefs.attention !== undefined && (!prefs.attention || typeof prefs.attention !== "object" || Array.isArray(prefs.attention) || Object.values(prefs.attention).some(v => v !== null && v !== "focus" && v !== "parked")))) throw new IslandStorageError("Island preferences use an unsupported format. The saved file has been left intact.");
+    if (!prefs || prefs.version !== 1 || (prefs.names !== undefined && !recordOf(prefs.names, "string")) || !recordOf(prefs.custom, "string") || !recordOf(prefs.hidden, "boolean") || !recordOf(prefs.assignments, "string") || (prefs.reviewed !== undefined && !recordOf(prefs.reviewed, "boolean")) || (prefs.projectVisibility !== undefined && !recordOf(prefs.projectVisibility, "boolean")) || (prefs.attention !== undefined && (!prefs.attention || typeof prefs.attention !== "object" || Array.isArray(prefs.attention) || Object.values(prefs.attention).some(v => v !== null && v !== "focus" && v !== "parked")))) throw new IslandStorageError("Island preferences use an unsupported format. The saved file has been left intact.");
     return prefs;
   }
   return {

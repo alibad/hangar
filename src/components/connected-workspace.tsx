@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import ProjectPaneResize from "./project-pane-resize";
 import ProjectInsights from "./project-insights";
 import ProjectReview from "./project-review";
+import ProjectCategory from "./project-category";
 import { Activity, ArrowRight, Check, ChevronRight, Cpu, Globe2, Laptop, Play, Plus, RefreshCw, Search, Server, Square, Clock3, Flag, TriangleAlert, Terminal, X, Maximize2, Minimize2, Home, MoreHorizontal, SlidersHorizontal } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import type { ConsoleTab } from "@/lib/labs";
@@ -308,6 +309,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
         <button aria-label="Close project pane" title="Close pane" onClick={() => { setPaneExpanded(false); setSelected(null); send("select", { repo: null }); }}><X size={18} /></button>
       </div>
     </div>
+    <ProjectCategory key={`${machine}-${project.id}`} machine={machine} project={project} islands={doc?.islands || doc?.families || []} onChanged={refreshProjects} />
     {project.hidden && <p className="cw-project-state">{project.hiddenByIsland ? "This island is hidden. Restore it in Manage islands." : "Hidden from the world · restore from the actions menu."}</p>}
     {projectTab === "repository" ? <RepositoryPane key={`${machine}-${project.id}`} machine={machine} repo={project.id} onClose={() => setSelected(null)} onSelect={setSelected} onChanged={refreshProjects} /> : projectTab === "architecture" || projectTab === "timeline" ? <ProjectInsights machine={machine} repo={project.id} repoUrl={project.url} view={projectTab} /> : <ProjectDetail project={project} machine={machine} machineName={machineName} sessions={projectSessions} jobs={jobs.filter(j => j.repo === project.id)} app={apps.find(a => a.repo === project.id)} busy={busy} onStart={() => { setComposer(true); setResume(null); }} onClone={() => setOperation({ kind: "clone", repo: project })} onContinue={continueSession} onAction={act} onJob={setInspectJob} onSelect={onSelect} />}
   </aside>;
