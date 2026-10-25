@@ -47,6 +47,7 @@ const waitingText = (r: Repo) => {
 type LayerId = "attention" | "apps" | "work" | "where" | "activity" | "websites";
 type MapLayers = Record<LayerId, boolean>;
 const DEFAULT_LAYERS: MapLayers = { attention: true, apps: true, work: true, where: true, activity: false, websites: false };
+type GridStatus = "all" | "attention" | "running" | "here" | "github";
 const LAYER_OPTIONS: { id: LayerId; label: string; hint: string; colors?: string[] }[] = [
   { id: "attention", label: "What needs you", hint: "Uncommitted, to push, to pull, pull requests", colors: ["#ffb03b", "#ff5f52", "#4aa3ff", "#c084fc"] },
   { id: "apps", label: "Running apps", hint: "Port tags; click a port to open the app", colors: ["#2fbf71"] },
@@ -110,6 +111,8 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   }, []);
   const setPaneWidth = (width: number) => { setPaneWidthState(width); try { localStorage.setItem("hangar-side-width", String(width)); } catch { /* kept for this visit */ } };
   const [showAll, setShowAll] = useState(false);
+  const [gridStatus, setGridStatus] = useState<GridStatus>("all");
+  const [gridSort, setGridSort] = useState<"attention" | "recent" | "name">("attention");
   const [paneExpanded, setPaneExpanded] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -470,7 +473,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
           {doc && !listed.length && <div className="cw-explore-empty"><p>Nothing here{projectFilter !== "visible" ? ` in ${{ focus: "Focus", parked: "Parked", hidden: "Off the map" }[projectFilter]}` : ""}{query ? ` matching “${query}”` : ""}.</p><button onClick={() => { setProjectFilter("visible"); setQuery(""); }}>Show every project</button></div>}
           <button className="cw-text-button" onClick={() => onSelect("projects")}>Open the project grid <ArrowRight size={15} /></button></aside>)}
       </div>
-      {view === "projects" && <div className={project || toolsView ? "cw-project-list-layout" : ""}><div className="cw-project-browser"><div className="cw-browser-toolbar"><ProjectSearch query={query} setQuery={setQuery} onPick={() => repos[0] && choose(repos[0])} /><span className="cw-muted">{repos.length} {projectFilter === "hidden" ? "projects off the map" : "projects on this map"}</span></div><div className="cw-family-tabs"><button aria-pressed={!family} onClick={() => setFamily("")}>All islands</button>{listFamilies.map(f => <button key={f.id} aria-pressed={family === f.id} onContextMenu={e => { e.preventDefault(); setOperation({ kind: "islands", island: f.id }); }} onClick={() => setFamily(f.id)}>{f.name}<small>{f.repos}</small></button>)}</div><div className="cw-project-grid">{repos.map(repo => <div className="cw-project-tile-wrap" key={repo.id}><button className={`cw-project-tile ${repo.id === selected ? "is-selected" : ""}`} key={repo.id} onClick={() => choose(repo)} onContextMenu={e => { e.preventDefault(); setMenu({ project: repo, x: e.clientX, y: e.clientY }); }}><span className="cw-eyebrow">{(doc?.islands || doc?.families)?.find(f => f.id === repo.family)?.name || repo.family}</span><ProjectEmblem repo={repo} machine={machine} /><h2>{repo.name}</h2><p>{repo.meaning?.purpose || repo.description || "Open the project to explore its work."}</p><footer><span>{repo.sites.length ? `${repo.sites.length} local ${repo.sites.length === 1 ? "checkout" : "checkouts"}` : "Not on this machine"}</span><ArrowRight size={16} /></footer></button><button className="cw-tile-more" aria-label={`More actions for ${repo.name}`} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ project: repo, x: r.left, y: r.bottom + 4 }); }}><MoreHorizontal size={17} /></button></div>)}</div>{doc && !repos.length && <p className="cw-empty">No projects match that search.</p>}</div>{project ? projectPane : toolsPane}</div>}
+      {view === "projects" && <div className={project || toolsView ? "cw-project-list-layout" : ""}><div className="cw-project-browser"><div className="cw-browser-toolbar"><ProjectSearch query={query} setQuery={setQuery} onPick={() => repos[0] && choose(repos[0])} /><span className="cw-muted">{repos.length} {projectFilter === "hidden" ? "projects off the map" : "projects on this map"}</span></div><div className="cw-family-tabs"><button aria-pressed={!family} onClick={() => setFamily("")}>All islands</button>{listFamilies.map(f => <button key={f.id} aria-pressed={family === f.id} onContextMenu={e => { e.preventDefault(); setOperation({ kind: "islands", island: f.id }); }} onClick={() => setFamily(f.id)}>{f.name}<small>{f.repos}</small></button>)}</div><ProjectGrid repos={repos} islands={doc?.islands || doc?.families || []} machine={machine} jobs={jobs} apps={apps} sessions={sessions} selected={selected} status={gridStatus} setStatus={setGridStatus} sort={gridSort} setSort={setGridSort} onOpen={repo => choose(repo)} onMenu={(repo, x, y) => setMenu({ project: repo, x, y })} />{doc && !repos.length && <p className="cw-empty">No projects match that search.</p>}</div>{project ? projectPane : toolsPane}</div>}
       {view === "sessions" && <div className="cw-sessions"><div className="cw-section-title"><h2><Activity size={20} /> Live coding jobs</h2><span>{machineName}</span></div>{liveError && <p role="alert" className="cw-error">{liveError}. Last observed work may be stale.</p>}{jobs.length ? <>{jobs.filter(job => running(job) || job.state === "unobserved").map(jobRow)}{jobs.some(job => !running(job) && job.state !== "unobserved") && <details className="cw-finished-jobs"><summary>{jobs.filter(job => !running(job) && job.state !== "unobserved").length} finished jobs</summary>{jobs.filter(job => !running(job) && job.state !== "unobserved").map(jobRow)}</details>}</> : <div className="cw-empty-inline"><Terminal size={24} /><div><b>No Hangar coding jobs observed.</b><p>Start a task from a project to see its output and control it here. Other apps’ sessions appear in history below.</p></div><button onClick={() => onSelect("projects")}>Choose project</button></div>}<SessionLibrary key={machine} machine={machine} data={library} error={sessionsError} onUpdate={receiveLibrary} onContinue={continueSession} /></div>}
     </>
     {menu && <ProjectContextMenu target={menu} local={machine === "local"} app={apps.find(a => a.repo === menu.project.id)} onApp={body => void act("apps", { repo: menu.project.id, ...body })} onClose={() => setMenu(null)} onOpen={(id, tab) => { const repo = doc?.repos.find(r => r.id === id); if (repo) choose(repo, tab); }} onAttention={(repo, value) => void attention(repo, value)} onFolder={repo => void act("open", { repo, with: "folder" })} />}
@@ -562,6 +565,55 @@ function ProjectEmblem({ repo, machine }: { repo: Repo; machine: string }) {
   const source = logo ? `/api/world/${machine}/proxy/logo?repo=${encodeURIComponent(repo.id)}&v=${encodeURIComponent(logo.hash)}` : "";
   const [failed, setFailed] = useState("");
   return <span className="cw-project-emblem" aria-hidden="true">{source && failed !== source ? <img src={source} alt="" loading="lazy" width="32" height="32" onError={() => setFailed(source)} /> : repo.name.slice(0, 2).toUpperCase()}</span>;
+}
+/** The Projects page: a filter by what is going on, a sort, and cards that show what waits, what runs and who worked on it. */
+function ProjectGrid({ repos, islands, machine, jobs, apps, sessions, selected, status, setStatus, sort, setSort, onOpen, onMenu }: {
+  repos: Repo[]; islands: { id: string; name: string }[]; machine: string; jobs: Job[]; apps: Apps[]; sessions: Session[]; selected: string | null;
+  status: GridStatus; setStatus: (s: GridStatus) => void; sort: "attention" | "recent" | "name"; setSort: (s: "attention" | "recent" | "name") => void;
+  onOpen: (repo: Repo) => void; onMenu: (repo: Repo, x: number, y: number) => void;
+}) {
+  const agents = useMemo(() => {
+    const map = new Map<string, { claude: number; codex: number }>();
+    for (const s of sessions) if (!s.archived) for (const p of s.projects) { const a = map.get(p.id) || { claude: 0, codex: 0 }; a[s.provider === "codex" ? "codex" : "claude"]++; map.set(p.id, a); }
+    return map;
+  }, [sessions]);
+  const runningApp = (r: Repo) => apps.find(a => a.repo === r.id && a.running.length);
+  const working = (r: Repo) => jobs.find(j => j.repo === r.id && running(j));
+  const test: Record<GridStatus, (r: Repo) => boolean> = { all: () => true, attention: needsYou, running: r => !!runningApp(r) || !!working(r), here: r => !!r.onMachine, github: r => !r.onMachine };
+  const counts = Object.fromEntries((Object.keys(test) as GridStatus[]).map(k => [k, repos.filter(test[k]).length])) as Record<GridStatus, number>;
+  const seen = (r: Repo) => Date.parse(r.lastActivity || "") || 0;
+  const shown = repos.filter(test[status]);
+  if (sort === "recent") shown.sort((a, b) => seen(b) - seen(a));
+  if (sort === "name") shown.sort((a, b) => a.name.localeCompare(b.name));
+  const ago = (t: number) => { if (!t) return "no activity"; const d = Math.floor((Date.now() - t) / 86400000); return d <= 0 ? "today" : d === 1 ? "yesterday" : d < 60 ? `${d}d ago` : `${Math.round(d / 30)} mo ago`; };
+  const about = (r: Repo) => (r.meaning?.purpose || r.description || "").replace(/&nbsp;|&#160;/g, " ").trim() || "No description yet.";
+  return <>
+    <div className="pg-bar">
+      <div className="pg-status" role="group" aria-label="Show projects">{([["all", "All"], ["attention", "Needs you"], ["running", "Running"], ["here", "On this machine"], ["github", "GitHub only"]] as const).map(([id, label]) => <button key={id} aria-pressed={status === id} onClick={() => setStatus(id)}>{label}<small>{counts[id]}</small></button>)}</div>
+      <label className="pg-sort">Sort<select value={sort} onChange={e => setSort(e.target.value as "attention" | "recent" | "name")}><option value="attention">Needs you first</option><option value="recent">Recently active</option><option value="name">Name</option></select></label>
+    </div>
+    <div className="pg-grid">{shown.map(repo => {
+      const dirty = repo.sites.reduce((n, x) => n + (x.dirty || 0), 0), push = repo.risks?.some(k => k.id === "unpushed" || k.id === "offmap"), pull = repo.risks?.some(k => k.id === "pull");
+      const app = runningApp(repo), job = working(repo), a = agents.get(repo.id);
+      const quiet = !dirty && !push && !pull && !repo.openPRs && !app && !job;
+      return <div className="pg-wrap" key={repo.id}><button className={`pg-card ${repo.id === selected ? "is-selected" : ""}`} onClick={() => onOpen(repo)} onContextMenu={e => { e.preventDefault(); onMenu(repo, e.clientX, e.clientY); }}>
+        <span className="pg-head"><ProjectEmblem repo={repo} machine={machine} /><span className="pg-title"><b>{repo.name}</b><small>{islands.find(f => f.id === repo.family)?.name || repo.family}</small></span></span>
+        <span className="pg-desc">{about(repo)}</span>
+        <span className="pg-status-row">
+          {job && <span className="pg-pill is-agent">{job.provider === "codex" ? "Codex" : "Claude"} working</span>}
+          {app?.running.map(x => <span key={x.port} className="pg-pill is-app">:{x.port}</span>)}
+          {dirty > 0 && <span className="pg-pill" style={{ "--c": "#ffb03b" } as CSSProperties}>{dirty} uncommitted</span>}
+          {push && <span className="pg-pill" style={{ "--c": "#ff5f52" } as CSSProperties}>to push</span>}
+          {pull && <span className="pg-pill" style={{ "--c": "#4aa3ff" } as CSSProperties}>to pull</span>}
+          {!!repo.openPRs && <span className="pg-pill" style={{ "--c": "#c084fc" } as CSSProperties}>{repo.openPRs} {repo.openPRs === 1 ? "PR" : "PRs"}</span>}
+          {quiet && <span className="pg-quiet">Nothing waiting</span>}
+        </span>
+        <span className="pg-foot"><span className={`pg-where ${repo.onMachine ? "is-here" : ""}`} title={repo.onMachine ? "On this machine" : "Only on GitHub"}>{repo.onMachine ? "Here" : "GitHub"}</span><span title="Last activity">{ago(seen(repo))}</span>
+          {a && <span className="pg-agents" title={`${a.claude} Claude and ${a.codex} Codex sessions`}><i className="is-claude" />{a.claude}<i className="is-codex" />{a.codex}</span>}</span>
+      </button><button className="cw-tile-more" aria-label={`More actions for ${repo.name}`} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); onMenu(repo, r.left, r.bottom + 4); }}><MoreHorizontal size={17} /></button></div>;
+    })}</div>
+    {!shown.length && !!repos.length && <p className="cw-empty">No projects here. <button className="cw-text-button" onClick={() => setStatus("all")}>Show all</button></p>}
+  </>;
 }
 function ProjectRow({ repo, machine, jobs, apps, onClick, onMenu }: { repo: Repo; machine: string; jobs: Job[]; apps: Apps[]; onClick: () => void; onMenu: (x: number, y: number) => void }) {
   const job = jobs.find(j => j.repo === repo.id && running(j));
