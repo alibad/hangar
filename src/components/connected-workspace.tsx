@@ -73,6 +73,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   const [lens, setLens] = useState("map");
   const [ready, setReady] = useState(false);
   const [worldError, setWorldError] = useState("");
+  const [worldSlow, setWorldSlow] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [paneWidth, setPaneWidth] = useState(42);
   const [paneExpanded, setPaneExpanded] = useState(false);
@@ -197,14 +198,14 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== iframe.current?.contentWindow || event.data?.source !== "atlas") return;
-      if (event.data.type === "ready") { setReady(true); setWorldError(""); }
+      if (event.data.type === "ready") { setReady(true); setWorldError(""); setWorldSlow(false); }
       if (event.data.type === "context") {
         const repo = doc?.repos.find(r => r.id === event.data.repo);
         const rect = iframe.current?.getBoundingClientRect();
         if (repo && rect && Number.isFinite(event.data.x) && Number.isFinite(event.data.y)) setMenu({ project: repo, x: rect.left + event.data.x, y: rect.top + event.data.y });
       }
       if (event.data.type === "island-context" && doc?.families.some(f => f.id === event.data.family)) setOperation({ kind: "islands", island: event.data.family });
-      if (event.data.type === "error") setWorldError(String(event.data.message || "The world could not be drawn."));
+      if (event.data.type === "error") { setReady(false); setWorldError(String(event.data.message || "The world could not be drawn.")); }
       if (event.data.type === "district") { setFamily(event.data.family || ""); if (!event.data.family) setQuery(""); }
       if (event.data.type === "search") workspace.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
       if (event.data.type === "job") setInspectJob(event.data.id);
@@ -217,9 +218,14 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   useEffect(() => { if (ready && doc && docMachine === machine) send("catalog", { doc }); }, [ready, doc, docMachine, machine, send]);
   useEffect(() => {
     if (!doc || ready || !active || view !== "world") return;
-    const timer = setTimeout(() => setWorldError("The 3D world is taking too long to load. You can still browse your projects."), 30000);
-    return () => clearTimeout(timer);
-  }, [doc, ready, active, view]);
+    // The iframe's first ready event can arrive during a host remount/update.
+    // Ask it to confirm instead of declaring a healthy map broken after a timer.
+    setWorldSlow(false);
+    send("status");
+    const probe = setInterval(() => send("status"), 2000);
+    const timer = setTimeout(() => setWorldSlow(true), 15000);
+    return () => { clearInterval(probe); clearTimeout(timer); };
+  }, [!!doc, ready, active, view, machine, worldRevision, send]);
   useEffect(() => { if (ready) send("visibility", { visible: active && view === "world" }); }, [active, view, ready, send]);
   useEffect(() => { if (ready) send("work", { jobs: liveError ? [] : jobs.filter(running).map(j => ({ id: j.id, repo: j.repo, provider: j.provider, state: j.state })) }); }, [ready, jobs, liveError, send]);
   useEffect(() => { setComposer(false); setResume(null); setMessage(""); setInspectJob(null); setSelected(null); setFamily(""); setQuery(""); }, [machine]);
@@ -350,9 +356,14 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
           <div className="cw-world-tools">{family && <button className="cw-island-tools" onClick={() => setOperation({ kind: "islands", island: family })}>Island actions</button>}<button className="cw-map-controls" aria-pressed={mapControls} onClick={() => setMapControls(v => !v)}>History &amp; replay</button><button aria-label="Show all islands" onClick={home}><Home size={16} /></button><button aria-label={expanded ? "Restore world layout" : "Expand world"} onClick={() => setExpanded(v => !v)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
           <div className="cw-world-caption"><span className="cw-eyebrow">{machineName} / PROJECT WORLD</span><p>{doc ? `${doc.families.length} islands · ${doc.repos.filter(r => !r.hidden).length} projects` : "Connecting to your world…"}</p></div>
           <div className="cw-lenses" aria-label="World lens">{[["map", "World"], ["working", "Live work"], ["changes", "Needs attention"], ["where", "On this machine"], ["activity", "Activity"], ["shipped", "Shipped"]].map(([id, name]) => <button key={id} aria-pressed={lens === id} onClick={() => setLens(id)}>{{ map: <Globe2 size={13} />, working: <Activity size={13} />, changes: <TriangleAlert size={13} />, where: <Laptop size={13} />, activity: <Clock3 size={13} />, shipped: <Flag size={13} /> }[id]}{name}</button>)}</div>
-          {doc && <iframe key={`${machine}-${worldRevision}`} ref={iframe} title={`Hangar project world on ${machineName}`} src={`/api/world/${machine}/view/index.html?embed=hangar&lens=map`} allow="clipboard-write" />}
-          {!ready && <div className="cw-world-loading"><img src="/brand/foundry.png" alt="" width="180" height="150" /><span>{worldError || (doc ? "Drawing your islands…" : "Reading your projects…")}</span>{worldError && <><button onClick={() => { setWorldError(""); setReady(false); setWorldRevision(v => v + 1); }}>Retry world</button><button onClick={() => onSelect("projects")}>Browse projects without 3D <ArrowRight size={16} /></button></>}</div>}
-          <div className="cw-map-hint">Drag to explore · Right-click for actions · / to find</div><div className="cw-live-strip"><span className={`cw-led ${!liveError ? "is-live" : "is-offline"}`} /><b>{liveError ? "Live connection lost" : `${liveJobs.length} coding ${liveJobs.length === 1 ? "job" : "jobs"} · ${appCount} running apps`}</b><button onClick={() => onSelect("sessions")}>Inspect work <ArrowRight size={14} /></button></div>
+          {doc && <iframe key={`${machine}-${worldRevision}`} ref={iframe} title={`Hangar project world on ${machineName}`} src={`/api/world/${machine}/view/index.html?embed=hangar&lens=map`} onLoad={() => send("status")} allow="clipboard-write" />}
+          {!ready && <div className="cw-world-status" role="status" aria-label="Map loading status">
+            {worldError ? <TriangleAlert size={15} /> : <RefreshCw size={15} className="cw-map-spinner" />}
+            <span>{worldError ? "Map unavailable" : worldSlow ? "Still loading the map…" : doc ? "Loading map…" : "Reading projects…"}</span>
+            {(worldSlow || worldError) && <><button onClick={() => { setWorldError(""); setWorldSlow(false); setReady(false); setWorldRevision(v => v + 1); }}>Retry map</button><button onClick={() => onSelect("projects")}>Projects <ArrowRight size={14} /></button></>}
+            {worldError && <details><summary>Details</summary><p>{worldError}</p></details>}
+          </div>}
+          <div className="cw-map-hint" hidden={!ready}>Drag to explore · Right-click for actions · / to find</div><div className="cw-live-strip"><span className={`cw-led ${!liveError ? "is-live" : "is-offline"}`} /><b>{liveError ? "Live connection lost" : `${liveJobs.length} coding ${liveJobs.length === 1 ? "job" : "jobs"} · ${appCount} running apps`}</b><button onClick={() => onSelect("sessions")}>Inspect work <ArrowRight size={14} /></button></div>
         </div>
         {view === "world" && (project ? projectPane : <aside className="cw-inspector" aria-label="Explore projects"><><span className="cw-eyebrow">EXPLORE THE ISLANDS</span><h2>{family ? doc?.families.find(f => f.id === family)?.name : "Find your next focus."}</h2><p className="cw-muted">Every building is a real project. Select one to see its work, sessions and running apps.</p><ProjectSearch query={query} setQuery={setQuery} /><div className="cw-island-picker" aria-label="Explore islands"><button aria-pressed={!family} onClick={home}>All islands</button>{doc?.families.filter(f => f.repos > 0).map(f => <button key={f.id} aria-pressed={family === f.id} onContextMenu={e => { e.preventDefault(); setOperation({ kind: "islands", island: f.id }); }} onClick={() => { setFamily(f.id); setQuery(""); send("district", { family: f.id }); }}>{f.name}<small>{f.repos}</small></button>)}</div><div className="cw-result-count" aria-live="polite">{repos.length} matching projects</div>{repos.slice(0, 9).map(r => <ProjectRow key={r.id} repo={r} machine={machine} jobs={jobs} apps={apps} onClick={() => choose(r)} onMenu={(x, y) => setMenu({ project: r, x, y })} />)}<button className="cw-text-button" onClick={() => onSelect("projects")}>Browse project list <ArrowRight size={15} /></button></></aside>)}
       </div>

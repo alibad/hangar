@@ -2,9 +2,17 @@
 export const embedded = new URLSearchParams(location.search).get("embed") === "hangar";
 const mount = location.pathname.match(/^(\/api\/world\/[^/]+)\/view\//)?.[1];
 export const api = (path) => mount ? `${mount}/proxy${path.replace(/^\/api/, "")}` : path;
+let lastStatus = null;
 export function tellHost(type, payload = {}) {
+  if (["ready", "pane-ready", "error"].includes(type)) lastStatus = { type, payload };
   if (embedded && window.parent !== window) window.parent.postMessage({ source: "atlas", type, ...payload }, location.origin);
 }
+
+// Readiness is a handshake, not a one-shot event. Reconfirm after host reloads
+// or missed messages without restarting the renderer or changing the camera.
+listenHost(message => {
+  if (message.type === "status" && lastStatus) tellHost(lastStatus.type, lastStatus.payload);
+});
 export function listenHost(onMessage) {
   if (!embedded) return;
   window.addEventListener("message", (event) => {

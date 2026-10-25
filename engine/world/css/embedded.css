@@ -46,3 +46,5 @@ body.hangar-embedded.show-map-controls .pad { bottom: 150px; }
 
 body.hangar-embedded.card-open.show-map-controls .dock{display:flex!important;left:50%;max-width:calc(100vw - 28px)}
 .timeline input{min-width:0}.replay-label{font-size:10px;color:var(--ink-3);white-space:nowrap}@media(max-width:600px){.replay-label{display:none}.timeline output{min-width:64px;font-size:11px}}
+/* The host owns one compact loading status; never cover the canvas twice. */
+body.hangar-embedded #loading { display: none; }

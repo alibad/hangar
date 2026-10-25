@@ -908,9 +908,9 @@ function start(doc, local, quality) {
       else { world.resize(); wake(); if (local) refreshApps(); }
     }
   });
-  tellHost("ready");
   requestAnimationFrame(loop);
   world.render();
+  tellHost("ready");
   setTimeout(() => { loading.classList.add("gone"); document.body.classList.remove("booting"); }, 60);
   setTimeout(() => loading.remove(), 800);
   return app;
