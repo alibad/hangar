@@ -16,7 +16,22 @@ export type LibrarySession = {
 type Group = { id: string; name: string; source: string; nativeId?: string };
 export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; truncated: boolean; observedAt: string };
 type Props = { machine: string; data: SessionLibraryData | null; error: string; onUpdate: (data: SessionLibraryData) => void; onContinue: (session: LibrarySession) => void };
-type Mode = "active" | "review" | "groups" | "archived";
+type Mode = "active" | "projects" | "review" | "groups" | "archived";
+type Agent = "all" | "claude" | "codex";
+const DAY = 86400000;
+const agentOf = (s: LibrarySession) => s.provider === "codex" ? "codex" : "claude";
+const lastSeen = (s: LibrarySession) => Date.parse(s.activityAt || s.updatedAt) || 0;
+const ago = (t: number) => { const d = Math.floor((Date.now() - t) / DAY); return !t ? "unknown" : d <= 0 ? "today" : d === 1 ? "yesterday" : `${d}d ago`; };
+/** Each project with its Claude and Codex sessions, most recently active first: where the two agents' work meets. */
+function projectLanes(rows: LibrarySession[]) {
+  const map = new Map<string, { id: string; name: string; sessions: LibrarySession[]; claude: number; codex: number; last: number }>();
+  for (const s of rows) if (!s.archived) for (const p of s.projects) {
+    const lane = map.get(p.id) || { id: p.id, name: p.name, sessions: [], claude: 0, codex: 0, last: 0 };
+    lane.sessions.push(s); lane[agentOf(s)]++; lane.last = Math.max(lane.last, lastSeen(s));
+    map.set(p.id, lane);
+  }
+  return [...map.values()].sort((a, b) => b.last - a.last);
+}
 
 async function request<T>(url: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch(url, { method: body ? "POST" : "GET", cache: "no-store", signal,
@@ -39,6 +54,9 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const [chosenGroup, setChosenGroup] = useState("");
   const [limit, setLimit] = useState(40);
   const [selectedKey, setSelectedKey] = useState("");
+  const [agent, setAgent] = useState<Agent>("all");
+  const [project, setProject] = useState("");
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const dialog = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
   const updateRef = useRef(onUpdate); updateRef.current = onUpdate;
@@ -92,17 +110,23 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     finally { setBusy(false); busyRef.current = false; }
   }
   function chooseMode(next: Mode, group = "") { setMode(next); setFilter(group); setLimit(40); }
+  const lanes = useMemo(() => projectLanes(rows), [rows]);
+  const laneOf = useMemo(() => new Map(lanes.map(l => [l.id, l])), [lanes]);
+  const openProject = (id: string) => { setProject(id); setMode("active"); setFilter(""); setLimit(40); setSelectedKey(""); };
   const visible = useMemo(() => {
     let list = rows.filter(s => mode === "archived" ? s.archived : !s.archived && (mode !== "review" || s.reviewDue));
     if (filter) list = list.filter(s => filter.startsWith("suggestion:") ? s.suggestion?.id === filter.slice(11) : s.group === filter);
     if (query.trim()) { const q = query.toLowerCase(); list = list.filter(s => [s.title, s.provider, s.model, ...s.projects.map(p => p.name)].join(" ").toLowerCase().includes(q)); }
+    if (agent !== "all") list = list.filter(s => agentOf(s) === agent);
+    if (project) list = [...list.filter(s => s.projects.some(p => p.id === project))].sort((a, b) => lastSeen(b) - lastSeen(a));
+    if (unreadOnly) list = list.filter(s => s.unread === true);
     if (mode === "review") list = [...list].sort((a, b) => Number(b.unread === true) - Number(a.unread === true) || (b.idleDays || 0) - (a.idleDays || 0));
     return list;
-  }, [rows, mode, filter, query]);
+  }, [rows, mode, filter, query, agent, project, unreadOnly]);
   // Active work reads by topic; archive review and the archive stay one queue in their own order.
   const sections = useMemo(() => {
     const shown = visible.slice(0, limit);
-    if (mode !== "active" || filter) return [{ id: "all", name: "", rows: shown }];
+    if (mode !== "active" || filter || project) return [{ id: "all", name: "", rows: shown }];
     const topics = new Map<string, { id: string; name: string; rows: LibrarySession[] }>();
     for (const row of shown) {
       const id = row.group ? `group:${row.group}` : row.suggestion ? `suggestion:${row.suggestion.id}` : "other";
@@ -130,12 +154,14 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
 
   return <section className="sl-library" aria-label="Session organization">
     <div className="cw-section-title"><h2>Session history</h2><span>Claude + Codex</span></div>
-    <div className="sl-toolbar"><div className="cw-family-tabs" aria-label="Session view">{([['active', 'Active'], ['review', 'Archive review'], ['groups', 'Groups & sections'], ['archived', 'Archived']] as const).map(([id, label]) => <button key={id} aria-pressed={mode === id} onClick={() => chooseMode(id)}>{label}{id === "review" && !!data?.reviewCount && <small>{data.reviewCount}</small>}</button>)}</div><div className="sl-threshold" aria-label="Idle threshold"><span>Idle after</span>{[7, 14, 30].map(days => <button key={days} aria-pressed={data?.idleDays === days} disabled={busy || !data} onClick={() => act({ action: "settings", idleDays: days }, `Review threshold set to ${days} days.`)}>{days}d</button>)}</div></div>
+    <div className="sl-toolbar"><div className="cw-family-tabs" aria-label="Session view">{([['active', 'Active'], ['projects', 'By project'], ['review', 'Archive review'], ['groups', 'Groups & sections'], ['archived', 'Archived']] as const).map(([id, label]) => <button key={id} aria-pressed={mode === id} onClick={() => chooseMode(id)}>{label}{id === "review" && !!data?.reviewCount && <small>{data.reviewCount}</small>}</button>)}</div><div className="sl-threshold" aria-label="Idle threshold"><span>Idle after</span>{[7, 14, 30].map(days => <button key={days} aria-pressed={data?.idleDays === days} disabled={busy || !data} onClick={() => act({ action: "settings", idleDays: days }, `Review threshold set to ${days} days.`)}>{days}d</button>)}</div></div>
     {(loadError || error) && <p className="cw-error" role="alert">{error || loadError}</p>}
     {notice && <p className="sl-notice" role="status"><Check size={15} />{notice}</p>}
     {!data ? <HangarLoading label="Reading session history" steps={["Indexing Claude Code sessions", "Indexing Codex sessions", "Grouping them by project"]} shape="rows" /> : <>
       {!data.nativeAvailable && <p className="cw-muted">Codex section and read state are unavailable on this machine. Hangar groups still work.</p>}
       {data.truncated && <p className="cw-muted">This is a bounded index; older sessions may be outside this scan.</p>}
+      {(mode === "active" || mode === "projects") && <Overview rows={rows} lanes={lanes} />}
+      <div className={`sl-main ${mode === "groups" || mode === "projects" ? "is-scroll" : ""}`}>
       {mode === "groups" ? <>
         <div className="sl-group-heading"><div><h3>One set of groups. Both agents.</h3><p>Codex sections appear as they are. Claude joins the same structure through Hangar.</p></div><form onSubmit={async e => { e.preventDefault(); if (await act({ action: "createGroup", name }, "Hangar group created.")) setName(""); }}><label className="sr-only" htmlFor="sl-group-name">New group name</label><input id="sl-group-name" placeholder="New group name" value={name} maxLength={80} onChange={e => setName(e.target.value)} required /><button disabled={busy || !name.trim()}>Create group</button></form></div>
         <div className="sl-groups">{data.groups.map(group => {
@@ -144,15 +170,18 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
         })}</div>
         <div className="sl-group-heading"><div><h3>Suggested connections</h3><p>Work topics are suggested from session titles on this machine. Ambiguous titles fall back to file or folder evidence. Review each reason before accepting.</p></div></div>
         <div className="sl-suggestions">{proposals.map(p => <button key={p.id} onClick={() => chooseMode("active", `suggestion:${p.id}`)}><Layers size={19} /><span><b>{p.name}</b><small>{p.count} sessions · {p.strong} with confirmed edits</small></span><span>Review <ArrowRight size={15} /></span></button>)}</div>{!proposals.length && <p className="cw-muted">No unassigned sessions have a clear project match.</p>}
-      </> : <>
-        <div className="sl-list-heading"><label><span className="sr-only">Find a session</span><input type="search" placeholder="Find a session or project…" value={query} onChange={e => { setQuery(e.target.value); setLimit(40); }} /></label><span>{visible.length} sessions</span>{filter && <button onClick={() => setFilter("")}>Clear group filter <X size={14} /></button>}</div>
+      </> : mode === "projects" ? <ProjectLanes lanes={lanes} onOpen={openProject} /> : <>
+        <div className="sl-list-heading"><label><span className="sr-only">Find a session</span><input type="search" placeholder="Find a session or project…" value={query} onChange={e => { setQuery(e.target.value); setLimit(40); }} /></label><div className="sl-seg" role="group" aria-label="Agent">{([["all", "All"], ["claude", "Claude"], ["codex", "Codex"]] as const).map(([id, label]) => <button key={id} aria-pressed={agent === id} onClick={() => { setAgent(id); setLimit(40); }}>{id !== "all" && <i className={`sl-swatch is-${id}`} aria-hidden="true" />}{label}</button>)}</div>
+          <button className="sl-toggle" aria-pressed={unreadOnly} onClick={() => setUnreadOnly(v => !v)}>Unread</button>
+          {project && <button className="sl-chip" onClick={() => setProject("")} title="Show every project">{laneOf.get(project)?.name || project}<X size={13} /></button>}
+          <span>{visible.length} sessions</span>{filter && <button onClick={() => setFilter("")}>Clear group filter <X size={14} /></button>}</div>
         {mode === "review" && <p className="sl-help">{data.reviewCount ? `${data.reviewCount} sessions have had no observed activity for ${data.idleDays}+ days${data.unreadReviewCount ? `, ${data.unreadReviewCount} unread in Codex` : ""}. Nothing is archived without your choice. ` : ""}Unread sessions come first so useful results are not buried. Pinned sessions and projects with active or unobserved jobs are protected.</p>}
         {!!visible.length && <div className="sl-inbox">
           <div className="sl-list" aria-label="Sessions">
             {sections.map(section => <div className="sl-section" key={section.id}>
               {section.name && <h4>{section.name}<small>{section.rows.length}</small></h4>}
               {section.rows.map(row => <button type="button" key={row.key} aria-pressed={selected?.key === row.key} className={`sl-row ${row.unread ? "sl-unread" : ""}`} onClick={() => pick(row.key)}>
-                <span className="cw-session-provider">{row.provider === "codex" ? "CX" : "CL"}</span>
+                <span className={`cw-session-provider is-${agentOf(row)}`}>{row.provider === "codex" ? "CX" : "CL"}</span>
                 <span className="sl-row-text"><b>{row.title}</b><small>{[row.projects.map(p => p.name).join(", ") || "No project", row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).join(" · ")}</small></span>
                 {row.unread === true && <i className="sl-dot" aria-label="Unread in Codex" />}
                 {row.pinned && <Pin size={13} aria-label="Pinned in Codex" />}
@@ -164,6 +193,8 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
             <div className="sl-session-body"><div className="sl-session-title"><h3>{selected.title}</h3>{selected.pinned && <Pin size={14} aria-label="Pinned in Codex" />}</div>
             <div className="sl-tags"><span>{selected.unread === true ? "Unread in Codex" : selected.unread === false ? "Read in Codex" : "Read state unknown"}</span>{selected.reviewed && <span>Reviewed in Hangar</span>}<span>{selected.idleDays === null ? "Activity unknown" : `${selected.idleDays}d idle`}</span>{selected.group && <span>{data.groups.find(g => g.id === selected.group)?.name}</span>}{selected.protected && <span>Active project · protected</span>}{selected.archived && <span>Archived in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</span>}</div>
             <p>{selected.summary}</p>
+            {selected.projects.length > 0 && <div className="sl-connect" aria-label="This session's projects">{selected.projects.map(p => { const lane = laneOf.get(p.id); return <button key={p.id} onClick={() => openProject(p.id)} aria-pressed={project === p.id} title={`Every session in ${p.name}`}>
+              <b>{p.name}</b><span><i className="sl-swatch is-claude" aria-hidden="true" />{lane?.claude || 0} Claude</span><span><i className="sl-swatch is-codex" aria-hidden="true" />{lane?.codex || 0} Codex</span><ArrowRight size={13} /></button>; })}</div>}
             <details><summary>File evidence & session ID</summary><code>{selected.id}</code>{selected.projects.map(p => {
               const files = [...new Set(p.files)];
               return <div key={p.id}><b>{p.name}</b>{p.evidence === "working-directory" ? <p>Working directory match; no confirmed edit evidence.</p> : <ul>{files.slice(0, 30).map(f => <li key={f}>{f}</li>)}{files.length > 30 && <li>{files.length - 30} more files</li>}</ul>}</div>;
@@ -180,6 +211,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
         </div>}
         {!visible.length && <div className="sl-empty"><Check size={24} /><h3>{mode === "review" ? "Nothing needs an archive decision." : "No sessions in this view."}</h3></div>}
       </>}
+      </div>
     </>}
     {target && targetRow && <div className="cw-dialog-backdrop"><section ref={dialog} className="cw-dialog sl-dialog" role="dialog" aria-modal="true" aria-labelledby="sl-dialog-title"><button className="cw-dialog-close" aria-label="Close session review" disabled={busy} onClick={() => setTarget(null)}><X size={20} /></button><span className="cw-eyebrow">{targetRow.provider} · {targetRow.idleDays ?? "?"} DAYS IDLE</span><h2 id="sl-dialog-title">{target.purpose === "archive" ? "Keep it, or clear the space?" : "Give this work a home."}</h2><h3>{targetRow.title}</h3>
       {target.purpose === "archive" ? <>
@@ -196,4 +228,51 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
         </div><p className="sl-help">Claude groups live in Hangar. Codex’s native section changes only when you choose “Move in Codex too”.</p>
       </>}{error && <p className="cw-error" role="alert">{error}</p>}</section></div>}
   </section>;
+}
+
+/** The two agents at a glance: how many sessions each has, how many projects both touched, and the last two weeks. */
+function Overview({ rows, lanes }: { rows: LibrarySession[]; lanes: ReturnType<typeof projectLanes> }) {
+  const live = rows.filter(s => !s.archived);
+  const claude = live.filter(s => agentOf(s) === "claude").length, codex = live.length - claude;
+  const both = lanes.filter(l => l.claude && l.codex).length;
+  const today = new Date(); today.setHours(24, 0, 0, 0);
+  const days = Array.from({ length: 14 }, () => ({ claude: 0, codex: 0 }));
+  for (const s of live) { const d = Math.floor((today.getTime() - lastSeen(s)) / DAY); if (d >= 0 && d < 14) days[13 - d][agentOf(s)]++; }
+  const peak = Math.max(1, ...days.map(d => d.claude + d.codex));
+  return <div className="sl-overview">
+    <div className="sl-stats">
+      <span><b>{live.length}</b>sessions</span>
+      <span><i className="sl-swatch is-claude" aria-hidden="true" /><b>{claude}</b>Claude</span>
+      <span><i className="sl-swatch is-codex" aria-hidden="true" /><b>{codex}</b>Codex</span>
+      <span><b>{lanes.length}</b>projects</span>
+      <span><b>{both}</b>with both agents</span>
+    </div>
+    <div className="sl-days" role="img" aria-label={`Sessions active over the last 14 days: ${days.map(d => d.claude + d.codex).join(", ")}`}>
+      {days.map((d, i) => <span key={i} title={`${d.claude} Claude · ${d.codex} Codex`}><i className="is-codex" style={{ height: `${d.codex / peak * 100}%` }} /><i className="is-claude" style={{ height: `${d.claude / peak * 100}%` }} /></span>)}
+      <small>last 14 days</small>
+    </div>
+  </div>;
+}
+
+/** Every project as a lane: Claude and Codex counts, a 30-day track of when each agent worked on it, and the latest session. */
+function ProjectLanes({ lanes, onOpen }: { lanes: ReturnType<typeof projectLanes>; onOpen: (project: string) => void }) {
+  const [scope, setScope] = useState<"all" | "both" | "claude" | "codex">("all");
+  const count = { all: lanes.length, both: lanes.filter(l => l.claude && l.codex).length, claude: lanes.filter(l => l.claude && !l.codex).length, codex: lanes.filter(l => l.codex && !l.claude).length };
+  const shown = lanes.filter(l => scope === "all" || (scope === "both" ? l.claude && l.codex : scope === "claude" ? l.claude && !l.codex : l.codex && !l.claude));
+  const now = Date.now(), span = 30 * DAY;
+  return <>
+    <div className="sl-seg sl-lane-scope" role="group" aria-label="Which projects">{([["all", "All projects"], ["both", "Both agents"], ["claude", "Claude only"], ["codex", "Codex only"]] as const).map(([id, label]) => <button key={id} aria-pressed={scope === id} onClick={() => setScope(id)}>{label}<small>{count[id]}</small></button>)}</div>
+    <div className="sl-lanes">{shown.map(l => {
+      const latest = [...l.sessions].sort((a, b) => lastSeen(b) - lastSeen(a))[0];
+      return <button key={l.id} className="sl-lane" onClick={() => onOpen(l.id)} title={`Open ${l.name}'s sessions`}>
+        <span className="sl-lane-head"><b>{l.name}</b>{l.claude > 0 && l.codex > 0 && <em>Both agents</em>}<small>{ago(l.last)}</small></span>
+        <span className="sl-lane-split" aria-hidden="true"><i className="is-claude" style={{ flexGrow: l.claude }} /><i className="is-codex" style={{ flexGrow: l.codex }} /></span>
+        <span className="sl-lane-counts"><span><i className="sl-swatch is-claude" aria-hidden="true" />{l.claude} Claude</span><span><i className="sl-swatch is-codex" aria-hidden="true" />{l.codex} Codex</span></span>
+        <span className="sl-lane-track" aria-hidden="true">{l.sessions.map(s => { const age = now - lastSeen(s); return age <= span ? <i key={s.key} className={`is-${agentOf(s)}`} style={{ left: `${Math.max(0, 100 - age / span * 100)}%` }} /> : null; })}</span>
+        <span className="sl-lane-scale" aria-hidden="true"><small>30 days ago</small><small>today</small></span>
+        {latest && <span className="sl-lane-latest"><i className={`sl-swatch is-${agentOf(latest)}`} aria-hidden="true" />{latest.title}</span>}
+      </button>;
+    })}</div>
+    {!shown.length && <p className="cw-muted">No projects in this view.</p>}
+  </>;
 }
