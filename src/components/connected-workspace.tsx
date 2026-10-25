@@ -214,6 +214,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     return () => window.removeEventListener("message", receive);
   }, [doc]);
   useEffect(() => { if (ready) { send("theme", { night: theme === "dark" }); send("lens", { lens }); } }, [ready, theme, lens, send]);
+  useEffect(() => { if (ready && doc && docMachine === machine) send("catalog", { doc }); }, [ready, doc, docMachine, machine, send]);
   useEffect(() => {
     if (!doc || ready || !active || view !== "world") return;
     const timer = setTimeout(() => setWorldError("The 3D world is taking too long to load. You can still browse your projects."), 30000);
@@ -252,9 +253,14 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   const home = () => { setSelected(null); setFamily(""); setQuery(""); send("district", { family: null }); };
   const choose = (repo: Repo, tab: "work" | "repository" = "work") => { setSelected(repo.id); setProjectTab(tab); setComposer(false); setResume(null); if (!repo.hidden) send("select", { repo: repo.id }); };
   const refreshProjects = useCallback(async () => {
-    try { const fresh = await json<AtlasDoc>(`${prefix}/atlas`); setDoc(fresh); setDocMachine(machine); setFamily(current => fresh.families.some(f => f.id === current) ? current : ""); setReady(false); setWorldError(""); setWorldRevision(v => v + 1); }
+    try {
+      const fresh = await json<AtlasDoc>(`${prefix}/atlas`);
+      setDoc(fresh); setDocMachine(machine); setFamily(current => fresh.families.some(f => f.id === current) ? current : "");
+      // The empty first-run viewer has never booted. Ordinary edits stay in place.
+      if (!doc?.repos.length && fresh.repos.length) { setReady(false); setWorldError(""); setWorldRevision(v => v + 1); }
+    }
     catch (e) { setMessage((e as Error).message); }
-  }, [prefix, machine]);
+  }, [prefix, machine, doc?.repos.length]);
   // First-run discovery is asynchronous. Replace the empty initial catalog as
   // soon as the bundled engine finishes; later scans update the host pane too.
   useEffect(() => {

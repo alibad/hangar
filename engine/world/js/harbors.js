@@ -7,7 +7,8 @@ export function createHarbors(islands) {
   const box = new THREE.BoxGeometry(1, 1, 1);
   const diamond = new THREE.OctahedronGeometry(0.8);
   const beamGeometry = new THREE.CylinderGeometry(0.1, 1.1, 14, 8, 1, true);
-  const docks = islands.map(island => {
+  const docks = [];
+  function add(island) {
     const group = new THREE.Group();
     group.position.set(0, 0.8, island.spot.radius * 0.87);
     const floor = new THREE.Mesh(box, basalt);
@@ -22,17 +23,21 @@ export function createHarbors(islands) {
     const beam = new THREE.Mesh(beamGeometry, new THREE.MeshBasicMaterial({ color: "#ffca81", transparent: true, opacity: 0.17, depthWrite: false, side: THREE.DoubleSide }));
     beam.position.y = 10; beam.visible = false; group.add(beam);
     island.group.add(group);
-    return { island, core, beam };
-  });
+    docks.push({ island, group, core, beam });
+  }
+  islands.forEach(add);
   return {
+    add,
     setWork(jobs) {
       const active = new Set(jobs.filter(j => ["running", "stopping"].includes(j.state)).map(j => j.repo));
       for (const dock of docks) {
-        const count = dock.island.buildings.filter(b => active.has(b.repo.id)).length;
+        const visible = dock.island.buildings.filter(b => b.onMap !== false);
+        const count = visible.filter(b => active.has(b.repo.id)).length;
+        dock.group.position.z = dock.island.spot.radius * 0.87;
         dock.beam.visible = count > 0;
         dock.core.scale.setScalar(count ? 1.3 : 1);
         dock.island.label.classList.toggle("has-work", count > 0);
-        dock.island.label.setAttribute("aria-label", `Explore ${dock.island.spot.family.name}, ${dock.island.buildings.length} projects${count ? `, ${count} active coding jobs` : ""}`);
+        dock.island.label.setAttribute("aria-label", `Explore ${dock.island.spot.family.name}, ${visible.length} projects${count ? `, ${count} active coding jobs` : ""}`);
       }
     },
   };

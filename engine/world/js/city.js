@@ -137,7 +137,7 @@ function wallsAndRoofBox() {
 
 // ---------- islands ----------
 
-function islandGeometry(radius, seed, top) {
+export function islandGeometry(radius, seed, top) {
   const rand = rng(seed);
   const n = Math.max(28, Math.round(radius * 1.1));
   const ph = [rand() * 6.28, rand() * 6.28, rand() * 6.28];
@@ -428,7 +428,7 @@ export class Building {
     for (const m of this.solids) m.color.copy(this.roofColor).lerp(grey, s.dim * 0.7);
     const born = Math.max(0.001, s.born);
     this.group.scale.set(1, born * (1 + s.hover * 0.05), 1);
-    this.group.visible = s.born > 0.02;
+    this.group.visible = this.onMap !== false && s.born > 0.02;
     if (this.beacon) {
       this.beacon.visible = s.dim < 0.6;
       this.beam.visible = s.glow > 0.02;

@@ -1,8 +1,8 @@
 // Hangar: load the map, build the world, and draw only when something changes.
 import * as THREE from "three";
 import { createWorld, detectQuality } from "./world.js";
-import { layout } from "./layout.js";
-import { Building, buildIsland, buildSheds, createShared, decorate } from "./city.js";
+import { layout, reconcileLayout } from "./layout.js";
+import { Building, buildIsland, buildSheds, createShared, decorate, islandGeometry } from "./city.js";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { lensById, pending, CHANGE } from "./lenses.js";
 import { createUI } from "./ui.js";
@@ -68,7 +68,7 @@ function start(doc, local, quality) {
       byRepo.set(cell.repo.id, b);
     }
     isl.sheds = buildSheds(isl, here, shared, shadows);
-    decorate(isl, shared, shadows, quality.tier === "low");
+    addScenery(isl);
     isl.buildings = here;
     isl.label.addEventListener("click", (e) => { e.stopPropagation(); focusIsland(isl); });
   }
@@ -80,10 +80,13 @@ function start(doc, local, quality) {
 
   // A small marker over every building with something waiting: uncommitted, to push, to pull, pull requests.
   const markers = [];
-  for (const b of buildings) {
+  function updateMarker(b) {
     const p = pending(b.repo);
-    if (!p.any) continue;
-    const tag = document.createElement("button");
+    if (!p.any) {
+      if (b.marker) { markers.splice(markers.indexOf(b.marker), 1); b.marker.removeFromParent(); b.marker = null; }
+      return;
+    }
+    const tag = b.marker?.element || document.createElement("button");
     tag.className = "pending";
     tag.title = [p.dirty && `${p.dirty} uncommitted`, p.push && "not pushed", p.pull && "needs a pull", p.prs && `${p.prs} pull requests`].filter(Boolean).join(", ");
     tag.innerHTML = [
@@ -92,6 +95,7 @@ function start(doc, local, quality) {
       p.pull ? `<span style="--c:${CHANGE.pull}">${icon("down")}</span>` : "",
       p.prs ? `<span style="--c:${CHANGE.prs}">${icon("pr")}${p.prs}</span>` : "",
     ].join("");
+    if (b.marker) return;
     tag.addEventListener("click", (e) => { e.stopPropagation(); select(b.repo, { fly: true }); });
     const obj = new CSS2DObject(tag);
     obj.position.set(0, Math.max(b.height, b.flagTop || 0) + 2.6, 0);
@@ -100,6 +104,7 @@ function start(doc, local, quality) {
     b.marker = obj;
     markers.push(obj);
   }
+  for (const b of buildings) updateMarker(b);
 
   // Markers are HTML: cheap at rest, costly in motion (a layout and repaint per frame each). They hide while the
   // camera moves and come back when it rests, so moving costs what it did before there were markers.
@@ -119,7 +124,9 @@ function start(doc, local, quality) {
   const runMarks = new Map();
   const workMarks = new Map();
   let workSignature = "";
+  let lastJobs = [];
   function showWork(jobs) {
+    lastJobs = Array.isArray(jobs) ? jobs : [];
     const active = new Map((Array.isArray(jobs) ? jobs : []).filter(j => ["running", "stopping"].includes(j.state)).map(j => [j.repo, j]));
     const signature = JSON.stringify([...active].map(([repo, j]) => [repo, j.id, j.provider, j.state]));
     if (signature === workSignature) return;
@@ -223,11 +230,134 @@ function start(doc, local, quality) {
     step: (d) => {
       const b = state.selected;
       if (!b) return;
-      const list = b.island.buildings, next = list[(list.indexOf(b) + d + list.length) % list.length];
+      const list = b.island.buildings.filter(item => item.onMap !== false), next = list[(list.indexOf(b) + d + list.length) % list.length];
+      if (!next) return;
       select(next.repo, { fly: true });
     },
   };
   const ui = createUI(app);
+
+  // Keep scene objects and the camera alive across catalog changes. Only plots
+  // belonging to changed islands need new instances; the terrain stays put.
+  const footprint = spot => JSON.stringify(spot.cells.map(c => [c.repo.id, c.x, c.z]));
+  const surfaces = spot => JSON.stringify(spot.cells.map(c => [c.repo.id, !!c.repo.hidden, !!c.repo.onMachine, c.repo.sites]));
+  const buildingShape = repo => JSON.stringify([repo.stage, repo.sizeKB, repo.recency, repo.homepage, repo.openPRs, repo.sites]);
+  for (const isl of islands) {
+    isl.footprint = footprint(isl.spot); isl.surfaces = surfaces(isl.spot); isl.radius = isl.spot.radius;
+  }
+  function addScenery(isl) {
+    if (isl.scenery) {
+      isl.scenery.traverse(mesh => {
+        if (!mesh.isInstancedMesh) return;
+        mesh.dispose();
+        if (mesh.material !== shared.pole) mesh.material.dispose();
+      });
+      isl.scenery.removeFromParent();
+    }
+    isl.scenery = new THREE.Group();
+    isl.group.add(isl.scenery);
+    decorate({ ...isl, group: isl.scenery }, shared, shadows, quality.tier === "low");
+  }
+  function updateCatalog(fresh) {
+    if (!Array.isArray(fresh?.repos) || !Array.isArray(fresh?.families)) return;
+    Object.assign(doc, fresh);
+    const previousExtent = plan.extent;
+    reconcileLayout(plan, doc);
+    if (plan.extent > previousExtent) world.frame(plan.extent);
+    for (const b of buildings) b.onMap = false;
+    for (const spot of plan.islands) {
+      let isl = islands.find(i => i.spot.id === spot.id);
+      if (!isl) {
+        isl = buildIsland(spot, shared, shadows); isl.shadows = shadows;
+        scene.add(isl.group); islands.push(isl);
+        isl.label.addEventListener("click", e => { e.stopPropagation(); focusIsland(isl); });
+        harbors?.add(isl);
+      }
+      isl.buildings = [];
+      for (const cell of spot.cells) {
+        let b = byRepo.get(cell.repo.id);
+        // A scan may change one building's size or extra folders. Replace only
+        // that building; organization-only edits reuse the existing geometry.
+        if (b && buildingShape(b.repo) !== buildingShape(cell.repo)) {
+          const old = b;
+          b = new Building(cell.repo, cell, isl, shared, shadows);
+          buildings.splice(buildings.indexOf(old), 1, b); byRepo.set(cell.repo.id, b);
+          for (const mesh of old.pickables) pickables.splice(pickables.indexOf(mesh), 1);
+          pickables.push(...b.pickables);
+          if (old.pennant) pennants.splice(pennants.indexOf(old.pennant), 1);
+          if (b.pennant) pennants.push(b.pennant);
+          if (old.marker) { markers.splice(markers.indexOf(old.marker), 1); old.marker.removeFromParent(); }
+          for (const map of [runMarks, workMarks]) {
+            const marker = map.get(cell.repo.id);
+            if (marker) { marker.removeFromParent(); map.delete(cell.repo.id); }
+          }
+          if (state.selected === old) { state.selected = b; b.group.add(selTag); selTag.position.y = Math.max(b.height, b.flagTop || 0) + 2.4; }
+          if (state.hover === old) setHover(null);
+          state.moving.delete(old);
+          old.group.removeFromParent();
+          for (const material of old.facades) { material.map?.dispose(); material.emissiveMap?.dispose(); material.dispose(); }
+          for (const material of old.solids) material.dispose();
+          old.beam?.material.dispose();
+          old.group.traverse(mesh => { if (mesh.isLineSegments) mesh.geometry.dispose(); });
+        }
+        if (!b) {
+          b = new Building(cell.repo, cell, isl, shared, shadows);
+          buildings.push(b); byRepo.set(cell.repo.id, b);
+          pickables.push(...b.pickables);
+          if (b.pennant) pennants.push(b.pennant);
+        }
+        b.repo = cell.repo; b.cell = cell; b.island = isl;
+        b.onMap = !cell.repo.hidden;
+        if (b.group.parent !== isl.group) isl.group.add(b.group);
+        b.group.position.set(cell.x, 0.6, cell.z);
+        b.setNight(state.night);
+        updateMarker(b);
+        isl.buildings.push(b);
+      }
+      const visible = isl.buildings.filter(b => b.onMap);
+      isl.group.visible = visible.length > 0;
+      // Preserve the current bobbing offset as well as the horizontal position.
+      isl.group.position.x = spot.x; isl.group.position.z = spot.z;
+      isl.label.querySelector("b").textContent = spot.family.name;
+      isl.label.querySelector("i").textContent = visible.length;
+      if (isl.radius !== spot.radius) {
+        isl.rock.geometry.dispose();
+        isl.rock.geometry = islandGeometry(spot.radius, spot.seed, isl.color);
+        isl.tag.position.z = -spot.radius * 0.92;
+        isl.radius = spot.radius;
+      }
+      const shape = footprint(spot), surface = surfaces(spot);
+      if (isl.footprint !== shape) { addScenery(isl); isl.footprint = shape; }
+      if (isl.surfaces !== surface) {
+        const old = isl.plots;
+        isl.plots = new THREE.InstancedMesh(shared.geo.plot, old.material, Math.max(1, visible.length));
+        isl.plots.count = visible.length; isl.plots.receiveShadow = shadows; isl.plots.userData.island = spot;
+        const matrix = new THREE.Matrix4(), color = isl.color.clone().lerp(new THREE.Color("#d8d2c2"), 0.5);
+        visible.forEach((b, index) => {
+          isl.plots.setMatrixAt(index, matrix.makeTranslation(b.cell.x, 0.3, b.cell.z));
+          isl.plots.setColorAt(index, b.repo.onMachine ? color.clone().lerp(new THREE.Color("#fff4d6"), 0.35) : color.clone().multiplyScalar(0.94));
+        });
+        old.removeFromParent(); old.dispose(); isl.group.add(isl.plots);
+        if (isl.sheds) { isl.sheds.removeFromParent(); isl.sheds.dispose(); isl.sheds.material.dispose(); }
+        isl.sheds = buildSheds(isl, visible, shared, shadows);
+        isl.surfaces = surface;
+      }
+    }
+    for (const b of buildings) if (!b.onMap) b.apply();
+    islandMeshes.splice(0, islandMeshes.length, ...islands.flatMap(i => [i.rock, i.plots]));
+    rank.clear();
+    [...islands].filter(i => i.group.visible).sort((a, b) => b.buildings.filter(x => x.onMap).length - a.buildings.filter(x => x.onMap).length).forEach((isl, i) => rank.set(isl, i));
+    if (state.selected?.onMap === false) { state.fly = null; controls.enabled = true; deselect(); }
+    else if (state.selected) {
+      const b = state.selected;
+      b.island.group.add(selRing); selRing.position.set(b.cell.x, 0.68, b.cell.z);
+    }
+    setHover(null);
+    workSignature = ""; showWork(lastJobs);
+    setLens(state.lens); setTime(state.time);
+    if (local) refreshApps();
+    cullLabels(); wake();
+  }
 
   // ---------- camera ----------
   // Far enough that every island fits, seen from a little above so near and far districts overlap less.
@@ -347,7 +477,7 @@ function start(doc, local, quality) {
   // ---------- selection ----------
   function select(repo, { fly = false } = {}) {
     const b = byRepo.get(repo.id);
-    if (!b) return;
+    if (!b || b.onMap === false) return;
     state.selected = b;
     b.island.group.add(selRing);
     selRing.position.set(b.cell.x, 0.68, b.cell.z);
@@ -387,7 +517,7 @@ function start(doc, local, quality) {
     ray.setFromCamera(ndc, camera);
     const hit = ray.intersectObjects(pickables, false).find((h) => h.object.userData.building?.group.visible);
     if (hit) return { building: hit.object.userData.building };
-    const land = ray.intersectObjects(islandMeshes, false)[0];
+    const land = ray.intersectObjects(islandMeshes, false).find(h => h.object.parent.visible);
     return land ? { island: islands.find((i) => i.spot === land.object.userData.island) } : {};
   };
   function setHover(b) {
@@ -422,7 +552,7 @@ function start(doc, local, quality) {
   canvas.addEventListener("dblclick", (e) => {
     const p = pick(e.clientX, e.clientY);
     if (p.building) return;
-    const hit = ray.intersectObjects(islandMeshes, false)[0];
+    const hit = ray.intersectObjects(islandMeshes, false).find(h => h.object.parent.visible);
     if (hit) flyTo(hit.point, Math.max(controls.minDistance * 1.6, camera.position.distanceTo(controls.target) * 0.5));
   });
   // A right click opens actions; a right drag still rotates the world.
@@ -679,7 +809,7 @@ function start(doc, local, quality) {
   }
 
   // ---------- go ----------
-  window.addEventListener("resize", () => { world.resize(); if (embedded && !state.selected) { state.fly = null; controls.enabled = true; place(home()); } wake(); });
+  window.addEventListener("resize", () => { world.resize(); wake(); });
   document.addEventListener("visibilitychange", wake);
   world.resize();
   let night = params.get("night");
@@ -753,10 +883,11 @@ function start(doc, local, quality) {
   }
   state.ready = true;
   listenHost((message) => {
+    if (message.type === "catalog") updateCatalog(message.doc);
     if (message.type === "select") {
       const repo = byRepo.get(message.repo)?.repo;
       if (repo) select(repo, { fly: true });
-      else if (message.repo === null) goHome(false);
+      else if (message.repo === null) deselect();
     }
     if (message.type === "lens" && ["map", "changes", "where", "activity", "shipped", "working"].includes(message.lens)) setLens(message.lens);
     if (message.type === "district") {

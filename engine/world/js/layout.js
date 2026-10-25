@@ -68,3 +68,55 @@ function place(island, placed, rand) {
     }
   }
 }
+
+/** Reconcile a live catalog without repacking the world. Hidden plots keep their
+ * seats so undo/restore brings them back exactly where they were. */
+export function reconcileLayout(plan, doc) {
+  const repos = new Map(doc.repos.map(r => [r.id, r]));
+  const families = new Map(doc.families.map(f => [f.id, f]));
+  const seated = new Set();
+  for (const spot of plan.islands) {
+    spot.family = families.get(spot.id) || spot.family;
+    spot.cells = spot.cells.filter(cell => {
+      const repo = repos.get(cell.repo.id);
+      if (repo && repo.family !== spot.id) return false;
+      cell.repo = repo || { ...cell.repo, hidden: true };
+      seated.add(cell.repo.id);
+      return true;
+    });
+  }
+  for (const repo of doc.repos) {
+    if (seated.has(repo.id) || repo.hidden || !families.has(repo.family)) continue;
+    let spot = plan.islands.find(s => s.id === repo.family);
+    if (!spot) {
+      spot = layout({ families: [families.get(repo.family)], repos: [repo] }).islands[0];
+      place(spot, plan.islands, rng(spot.seed));
+      plan.islands.push(spot);
+      continue;
+    }
+    // Use the existing grid's phase, filling gaps before extending the island.
+    const anchor = spot.cells[0] || { x: 0, z: 0 };
+    const ox = anchor.x % PLOT, oz = anchor.z % PLOT;
+    let vacant;
+    for (let ring = 0; !vacant; ring++) {
+      const candidates = [];
+      for (let x = -ring; x <= ring; x++) for (let z = -ring; z <= ring; z++) {
+        if (Math.max(Math.abs(x), Math.abs(z)) !== ring) continue;
+        candidates.push({ x: x * PLOT + ox, z: z * PLOT + oz });
+      }
+      candidates.sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
+      vacant = candidates.find(c => !spot.cells.some(s => Math.hypot(s.x - c.x, s.z - c.z) < PLOT - 0.01));
+    }
+    spot.cells.push({ repo, ...vacant });
+    const radius = Math.max(spot.radius, Math.hypot(vacant.x, vacant.z) + PLOT);
+    if (radius > spot.radius) {
+      spot.radius = radius;
+      const neighbors = plan.islands.filter(s => s !== spot);
+      if (neighbors.some(s => Math.hypot(s.x - spot.x, s.z - spot.z) < s.radius + radius + GAP)) {
+        place(spot, neighbors, rng(spot.seed));
+      }
+    }
+  }
+  plan.extent = Math.max(plan.extent, ...plan.islands.map(s => Math.hypot(s.x, s.z) + s.radius));
+  return plan;
+}

@@ -83,6 +83,7 @@ export function createLife(world, islands, quality) {
       birds.push(b);
     }
     birds.centre = home.group.position;
+    birds.home = home.group;
   }
 
   return {
@@ -92,6 +93,7 @@ export function createLife(world, islands, quality) {
         f.puff.material.opacity = 0.42 + Math.sin(t * 1.4 + f.phase) * 0.12;
       }
       for (const b of birds) {
+        b.visible = birds.home.visible && world.night < 0.6;
         const u = b.userData, a = t * u.speed + u.phase, c = birds.centre;
         b.position.set(c.x + Math.cos(a) * u.r, c.y + u.y + Math.sin(t * 0.7 + u.phase) * 2, c.z + Math.sin(a) * u.r);
         b.rotation.set(0, -a, Math.sin(t * u.flap + u.phase) * 0.45);
@@ -99,7 +101,7 @@ export function createLife(world, islands, quality) {
     },
     setNight(n) {
       for (const f of falls) f.puff.material.color.setScalar(1 - n * 0.65);
-      for (const b of birds) b.visible = n < 0.6;
+      for (const b of birds) b.visible = birds.home.visible && n < 0.6;
     },
   };
 }
