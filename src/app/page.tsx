@@ -955,6 +955,7 @@ export default function Home() {
             catalogByService={catalogByService}
             serviceVram={gpu?.service_vram ?? {}}
             serviceRam={gpu?.service_ram ?? {}}
+            memory={{ vramTotalMb: gpu?.mem_total, vramUsedMb: gpu?.mem_used, ramTotalGb: gpu?.host_ram?.total_gb, ramUsedGb: gpu?.host_ram?.used_gb, unified: gpu?.memory_model === "unified" }}
             actionInProgress={actionInProgress}
             actionMessage={actionMessage}
             onDismissActionMessage={(id) => setActionMessage((message) => message?.id === id ? null : message)}

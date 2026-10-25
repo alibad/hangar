@@ -53,7 +53,21 @@ type Props = {
   onDismissActionMessage: (id: string) => void;
   onServiceAction: (id: string, action: "start" | "stop" | "restart") => void;
   onSelectTab: (tab: ConsoleTab) => void;
+  /** Whole-machine memory, for the map of which service holds what. */
+  memory?: { vramTotalMb?: number; vramUsedMb?: number; ramTotalGb?: number; ramUsedGb?: number; unified?: boolean };
 };
+
+/** Services by what they are for, so the list reads as a machine and not a flat inventory. */
+const GROUPS: { id: string; name: string; ids: string[] }[] = [
+  { id: "models", name: "Language models", ids: ["vllm", "vllm-small", "bonsai", "ollama", "ai-router"] },
+  { id: "voice", name: "Voice and music", ids: ["whisper", "tts", "voice", "music"] },
+  { id: "media", name: "Images, video and 3D", ids: ["qwen", "comfyui", "sam3d", "sam3", "trellis", "triposr", "laya"] },
+  { id: "apps", name: "Apps and tools", ids: ["project-engine", "webui", "process-engine", "searxng", "process-lab"] },
+  { id: "monitoring", name: "Monitoring", ids: ["grafana", "prometheus", "manager"] },
+];
+const groupOf = (id: string) => GROUPS.find(g => g.ids.includes(id))?.id || "other";
+/** One colour per service in the memory map, readable in light and dark. */
+const SEGMENT = ["#d97757", "#10a37f", "#4aa3ff", "#c084fc", "#f5b83d", "#2dd4bf", "#f472b6", "#84cc16", "#fb923c", "#60a5fa"];
 
 type Filter = "all" | "running" | "ondemand" | "attention" | "adopted";
 
@@ -93,7 +107,7 @@ const serviceDestinations: Partial<Record<string, { tab: ConsoleTab; label: stri
   "ai-router": { tab: "models", label: "View routing" },
 };
 
-export default function ServicesControlCenter({ services, catalogByService, serviceVram, serviceRam, actionInProgress, actionMessage, onDismissActionMessage, onServiceAction, onSelectTab }: Props) {
+export default function ServicesControlCenter({ services, catalogByService, serviceVram, serviceRam, actionInProgress, actionMessage, onDismissActionMessage, onServiceAction, onSelectTab, memory }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   // Estimates only — live VRAM/RAM arrive as props from the parent's /api/gpu poll.
@@ -138,6 +152,8 @@ export default function ServicesControlCenter({ services, catalogByService, serv
           <SummaryStat label="Using GPU" value={String(counts.gpu)} hint="resident footprints" />
         </div></section>
 
+      <MemoryMap services={services} serviceVram={serviceVram} serviceRam={serviceRam} memory={memory} selected={inspected?.id} onSelect={id => { setSelectedId(id); setFilter("all"); }} />
+
       <section className="cockpit-surface overflow-clip rounded-2xl border border-gray-800 bg-gray-900/75">
         <div className="services-toolbar flex flex-col gap-3 border-b border-gray-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex flex-wrap gap-1.5" aria-label="Filter services">
@@ -159,11 +175,20 @@ export default function ServicesControlCenter({ services, catalogByService, serv
              borders and a real gap draw the same separation without needing
              anything to bleed through. */
           view === "cards" ? <div className="grid gap-3 p-3 md:grid-cols-2 sm:p-4 xl:grid-cols-3">{shown.map(renderCard)}</div> :
-          <div className="services-workbench"><div className="services-table" role="group" aria-label="Local services">{shown.map(service => <button type="button" key={service.id} className="services-table-row" aria-label={"Inspect " + service.name} aria-current={inspected?.id === service.id ? "true" : undefined} onClick={() => { setSelectedId(service.id); if (window.matchMedia("(max-width: 1050px)").matches) document.getElementById("selected-service")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
-            <span><strong>{service.name}</strong><small>{catalogByService[service.id]?.map(model => model.id).join(" · ") || service.category}</small></span>
-            <span className={isReady(service) ? "text-emerald-400" : needsAttention(service) ? "text-amber-400" : "text-gray-500"}>{isReady(service) ? "Running" : isOnDemand(service) ? "On demand" : needsAttention(service) ? "Attention" : service.status}</span>
-            <span className="services-table-memory">{serviceVram[service.id]?.used_mb != null ? (serviceVram[service.id].used_mb / 1024).toFixed(1) + " GB VRAM" : serviceRam[service.id]?.rss_mb != null ? (serviceRam[service.id].rss_mb / 1024).toFixed(1) + " GB RAM" : "—"}</span><ArrowRight size={15} />
-          </button>)}</div><aside id="selected-service" className="services-inspector" aria-label="Selected service">{inspected && renderCard(inspected)}</aside></div>
+          <div className="services-workbench"><div className="services-table" role="group" aria-label="Local services">{[...GROUPS, { id: "other", name: "Other", ids: [] }].map(group => {
+            const members = shown.filter(service => groupOf(service.id) === group.id);
+            if (!members.length) return null;
+            const peak = Math.max(1, ...shown.map(x => serviceVram[x.id]?.used_mb ?? serviceRam[x.id]?.rss_mb ?? 0));
+            return <div key={group.id} className="services-group"><div className="services-group-head"><span>{group.name}</span><small>{members.filter(isReady).length} running · {members.length}</small></div>{members.map(service => {
+              const state = isReady(service) ? "running" : needsAttention(service) ? "attention" : isOnDemand(service) ? "ondemand" : "off";
+              const vram = serviceVram[service.id]?.used_mb, ram = serviceRam[service.id]?.rss_mb, mb = vram ?? ram ?? 0;
+              return <button type="button" key={service.id} className="services-table-row" aria-label={"Inspect " + service.name} aria-current={inspected?.id === service.id ? "true" : undefined} onClick={() => { setSelectedId(service.id); if (window.matchMedia("(max-width: 1050px)").matches) document.getElementById("selected-service")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>
+                <span className="services-row-name"><i className={`services-dot is-${state}`} aria-hidden="true" /><span><strong>{service.name}</strong><small>{catalogByService[service.id]?.map(model => model.id).join(" · ") || service.category}</small></span></span>
+                <span className={`services-state is-${state}`}>{state === "running" ? "Running" : state === "ondemand" ? "On demand" : state === "attention" ? "Attention" : service.status}</span>
+                <span className="services-table-memory">{mb >= 100 ? <><span className="services-mem-bar" aria-hidden="true"><i style={{ width: `${Math.max(4, mb / peak * 100)}%` }} className={vram != null ? "is-vram" : "is-ram"} /></span>{(mb / 1024).toFixed(1)} GB {vram != null ? "VRAM" : "RAM"}</> : "—"}</span><ArrowRight size={15} />
+              </button>;
+            })}</div>;
+          })}</div><aside id="selected-service" className="services-inspector" aria-label="Selected service">{inspected && renderCard(inspected)}</aside></div>
         ) : (
           <div className="px-6 py-16 text-center">
             <MagnifyingGlass size={24} className="mx-auto text-gray-700" />
@@ -497,4 +522,34 @@ function StatusPill({ running, healthy, attention, status }: { running: boolean;
       <Icon size={10} weight={running && healthy ? "fill" : "regular"} className={running && !healthy ? "animate-spin" : ""} />{label}
     </span>
   );
+}
+
+/** Which running service holds how much of the GPU and of the machine's RAM; a segment opens that service. */
+function MemoryMap({ services, serviceVram, serviceRam, memory, selected, onSelect }: {
+  services: ManagedService[]; serviceVram: Record<string, { used_mb: number }>; serviceRam: Record<string, { rss_mb: number }>;
+  memory?: Props["memory"]; selected?: string; onSelect: (id: string) => void;
+}) {
+  const colors = new Map(services.map((x, i) => [x.id, SEGMENT[i % SEGMENT.length]]));
+  const names = new Map(services.map(x => [x.id, x.name]));
+  // Memory can be reported for a process the service list does not name; it still gets a colour and its id.
+  const color = { get: (id: string) => colors.get(id) || SEGMENT[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % SEGMENT.length] };
+  const name = { get: (id: string) => names.get(id) || id };
+  const bar = (label: string, totalGb: number | undefined, usedGb: number | undefined, parts: { id: string; gb: number }[]) => {
+    const total = totalGb || Math.max(usedGb || 0, parts.reduce((n, x) => n + x.gb, 0)) || 1;
+    const known = parts.reduce((n, x) => n + x.gb, 0), other = Math.max(0, (usedGb ?? known) - known);
+    return <div className="services-mem-row">
+      <span className="services-mem-label"><b>{label}</b><small>{usedGb != null ? `${usedGb.toFixed(1)}` : known.toFixed(1)}{totalGb ? ` of ${totalGb.toFixed(0)} GB` : " GB in services"}</small></span>
+      <span className="services-mem-track" role="img" aria-label={`${label}: ${parts.map(x => `${name.get(x.id)} ${x.gb.toFixed(1)} GB`).join(", ") || "no service is holding memory"}`}>
+        {parts.map(x => <button key={x.id} type="button" className={`services-mem-seg ${selected === x.id ? "is-selected" : ""}`} style={{ width: `${x.gb / total * 100}%`, background: color.get(x.id) }} title={`${name.get(x.id)} · ${x.gb.toFixed(1)} GB`} aria-label={`${name.get(x.id)}, ${x.gb.toFixed(1)} GB`} onClick={() => onSelect(x.id)} />)}
+        {other > 0.05 && <i className="services-mem-other" style={{ width: `${other / total * 100}%` }} title={`Other programs · ${other.toFixed(1)} GB`} />}
+      </span>
+      <span className="services-mem-legend">{parts.slice(0, 6).map(x => <button key={x.id} type="button" onClick={() => onSelect(x.id)}><i style={{ background: color.get(x.id) }} />{name.get(x.id)}<small>{x.gb.toFixed(1)}</small></button>)}{other > 0.05 && <span><i className="services-mem-other" />Other programs<small>{other.toFixed(1)}</small></span>}</span>
+    </div>;
+  };
+  const gpuParts = Object.entries(serviceVram).filter(([, v]) => v.used_mb > 0).map(([id, v]) => ({ id, gb: v.used_mb / 1024 })).sort((a, b) => b.gb - a.gb);
+  const ramParts = Object.entries(serviceRam).filter(([, v]) => v.rss_mb > 50).map(([id, v]) => ({ id, gb: v.rss_mb / 1024 })).sort((a, b) => b.gb - a.gb);
+  return <section className="services-memory cockpit-surface" aria-label="Memory by service">
+    {!memory?.unified && bar("GPU memory", memory?.vramTotalMb ? memory.vramTotalMb / 1024 : undefined, memory?.vramUsedMb != null ? memory.vramUsedMb / 1024 : undefined, gpuParts)}
+    {bar(memory?.unified ? "Memory" : "System RAM", memory?.ramTotalGb, memory?.ramUsedGb, ramParts)}
+  </section>;
 }
