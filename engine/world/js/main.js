@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import { createWorld, detectQuality } from "./world.js";
 import { layout, reconcileLayout } from "./layout.js";
-import { Building, buildIsland, buildSheds, createShared, decorate, islandGeometry } from "./city.js";
+import { Building, buildIsland, buildSheds, createShared, decorate, islandGeometry, setModelStyle, currentModelStyle } from "./city.js";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { lensById, pending, CHANGE } from "./lenses.js";
 import { createUI } from "./ui.js";
@@ -52,6 +52,7 @@ function start(doc, local, quality) {
   document.body.classList.toggle("lite", quality.tier === "low");
 
   // ---------- build ----------
+  try { setModelStyle(new URLSearchParams(location.search).get("style") || localStorage.getItem("bt-world-style")); } catch { /* storage may be unavailable */ }
   const plan = layout(doc);
   const shared = createShared();
   const islands = [], buildings = [], byRepo = new Map();
@@ -278,7 +279,7 @@ function start(doc, local, quality) {
         let b = byRepo.get(cell.repo.id);
         // A scan may change one building's size or extra folders. Replace only
         // that building; organization-only edits reuse the existing geometry.
-        if (b && buildingShape(b.repo) !== buildingShape(cell.repo)) {
+        if (b && (buildingShape(b.repo) !== buildingShape(cell.repo) || b.style !== currentModelStyle())) {
           const old = b;
           b = new Building(cell.repo, cell, isl, shared, shadows);
           buildings.splice(buildings.indexOf(old), 1, b); byRepo.set(cell.repo.id, b);
@@ -906,6 +907,7 @@ function start(doc, local, quality) {
       if (/^#[0-9a-f]{6}$/i.test(palette.door || "")) selRing.material.color.set(palette.door);
       wake();
     }
+    if (message.type === "style" && setModelStyle(message.style)) updateCatalog(doc);
     if (message.type === "map-controls") document.body.classList.toggle("show-map-controls", !!message.visible);
     if (message.type === "work") showWork(message.jobs);
     if (message.type === "visibility") {

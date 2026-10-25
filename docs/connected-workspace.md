@@ -186,6 +186,12 @@ sandbox is not enforced on every platform. Drawings stay in local engine storage
 (`var/engine/architecture/`) and open in a sandboxed frame with no network. Install
 the skill once with `npx skills add tt-a1i/archify -g`; Node.js runs its checks.
 
+The world can be drawn in two styles, chosen under World style in the theme
+picker: Buildings (a city of lots, houses and towers) or Airplanes (a hangar of
+gliders, prop planes, jets and jumbos). Both use the same facts: stage sets the
+size, the island colour the paint, recent work the lit windows. The choice is
+kept per browser, and switching it swaps the models in place.
+
 Timeline groups local Git history across refs into monthly chapters with commit
 subjects and local tags. It includes up to 20,000 commits; absent remote history
 needs a fetch. Both views require a checkout on the selected machine.

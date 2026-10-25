@@ -45,7 +45,7 @@ async function json<T>(path: string, body?: unknown, signal?: AbortSignal): Prom
 }
 
 export default function ConnectedWorkspace({ view, active, onSelect }: { view: View; active: boolean; onSelect: (tab: ConsoleTab) => void }) {
-  const { theme, palette } = useTheme();
+  const { theme, palette, worldStyle } = useTheme();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [machine, setMachine] = useState("local");
   const [statuses, setStatuses] = useState<Record<string, MachineStatus>>({});
@@ -216,6 +216,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     return () => window.removeEventListener("message", receive);
   }, [doc]);
   useEffect(() => { if (ready) send("lens", { lens }); }, [ready, lens, send]);
+  useEffect(() => { if (ready) send("style", { style: worldStyle }); }, [ready, worldStyle, send]);
   useEffect(() => {
     if (!ready) return;
     // Read the colours after the theme provider has applied the new palette and mode to the document.

@@ -28,6 +28,30 @@ const STUFF = {
   warehouse: { facade: ["#cbc6ba", "#bfbaae", "#c7c0b0"], roof: ["#7f8b96", "#8b939a"], metal: 0.1, rough: 0.8 },
 };
 const pickOf = (list, rand) => list[Math.floor(rand() * list.length) % list.length];
+// ---------- model styles ----------
+// The same project facts can be drawn as buildings (the default) or as aircraft in a hangar. For aircraft the
+// stage sets the class, size the scale, the island colour the livery and recent work the lit cabin windows.
+export const MODEL_STYLES = ["buildings", "airplanes"];
+let modelStyle = "buildings";
+export function setModelStyle(next) {
+  if (!MODEL_STYLES.includes(next) || next === modelStyle) return false;
+  modelStyle = next;
+  return true;
+}
+export const currentModelStyle = () => modelStyle;
+
+// len/body/span/chord in plot units; wing: 0 low, 0.5 mid, 1 high; sweep in radians.
+const AIRCRAFT = {
+  lot: { len: 2.5, body: 0.4, span: 4.6, chord: 0.42, wing: 0.5, sweep: 0, fin: 0.75, glider: true },
+  tent: { len: 3.0, body: 0.72, span: 4.6, chord: 0.72, wing: 1, sweep: 0, fin: 0.95, nose: "prop" },
+  house: { len: 3.8, body: 0.9, span: 5.0, chord: 0.95, wing: 0, sweep: 0.06, fin: 1.15, nose: "prop" },
+  midrise: { len: 4.7, body: 0.95, span: 4.9, chord: 1.0, wing: 0, sweep: 0.36, fin: 1.4, rear: 2, tTail: true },
+  tower: { len: 6.0, body: 1.25, span: 6.3, chord: 1.35, wing: 0, sweep: 0.42, fin: 1.95, under: 2 },
+  skyscraper: { len: 7.0, body: 1.5, span: 7.4, chord: 1.6, wing: 0, sweep: 0.46, fin: 2.5, under: 4, hump: true },
+  warehouse: { len: 5.3, body: 1.5, span: 6.6, chord: 1.2, wing: 1, sweep: 0, fin: 2.0, under: 2, props: true, tTail: true },
+};
+const FUSELAGE = ["#f4f6f8", "#eef1f5", "#f7f3ec", "#e9edf2"];
+
 
 // ---------- shared resources ----------
 
@@ -95,7 +119,12 @@ export function createShared() {
       crown: new THREE.ConeGeometry(0.85, 2.0, 6).translate(0, 1.0, 0),
       rock: new THREE.DodecahedronGeometry(1, 0),
       pennant: pennantGeometry(),
+      // Aircraft parts: a nose cone pointing +x with a square base the size of a unit box, and a nacelle along x.
+      nose: new THREE.ConeGeometry(Math.SQRT1_2, 1, 4, 1).rotateY(Math.PI / 4).rotateZ(-Math.PI / 2),
+      nacelle: new THREE.CylinderGeometry(0.5, 0.42, 1, 10).rotateZ(-Math.PI / 2),
     },
+    metal: new THREE.MeshStandardMaterial({ color: "#a7afb8", roughness: 0.38, metalness: 0.55 }),
+    rubber: new THREE.MeshStandardMaterial({ color: "#2a2e35", roughness: 0.9 }),
   };
 }
 
@@ -249,6 +278,7 @@ export class Building {
       ? new THREE.Color(pickOf(this.stuff.roof, rand))
       : new THREE.Color(pickOf(this.stuff.roof, rand)).lerp(familyColor(repo.family), 0.35);
     this.height = 0;
+    this.style = modelStyle;
     this.make(rand, shadows);
     island.group.add(this.group);
     this.state = { tint: this.base.clone(), dim: 0, ghost: false, glow: 0, born: 1, hover: 0 };
@@ -297,7 +327,8 @@ export class Building {
       return y + h;
     };
     let top = 0;
-    switch (r.stage) {
+    if (this.style === "airplanes") top = this.aircraft(rand, shadows);
+    else switch (r.stage) {
       case "lot": {
         for (let i = 0; i < 3; i++) this.add(g.mound, this.shared.dirt, (rand() - 0.5) * 3, 0, (rand() - 0.5) * 3, 0.7 + rand() * 0.6, 0.4 + rand() * 0.4, 0.7 + rand() * 0.6, shadows);
         this.add(g.pole, this.shared.pole, 1.6, 0, 1.6, 1, 1.6, 1, shadows);
@@ -366,9 +397,9 @@ export class Building {
     }
     if (r.openPRs) {
       // An orange pennant on the roof: pull requests waiting on you. Bigger when more are waiting.
-      const k = 1.5 + Math.min(r.openPRs, 10) * 0.1, x = r.stage === "tent" ? 0.6 : 1.1;
-      this.add(g.pole, this.shared.pole, x, top - 0.1, x * 0.3, 1, 2.4 * k, 1, shadows, false);
-      this.pennant = this.add(g.pennant, this.shared.flag, x, top + 1.25 * k, x * 0.3, k, k, k, shadows, false);
+      const k = 1.5 + Math.min(r.openPRs, 10) * 0.1, x = this.mount?.x ?? (r.stage === "tent" ? 0.6 : 1.1), z = this.mount?.z ?? x * 0.3;
+      this.add(g.pole, this.shared.pole, x, top - 0.1, z, 1, 2.4 * k, 1, shadows, false);
+      this.pennant = this.add(g.pennant, this.shared.flag, x, top + 1.25 * k, z, k, k, k, shadows, false);
       this.pennant.rotation.y = -0.6;
       this.flagTop = top + 2.4 * k;
     }
@@ -377,6 +408,55 @@ export class Building {
       role: s.role,
       spare: !!s.spare && s.spare.commitsElsewhere && !s.spare.ignored.length && !s.spare.ignoredMore && !(s.dirty || 0),
     }));
+  }
+
+  /** An aircraft parked on the plot, nose along the island's diagonal. Returns the top of its tail fin. */
+  aircraft(rand, shadows) {
+    const r = this.repo, g = this.shared.geo, spec = AIRCRAFT[r.stage] || AIRCRAFT.house;
+    const k = (1 + span(r.stage, r.sizeKB || 0) * 0.14) * 1.12;
+    const len = spec.len * k, body = spec.body * k, wingSpan = spec.span * k, chord = spec.chord * k;
+    const thick = (spec.glider ? 0.06 : 0.1) * k, gear = spec.glider ? 0.14 : 0.34 * k, y0 = gear + body / 2;
+    this.group.rotation.y = -Math.PI / 4 + (rand() - 0.5) * 0.16;
+    // White fuselage with a row of cabin windows on each side; the island's colour is the livery.
+    this.base.set(pickOf(FUSELAGE, rand));
+    this.roofColor = familyColor(r.family).offsetHSL(0, 0.28, -0.24);  // a deeper shade of the island, so planes stand out from its ground
+    const paint = new THREE.MeshStandardMaterial({ color: this.base.clone(), roughness: 0.5, metalness: 0.06, flatShading: true });
+    this.facades.push(paint);
+    const cabin = len * 0.6, windows = this.facade(cabin * 2.1, 1.35, body, rand), livery = this.roof();
+    const front = -len * 0.04 + cabin / 2, back = -len * 0.04 - cabin / 2, noseLen = len * 0.18, tailLen = len * 0.26;
+    this.add(g.box, [paint, paint, paint, paint, windows, windows], -len * 0.04, y0, 0, cabin, body, body, shadows);
+    this.add(g.nose, paint, front + noseLen / 2, y0, 0, noseLen, body, body, shadows);
+    const tail = this.add(g.nose, paint, back - tailLen / 2, y0 + body * 0.12, 0, tailLen, body * 0.82, body * 0.9, shadows);
+    tail.rotation.y = Math.PI;
+    const wing = (x, y, width, c, sweep, mat) => {
+      for (const side of [-1, 1]) {
+        const half = width / 2;
+        const m = this.add(g.box, mat, x - Math.sin(sweep) * half / 2, y, side * Math.cos(sweep) * half / 2, c, thick, half, shadows);
+        m.rotation.y = -side * sweep;
+      }
+    };
+    const wingY = gear + body * (spec.wing === 1 ? 0.96 : spec.wing === 0.5 ? 0.5 : 0.14), wingX = -len * 0.04 + cabin * 0.06;
+    wing(wingX, wingY, wingSpan, chord, spec.sweep, livery);
+    // A swept fin with a long root reads as a tail from any angle; a tall thin one reads as a pole.
+    const finH = spec.fin * k * 0.72, tailX = back - tailLen * 0.42;
+    const fin = this.add(g.box, livery, tailX, y0 + body / 2 + finH / 2, 0, Math.max(chord * 1.05, tailLen * 0.7), finH, Math.max(thick * 1.6, 0.14 * k), shadows);
+    fin.rotation.z = 0.5;
+    wing(tailX - finH * 0.3, spec.tTail ? y0 + body / 2 + finH * 0.95 : y0 + body * 0.18, wingSpan * 0.36, chord * 0.6, spec.sweep, livery);
+    const nacelle = (x, y, z, size) => this.add(g.nacelle, this.shared.metal, x, y, z, size * 1.9, size, size, shadows);
+    if (spec.under) {
+      const reach = wingSpan / 2, places = spec.under === 4 ? [0.3, 0.56] : [0.34];
+      for (const f of places) for (const side of [-1, 1]) nacelle(wingX - Math.sin(spec.sweep) * reach * f + chord * 0.25, wingY - body * (spec.wing === 1 ? -0.05 : 0.3), side * reach * f, body * 0.4);
+    }
+    if (spec.rear) for (const side of [-1, 1]) nacelle(tailX + tailLen * 0.15, y0 + body * 0.25, side * body * 0.85, body * 0.42);
+    if (spec.nose === "prop" || spec.props) {
+      // Propellers: one on the nose, or one on each wing engine.
+      const blades = spec.props ? [-1, 1].map(side => [wingX + chord * 0.75, wingY - body * 0.05, side * wingSpan * 0.17]) : [[front + noseLen + 0.04, y0, 0]];
+      for (const [x, y, z] of blades) this.add(g.box, this.shared.rubber, x, y, z, 0.06, body * (spec.props ? 1.1 : 1.5), body * 0.16, shadows, false);
+    }
+    if (spec.hump) this.add(g.box, paint, front - cabin * 0.2, y0 + body * 0.55, 0, cabin * 0.34, body * 0.38, body * 0.78, shadows);
+    if (!spec.glider) this.add(g.box, this.shared.rubber, wingX, gear / 2, 0, chord * 0.7, gear, body * 0.7, shadows, false);
+    this.mount = { x: tailX, z: 0 };
+    return y0 + body / 2 + finH;
   }
 
   /** Placed by the island after construction: the small sheds that stand for extra local folders. */

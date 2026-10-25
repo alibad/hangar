@@ -3,19 +3,29 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { DEFAULT_THEME, isThemeId, type ThemeId } from "@/lib/themes";
 
 type Mode = "dark" | "light";
+/** How projects are drawn in the world. Kept per browser; the map reads the same key when it boots. */
+export type WorldStyle = "buildings" | "airplanes";
+export const WORLD_STYLES: { id: WorldStyle; name: string; hint: string }[] = [
+  { id: "buildings", name: "Buildings", hint: "A city: lots, houses, towers" },
+  { id: "airplanes", name: "Airplanes", hint: "A hangar: gliders up to jumbos" },
+];
+const isWorldStyle = (v: unknown): v is WorldStyle => WORLD_STYLES.some(s => s.id === v);
 
 const Ctx = createContext<{
   theme: Mode;
   toggle: () => void;
   palette: ThemeId;
   setPalette: (p: ThemeId) => void;
-}>({ theme: "dark", toggle: () => {}, palette: DEFAULT_THEME, setPalette: () => {} });
+  worldStyle: WorldStyle;
+  setWorldStyle: (s: WorldStyle) => void;
+}>({ theme: "dark", toggle: () => {}, palette: DEFAULT_THEME, setPalette: () => {}, worldStyle: "buildings", setWorldStyle: () => {} });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // Keep SSR and the browser's first React render deterministic. The inline
   // script in layout.tsx handles the pre-paint DOM class and palette.
   const [theme, setTheme] = useState<Mode>("dark");
   const [palette, setPaletteState] = useState<ThemeId>(DEFAULT_THEME);
+  const [worldStyle, setWorldStyleState] = useState<WorldStyle>("buildings");
   const [hydrated, setHydrated] = useState(false);
 
   // SSR and the browser's first render must use the same values. layout.tsx
@@ -26,6 +36,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const savedPalette = localStorage.getItem("bt-palette");
     setTheme(savedTheme === "light" ? "light" : "dark");
     setPaletteState(isThemeId(savedPalette) ? savedPalette : DEFAULT_THEME);
+    const savedStyle = localStorage.getItem("bt-world-style");
+    setWorldStyleState(isWorldStyle(savedStyle) ? savedStyle : "buildings");
     setHydrated(true);
   }, []);
 
@@ -52,7 +64,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setPaletteState(p);
   }
 
-  return <Ctx.Provider value={{ theme, toggle, palette, setPalette }}>{children}</Ctx.Provider>;
+  function setWorldStyle(s: WorldStyle) {
+    try { localStorage.setItem("bt-world-style", s); } catch { /* keep the choice for this visit */ }
+    setWorldStyleState(s);
+  }
+
+  return <Ctx.Provider value={{ theme, toggle, palette, setPalette, worldStyle, setWorldStyle }}>{children}</Ctx.Provider>;
 }
 
 export const useTheme = () => useContext(Ctx);
