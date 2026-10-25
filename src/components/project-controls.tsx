@@ -2,15 +2,18 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { mapPalette } from "@/lib/map-palette";
-import { Eye, EyeOff, FolderOpen, PanelRightOpen, Star, Pause, X } from "lucide-react";
+import { AppWindow, Eye, EyeOff, FolderOpen, PanelRightOpen, Play, Square, Star, Pause, X } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import "./project-controls.css";
 
 export type ProjectChoice = { id: string; name: string; hidden?: boolean; hiddenByIsland?: string; attention?: string | null; sites: unknown[] };
 export type ProjectMenuTarget = { project: ProjectChoice; x: number; y: number; inPane?: boolean };
 type Attention = "focus" | "parked" | "hidden" | null;
-export function ProjectContextMenu({ target, local, onClose, onOpen, onAttention, onFolder }: {
+/** What runs in a project, as the engine reports it: listening ports and the targets it knows how to start. */
+export type AppChoice = { running: { port: number; by: string }[]; apps: { label: string; dir: string; targets: { id: string; label: string; ok: boolean; port?: number }[] }[]; jobs?: Record<string, { state?: string; port?: number }> };
+export function ProjectContextMenu({ target, local, app, onApp, onClose, onOpen, onAttention, onFolder }: {
   target: ProjectMenuTarget; local: boolean; onClose: () => void;
+  app?: AppChoice; onApp?: (body: Record<string, unknown>) => void;
   onOpen: (repo: string, tab: "work" | "repository") => void;
   onAttention: (project: ProjectChoice, attention: Attention) => void;
   onFolder: (repo: string) => void;
@@ -28,6 +31,14 @@ export function ProjectContextMenu({ target, local, onClose, onOpen, onAttention
   }, [target]);
   const run = (action: () => void) => { onClose(); action(); };
   const project = target.project;
+  const live = app?.running || [];
+  const runnable = (app?.apps || []).flatMap(a => a.targets.filter(t => t.ok).map(t => ({ key: `${a.dir}:${t.id}`, t, job: app?.jobs?.[`${a.dir}:${t.id}`] || {} })))
+    .filter(({ t, job }) => job.state !== "starting" && !((job.state === "running" && !!job.port && live.some(p => p.port === job.port)) || (t.port ? live.some(p => p.port === t.port) : live.length > 0)));
+  const appItems = local && onApp ? [
+    ...live.map(x => <button key={`open-${x.port}`} role="menuitem" onClick={() => run(() => onApp({ action: "open", port: x.port, how: "window" }))}><AppWindow size={16} />Open :{x.port}</button>),
+    ...runnable.map(({ key, t }) => <button key={`run-${key}`} role="menuitem" onClick={() => run(() => onApp({ action: "start", target: t.id }))}><Play size={16} />Run {t.label.toLowerCase()}</button>),
+    ...live.filter(x => x.by === "atlas").map(x => <button key={`stop-${x.port}`} role="menuitem" onClick={() => run(() => onApp({ action: "stop", port: x.port }))}><Square size={15} />Stop :{x.port}</button>),
+  ] : [];
   return <dialog ref={ref} className="project-menu" aria-label={`Actions for ${project.name}`} onCancel={onClose} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
     <div role="menu" aria-label={`Project actions: ${project.name}`} onKeyDown={e => {
       if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
@@ -40,6 +51,7 @@ export function ProjectContextMenu({ target, local, onClose, onOpen, onAttention
       {!target.inPane && <><button role="menuitem" onClick={() => run(() => onOpen(project.id, "work"))}><PanelRightOpen size={16} />Open work pane</button>
       <button role="menuitem" onClick={() => run(() => onOpen(project.id, "repository"))}><FolderOpen size={16} />Repository tools &amp; notes</button>
       <hr /></>}
+      {appItems.length > 0 && <>{appItems}<hr /></>}
       <button role="menuitemcheckbox" aria-checked={project.attention === "focus" && !project.hidden} onClick={() => run(() => onAttention(project, project.attention === "focus" ? null : "focus"))}><Star size={16} />{project.attention === "focus" ? "Remove from Focus" : "Focus · important now"}</button>
       <button role="menuitemcheckbox" aria-checked={project.attention === "parked" && !project.hidden} onClick={() => run(() => onAttention(project, project.attention === "parked" ? null : "parked"))}><Pause size={16} />{project.attention === "parked" ? "Unpark · keep category" : "Park · relevant, but later"}</button>
       <button role="menuitem" onClick={() => run(() => onAttention(project, project.hidden ? null : "hidden"))}>{project.hidden ? <Eye size={16} /> : <EyeOff size={16} />}{project.hidden ? "Bring back onto map" : "Off the map · not relevant…"}</button>

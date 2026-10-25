@@ -205,3 +205,32 @@
 .cw-lens-legend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .cw-lens-legend i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 @media(max-width:600px){.connected-workspace .cw-world-bar{flex-wrap:wrap}.cw-world-bar .cw-search-wrap{flex:1 1 100%}.cw-world-bar .cw-action-counts{max-width:100%}.cw-lens-legend{display:none}}
+/* The map's own bar: home and search top left; one menu for layers, history and islands top right. */
+.cw-map-left{position:absolute;top:14px;left:14px;z-index:5;display:flex;align-items:flex-start;gap:6px;max-width:calc(100% - 130px)}
+.connected-workspace .cw-map-left .cw-map-home{width:36px;min-height:36px;display:grid;place-items:center;padding:0;border-radius:10px;background:var(--cw-map-panel);color:var(--cw-map-ink);border:1px solid var(--cw-map-line);flex-shrink:0}
+.cw-map-left .cw-search-wrap{width:min(300px,100%)}
+.connected-workspace .cw-map-left .cw-search{margin:0;padding:8px 12px;min-height:36px;border-radius:10px;background:var(--cw-map-panel);border-color:var(--cw-map-line);backdrop-filter:blur(10px)}
+.cw-map-menu{position:relative}
+.connected-workspace .cw-world-tools .cw-map-menu>button{position:relative;display:grid;place-items:center;width:36px;min-height:36px;padding:0}
+.cw-map-menu-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:var(--hangar-primary)}
+.cw-map-menu-panel{position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:290px;max-height:min(520px,calc(100dvh - 140px));overflow:auto;padding:6px;border:1px solid var(--cw-line);border-radius:14px;background:var(--workspace-panel);box-shadow:0 18px 40px #0003;color:var(--cw-ink)}
+.cw-map-menu-panel>p{margin:6px 8px 4px;font-size:10px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--cw-muted)}
+.cw-map-menu-panel hr{border:0;border-top:1px solid var(--cw-line);margin:6px 4px}
+.connected-workspace .cw-world-tools .cw-map-menu-panel button{display:flex;align-items:flex-start;justify-content:flex-start;gap:10px;width:100%;min-height:0;padding:8px;border:0;border-radius:9px;background:transparent;color:var(--cw-ink);text-align:start;font-size:12.5px}
+.connected-workspace .cw-world-tools .cw-map-menu-panel button:hover{background:color-mix(in oklab,var(--cw-ink) 6%,transparent)}
+.cw-map-menu-panel button>span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cw-map-menu-panel b{font-weight:550}
+.cw-map-menu-panel small{display:flex;align-items:center;gap:6px;color:var(--cw-muted);font-size:11px;line-height:1.35}
+.cw-check{flex:0 0 18px;height:18px;display:grid;place-items:center;border:1px solid var(--cw-line);border-radius:5px;margin-top:1px;color:var(--hangar-primary)}
+.cw-map-menu-panel [aria-checked=true] .cw-check{background:var(--hangar-primary-soft);border-color:var(--hangar-primary)}
+.cw-swatches{display:inline-flex;gap:2px;flex-shrink:0}.cw-swatches i{width:7px;height:7px;border-radius:50%}
+.connected-workspace .cw-world-tools .cw-map-menu-panel .cw-map-menu-reset{justify-content:center;color:var(--hangar-primary);font-size:12px;margin-top:2px}
+/* Work tab app rows: soft pills to open, stop or run. */
+.cw-app-line{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--cw-line);font-size:12px;min-width:0}
+.cw-app-line small{color:var(--cw-muted);font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cw-app-acts{margin-inline-start:auto;display:flex;gap:6px;flex-shrink:0}
+.connected-workspace .cw-pill{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:4px 11px;border-radius:999px;border:1px solid color-mix(in oklab,var(--hangar-primary) 28%,transparent);background:var(--hangar-primary-soft);color:var(--hangar-primary);font-size:12px;font-weight:550}
+.connected-workspace .cw-pill:hover:not(:disabled){background:var(--hangar-primary-fill);border-color:var(--hangar-primary-fill);color:var(--hangar-on-primary)}
+.connected-workspace .cw-pill.is-quiet{background:transparent;border-color:var(--cw-line);color:var(--cw-muted)}
+.connected-workspace .cw-pill.is-quiet:hover:not(:disabled){background:color-mix(in oklab,var(--err-400) 14%,transparent);border-color:var(--err-400);color:var(--err-400)}
+@media(max-width:600px){.cw-map-left{max-width:calc(100% - 110px)}.cw-map-left .cw-search kbd{display:none}}
