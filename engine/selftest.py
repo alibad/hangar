@@ -70,6 +70,23 @@ class ArchitectureDrawings(unittest.TestCase):
         self.assertIn("too old", failure_hint("error: unknown option '--no-session-persistence'"))
         self.assertIn("sign in", failure_hint("Please run /login"))
 
+    def test_agents_use_their_own_sign_in_not_api_keys(self):
+        from hangar_engine import config
+        saved = {k: os.environ.get(k) for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "HANGAR_SELFTEST_KEEP")}
+        os.environ.update({"ANTHROPIC_API_KEY": "sk-test", "OPENAI_API_KEY": "sk-test", "HANGAR_SELFTEST_KEEP": "1"})
+        try:
+            agent = config.child_env(agent=True)
+            self.assertNotIn("ANTHROPIC_API_KEY", agent)
+            self.assertNotIn("OPENAI_API_KEY", agent)
+            self.assertEqual(agent["HANGAR_SELFTEST_KEEP"], "1")
+            self.assertEqual(config.child_env(extra={"CI": ""})["CI"], "")
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
 
 class IndependentEngine(unittest.TestCase):
     @classmethod

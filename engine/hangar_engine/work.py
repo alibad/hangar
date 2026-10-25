@@ -134,7 +134,7 @@ def begin(doc, overlay, rid, provider, prompt, session=None, kind="code", read_d
                                      for j in _jobs.values()):
             raise ValueError("This checkout has an active or unobserved Hangar job. Inspect it before starting another.")
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        process = subprocess.Popen(argv, cwd=folder, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        process = subprocess.Popen(argv, cwd=folder, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=config.child_env(agent=True),
                                    stderr=subprocess.STDOUT, creationflags=flags, start_new_session=os.name != "nt")
         jid = uuid.uuid4().hex
         job = {"id": jid, "repo": repo["id"], "project": repo["name"], "provider": provider,

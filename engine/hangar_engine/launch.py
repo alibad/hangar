@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from urllib.parse import urlencode
 
+from . import config
+
 # What a session is asked first, by what is waiting on the repo. Each one looks and proposes; none changes anything.
 INTENTS = {
     "commit": "Look at the uncommitted changes in this repo and suggest how to commit them. Don't commit anything until I say so.",
@@ -112,7 +114,7 @@ def _open_os(target):
 def _terminal(folder, cmd):
     """Run an agent's command line in a new terminal window, in that folder."""
     if sys.platform == "win32":
-        subprocess.Popen(cmd, cwd=folder, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        subprocess.Popen(cmd, cwd=folder, creationflags=subprocess.CREATE_NEW_CONSOLE, env=config.child_env(agent=True))
     elif sys.platform == "darwin":
         line = f"cd {shlex.quote(folder)} && {shlex.join(cmd)}"
         line = line.replace("\\", "\\\\").replace('"', '\\"')
@@ -121,7 +123,7 @@ def _terminal(folder, cmd):
         term = shutil.which("x-terminal-emulator") or shutil.which("gnome-terminal")
         if not term:
             raise LaunchError("No terminal found to start it in.")
-        subprocess.Popen([term, "--", *cmd] if term.endswith("gnome-terminal") else [term, "-e", shlex.join(cmd)], cwd=folder, **QUIET)
+        subprocess.Popen([term, "--", *cmd] if term.endswith("gnome-terminal") else [term, "-e", shlex.join(cmd)], cwd=folder, env=config.child_env(agent=True), **QUIET)
 
 
 def open_in(app_id, folder, intent=None):
@@ -142,7 +144,8 @@ def open_in(app_id, folder, intent=None):
             subprocess.Popen(["open", "-a", "Cursor", folder], **QUIET)
         elif app_id in ("code", "cursor"):
             exe = shutil.which(app_id) or shutil.which(f"{app_id}.cmd") or str(Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "cursor" / "Cursor.exe")
-            subprocess.Popen([exe, folder], close_fds=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), **QUIET)
+            # Editors start terminals and agents of their own: they get the same clean environment.
+            subprocess.Popen([exe, folder], close_fds=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), env=config.child_env(agent=True), **QUIET)
         else:
             _open_os(folder)
     except OSError as e:

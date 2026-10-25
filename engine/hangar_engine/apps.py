@@ -461,12 +461,13 @@ def start(repo, folder, target_id, open_how="window"):
 
     def run():
         try:
-            env = {**os.environ, "BROWSER": "none", "FORCE_COLOR": "0", "CI": "", "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"}
+            # The project reads its own .env; Hangar's settings and keys stay out of it.
+            env = config.child_env(extra={"BROWSER": "none", "FORCE_COLOR": "0", "CI": "", "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"})
             if target["type"] == "terminal":
                 cmd = _resolve(target["run"])
                 if sys.platform == "win32":
                     # One string, quoted once: cmd strips the outer quotes and keeps "C:\Program Files\..." intact.
-                    subprocess.Popen(terminal_line(cmd), cwd=cwd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                    subprocess.Popen(terminal_line(cmd), cwd=cwd, creationflags=subprocess.CREATE_NEW_CONSOLE, env=config.child_env())
                 elif sys.platform == "darwin":
                     line = f"cd {shlex.quote(str(cwd))} && {shlex.join(target['run'])}".replace("\\", "\\\\").replace('"', '\\"')
                     subprocess.Popen(["osascript", "-e", f'tell application "Terminal" to do script "{line}"'])

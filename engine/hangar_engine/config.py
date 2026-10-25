@@ -16,6 +16,33 @@ SPINE = LOCAL / "spine"
 VIEWER = REPO / "engine" / "world"
 # A project's own working copy on this machine: its main clone, a local-only repo, or a clone of someone else's repo.
 MAIN_ROLES = ("canonical", "orphan", "vendor")
+# Provider keys and endpoint overrides. A coding agent Hangar starts never gets these, so Claude Code and Codex use their
+# own sign-in (your subscription), not an API key that happens to be in Hangar's environment.
+AGENT_KEYS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
+              "OPENAI_API_KEY", "OPENAI_BASE_URL", "CODEX_API_KEY")
+
+
+def hangar_env_names():
+    """Names set in Hangar's own .env files: settings for Hangar itself, not for your projects or your agents."""
+    names = set()
+    for path in (REPO / ".env", REPO / ".env.local"):
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                m = re.match(r"\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=", line)
+                if m:
+                    names.add(m.group(1))
+        except OSError:
+            pass
+    return names
+
+
+def child_env(agent=False, extra=None):
+    """The environment for a program Hangar starts for you: without Hangar's own .env settings (a project reads its
+    own), and for a coding agent also without provider keys."""
+    drop = hangar_env_names() | (set(AGENT_KEYS) if agent else set())
+    env = {k: v for k, v in os.environ.items() if k not in drop}
+    env.update(extra or {})
+    return env
 MACHINES = LOCAL / "machines"
 CACHE = LOCAL / "cache"
 ROOTS_FILE = LOCAL / "roots.json"
