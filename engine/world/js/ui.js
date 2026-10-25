@@ -7,7 +7,7 @@ import { commitUrl } from "./commit-link.js";
 
 const $ = (s) => document.querySelector(s);
 const ROLE_NAMES = { canonical: "Main folder", worktree: "Worktree", copy: "Extra clone", release: "Release folder", derived: "Clone of a clone", submodule: "Submodule", vendor: "Vendor clone", orphan: "Local only", clone: "Clone" };
-const KIND_NAMES = { mine: null, fork: "Fork", vendor: "Someone else's code", orphan: "Off the map", unlisted: "Unlisted remote" };
+const KIND_NAMES = { mine: null, fork: "Fork", vendor: "Someone else's code", orphan: "Local only", unlisted: "Unlisted remote" };
 const STAGE_NAMES = { lot: "Empty lot", tent: "Tent", house: "House", midrise: "Mid-rise", tower: "Tower", skyscraper: "Skyscraper", warehouse: "Warehouse" };
 const RECENCY_NAMES = { live: "Active this month", recent: "Active in 3 months", quiet: "Quiet this year", dormant: "Dormant", unknown: "No activity known" };
 const hex = (id) => "#" + familyColor(id).getHexString();
@@ -548,9 +548,9 @@ export function createUI(app) {
       html: `${icon(ic)}<span>${label}</span>`, onclick: () => app.setAttention(r, state === id ? null : id),
     });
     return el("div", { class: "attn" },
-      opt("focus", "Focus", "star", "Working on it now: it moves to the Focus island in the middle"),
-      opt("parked", "Park", "park", "Not now: it moves to the Parked island at the edge"),
-      opt("hidden", "Hide", "hide", "Don't show it at all (bring it back from the list's Hidden view)"));
+      opt("focus", "Focus", "star", "Important now. Keeps its category."),
+      opt("parked", "Park", "park", "Relevant, but later. Keeps its category and stays on the map."),
+      opt("hidden", "Off the map", "hide", "Not relevant. Hidden from the map; recoverable from Off the map."));
   }
 
   ui.hideCard = () => {
@@ -563,7 +563,7 @@ export function createUI(app) {
   const list = $("#list");
   let filter = app.local ? "changes" : "all", kind = null;
   const FILTERS = [...(app.local ? [["changes", "Changes"], ["apps", "Apps"]] : []), ["all", "All"], ["focus", "Focus"], ["here", "Here"], ["away", "Not here"],
-    ["shipped", "Shipped"], ["parked", "Parked"], ...(app.local ? [["hidden", "Hidden"], ["spare", "Spare folders"]] : [])];
+    ["shipped", "Shipped"], ["parked", "Parked"], ...(app.local ? [["hidden", "Off the map"], ["spare", "Spare folders"]] : [])];
   const keep = { all: () => true, focus: (r) => r.attention === "focus", here: (r) => r.onMachine, away: (r) => !r.onMachine,
     shipped: (r) => !!r.homepage, parked: (r) => r.attention === "parked" };
   let refill = null;

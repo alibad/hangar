@@ -132,12 +132,13 @@ pane reuses Hangar's repository interface without starting a second WebGL render
 It is included in Hangar.
 
 Right-click a building, project tile or explorer row, or use its visible actions
-button. Focus marks important work; Park puts it aside; Remove from world hides it
-from the map and ordinary lists. Projects → Hidden restores it. These actions save
+button. Focus marks important work; Park means relevant but later, on the same
+category's island. Off the map hides irrelevant work from the map and ordinary
+lists; the Off the map filter lets you restore it. These actions save
 local Hangar metadata only: they never delete a checkout, GitHub repository or session.
 
 All repository tools restores Changes, Apps, All, Focus, Here, Not here, Shipped,
-Parked, Hidden and Spare folders, including rescan and Hangar's checked pull/push
+Parked, Off the map and Spare folders, including rescan and Hangar's checked pull/push
 operations. History & replay exposes project arrivals by creation date (not historical code snapshots); Activity and Shipped
 lenses remain available. Remote desktop and app-launch controls remain restricted
 to their host; use Live work for managed remote coding jobs.
@@ -158,7 +159,16 @@ two-machine verification.
 ## Organize and inspect projects
 
 Review categories presents the entire catalog, including hidden projects, with
-purpose, current island and a persistent reviewed state. Select projects, choose
+purpose, current category and a persistent reviewed state. Filter by category,
+select shown projects, and move irrelevant work off the map in bulk before sorting
+anything. On the map, Needs review, Off the map and All projects are separate views.
+Visibility, work status and category are independent: hiding or parking never
+erases a chosen category. Hidden projects are excluded from map island counts.
+The old age/origin/status buckets (Attic, Workshop, Borrowed, Vendor yard, Off the
+map, Focus and Parked) no longer define islands. Unassigned projects are
+Uncategorized; age, forks and local-only provenance do not imply irrelevance.
+Existing purpose categories and name-based suggestions stay available for review.
+Select projects, choose
 or create a destination, inspect the preview and Apply category. Keep categories
 marks reviewed without moving anything. Manage islands can hide/restore a whole
 island; this never deletes files, sessions or plan links. Individually hidden

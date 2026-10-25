@@ -13,6 +13,22 @@ import urllib.error
 import urllib.request
 
 
+class PurposeCategories(unittest.TestCase):
+    def test_age_origin_and_status_do_not_define_islands(self):
+        from hangar_engine.model import assign_families
+        projects = [
+            {"id": "old", "name": "older", "kind": "mine", "pushedAt": "2010-01-01T00:00:00Z", "hidden": True},
+            {"id": "fork", "name": "borrowed", "kind": "fork"},
+            {"id": "local", "name": "offline", "kind": "orphan"},
+            {"id": "vendor", "name": "dependency", "kind": "vendor"},
+        ]
+        overrides = {"old": {"family": "research", "parked": True, "hidden": True}, "local": {"focus": True}}
+        assign_families(projects, [{"id": "research", "name": "Research", "match": []}], overrides)
+        self.assertEqual(projects[0]["family"], "research")
+        self.assertTrue(all(p["family"] == "uncategorized" for p in projects[1:]))
+        self.assertTrue(projects[0]["hidden"])
+
+
 class IndependentEngine(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

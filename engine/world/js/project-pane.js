@@ -58,8 +58,9 @@ export async function startProjectPane(doc, params) {
     sync: async (action, repos) => { const result = await post("/api/git", { action, repos }); ui.scanning(true, "Updating Git state…"); setTimeout(() => waitForScan().catch(e => ui.toast(e.message, true)), 1500); return result.results; },
     rescan: report(async () => { await post("/api/rescan", { github: true }); ui.scanning(true); ui.toast("Scanning GitHub and this machine…"); await waitForScan(); }),
     setAttention: report(async (repo, state) => {
-      await post("/api/notes", { repo: repo.id, fields: { focus: state === "focus", parked: state === "parked", hidden: state === "hidden" } });
-      await refresh(); ui.toast(state === "hidden" ? "Removed from the world. Restore from Hidden." : "Project visibility updated");
+      const fields = state === "hidden" ? { hidden: true } : state === null && repo.hidden ? { hidden: false } : { focus: state === "focus", parked: state === "parked" };
+      await post("/api/notes", { repo: repo.id, fields });
+      await refresh(); ui.toast(state === "hidden" ? "Off the map. Restore from Off the map." : "Updated · category preserved");
     }),
     saveNotes: async (repo, fields) => { await post("/api/notes", { repo: repo.id, fields }); await refresh(); ui.toast("Notes saved"); },
     appAction: report(async (action, repo, extra = {}) => { const result = await post("/api/apps", { action, repo: repo.id, ...extra }); await refreshApps(); return result; }),

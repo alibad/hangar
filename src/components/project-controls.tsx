@@ -40,8 +40,8 @@ export function ProjectContextMenu({ target, local, onClose, onOpen, onAttention
       <button role="menuitem" onClick={() => run(() => onOpen(project.id, "repository"))}><FolderOpen size={16} />Repository tools &amp; notes</button>
       <hr />
       <button role="menuitemcheckbox" aria-checked={project.attention === "focus" && !project.hidden} onClick={() => run(() => onAttention(project, project.attention === "focus" ? null : "focus"))}><Star size={16} />{project.attention === "focus" ? "Remove from Focus" : "Focus · important now"}</button>
-      <button role="menuitemcheckbox" aria-checked={project.attention === "parked" && !project.hidden} onClick={() => run(() => onAttention(project, project.attention === "parked" ? null : "parked"))}><Pause size={16} />{project.attention === "parked" ? "Return to its island" : "Park · not now"}</button>
-      <button role="menuitem" onClick={() => run(() => onAttention(project, project.hidden ? null : "hidden"))}>{project.hidden ? <Eye size={16} /> : <EyeOff size={16} />}{project.hidden ? "Restore to world" : "Remove from world…"}</button>
+      <button role="menuitemcheckbox" aria-checked={project.attention === "parked" && !project.hidden} onClick={() => run(() => onAttention(project, project.attention === "parked" ? null : "parked"))}><Pause size={16} />{project.attention === "parked" ? "Unpark · keep category" : "Park · relevant, but later"}</button>
+      <button role="menuitem" onClick={() => run(() => onAttention(project, project.hidden ? null : "hidden"))}>{project.hidden ? <Eye size={16} /> : <EyeOff size={16} />}{project.hidden ? "Bring back onto map" : "Off the map · not relevant…"}</button>
       {local && project.sites.length > 0 && <><hr /><button role="menuitem" onClick={() => run(() => onFolder(project.id))}><FolderOpen size={16} />Open project folder</button></>}
     </div>
   </dialog>;
@@ -82,9 +82,9 @@ export function RemoveProjectDialog({ project, busy, error, onClose, onConfirm }
   useEffect(() => { const el = ref.current; el?.showModal(); return () => el?.close(); }, []);
   return <dialog ref={ref} className="remove-project-dialog" aria-labelledby="remove-project-title" onCancel={e => { if (busy) e.preventDefault(); else onClose(); }}>
     <button className="project-dialog-close" aria-label="Cancel removal" disabled={busy} onClick={onClose}><X size={18} /></button>
-    <EyeOff size={30} /><h2 id="remove-project-title">Remove {project.name} from the world?</h2>
+    <EyeOff size={30} /><h2 id="remove-project-title">Move {project.name} off the map?</h2>
     <p>It will leave the map and the normal project list. Its files, GitHub repository, plans and sessions stay intact.</p>
-    <p>You can bring it back from <strong>Projects → Hidden</strong>.</p>
+    <p>You can bring it back from <strong>Off the map</strong>. Its category and work status are preserved.</p>
     {error && <p role="alert">{error}</p>}
     <div><button disabled={busy} onClick={onClose}>Keep project</button><button className="cw-primary" disabled={busy} onClick={onConfirm}>{busy ? "Removing…" : "Remove from world"}</button></div>
   </dialog>;

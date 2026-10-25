@@ -5,16 +5,20 @@ import { dirname } from "node:path";
 export type Island = { id: string; name: string; repos: number; hidden?: boolean; custom?: boolean };
 type Project = { id: string; family: string; hidden?: boolean; hiddenByIsland?: string; notes?: Record<string, unknown>; [key: string]: unknown };
 export type WorldDocument = { repos: Project[]; families: Island[]; islands?: Island[]; stats?: Record<string, unknown>; [key: string]: unknown };
-type Preferences = { version: 1; custom: Record<string, string>; hidden: Record<string, boolean>; assignments: Record<string, string>; reviewed?: Record<string, boolean> };
+type Preferences = { version: 1; custom: Record<string, string>; hidden: Record<string, boolean>; assignments: Record<string, string>; reviewed?: Record<string, boolean>; projectVisibility?: Record<string, boolean>; attention?: Record<string, "focus" | "parked" | null> };
 const empty = (): Preferences => ({ version: 1, custom: {}, hidden: {}, assignments: {}, reviewed: {} });
 const owns = (value: object, key: string) => Object.hasOwn(value, key);
 
 export class IslandInputError extends Error {}
 export class IslandStorageError extends Error {}
 
+// Old scanner buckets mixed age, provenance and attention with purpose. Keep
+// these projects available for review, without pretending those are categories.
+const legacyBuckets = new Set(["attic", "workshop", "borrowed", "vendor", "offmap", "focus", "parked", "hidden"]);
+
 /** Overlay only organization. Repository metadata and individual hiding stay intact. */
 export function organizeWorld(doc: WorldDocument, prefs: Preferences): WorldDocument {
-  const islands = new Map((doc.islands || doc.families).map(f => [f.id, { ...f, repos: 0 }]));
+  const islands = new Map((doc.islands || doc.families).filter(f => !legacyBuckets.has(f.id)).map(f => [f.id, { ...f, repos: 0 }]));
   for (const [id, name] of Object.entries(prefs.custom)) islands.set(id, { id, name, custom: true, repos: 0 });
   for (const [id, hidden] of Object.entries(prefs.hidden)) {
     const island = islands.get(id);
@@ -23,8 +27,18 @@ export function organizeWorld(doc: WorldDocument, prefs: Preferences): WorldDocu
   const repos = doc.repos.map(original => {
     const repo = { ...original };
     repo.organizationReviewed = !!(prefs.reviewed && owns(prefs.reviewed, repo.id) && prefs.reviewed[repo.id]);
+    const priorIsland = repo.hiddenByIsland || repo.family;
+    const hiddenLegacyBucket = legacyBuckets.has(priorIsland) && (owns(prefs.hidden, priorIsland) ? prefs.hidden[priorIsland] : !!doc.islands?.find(f => f.id === priorIsland)?.hidden);
     // Upstream island hiding is reversible separately from individual hiding.
     if (repo.hiddenByIsland) { repo.hidden = false; repo.family = repo.hiddenByIsland; delete repo.hiddenByIsland; }
+    if (hiddenLegacyBucket) repo.hidden = true;
+    if (legacyBuckets.has(repo.family)) {
+      const previous = repo.notes?.family;
+      repo.family = typeof previous === "string" && islands.has(previous) ? previous : "uncategorized";
+    }
+    if (repo.family === "uncategorized" && !islands.has(repo.family)) islands.set(repo.family, { id: repo.family, name: "Uncategorized", repos: 0 });
+    if (prefs.projectVisibility && owns(prefs.projectVisibility, repo.id)) repo.hidden = prefs.projectVisibility[repo.id];
+    if (prefs.attention && owns(prefs.attention, repo.id)) repo.attention = prefs.attention[repo.id];
     const assigned = owns(prefs.assignments, repo.id) ? prefs.assignments[repo.id] : undefined;
     if (assigned && islands.has(assigned)) {
       repo.family = assigned;
@@ -38,7 +52,9 @@ export function organizeWorld(doc: WorldDocument, prefs: Preferences): WorldDocu
     return repo;
   });
   const all = [...islands.values()].sort((a, b) => b.repos - a.repos || a.name.localeCompare(b.name));
-  return { ...doc, repos, islands: all, families: all.filter(f => !f.hidden),
+  const visibleCounts = new Map<string, number>();
+  for (const repo of repos) if (!repo.hidden) visibleCounts.set(repo.family, (visibleCounts.get(repo.family) || 0) + 1);
+  return { ...doc, repos, islands: all, families: all.filter(f => !f.hidden && visibleCounts.has(f.id)).map(f => ({ ...f, repos: visibleCounts.get(f.id)! })),
     stats: { ...doc.stats, repos: repos.filter(r => !r.hidden).length, hidden: repos.filter(r => r.hidden).length } };
 }
 
@@ -49,6 +65,19 @@ function change(doc: WorldDocument, previous: Preferences, raw: unknown): { pref
   preferences.reviewed ||= {};
   const world = organizeWorld(doc, preferences);
   const islands = world.islands!;
+  if (body.action === "set-project-state") {
+    if (!Array.isArray(body.repos) || !body.repos.length || body.repos.length > 300 || body.repos.some(id => typeof id !== "string" || !doc.repos.some(r => r.id === id))) throw new IslandInputError("Choose indexed projects to update.");
+    const visibility = owns(body, "hidden"), attention = owns(body, "attention");
+    if ((!visibility && !attention) || (visibility && typeof body.hidden !== "boolean") || (attention && body.attention !== null && body.attention !== "focus" && body.attention !== "parked")) throw new IslandInputError("Choose visibility or a work status.");
+    if (visibility && body.hidden === false && world.repos.some(r => body.repos instanceof Array && body.repos.includes(r.id) && r.hiddenByIsland)) throw new IslandInputError("Restore the hidden island in Manage islands first.");
+    preferences.projectVisibility ||= {};
+    preferences.attention ||= {};
+    for (const id of body.repos) {
+      if (visibility) Object.defineProperty(preferences.projectVisibility, id, { value: body.hidden, enumerable: true, writable: true, configurable: true });
+      if (attention) Object.defineProperty(preferences.attention, id, { value: body.attention, enumerable: true, writable: true, configurable: true });
+    }
+    return { preferences };
+  }
   if (body.action === "create-island") {
     if (typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 60) throw new IslandInputError("Name the island (up to 60 characters).");
     const name = body.name.trim();
@@ -95,7 +124,7 @@ export function createIslandStore(file: string) {
     catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return empty(); throw new IslandStorageError("Island preferences could not be read. The saved file has been left intact."); }
     const prefs = raw as Preferences;
     const recordOf = (value: unknown, kind: string) => !!value && typeof value === "object" && !Array.isArray(value) && Object.values(value).every(v => typeof v === kind);
-    if (!prefs || prefs.version !== 1 || !recordOf(prefs.custom, "string") || !recordOf(prefs.hidden, "boolean") || !recordOf(prefs.assignments, "string") || (prefs.reviewed !== undefined && !recordOf(prefs.reviewed, "boolean"))) throw new IslandStorageError("Island preferences use an unsupported format. The saved file has been left intact.");
+    if (!prefs || prefs.version !== 1 || !recordOf(prefs.custom, "string") || !recordOf(prefs.hidden, "boolean") || !recordOf(prefs.assignments, "string") || (prefs.reviewed !== undefined && !recordOf(prefs.reviewed, "boolean")) || (prefs.projectVisibility !== undefined && !recordOf(prefs.projectVisibility, "boolean")) || (prefs.attention !== undefined && (!prefs.attention || typeof prefs.attention !== "object" || Array.isArray(prefs.attention) || Object.values(prefs.attention).some(v => v !== null && v !== "focus" && v !== "parked")))) throw new IslandStorageError("Island preferences use an unsupported format. The saved file has been left intact.");
     return prefs;
   }
   return {

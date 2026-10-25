@@ -537,8 +537,9 @@ function start(doc, local, quality) {
   /** Focus, Park, Hide or none: saved in the spine, then the map is redrawn around it. */
   async function setAttention(repo, state) {
     try {
-      await post("/api/notes", { repo: repo.id, fields: { focus: state === "focus", parked: state === "parked", hidden: state === "hidden" } });
-      ui.toast({ focus: "Moved to Focus", parked: "Parked", hidden: "Hidden from the map" }[state] || "Back in its district");
+      const fields = state === "hidden" ? { hidden: true } : state === null && repo.hidden ? { hidden: false } : { focus: state === "focus", parked: state === "parked" };
+      await post("/api/notes", { repo: repo.id, fields });
+      ui.toast({ focus: "Marked as Focus", parked: "Parked · category preserved", hidden: "Off the map" }[state] || "Updated · category preserved");
       const keep = state === "hidden" ? "" : `#repo=${encodeURIComponent(repo.id)}`;
       setTimeout(() => { location.replace(location.pathname + location.search + keep); location.reload(); }, 450);
     } catch (e) { ui.toast(e.message, true); }

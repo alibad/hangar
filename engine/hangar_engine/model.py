@@ -70,7 +70,7 @@ def pretty_prefix(names):
 
 
 def assign_families(repos, rules, overrides):
-    """Spine overrides first, then the ordered rules, then shared name prefixes, then where it came from."""
+    """Purpose categories only. Visibility, attention, age and origin are separate."""
     families = {}
 
     def put(r, fid, name):
@@ -81,24 +81,9 @@ def assign_families(repos, rules, overrides):
     rest = []
     for r in repos:
         o = overrides.get(r["id"], {})
-        if r.get("hidden"):
-            put(r, "hidden", "Hidden")
-            continue
-        if o.get("focus"):
-            put(r, "focus", "Focus")
-            continue
-        if o.get("parked"):
-            put(r, "parked", "Parked")
-            continue
         if o.get("family"):
             rule = next((f for f in rules if f["id"] == o["family"]), None)
             put(r, o["family"], rule["name"] if rule else o["family"].replace("-", " ").capitalize())
-            continue
-        if r["kind"] == "vendor":
-            put(r, "vendor", "Vendor yard")
-            continue
-        if r["kind"] == "orphan":
-            put(r, "offmap", "Off the map")
             continue
         low = r["name"].lower()
         hit = next((f for f, pats in compiled if any(p.search(low) for p in pats)), None)
@@ -116,19 +101,12 @@ def assign_families(repos, rules, overrides):
             name = pretty_prefix([m["name"] for m in members])
             for m in members:
                 put(m, f"auto-{k}", name)
-    now = datetime.now(timezone.utc)
     for r in rest:
         if r.get("family"):
             continue
-        if r["kind"] == "fork":
-            put(r, "borrowed", "Borrowed")
-        elif (days_since(r.get("pushedAt"), now) or 0) <= 730:
-            put(r, "workshop", "Workshop")
-        else:
-            put(r, "attic", "Attic")
+        put(r, "uncategorized", "Uncategorized")
     for r in repos:
         families[r["family"]]["repos"] += 1
-    families.pop("hidden", None)
     return sorted(families.values(), key=lambda f: -f["repos"])
 
 

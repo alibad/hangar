@@ -41,17 +41,23 @@ async function proxy(request: Request, context: Context) {
       const world = await islandStore.apply(doc);
       return Response.json({ islands: world.islands, roots: [], jobs: [] }, { headers: { "Cache-Control": "no-store" } });
     }
-    let organization: { doc: WorldDocument; action: Record<string, unknown> } | undefined;
+    let organization: { doc: WorldDocument; actions: Record<string, unknown>[] } | undefined;
     if (localApi && operation === "notes" && body) {
       const payload = parseBody();
       if (payload && typeof payload === "object" && payload.fields && typeof payload.fields === "object") {
         const { family, ...fields } = payload.fields;
-        if (family !== undefined || fields.focus === true || fields.parked === true) {
+        if (family !== undefined || fields.focus !== undefined || fields.parked !== undefined || fields.hidden !== undefined) {
           const doc = await readWorld();
-          const action = family ? { action: "assign-island", island: family, repos: [payload.repo] }
-            : { action: "reset-assignment", repo: payload.repo };
-          await islandStore.validate(doc, action);
-          organization = { doc, action };
+          const actions: Record<string, unknown>[] = [];
+          if (family !== undefined) actions.push(family ? { action: "assign-island", island: family, repos: [payload.repo] } : { action: "reset-assignment", repo: payload.repo });
+          if (fields.hidden !== undefined || fields.focus !== undefined || fields.parked !== undefined) {
+            actions.push({ action: "set-project-state", repos: [payload.repo],
+              ...(fields.hidden !== undefined ? { hidden: fields.hidden } : {}),
+              ...(fields.focus !== undefined || fields.parked !== undefined ? { attention: fields.focus ? "focus" : fields.parked ? "parked" : null } : {}),
+            });
+          }
+          for (const action of actions) await islandStore.validate(doc, action);
+          organization = { doc, actions };
           // Empty family resets the scanner's old assignment too. Custom IDs stay here.
           body = JSON.stringify({ ...payload, fields: family === "" ? { ...fields, family: "" } : fields });
         }
@@ -67,7 +73,7 @@ async function proxy(request: Request, context: Context) {
     }
     if (localApi && operation === "notes" && response.ok) {
       const result = await response.json();
-      if (organization) await islandStore.update(organization.doc, organization.action);
+      if (organization) for (const action of organization.actions) await islandStore.update(organization.doc, action);
       const world = await islandStore.apply(await readWorld());
       return Response.json({ ...result, repo: world.repos.find(r => r.id === result.repo?.id) || result.repo }, { headers: { "Cache-Control": "no-store" } });
     }
