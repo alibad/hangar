@@ -52,6 +52,16 @@ class EngineModules(unittest.TestCase):
             apps.open_window("http://localhost:3939/")
         self.assertEqual(popen.call_args[0][0], ["C:/browser.exe", "--app=http://localhost:3939/", "--new-window"])
 
+    def test_one_folder_under_two_spellings_is_one_root(self):
+        # On a case-insensitive disk (the macOS default) ~/Code and ~/code are one folder; scanning both doubled every project.
+        from unittest import mock
+        from hangar_engine import config
+        with tempfile.TemporaryDirectory() as home:
+            (Path(home) / "Code").mkdir()
+            with mock.patch.object(config.Path, "home", return_value=Path(home)):
+                roots = config.default_roots()
+        self.assertEqual(list(roots), ["CODE"])
+
 
 class AgentSignIn(unittest.TestCase):
     def test_signing_in_again_outranks_an_older_failed_job(self):

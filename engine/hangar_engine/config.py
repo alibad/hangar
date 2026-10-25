@@ -82,8 +82,9 @@ def default_roots():
 
 
 def _same(a, b):
+    # Compare the folders, not their spelling: on macOS ~/code IS ~/Code, and resolve() keeps the case it was given.
     try:
-        return a.resolve() == b.resolve()
+        return os.path.samefile(a, b)
     except OSError:
         return False
 
