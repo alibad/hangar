@@ -236,3 +236,26 @@
 @media(max-width:600px){.cw-map-left{max-width:calc(100% - 110px)}.cw-map-left .cw-search kbd{display:none}}
 /* Hangar's own scrolling panes use the same thin thumb in the theme colour. */
 .connected-workspace *{scrollbar-color:color-mix(in oklab,var(--hangar-primary) 32%,transparent) transparent}
+/* Fitted to the window (see main.is-fit): the map and the side panel share the space left under the bars. */
+@media (min-width:851px) and (min-height:620px){
+  .is-fit .connected-workspace:not(.is-expanded) .cw-world-layout:not([hidden]){flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr)}
+  .is-fit .connected-workspace:not(.is-expanded) .cw-world{height:auto;min-height:0}
+  .is-fit .connected-workspace:not(.is-expanded) .cw-world-layout>.cw-inspector{max-height:none;min-height:0}
+  .is-fit .connected-workspace .cw-sessions{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+  .is-fit .connected-workspace .cw-sessions>*{flex-shrink:0}
+  .is-fit .connected-workspace .cw-sessions>.sl-library{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin-top:18px}
+  .is-fit .sl-library>*{flex-shrink:0}
+  .is-fit .sl-library>.sl-main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+  .is-fit .sl-main.is-scroll{overflow-y:auto;display:block}
+  .is-fit .sl-main>*{flex-shrink:0}
+  .is-fit .sl-main>.sl-inbox{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+  .is-fit .sl-inbox>.sl-list{max-height:none;min-height:0}
+  .is-fit .sl-inbox>.sl-detail{position:static;max-height:100%;overflow-y:auto;align-self:start}
+}
+/* Sessions page: tighter headings so the session list gets the height. */
+.cw-sessions .cw-section-title{margin:6px 0 10px}
+.cw-sessions .cw-section-title h2{font-size:17px}
+.cw-sessions>.cw-section-title:first-child{margin-top:0}
+.cw-sessions .cw-job-row{padding-block:10px}
+.cw-sessions .sl-toolbar{margin:8px 0 12px}
+@media (min-width:851px) and (min-height:620px){.is-fit .connected-workspace .cw-sessions>.sl-library{margin-top:8px}}

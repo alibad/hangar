@@ -458,3 +458,9 @@ textarea.control-input { min-height: 100px; line-height: 1.65; resize: vertical;
 .hangar-nav-row .hangar-sidebar-toggle svg:not(.is-open) { transform: rotate(-90deg); }
 #nav-engine-room { padding-left: 10px; }
 .hangar-sidebar.is-collapsed .hangar-nav-row .hangar-sidebar-toggle { display: none; }
+/* World and Sessions fill the window below the 60px header: the page never scrolls, their own lists and panels do. */
+@media (min-width: 851px) and (min-height: 620px) {
+  .hangar-content > main.is-fit { height: calc(100dvh - 61px); padding-bottom: 18px; display: flex; flex-direction: column; overflow: hidden; }
+  .hangar-content > main.is-fit > * { flex-shrink: 0; }
+  .hangar-content > main.is-fit > .connected-workspace:not([hidden]) { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; margin: 0; }
+}

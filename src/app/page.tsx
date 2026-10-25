@@ -883,6 +883,7 @@ export default function Home() {
   ];
 
   /** Props for one tab's pane: which tab is showing, which are kept built, and its name for errors. */
+  const fitView = !HOSTED_RUNTIME && (tab === "world" || tab === "sessions");
   const pane = (id: ConsoleTab) => ({ id, current: id === "speech" && speechTab(tab) ? "speech" : tab, kept: kept.map(t => speechTab(t) ? "speech" : t), label: tabs.find((item) => item.id === id)?.label ?? "Console" });
 
   return (
@@ -908,7 +909,8 @@ export default function Home() {
       <WorkstreamSidebar active={tab} onSelect={selectTab} speechMode={speechMode} collapsed={sidebar.collapsed} onToggle={sidebar.toggle} />
       <div className="hangar-content">
 
-      <main className="mx-auto max-w-[1500px] space-y-6 px-4 pb-24 pt-4 sm:px-6 sm:pt-5 md:pb-5">
+      {/* World and Sessions fill the window below the header; their lists and panels scroll, the page does not. */}
+      <main className={`mx-auto max-w-[1500px] space-y-6 px-4 pb-24 pt-4 sm:px-6 sm:pt-5 md:pb-5 ${fitView ? "is-fit" : ""}`}>
 
         {HOSTED_RUNTIME && <HostedRuntimeNotice />}
 
@@ -2111,11 +2113,11 @@ export default function Home() {
 
 
         {/* Footer */}
-        <footer className="text-center text-xs text-gray-600 py-4">
+        {!fitView && <footer className="text-center text-xs text-gray-600 py-4">
           {health?.timestamp && (
             <span>Last check: {new Date(health.timestamp).toLocaleTimeString()}</span>
           )}
-        </footer>
+        </footer>}
       </main>
       </div>
     </div>
