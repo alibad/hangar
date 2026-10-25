@@ -44,7 +44,7 @@ async function json<T>(path: string, body?: unknown, signal?: AbortSignal): Prom
 }
 
 export default function ConnectedWorkspace({ view, active, onSelect }: { view: View; active: boolean; onSelect: (tab: ConsoleTab) => void }) {
-  const { theme } = useTheme();
+  const { theme, palette } = useTheme();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [machine, setMachine] = useState("local");
   const [statuses, setStatuses] = useState<Record<string, MachineStatus>>({});
@@ -214,7 +214,13 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
   }, [doc]);
-  useEffect(() => { if (ready) { send("theme", { night: theme === "dark" }); send("lens", { lens }); } }, [ready, theme, lens, send]);
+  useEffect(() => { if (ready) send("lens", { lens }); }, [ready, lens, send]);
+  useEffect(() => {
+    if (!ready) return;
+    // Read the colours after the theme provider has applied the new palette and mode to the document.
+    const frame = requestAnimationFrame(() => send("theme", { night: theme === "dark", palette: mapPalette() }));
+    return () => cancelAnimationFrame(frame);
+  }, [ready, theme, palette, send]);
   useEffect(() => { if (ready && doc && docMachine === machine) send("catalog", { doc }); }, [ready, doc, docMachine, machine, send]);
   useEffect(() => {
     if (!doc || ready || !active || view !== "world") return;
@@ -374,7 +380,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
             {(worldSlow || worldError) && <><button onClick={() => { setWorldError(""); setWorldSlow(false); setReady(false); setWorldRevision(v => v + 1); }}>Retry map</button><button onClick={() => onSelect("projects")}>Projects <ArrowRight size={14} /></button></>}
             {worldError && <details><summary>Details</summary><p>{worldError}</p></details>}
           </div>}
-          <div className="cw-map-hint" hidden={!ready}>Drag to explore · Right-click for actions · / to find</div>
+          <div className="cw-map-hint" hidden={!ready || mapControls}>Drag to explore · Right-click for actions · / to find</div>
         </div>
         {view === "world" && (project ? projectPane : <aside className="cw-inspector" aria-label="Explore projects"><><span className="cw-eyebrow">EXPLORE THE ISLANDS</span><h2>{family ? doc?.families.find(f => f.id === family)?.name : "Find your next focus."}</h2><p className="cw-muted">Every building is a real project. Select one to see its work, sessions and running apps.</p><ProjectSearch query={query} setQuery={setQuery} onPick={() => repos[0] && choose(repos[0])} /><div className="cw-island-picker" aria-label="Explore islands"><button aria-pressed={!family} onClick={home}>All islands</button>{doc?.families.filter(f => f.repos > 0).map(f => <button key={f.id} aria-pressed={family === f.id} onContextMenu={e => { e.preventDefault(); setOperation({ kind: "islands", island: f.id }); }} onClick={() => { setFamily(f.id); setQuery(""); send("district", { family: f.id }); }}>{f.name}<small>{f.repos}</small></button>)}</div><div className="cw-result-count" aria-live="polite">{repos.length} matching projects</div>{repos.slice(0, 9).map(r => <ProjectRow key={r.id} repo={r} machine={machine} jobs={jobs} apps={apps} onClick={() => choose(r)} onMenu={(x, y) => setMenu({ project: r, x, y })} />)}<button className="cw-text-button" onClick={() => onSelect("projects")}>Browse project list <ArrowRight size={15} /></button></></aside>)}
       </div>
@@ -407,6 +413,15 @@ function DialogFocus({ onClose }: { onClose: () => void }) {
     return () => { dialog?.removeEventListener("keydown", key); previous?.focus(); };
   }, []);
   return <span ref={ref} hidden />;
+}
+/** The theme colours the embedded map uses for its labels and controls. */
+function mapPalette() {
+  const css = getComputedStyle(document.documentElement);
+  const read = (name: string) => css.getPropertyValue(name).trim();
+  return {
+    accent: read("--hangar-primary"), "accent-soft": read("--hangar-primary-soft"), secondary: read("--hangar-secondary"), ok: read("--ok-500"),
+    panel: read("--workspace-panel"), line: read("--workspace-line"), ink: read("--workspace-ink"), muted: read("--workspace-muted"),
+  };
 }
 function ProjectSearch({ query, setQuery, onPick }: { query: string; setQuery: (value: string) => void; onPick?: () => void }) {
   // Enter opens the best match, the way a search box is expected to finish.

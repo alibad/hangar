@@ -25,12 +25,14 @@ const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "app", "t
 // service-category badges (ai=violet, sky, emerald…), which had been relying on
 // hue alone to tell categories apart. catA/catB are the same accent rotated a
 // little, so categories stay distinguishable without leaving the theme's family.
+// Orange is the codebase's "brand emphasis" hue (primary buttons, links, the composer, highlighted figures);
+// it never means a warning, which is amber's job. So it follows the theme's primary, not its warning ramp.
 const FAMILIES = {
-  accent: ["indigo", "blue", "violet", "pink"],
+  accent: ["indigo", "blue", "violet", "pink", "orange"],
   catA: ["purple", "fuchsia"],
   catB: ["sky", "cyan"],
   ok: ["green", "emerald", "teal", "lime"],
-  warn: ["amber", "yellow", "orange"],
+  warn: ["amber", "yellow"],
   err: ["red", "rose"],
 };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Globe2, Image, MessageSquare, Workflow, Server, Network, Gauge, Menu, X, Video, Clapperboard, Flame, Box, Scissors, Terminal, Swords, Scale, GitBranch, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Globe2, Image, MessageSquare, Workflow, Server, Network, Gauge, Menu, X, Video, Clapperboard, Flame, Box, Scissors, Terminal, Swords, Scale, GitBranch, PanelLeftClose, PanelLeftOpen, Activity, BarChart3, HardDrive } from "lucide-react";
 import { ENGINE_ROOM_LINKS, PRIMARY_LINKS, WORKSTREAMS, workstreamFor, type WorkstreamLink } from "@/lib/workstreams";
 import { hostHasTab } from "@/lib/host";
 import type { ConsoleTab } from "@/lib/labs";
@@ -20,13 +20,15 @@ export function useSidebarState() {
   return { collapsed, toggle };
 }
 
-const toolIcons = { "lab-audio": AudioLines, voices: Mic, "speech-recognition": ScanLine, "lab-music": Music, qwen: Image, video: Video, "lab-video": Clapperboard, "lab-forge": Flame, sam3: Scissors, "lab-3d": Box, llm: Terminal, arena: Swords, "lab-decide": Scale, "lab-process": GitBranch };
+const toolIcons = { services: Server, "model-settings": Network, requests: Activity, usage: BarChart3, storage: HardDrive, "lab-audio": AudioLines, voices: Mic, "speech-recognition": ScanLine, "lab-music": Music, qwen: Image, video: Video, "lab-video": Clapperboard, "lab-forge": Flame, sam3: Scissors, "lab-3d": Box, llm: Terminal, arena: Swords, "lab-decide": Scale, "lab-process": GitBranch };
 
 export default function WorkstreamSidebar({ active, onSelect, speechMode, collapsed, onToggle }: { active: ConsoleTab; onSelect: (tab: ConsoleTab) => void; speechMode: "tts" | "stt"; collapsed: boolean; onToggle: () => void }) {
   const selected = active === "speech" ? speechMode === "tts" ? "voices" : "speech-recognition" : active;
   const currentGroup = workstreamFor(active)?.id;
   const [expanded, setExpanded] = useState<string[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
+  // The Engine room's pages stay listed under it, so Storage or AI usage is never hidden behind a tab strip.
+  const [engineOpen, setEngineOpen] = useState(true);
   useEffect(() => { if (currentGroup) setExpanded(e => e.includes(currentGroup) ? e : [...e, currentGroup]); }, [currentGroup]);
   useEffect(() => { const close = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileOpen(false); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, []);
   const go = (id: ConsoleTab) => { onSelect(id); setMobileOpen(false); };
@@ -48,7 +50,11 @@ export default function WorkstreamSidebar({ active, onSelect, speechMode, collap
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
-        <button type="button" className="hangar-nav-group" aria-label="Engine room" title="Engine room — your local AI: services, models, requests and usage" aria-current={ENGINE_ROOM_LINKS.some(item => item.id === active) ? "page" : undefined} onClick={() => go("stack")}><Gauge size={19} /><span>Engine room</span></button>
+        <div className="hangar-nav-row">
+          <button type="button" className={`hangar-nav-group${ENGINE_ROOM_LINKS.some(item => item.id === active) ? " is-current" : ""}`} aria-label="Engine room" title="Engine room — your local AI: what is running, what fits and what to try" aria-current={active === "stack" ? "page" : undefined} onClick={() => { go("stack"); setEngineOpen(true); }}><Gauge size={19} /><span>Engine room</span></button>
+          <button type="button" className="hangar-sidebar-toggle" aria-expanded={engineOpen} aria-controls="nav-engine-room" aria-label={engineOpen ? "Hide Engine room pages" : "Show Engine room pages"} title={engineOpen ? "Hide Engine room pages" : "Show Engine room pages"} onClick={() => setEngineOpen(v => !v)}><ChevronDown size={14} className={engineOpen ? "is-open" : ""} /></button>
+        </div>
+        <div id="nav-engine-room" className={`hangar-nav-children${engineOpen ? " is-group-open" : ""}`}>{ENGINE_ROOM_LINKS.filter(item => item.id !== "stack").map(link)}</div>
         {PRIMARY_LINKS.filter(item => item.id !== "world").map(({ id, label }) => { const Icon = primaryIcons[id as keyof typeof primaryIcons]; return <button key={id} className="hangar-nav-group" title={label} aria-label={label} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}><Icon size={19} /><span>{label}</span></button>; })}
         <span className="hangar-nav-label">STUDIOS</span>
         {WORKSTREAMS.map(group => { const Icon = icons[group.id as keyof typeof icons]; const open = expanded.includes(group.id); return <section className="hangar-nav-section" key={group.id}>

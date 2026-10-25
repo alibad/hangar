@@ -189,7 +189,7 @@ html:root:not(.dark) .console-shell {
 
 html:root:not(.dark) .console-shell {
   background-image:
-    radial-gradient(circle at 8% 0%, oklch(0.91 0.055 48 / 32%), transparent 34rem),
+    radial-gradient(circle at 8% 0%, oklch(0.91 calc(var(--accent-c) * 0.37) var(--accent-h) / 32%), transparent 34rem),
     radial-gradient(circle at 92% 38%, oklch(0.94 0.025 305 / 25%), transparent 30rem),
     linear-gradient(180deg, oklch(0.982 0.006 70), oklch(0.955 0.009 68));
 }
@@ -239,34 +239,34 @@ html:root:not(.dark) .console-shell .text-gray-700 { color: oklch(0.47 0.012 62)
    than fall back to grey, or the note loses the colour that classifies it. */
 html:root:not(.dark) .console-shell .text-amber-100,
 html:root:not(.dark) .console-shell .text-amber-200,
-html:root:not(.dark) .console-shell .text-amber-300 { color: oklch(0.45 0.1 72); }
-html:root:not(.dark) .console-shell .text-amber-400 { color: oklch(0.5 0.12 70); }
+html:root:not(.dark) .console-shell .text-amber-300 { color: oklch(0.45 calc(var(--warn-c) * 0.71) var(--warn-h)); }
+html:root:not(.dark) .console-shell .text-amber-400 { color: oklch(0.5 calc(var(--warn-c) * 0.86) var(--warn-h)); }
 
 html:root:not(.dark) .console-shell .text-orange-100,
 html:root:not(.dark) .console-shell .text-orange-200,
-html:root:not(.dark) .console-shell .text-orange-300 { color: oklch(0.48 0.14 43); }
-html:root:not(.dark) .console-shell .text-orange-400 { color: oklch(0.52 0.15 45); }
+html:root:not(.dark) .console-shell .text-orange-300 { color: oklch(0.48 calc(var(--accent-c) * 0.93) var(--accent-h)); }
+html:root:not(.dark) .console-shell .text-orange-400 { color: oklch(0.52 calc(var(--accent-c) * 1.0) var(--accent-h)); }
 
 html:root:not(.dark) .console-shell .text-red-200,
-html:root:not(.dark) .console-shell .text-red-300 { color: oklch(0.46 0.16 26); }
+html:root:not(.dark) .console-shell .text-red-300 { color: oklch(0.46 calc(var(--err-c) * 0.84) var(--err-h)); }
 html:root:not(.dark) .console-shell .text-red-400,
-html:root:not(.dark) .console-shell .text-red-500 { color: oklch(0.5 0.19 27); }
+html:root:not(.dark) .console-shell .text-red-500 { color: oklch(0.5 calc(var(--err-c) * 1.0) var(--err-h)); }
 
 html:root:not(.dark) .console-shell .text-emerald-200,
-html:root:not(.dark) .console-shell .text-emerald-300 { color: oklch(0.43 0.11 152); }
+html:root:not(.dark) .console-shell .text-emerald-300 { color: oklch(0.43 calc(var(--ok-c) * 0.92) var(--ok-h)); }
 html:root:not(.dark) .console-shell .text-emerald-400,
-html:root:not(.dark) .console-shell .text-emerald-500 { color: oklch(0.46 0.12 152); }
+html:root:not(.dark) .console-shell .text-emerald-500 { color: oklch(0.46 calc(var(--ok-c) * 1.0) var(--ok-h)); }
 
 html:root:not(.dark) .console-shell .text-violet-200,
-html:root:not(.dark) .console-shell .text-violet-300 { color: oklch(0.47 0.14 300); }
-html:root:not(.dark) .console-shell .text-violet-400 { color: oklch(0.5 0.16 300); }
+html:root:not(.dark) .console-shell .text-violet-300 { color: oklch(0.47 calc(var(--accent-c) * 0.93) calc(var(--accent-h) + 32)); }
+html:root:not(.dark) .console-shell .text-violet-400 { color: oklch(0.5 calc(var(--accent-c) * 1.07) calc(var(--accent-h) + 32)); }
 
-html:root:not(.dark) .console-shell .text-blue-300 { color: oklch(0.46 0.13 250); }
-html:root:not(.dark) .console-shell .text-blue-400 { color: oklch(0.49 0.15 252); }
+html:root:not(.dark) .console-shell .text-blue-300 { color: oklch(0.46 calc(var(--accent-c) * 0.87) var(--accent-h)); }
+html:root:not(.dark) .console-shell .text-blue-400 { color: oklch(0.49 calc(var(--accent-c) * 1.0) var(--accent-h)); }
 
 html:root:not(.dark) .console-shell .text-sky-200,
-html:root:not(.dark) .console-shell .text-sky-300 { color: oklch(0.45 0.11 233); }
-html:root:not(.dark) .console-shell .text-sky-400 { color: oklch(0.48 0.13 235); }
+html:root:not(.dark) .console-shell .text-sky-300 { color: oklch(0.45 calc(var(--accent-c) * 0.73) var(--accent-h)); }
+html:root:not(.dark) .console-shell .text-sky-400 { color: oklch(0.48 calc(var(--accent-c) * 0.87) var(--accent-h)); }
 
 /* Dark panel/chip surfaces. These MUST move together with the text ramp above:
    a `bg-gray-800` code block keeping its dark fill while its `text-gray-300`
@@ -310,11 +310,11 @@ html:root:not(.dark) .console-header {
 }
 
 html:root:not(.dark) .console-header .text-orange-300 {
-  color: oklch(0.53 0.15 43);
+  color: oklch(0.53 calc(var(--accent-c) * 1.0) var(--accent-h));
 }
 
 html:root:not(.dark) .console-header .bg-orange-500 {
-  background-color: oklch(0.58 0.16 43);
+  background-color: oklch(0.58 calc(var(--accent-c) * 1.07) var(--accent-h));
 }
 
 html:root:not(.dark) .resource-pulse {
@@ -323,51 +323,51 @@ html:root:not(.dark) .resource-pulse {
 }
 
 html:root:not(.dark) .resource-pulse-surface {
-  border-color: oklch(0.84 0.03 58);
+  border-color: oklch(0.84 calc(var(--accent-c) * 0.2) var(--accent-h));
   background:
     linear-gradient(110deg, oklch(0.995 0.003 70), oklch(0.968 0.014 65));
   box-shadow:
     inset 0 1px 0 oklch(1 0 0 / 90%),
-    0 8px 22px oklch(0.34 0.03 50 / 7%);
+    0 8px 22px oklch(0.34 calc(var(--accent-c) * 0.2) var(--accent-h) / 7%);
 }
 
 html:root:not(.dark) .resource-pulse-surface:hover {
-  border-color: oklch(0.7 0.09 48);
+  border-color: oklch(0.7 calc(var(--accent-c) * 0.6) var(--accent-h));
 }
 
 html:root:not(.dark) .resource-pulse-icon {
-  border-color: oklch(0.8 0.08 48);
-  background-color: oklch(0.95 0.035 50);
-  color: oklch(0.48 0.15 42);
+  border-color: oklch(0.8 calc(var(--accent-c) * 0.53) var(--accent-h));
+  background-color: oklch(0.95 calc(var(--accent-c) * 0.23) var(--accent-h));
+  color: oklch(0.48 calc(var(--accent-c) * 1.0) var(--accent-h));
 }
 
 html:root:not(.dark) .resource-pulse-vram {
-  background-color: oklch(0.56 0.15 43);
+  background-color: oklch(0.56 calc(var(--accent-c) * 1.0) var(--accent-h));
 }
 
 html:root:not(.dark) .resource-pulse-ram {
-  background-color: oklch(0.55 0.1 245);
+  background-color: oklch(0.55 calc(var(--accent-c) * 0.67) var(--accent-h));
 }
 
 html:root:not(.dark) .resource-pulse-details {
-  color: oklch(0.48 0.15 42);
+  color: oklch(0.48 calc(var(--accent-c) * 1.0) var(--accent-h));
 }
 
 .dark .resource-pulse-vram {
-  background-color: oklch(0.66 0.14 65);
+  background-color: oklch(0.66 calc(var(--warn-c) * 1.0) var(--warn-h));
 }
 
 .dark .resource-pulse-ram {
-  background-color: oklch(0.64 0.12 245);
+  background-color: oklch(0.64 calc(var(--accent-c) * 0.8) var(--accent-h));
 }
 
 .dark .resource-pulse-details {
-  color: oklch(0.72 0.12 68);
+  color: oklch(0.72 calc(var(--warn-c) * 0.86) var(--warn-h));
 }
 
 html:root:not(.dark) .cockpit {
-  --cockpit-copper: oklch(0.55 0.15 43);
-  --cockpit-copper-dark: oklch(0.48 0.15 42);
+  --cockpit-copper: oklch(0.55 calc(var(--accent-c) * 1.0) var(--accent-h));
+  --cockpit-copper-dark: oklch(0.48 calc(var(--accent-c) * 1.0) var(--accent-h));
   --cockpit-border: oklch(0.875 0.012 67);
   --cockpit-paper: oklch(0.988 0.006 72);
 }
@@ -383,24 +383,24 @@ html:root:not(.dark) .cockpit-surface {
 }
 
 html:root:not(.dark) .cockpit-hero {
-  border-color: oklch(0.84 0.045 55);
+  border-color: oklch(0.84 calc(var(--accent-c) * 0.3) var(--accent-h));
   background:
-    radial-gradient(circle at 88% -18%, oklch(0.84 0.11 48 / 20%), transparent 19rem),
+    radial-gradient(circle at 88% -18%, oklch(0.84 calc(var(--accent-c) * 0.73) var(--accent-h) / 20%), transparent 19rem),
     linear-gradient(145deg, oklch(0.998 0.002 70), oklch(0.975 0.012 65));
   box-shadow:
-    inset 0 2px 0 oklch(0.68 0.14 44 / 18%),
-    0 18px 42px oklch(0.38 0.045 48 / 10%);
+    inset 0 2px 0 oklch(0.68 calc(var(--accent-c) * 0.93) var(--accent-h) / 18%),
+    0 18px 42px oklch(0.38 calc(var(--accent-c) * 0.3) var(--accent-h) / 10%);
 }
 
 html:root:not(.dark) .cockpit-composer {
-  border-color: oklch(0.74 0.09 54);
+  border-color: oklch(0.74 calc(var(--accent-c) * 0.6) var(--accent-h));
   background-color: oklch(0.998 0.002 70);
   box-shadow: inset 0 1px 0 oklch(1 0 0);
 }
 
 html:root:not(.dark) .cockpit-composer:focus-within {
   border-color: var(--cockpit-copper);
-  box-shadow: 0 0 0 3px oklch(0.68 0.12 48 / 12%);
+  box-shadow: 0 0 0 3px oklch(0.68 calc(var(--accent-c) * 0.8) var(--accent-h) / 12%);
 }
 
 html:root:not(.dark) .cockpit textarea:focus-visible {
@@ -409,8 +409,8 @@ html:root:not(.dark) .cockpit textarea:focus-visible {
 
 html:root:not(.dark) .cockpit-primary {
   background-color: var(--cockpit-copper);
-  color: white;
-  box-shadow: 0 9px 22px oklch(0.48 0.14 42 / 20%);
+  color: var(--on-accent);
+  box-shadow: 0 9px 22px oklch(0.48 calc(var(--accent-c) * 0.93) var(--accent-h) / 20%);
 }
 
 html:root:not(.dark) .cockpit-primary:hover {
@@ -418,24 +418,24 @@ html:root:not(.dark) .cockpit-primary:hover {
 }
 
 html:root:not(.dark) .cockpit-mode-active {
-  border-color: oklch(0.7 0.12 48);
-  background-color: oklch(0.965 0.035 52);
-  color: oklch(0.44 0.14 42);
+  border-color: oklch(0.7 calc(var(--accent-c) * 0.8) var(--accent-h));
+  background-color: oklch(0.965 calc(var(--accent-c) * 0.23) var(--accent-h));
+  color: oklch(0.44 calc(var(--accent-c) * 0.93) var(--accent-h));
 }
 
 html:root:not(.dark) .cockpit-verdict {
-  border-color: oklch(0.84 0.035 58);
+  border-color: oklch(0.84 calc(var(--accent-c) * 0.23) var(--accent-h));
   background:
-    radial-gradient(circle at 90% 0%, oklch(0.88 0.06 140 / 22%), transparent 14rem),
+    radial-gradient(circle at 90% 0%, oklch(0.88 calc(var(--ok-c) * 0.5) var(--ok-h) / 22%), transparent 14rem),
     linear-gradient(155deg, oklch(0.997 0.002 70), oklch(0.976 0.01 72));
   box-shadow:
-    inset 0 2px 0 oklch(0.72 0.09 56 / 14%),
+    inset 0 2px 0 oklch(0.72 calc(var(--accent-c) * 0.6) var(--accent-h) / 14%),
     0 16px 38px oklch(0.32 0.025 52 / 8%);
 }
 
 html:root:not(.dark) .cockpit-ready {
-  background-color: oklch(0.94 0.04 145);
-  color: oklch(0.43 0.11 145);
+  background-color: oklch(0.94 calc(var(--ok-c) * 0.33) var(--ok-h));
+  color: oklch(0.43 calc(var(--ok-c) * 0.92) var(--ok-h));
 }
 
 html:root:not(.dark) .cockpit-accent-text,
@@ -445,36 +445,36 @@ html:root:not(.dark) .cockpit .text-orange-200 {
 }
 
 html:root:not(.dark) .cockpit-tone-orange {
-  border-color: oklch(0.82 0.07 48);
-  background-color: oklch(0.965 0.035 52);
-  color: oklch(0.45 0.14 42);
+  border-color: oklch(0.82 calc(var(--accent-c) * 0.47) var(--accent-h));
+  background-color: oklch(0.965 calc(var(--accent-c) * 0.23) var(--accent-h));
+  color: oklch(0.45 calc(var(--accent-c) * 0.93) var(--accent-h));
 }
 
 html:root:not(.dark) .cockpit-tone-violet {
-  border-color: oklch(0.84 0.055 305);
+  border-color: oklch(0.84 calc(var(--accent-c) * 0.37) calc(var(--accent-h) + 32));
   background-color: oklch(0.97 0.025 305);
-  color: oklch(0.48 0.11 305);
+  color: oklch(0.48 calc(var(--accent-c) * 0.73) calc(var(--accent-h) + 32));
 }
 
 html:root:not(.dark) .cockpit-tone-blue {
-  border-color: oklch(0.84 0.055 245);
+  border-color: oklch(0.84 calc(var(--accent-c) * 0.37) var(--accent-h));
   background-color: oklch(0.97 0.025 245);
-  color: oklch(0.46 0.11 245);
+  color: oklch(0.46 calc(var(--accent-c) * 0.73) var(--accent-h));
 }
 
 html:root:not(.dark) .cockpit-tone-emerald {
-  border-color: oklch(0.83 0.055 155);
+  border-color: oklch(0.83 calc(var(--ok-c) * 0.46) var(--ok-h));
   background-color: oklch(0.965 0.025 155);
-  color: oklch(0.43 0.1 155);
+  color: oklch(0.43 calc(var(--ok-c) * 0.83) var(--ok-h));
 }
 
-html:root:not(.dark) .cockpit-action-orange { color: oklch(0.5 0.15 42); }
-html:root:not(.dark) .cockpit-action-violet { color: oklch(0.48 0.12 305); }
-html:root:not(.dark) .cockpit-action-blue { color: oklch(0.46 0.12 245); }
-html:root:not(.dark) .cockpit-action-emerald { color: oklch(0.42 0.11 155); }
+html:root:not(.dark) .cockpit-action-orange { color: oklch(0.5 calc(var(--accent-c) * 1.0) var(--accent-h)); }
+html:root:not(.dark) .cockpit-action-violet { color: oklch(0.48 calc(var(--accent-c) * 0.8) calc(var(--accent-h) + 32)); }
+html:root:not(.dark) .cockpit-action-blue { color: oklch(0.46 calc(var(--accent-c) * 0.8) var(--accent-h)); }
+html:root:not(.dark) .cockpit-action-emerald { color: oklch(0.42 calc(var(--ok-c) * 0.92) var(--ok-h)); }
 
 html:root:not(.dark) .cockpit .text-emerald-300 {
-  color: oklch(0.43 0.11 145);
+  color: oklch(0.43 calc(var(--ok-c) * 0.92) var(--ok-h));
 }
 
 html:root:not(.dark) .cockpit-section-header {
@@ -504,9 +504,9 @@ html:root:not(.dark) .cockpit-resource {
 }
 
 html:root:not(.dark) .services-hero {
-  border-color: oklch(0.84 0.04 56);
+  border-color: oklch(0.84 calc(var(--accent-c) * 0.27) var(--accent-h));
   background:
-    radial-gradient(circle at 88% -20%, oklch(0.84 0.11 48 / 18%), transparent 25rem),
+    radial-gradient(circle at 88% -20%, oklch(0.84 calc(var(--accent-c) * 0.73) var(--accent-h) / 18%), transparent 25rem),
     linear-gradient(145deg, oklch(0.998 0.002 70), oklch(0.972 0.012 66));
 }
 
@@ -526,9 +526,9 @@ html:root:not(.dark) .services-toolbar {
 }
 
 html:root:not(.dark) .services-filter-active {
-  border-color: oklch(0.7 0.1 48);
-  background-color: oklch(0.95 0.038 51);
-  color: oklch(0.44 0.14 42);
+  border-color: oklch(0.7 calc(var(--accent-c) * 0.67) var(--accent-h));
+  background-color: oklch(0.95 calc(var(--accent-c) * 0.25) var(--accent-h));
+  color: oklch(0.44 calc(var(--accent-c) * 0.93) var(--accent-h));
 }
 
 html:root:not(.dark) .services-card {
@@ -545,12 +545,12 @@ html:root:not(.dark) .services-card-icon {
 
 html:root:not(.dark) .services-footprint,
 html:root:not(.dark) .services-start {
-  color: oklch(0.46 0.14 42);
+  color: oklch(0.46 calc(var(--accent-c) * 0.93) var(--accent-h));
 }
 
 html:root:not(.dark) .services-center .text-orange-300,
 html:root:not(.dark) .services-center .text-orange-200 {
-  color: oklch(0.47 0.14 42);
+  color: oklch(0.47 calc(var(--accent-c) * 0.93) var(--accent-h));
 }
 
 html:root:not(.dark) .services-center .text-gray-500 {
@@ -568,8 +568,8 @@ html:root:not(.dark) .services-center .text-gray-700 {
 /* Shared tool-page language. Home is the cockpit; these are its focused work
    surfaces: clearer hierarchy, denser controls, and the same warm paper system. */
 .tool-page {
-  --tool-accent: oklch(0.61 0.16 43);
-  --tool-accent-soft: oklch(0.92 0.055 49);
+  --tool-accent: oklch(0.61 calc(var(--accent-c) * 1.07) var(--accent-h));
+  --tool-accent-soft: oklch(0.92 calc(var(--accent-c) * 0.37) var(--accent-h));
   --tool-line: oklch(0.87 0.014 65);
   --tool-paper: oklch(0.992 0.004 70);
   --tool-muted: oklch(0.48 0.018 60);
@@ -693,7 +693,7 @@ html:root:not(.dark) .services-center .text-gray-700 {
 .image-view-switch button.is-active,
 .image-mode-tabs button.is-active {
   background: var(--accent-600);
-  color: white;
+  color: var(--on-accent);
   box-shadow: 0 5px 14px color-mix(in oklab, var(--accent-700) 26%, transparent);
 }
 .image-mode-tabs button:disabled { cursor: not-allowed; opacity: 0.38; }
@@ -1216,26 +1216,26 @@ html:root:not(.dark) .tool-page-hero {
 }
 
 html:root:not(.dark) .tool-page-icon {
-  border-color: oklch(0.79 0.08 48);
-  background: oklch(0.945 0.04 51);
-  color: oklch(0.48 0.15 42);
+  border-color: oklch(0.79 calc(var(--accent-c) * 0.53) var(--accent-h));
+  background: oklch(0.945 calc(var(--accent-c) * 0.27) var(--accent-h));
+  color: oklch(0.48 calc(var(--accent-c) * 1.0) var(--accent-h));
 }
 
 html:root:not(.dark) .tool-page-title,
 html:root:not(.dark) .tool-section-title { color: oklch(0.2 0.012 55); }
 html:root:not(.dark) .tool-page-eyebrow,
-html:root:not(.dark) .tool-section-eyebrow { color: oklch(0.5 0.15 42); }
+html:root:not(.dark) .tool-section-eyebrow { color: oklch(0.5 calc(var(--accent-c) * 1.0) var(--accent-h)); }
 html:root:not(.dark) .tool-page-description,
 html:root:not(.dark) .tool-section-description { color: oklch(0.45 0.02 58); }
 
 html:root:not(.dark) .tool-page-chip {
-  border-color: oklch(0.8 0.07 52);
-  background: oklch(0.95 0.035 52);
-  color: oklch(0.43 0.12 43);
+  border-color: oklch(0.8 calc(var(--accent-c) * 0.47) var(--accent-h));
+  background: oklch(0.95 calc(var(--accent-c) * 0.23) var(--accent-h));
+  color: oklch(0.43 calc(var(--accent-c) * 0.8) var(--accent-h));
 }
 
-html:root:not(.dark) .tool-page-chip.is-ready { border-color: oklch(0.8 0.06 145); background: oklch(0.95 0.035 145); color: oklch(0.4 0.11 145); }
-html:root:not(.dark) .tool-page-chip.is-offline { border-color: oklch(0.82 0.065 78); background: oklch(0.96 0.035 82); color: oklch(0.48 0.11 72); }
+html:root:not(.dark) .tool-page-chip.is-ready { border-color: oklch(0.8 calc(var(--ok-c) * 0.5) var(--ok-h)); background: oklch(0.95 calc(var(--ok-c) * 0.29) var(--ok-h)); color: oklch(0.4 calc(var(--ok-c) * 0.92) var(--ok-h)); }
+html:root:not(.dark) .tool-page-chip.is-offline { border-color: oklch(0.82 calc(var(--warn-c) * 0.46) var(--warn-h)); background: oklch(0.96 calc(var(--warn-c) * 0.25) var(--warn-h)); color: oklch(0.48 calc(var(--warn-c) * 0.79) var(--warn-h)); }
 
 html:root:not(.dark) .image-view-switch,
 html:root:not(.dark) .image-mode-tabs,
@@ -1246,30 +1246,30 @@ html:root:not(.dark) .image-model-panel {
 
 html:root:not(.dark) .image-view-switch button.is-active,
 html:root:not(.dark) .image-mode-tabs button.is-active {
-  background: oklch(0.55 0.15 43);
-  color: white;
+  background: oklch(0.55 calc(var(--accent-c) * 1.0) var(--accent-h));
+  color: var(--on-accent);
 }
 
 html:root:not(.dark) .image-mode-nav { border-color: oklch(0.87 0.014 64); }
-html:root:not(.dark) .image-model-panel [class*="text-amber-300"] { color: oklch(0.46 0.11 75); }
-html:root:not(.dark) .image-model-panel [class*="text-emerald-300"] { color: oklch(0.42 0.11 150); }
+html:root:not(.dark) .image-model-panel [class*="text-amber-300"] { color: oklch(0.46 calc(var(--warn-c) * 0.79) var(--warn-h)); }
+html:root:not(.dark) .image-model-panel [class*="text-emerald-300"] { color: oklch(0.42 calc(var(--ok-c) * 0.92) var(--ok-h)); }
 html:root:not(.dark) .image-run-setup {
   border-color: oklch(0.85 0.018 63);
   background: oklch(0.991 0.004 70);
-  box-shadow: 0 10px 24px oklch(0.34 0.03 50 / 7%);
+  box-shadow: 0 10px 24px oklch(0.34 calc(var(--accent-c) * 0.2) var(--accent-h) / 7%);
 }
 html:root:not(.dark) .image-run-setup-heading,
 html:root:not(.dark) .image-run-setup-row { border-color: oklch(0.89 0.012 65); }
 html:root:not(.dark) .image-run-setup-heading p,
 html:root:not(.dark) .image-run-setup-row strong { color: oklch(0.24 0.014 56); }
-html:root:not(.dark) .image-run-setup-heading > span.is-ready { background: oklch(0.95 0.035 145); color: oklch(0.4 0.11 145); }
-html:root:not(.dark) .image-run-setup-heading > span.is-offline { background: oklch(0.96 0.03 28); color: oklch(0.48 0.14 27); }
+html:root:not(.dark) .image-run-setup-heading > span.is-ready { background: oklch(0.95 calc(var(--ok-c) * 0.29) var(--ok-h)); color: oklch(0.4 calc(var(--ok-c) * 0.92) var(--ok-h)); }
+html:root:not(.dark) .image-run-setup-heading > span.is-offline { background: oklch(0.96 calc(var(--err-c) * 0.16) var(--err-h)); color: oklch(0.48 calc(var(--err-c) * 0.74) var(--err-h)); }
 html:root:not(.dark) .image-run-setup-row:hover { background: oklch(0.965 0.025 53); }
-html:root:not(.dark) .image-run-setup-icon { border-color: oklch(0.85 0.018 63); background: oklch(0.96 0.025 53); color: oklch(0.49 0.14 43); }
+html:root:not(.dark) .image-run-setup-icon { border-color: oklch(0.85 0.018 63); background: oklch(0.96 0.025 53); color: oklch(0.49 calc(var(--accent-c) * 0.93) var(--accent-h)); }
 html:root:not(.dark) .image-setup-dialog {
   border-color: oklch(0.8 0.025 60);
   background: oklch(0.985 0.006 70);
-  box-shadow: 0 28px 80px oklch(0.24 0.03 50 / 24%);
+  box-shadow: 0 28px 80px oklch(0.24 calc(var(--accent-c) * 0.2) var(--accent-h) / 24%);
 }
 html:root:not(.dark) .image-setup-dialog-header { border-color: oklch(0.86 0.016 64); }
 html:root:not(.dark) .image-setup-dialog-header h2 { color: oklch(0.22 0.014 56); }
@@ -1301,7 +1301,7 @@ html:root:not(.dark) .tool-page > .bg-gray-900,
 html:root:not(.dark) .tool-page > section.bg-gray-900 {
   border-color: var(--tool-line);
   background: linear-gradient(145deg, oklch(0.998 0.002 70), var(--tool-paper));
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 95%), 0 12px 30px oklch(0.34 0.03 50 / 7%);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 95%), 0 12px 30px oklch(0.34 calc(var(--accent-c) * 0.2) var(--accent-h) / 7%);
 }
 
 html:root:not(.dark) .tool-page input:not([type="checkbox"]):not([type="range"]),
@@ -1318,18 +1318,18 @@ html:root:not(.dark) .tool-page textarea::placeholder { color: oklch(0.56 0.015 
 html:root:not(.dark) .tool-page input:focus,
 html:root:not(.dark) .tool-page textarea:focus,
 html:root:not(.dark) .tool-page select:focus {
-  border-color: oklch(0.63 0.12 47);
-  box-shadow: 0 0 0 3px oklch(0.68 0.12 48 / 11%);
+  border-color: oklch(0.63 calc(var(--accent-c) * 0.8) var(--accent-h));
+  box-shadow: 0 0 0 3px oklch(0.68 calc(var(--accent-c) * 0.8) var(--accent-h) / 11%);
 }
 
 html:root:not(.dark) .chat-empty-mark {
-  border-color: oklch(0.8 0.07 50);
-  background: oklch(0.95 0.035 52);
-  color: oklch(0.48 0.15 42);
+  border-color: oklch(0.8 calc(var(--accent-c) * 0.47) var(--accent-h));
+  background: oklch(0.95 calc(var(--accent-c) * 0.23) var(--accent-h));
+  color: oklch(0.48 calc(var(--accent-c) * 1.0) var(--accent-h));
 }
 
 html:root:not(.dark) .chat-starter-row button { border-color: oklch(0.82 0.025 62); color: oklch(0.42 0.02 58); background: oklch(0.985 0.006 69); }
-html:root:not(.dark) .chat-starter-row button:hover { border-color: oklch(0.63 0.12 47); color: oklch(0.42 0.13 42); background: oklch(0.96 0.03 52); }
+html:root:not(.dark) .chat-starter-row button:hover { border-color: oklch(0.63 calc(var(--accent-c) * 0.8) var(--accent-h)); color: oklch(0.42 calc(var(--accent-c) * 0.87) var(--accent-h)); background: oklch(0.96 calc(var(--accent-c) * 0.2) var(--accent-h)); }
 html:root:not(.dark) .requests-table thead { background: oklch(0.95 0.014 66); color: oklch(0.45 0.018 58); }
 html:root:not(.dark) .requests-table tbody tr:hover { background: oklch(0.965 0.028 54); }
 
@@ -1339,8 +1339,8 @@ html:root:not(.dark) .requests-table tbody tr:hover { background: oklch(0.965 0.
 .dark .tool-page-description { color: oklch(0.72 0.012 70); }
 .dark .tool-section-description { color: oklch(0.66 0.012 70); }
 .dark .tool-page-chip { color: oklch(0.76 0.014 70); }
-.dark .tool-page-chip.is-ready { color: oklch(0.73 0.12 150); }
-.dark .tool-page-chip.is-offline { color: oklch(0.76 0.12 80); }
+.dark .tool-page-chip.is-ready { color: oklch(0.73 calc(var(--ok-c) * 1.0) var(--ok-h)); }
+.dark .tool-page-chip.is-offline { color: oklch(0.76 calc(var(--warn-c) * 0.86) var(--warn-h)); }
 
 /* Storage Manager ---------------------------------------------------------
    This surface intentionally keeps the dense operational language of the
@@ -1485,7 +1485,7 @@ html:root:not(.dark) .requests-table tbody tr:hover { background: oklch(0.965 0.
 .storage-inspector dd { color: var(--color-gray-300); font-size: 0.62rem; font-weight: 650; }
 .storage-inspector > button { display: flex; width: 100%; min-height: 2.2rem; align-items: center; justify-content: center; gap: 0.4rem; margin-top: 0.45rem; border: 1px solid var(--color-gray-700); border-radius: 0.65rem; color: var(--color-gray-300); font-size: 0.63rem; font-weight: 650; }
 .storage-inspector > button:hover { border-color: var(--color-gray-600); background: var(--color-gray-800); }
-.storage-inspector > button.is-primary { border-color: color-mix(in oklab, var(--accent-500) 60%, var(--color-gray-700)); background: var(--accent-600); color: white; }
+.storage-inspector > button.is-primary { border-color: color-mix(in oklab, var(--accent-500) 60%, var(--color-gray-700)); background: var(--accent-600); color: var(--on-accent); }
 .storage-inspector > button svg { width: 0.8rem; height: 0.8rem; }
 .storage-empty { display: flex; min-height: 10rem; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem; padding: 1.5rem; color: var(--color-gray-600); text-align: center; font-size: 0.65rem; }
 .storage-empty strong { color: var(--color-gray-300); font-size: 0.75rem; }
@@ -1537,7 +1537,7 @@ html:root:not(.dark) .requests-table tbody tr:hover { background: oklch(0.965 0.
 .storage-move-summary small { color: var(--color-gray-500); font-size: 0.57rem; }
 .storage-modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; padding-top: 0.2rem; }
 .storage-modal-actions button { display: flex; min-height: 2.25rem; align-items: center; gap: 0.4rem; border: 1px solid var(--color-gray-700); border-radius: 0.65rem; padding: 0 0.8rem; color: var(--color-gray-300); font-size: 0.64rem; font-weight: 650; }
-.storage-modal-actions button.is-primary { border-color: var(--accent-600); background: var(--accent-600); color: white; }
+.storage-modal-actions button.is-primary { border-color: var(--accent-600); background: var(--accent-600); color: var(--on-accent); }
 .storage-modal-actions button:disabled { opacity: 0.45; }
 .storage-modal-actions svg { width: 0.8rem; height: 0.8rem; }
 .storage-category-detail-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55rem; margin-bottom: 0.8rem; }
@@ -1598,7 +1598,7 @@ html:root:not(.dark) .storage-table th,
 html:root:not(.dark) .storage-table td { border-color: var(--storage-line); }
 html:root:not(.dark) .storage-table th { background: oklch(0.965 0.01 68); }
 html:root:not(.dark) .storage-table tr:hover td { background: oklch(0.965 0.012 65); }
-html:root:not(.dark) .storage-table tr.is-selected td { background: oklch(0.95 0.035 52); }
+html:root:not(.dark) .storage-table tr.is-selected td { background: oklch(0.95 calc(var(--accent-c) * 0.23) var(--accent-h)); }
 html:root:not(.dark) .storage-modal { border-color: var(--storage-line); background: oklch(0.992 0.004 70); }
 html:root:not(.dark) .storage-modal-header { border-color: var(--storage-line); }
 html:root:not(.dark) .storage-modal-header h2 { color: oklch(0.22 0.014 56); }
@@ -1696,7 +1696,7 @@ html:root:not(.dark) .storage-move-form > label > input { border-color: var(--st
 }
 .models-page .ui-chip.is-on .ui-count {
   background: color-mix(in oklab, var(--accent-500) 40%, transparent);
-  color: white;
+  color: var(--workspace-ink);
 }
 
 html:root:not(.dark) .console-shell .models-page .ui-chip {
@@ -1711,8 +1711,8 @@ html:root:not(.dark) .console-shell .models-page .ui-chip:hover:not(.is-on) {
 /* Solid, not a tint: on paper the selected control has to be the darkest thing
    in the row or it disappears next to the unselected ones. */
 html:root:not(.dark) .console-shell .models-page .ui-chip.is-on {
-  border-color: oklch(0.53 0.15 44);
-  background: oklch(0.57 0.15 44);
+  border-color: oklch(0.53 calc(var(--accent-c) * 1.0) var(--accent-h));
+  background: oklch(0.57 calc(var(--accent-c) * 1.0) var(--accent-h));
   color: oklch(0.99 0.01 70);
 }
 html:root:not(.dark) .console-shell .models-page .ui-chip .ui-count {

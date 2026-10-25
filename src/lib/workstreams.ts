@@ -42,7 +42,7 @@ export const ENGINE_ROOM_LINKS: WorkstreamLink[] = [
   { id: "services", label: "Services", hint: "Start, stop and inspect local services" },
   { id: "model-settings", label: "Model settings", hint: "Local model routing and downloads" },
   { id: "requests", label: "Requests", hint: "Live traffic and failures" },
-  { id: "usage", label: "Usage", hint: "Providers, tokens and cost" },
+  { id: "usage", label: "AI usage", hint: "Providers, tokens and cost" },
   { id: "storage", label: "Storage", hint: "Local files, drives and guarded moves" },
 ];
 

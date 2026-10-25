@@ -131,3 +131,26 @@
 @media(max-width:1100px){.cw-topbar{flex-wrap:wrap}.cw-topbar .cw-machine-rail{order:3;flex-basis:100%}}
 @media(max-width:550px){.cw-topbar{gap:8px}.cw-map-hint{bottom:18px}.cw-world{height:480px}}
 .cw-finished-jobs{margin-top:6px}.cw-finished-jobs summary{cursor:pointer;font-size:12px;color:var(--cw-muted);padding:10px 0}
+
+/* The map's overlays follow the theme and light or dark mode instead of a fixed navy. */
+.connected-workspace{--cw-accent:var(--hangar-primary);--cw-map-panel:color-mix(in oklab,var(--workspace-panel) 90%,transparent);--cw-map-ink:var(--workspace-ink);--cw-map-muted:var(--workspace-muted);--cw-map-line:color-mix(in oklab,var(--workspace-line) 85%,transparent)}
+.cw-world{background:radial-gradient(ellipse at 45% 48%,color-mix(in oklab,var(--accent-500) 10%,var(--workspace-inset)),var(--workspace-canvas))}
+.cw-world-caption{background:var(--cw-map-panel);border:1px solid var(--cw-map-line);text-shadow:none}
+.cw-world-caption p{color:var(--cw-map-ink)}
+.cw-world-caption .cw-eyebrow{color:var(--cw-map-muted)}
+.cw-world-tools button{background:var(--cw-map-panel);color:var(--cw-map-ink);border:1px solid var(--cw-map-line)}
+.cw-world-tools button[aria-pressed=true]{color:var(--hangar-primary);border-color:var(--hangar-primary)}
+.cw-lenses{background:var(--cw-map-panel);border-color:var(--cw-map-line)}
+.connected-workspace .cw-lenses button{color:var(--cw-map-muted)}
+.connected-workspace .cw-lenses button:hover{background:color-mix(in oklab,var(--cw-map-ink) 8%,transparent);color:var(--cw-map-ink)}
+.connected-workspace .cw-lenses button[aria-pressed=true],.connected-workspace .cw-lenses button[aria-pressed=true]:hover{background:var(--hangar-primary-soft);box-shadow:inset 0 0 0 1px var(--hangar-primary);color:var(--hangar-primary)}
+.cw-map-hint{background:var(--cw-map-panel);color:var(--cw-map-muted)}
+.cw-led.is-live{background:var(--ok-400);box-shadow:0 0 0 4px color-mix(in oklab,var(--ok-400) 14%,transparent)}
+.cw-led.is-offline{background:var(--err-400)}
+.cw-project-dot.is-live{background:var(--ok-400)}
+.cw-status.is-live{color:var(--ok-500);border-color:color-mix(in oklab,var(--ok-500) 25%,transparent)}
+.cw-error{color:var(--err-400)}
+.connected-workspace .cw-primary,.connected-workspace .cw-primary:hover:not(:disabled){background:var(--hangar-primary-fill);color:var(--hangar-on-primary)}
+/* One selected style everywhere: a soft primary fill with a primary edge and text. */
+.connected-workspace .cw-family-tabs button[aria-pressed=true],.connected-workspace .cw-project-controls button[aria-pressed=true],.connected-workspace .sl-threshold button[aria-pressed=true]{background:var(--hangar-primary-soft);color:var(--hangar-primary);border-color:var(--hangar-primary)}
+.connected-workspace .sl-threshold button[aria-pressed=true]{box-shadow:inset 0 0 0 1px var(--hangar-primary)}

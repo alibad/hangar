@@ -1,5 +1,5 @@
-.project-timeline{container-type:inline-size;--pt-activity:var(--primary);--pt-tag:#a65a0b;min-width:0}
-.dark .project-timeline{--pt-tag:#ffc474}
+.project-timeline{container-type:inline-size;--pt-activity:var(--primary);--pt-tag:var(--hangar-secondary);min-width:0}
+
 .pt-summary{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:10px 0 22px}
 .project-timeline .pt-eyebrow{font-size:10px;letter-spacing:.12em;font-weight:600;color:var(--muted-foreground)}
 .project-insights .project-timeline h3{font-size:22px;text-transform:none;color:var(--foreground);letter-spacing:-.035em;line-height:1.25;margin:6px 0}

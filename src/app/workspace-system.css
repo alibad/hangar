@@ -6,9 +6,30 @@ html:root {
   --workspace-line: var(--color-gray-800);
   --workspace-ink: var(--color-gray-100);
   --workspace-muted: var(--color-gray-400);
-  --workspace-accent: var(--accent-500);
+  --workspace-accent: var(--hangar-primary);
   --workspace-rail: 220px;
   --workspace-radius: 12px;
+}
+/* Primary is the theme's accent (cobalt in Hangar): actions, selection, links. Secondary is its warm light: live
+   work and highlights. Status colours keep their own meanings. Dark UI uses the lighter stop, light UI the darker. */
+html:root {
+  --hangar-primary: var(--accent-400);
+  --hangar-primary-fill: var(--accent-500);
+  --hangar-primary-soft: color-mix(in oklab, var(--accent-500) 16%, transparent);
+  --hangar-on-primary: var(--on-accent);
+  --hangar-secondary: var(--warn-300);
+  --hangar-secondary-soft: color-mix(in oklab, var(--warn-400) 16%, transparent);
+  --primary: var(--hangar-primary-fill);
+  --primary-foreground: var(--hangar-on-primary);
+  --ring: var(--hangar-primary);
+  --sidebar-primary: var(--hangar-primary-fill);
+  --sidebar-primary-foreground: var(--hangar-on-primary);
+  --sidebar-ring: var(--hangar-primary);
+}
+html:root:not(.dark) {
+  --hangar-primary: var(--accent-600);
+  --hangar-primary-fill: var(--accent-600);
+  --hangar-secondary: var(--warn-600);
 }
 html:root:not(.dark) {
   --workspace-canvas: oklch(0.975 0.004 70);
@@ -17,7 +38,7 @@ html:root:not(.dark) {
   --workspace-line: oklch(0.88 0.006 70);
   --workspace-ink: oklch(0.24 0.008 60);
   --workspace-muted: oklch(0.46 0.008 60);
-  --workspace-accent: var(--accent-600);
+  --workspace-accent: var(--hangar-primary);
 }
 html:root .console-shell { background: var(--workspace-canvas); color: var(--workspace-ink); }
 html:root:not(.dark) .console-shell { background: var(--workspace-canvas); color: var(--workspace-ink); }
@@ -428,3 +449,12 @@ textarea.control-input { min-height: 100px; line-height: 1.65; resize: vertical;
 
 /* The sidebar is on every page, so its section label cannot depend on a page's stylesheet. */
 .hangar-nav-label{display:block;padding:25px 12px 8px;font-size:9px;letter-spacing:.13em;color:var(--color-gray-500)}.hangar-sidebar.is-collapsed .hangar-nav-label{display:none}
+
+/* Engine room: its own row in the nav with a fold toggle, its pages listed underneath. */
+.hangar-nav-row { display: flex; align-items: center; gap: 2px; }
+.hangar-nav-row > .hangar-nav-group { flex: 1; min-width: 0; }
+.hangar-nav-row > .hangar-nav-group.is-current:not([aria-current]) { color: var(--workspace-ink); }
+.hangar-nav-row .hangar-sidebar-toggle svg { transition: transform .15s; }
+.hangar-nav-row .hangar-sidebar-toggle svg:not(.is-open) { transform: rotate(-90deg); }
+#nav-engine-room { padding-left: 10px; }
+.hangar-sidebar.is-collapsed .hangar-nav-row .hangar-sidebar-toggle { display: none; }
