@@ -4,6 +4,7 @@ import { ExternalLink, RefreshCw } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
 import "./project-architecture.css";
 import HangarLoading from "./hangar-loading";
+import { SignInNotice } from "./agent-sign-in";
 
 type Agent = "claude" | "codex";
 type Drawing = { state: "drawing" | "checking" | "ready" | "failed"; round?: number; job?: string | null; provider?: Agent; message?: string | null; problems?: string | null };
@@ -78,6 +79,7 @@ export default function ProjectArchitecture({ machine, repo, onJob }: { machine:
     {status?.archify && !status.checkout && !d && <p className="pa-quiet">Clone this project on this machine to draw its architecture.</p>}
     {status?.archify && status.checkout && !status.agents.length && <p className="pa-quiet">Install Claude Code or Codex on this machine to draw the architecture.</p>}
     {status?.archify && <>
+      {!busy && chosen && status.signedOut?.includes(chosen) && <SignInNotice machine={machine} machineName="this machine" agent={chosen} compact />}
       {busy && <div className="pa-progress" role="status">
         <span className="pa-pulse" aria-hidden="true" />
         <div><b>{drawing?.state === "checking" ? "Archify is checking the drawing" : `${NAMES[drawing?.provider || "codex"]} is reading the code`}</b>

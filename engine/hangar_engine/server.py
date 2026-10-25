@@ -110,6 +110,9 @@ def make_handler(state, port):
             if path == "/api/work":
                 from . import work
                 return self._send(200, work.snapshot())
+            if path == "/api/agents":
+                from . import agents
+                return self._send(200, agents.status())
             if path == "/api/workspace":
                 from . import workspace
                 return self._send(200, workspace.snapshot(state.doc or state.load()))
@@ -187,6 +190,12 @@ def make_handler(state, port):
                 try:
                     return self._send(200, plan_links.save(state.doc or state.load(), body))
                 except ValueError as e:
+                    return self._send(400, {"error": str(e)})
+            if path == "/api/agents/login":
+                from . import agents
+                try:
+                    return self._send(200, agents.sign_in(body.get("agent")))
+                except (ValueError, launch.LaunchError, OSError) as e:
                     return self._send(400, {"error": str(e)})
             if path == "/api/architecture":
                 from . import architecture

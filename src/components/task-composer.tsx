@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import { ChevronDown, History, Play, Sparkles, X } from "lucide-react";
 import { taskContext, taskDraft, taskPrompt, type TaskProject, type TaskSession } from "@/lib/task-context";
 import "./task-composer.css";
+import { SignInNoticeView, useAgents, useSignedInAgain } from "./agent-sign-in";
 
 const AGENTS = [{ id: "codex", name: "Codex" }, { id: "claude", name: "Claude Code" }];
 /** Ready-made asks for a new task; the first is the project's own next step (or a review when none is recorded). */
@@ -14,8 +15,8 @@ const ASKS = [
 ];
 const ago = (iso: string) => { const d = Math.floor((Date.now() - Date.parse(iso)) / 86400000); return Number.isNaN(d) ? "" : d <= 0 ? "today" : d === 1 ? "yesterday" : `${d}d ago`; };
 
-export default function TaskComposer({ project, machineName, sessions, initialSession, initialProvider, blocked, onClose, onSubmit }: {
-  project: TaskProject; machineName: string; sessions: TaskSession[]; initialSession: string | null; initialProvider: string; blocked: boolean;
+export default function TaskComposer({ project, machine, machineName, sessions, initialSession, initialProvider, blocked, onClose, onSubmit }: {
+  project: TaskProject; machine: string; machineName: string; sessions: TaskSession[]; initialSession: string | null; initialProvider: string; blocked: boolean;
   onClose: () => void; onSubmit: (body: { provider: string; prompt: string; session: string | null }) => Promise<boolean>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -29,6 +30,10 @@ export default function TaskComposer({ project, machineName, sessions, initialSe
   const context = taskContext(project, sessions);
   const fullPrompt = taskPrompt(context, draft);
   const own = taskDraft(project);
+  const signs = useAgents(machine);
+  const sign = signs.agents.find(a => a.id === provider);
+  const signedAgain = useSignedInAgain(sign);
+  const signedOut = sign?.signedIn === false;
   useEffect(() => { const d = dialog.current; d?.showModal(); return () => d?.close(); }, []);
   function choose(s?: TaskSession) { setSession(s); if (s) setProvider(s.provider); setDraft(taskDraft(project, s)); }
   const agentName = AGENTS.find(a => a.id === provider)?.name || provider;
@@ -57,6 +62,8 @@ export default function TaskComposer({ project, machineName, sessions, initialSe
       </button>;
     })}</div> : <div className="tc-agents" role="radiogroup" aria-label="Coding agent">{AGENTS.map(a => <button key={a.id} role="radio" aria-checked={provider === a.id} disabled={busy} onClick={() => setProvider(a.id)}><i className={`tc-dot is-${a.id}`} aria-hidden="true" />{a.name}</button>)}</div>}
 
+    <SignInNoticeView status={sign} waiting={signs.waiting} error={signs.error} onSignIn={id => void signs.signIn(id)} machineName={machineName} local={machine === "local"} compact done={signedAgain} />
+
     <label className="tc-label" htmlFor="tc-ask">{session ? "What should it pick up?" : "What should happen?"}</label>
     {!session && <div className="tc-asks" aria-label="Ready-made tasks">
       <button aria-pressed={draft === own} disabled={busy} onClick={() => setDraft(own)}>{project.meaning?.next ? "Recorded next step" : "Review and plan"}</button>
@@ -70,7 +77,7 @@ export default function TaskComposer({ project, machineName, sessions, initialSe
     {error && <p className="tc-alert" role="alert">{error}</p>}
     <footer className="tc-foot">
       <small>{session ? `Resumes this ${session.provider === "codex" ? "Codex" : "Claude"} conversation with its history` : `New ${agentName} session`} in the project’s main folder on {machineName}, with that agent’s own sign-in and permissions.</small>
-      <button className="tc-run" disabled={busy || blocked || !draft.trim() || fullPrompt.length > 8000} onClick={() => void start()}><Play size={15} />{busy ? "Starting…" : session ? `Continue in ${session.provider === "codex" ? "Codex" : "Claude"}` : `Run ${agentName}`}</button>
+      <button className="tc-run" disabled={busy || blocked || signedOut || !draft.trim() || fullPrompt.length > 8000} onClick={() => void start()}><Play size={15} />{busy ? "Starting…" : session ? `Continue in ${session.provider === "codex" ? "Codex" : "Claude"}` : `Run ${agentName}`}</button>
     </footer>
   </dialog>;
 }

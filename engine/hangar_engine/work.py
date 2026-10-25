@@ -69,7 +69,7 @@ def step(block, folder):
 def sign_in_hint(text):
     """A plain next step when the agent's own command-line sign-in has lapsed."""
     if re.search(r"Failed to authenticate|OAuth access token|401\b.*(token|auth)|Not logged in|Please run /login", text or "", re.I):
-        return "The agent's command-line sign-in has expired. Open a terminal, run the agent once and sign in, then try again."
+        return "The agent's command-line sign-in has expired. Use Sign in in Hangar, or sign in again in a terminal, then try again."
     return None
 
 
@@ -144,6 +144,11 @@ def begin(doc, overlay, rid, provider, prompt, session=None, kind="code", read_d
     """Start a validated job. on_finish(job, reply) runs after the agent exits, with its final reply."""
     snapshot()
     repo, folder = checkout(doc, overlay, rid)
+    # A job that cannot sign in fails after it starts; say so before, with the way to fix it.
+    from . import agents
+    sign = next((a for a in agents.status()["agents"] if a["id"] == provider), None)
+    if sign and sign.get("signedIn") is False:
+        raise ValueError(f"{sign['name']} needs you to sign in on this machine first. Use Sign in in Hangar, then try again.")
     argv = command(provider, folder, prompt, session, read_dirs)
     with _lock:
         if len(_processes) >= MAX_ACTIVE:

@@ -15,7 +15,7 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import config, launch, work
+from . import agents, config, launch, work
 from .insights import git
 
 INSTALL = "npx skills add tt-a1i/archify -g"
@@ -236,7 +236,7 @@ def status(doc, overlay, rid):
     with _lock:
         drawing = dict(_drawing.get(rid) or {}) or None
     return {"archify": archify() is not None, "install": INSTALL, "checkout": folder is not None,
-            "agents": [p for p in ("claude", "codex") if launch.cli(p)], "signedOut": work.signed_out(),
+            "agents": [p for p in ("claude", "codex") if launch.cli(p)], "signedOut": sorted(set(work.signed_out()) | {a["id"] for a in agents.status()["agents"] if a["signedIn"] is False}),
             "diagram": meta, "behind": behind, "drawing": drawing}
 
 
