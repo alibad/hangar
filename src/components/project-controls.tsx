@@ -6,7 +6,7 @@ import { useTheme } from "./theme-provider";
 import "./project-controls.css";
 
 export type ProjectChoice = { id: string; name: string; hidden?: boolean; hiddenByIsland?: string; attention?: string | null; sites: unknown[] };
-export type ProjectMenuTarget = { project: ProjectChoice; x: number; y: number };
+export type ProjectMenuTarget = { project: ProjectChoice; x: number; y: number; inPane?: boolean };
 type Attention = "focus" | "parked" | "hidden" | null;
 export function ProjectContextMenu({ target, local, onClose, onOpen, onAttention, onFolder }: {
   target: ProjectMenuTarget; local: boolean; onClose: () => void;
@@ -36,9 +36,9 @@ export function ProjectContextMenu({ target, local, onClose, onOpen, onAttention
       items[e.key === "Home" ? 0 : e.key === "End" ? items.length - 1 : (index + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
     }}>
       <p>{project.name}</p>
-      <button role="menuitem" onClick={() => run(() => onOpen(project.id, "work"))}><PanelRightOpen size={16} />Open work pane</button>
+      {!target.inPane && <><button role="menuitem" onClick={() => run(() => onOpen(project.id, "work"))}><PanelRightOpen size={16} />Open work pane</button>
       <button role="menuitem" onClick={() => run(() => onOpen(project.id, "repository"))}><FolderOpen size={16} />Repository tools &amp; notes</button>
-      <hr />
+      <hr /></>}
       <button role="menuitemcheckbox" aria-checked={project.attention === "focus" && !project.hidden} onClick={() => run(() => onAttention(project, project.attention === "focus" ? null : "focus"))}><Star size={16} />{project.attention === "focus" ? "Remove from Focus" : "Focus · important now"}</button>
       <button role="menuitemcheckbox" aria-checked={project.attention === "parked" && !project.hidden} onClick={() => run(() => onAttention(project, project.attention === "parked" ? null : "parked"))}><Pause size={16} />{project.attention === "parked" ? "Unpark · keep category" : "Park · relevant, but later"}</button>
       <button role="menuitem" onClick={() => run(() => onAttention(project, project.hidden ? null : "hidden"))}>{project.hidden ? <Eye size={16} /> : <EyeOff size={16} />}{project.hidden ? "Bring back onto map" : "Off the map · not relevant…"}</button>

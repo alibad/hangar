@@ -1,8 +1,12 @@
 /* Expansion occupies the browser viewport; selecting a building never adds a row. */
 .cw-focus-bar{display:none}
-.cw-pane-size-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-shrink:0;position:sticky;top:0;z-index:6;background:var(--color-gray-950);padding-bottom:10px}
-.cw-pane-size-controls>button:last-child{width:36px;border:1px solid var(--border)}
-.cw-inspector .cw-pane-size-controls .cw-pane-expand{margin:0}
+.cw-pane-header{display:flex;align-items:center;gap:8px;flex-shrink:0;position:sticky;top:0;z-index:6;background:var(--color-gray-950);border-bottom:1px solid var(--border);padding-block:4px 10px;margin-bottom:16px;min-width:0}
+.cw-pane-header .cw-pane-tabs{flex:1;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;border:0;padding:0;margin:0;gap:2px}
+.cw-pane-header .cw-pane-tabs button{flex-shrink:0;white-space:nowrap;padding:8px;font-size:12px;min-height:36px}
+.cw-pane-actions{display:flex;gap:2px;align-items:center;flex-shrink:0}
+.cw-inspector .cw-pane-actions>button{display:inline-flex;align-items:center;justify-content:center;width:32px;min-height:36px;padding:0;margin:0;border:0;flex-shrink:0;align-self:auto;color:var(--cw-muted);background:transparent}
+.cw-inspector .cw-pane-actions>button:hover{background:var(--accent);color:var(--foreground)}
+.cw-inspector .cw-pane-actions>button:focus-visible{outline:2px solid var(--ring);outline-offset:-2px}
 .connected-workspace.is-expanded .cw-world-layout{position:fixed;inset:0;z-index:80;width:100%;height:100dvh;min-height:0;border:0;border-radius:0;grid-template-columns:minmax(0,1fr) 320px;grid-template-rows:48px minmax(0,1fr);gap:0}
 .connected-workspace.has-project .cw-world-layout{grid-template-columns:minmax(0,1fr) minmax(300px,var(--cw-pane-width))}
 .connected-workspace.is-expanded .cw-focus-bar{display:flex;grid-column:1/-1;align-items:center;justify-content:space-between;gap:12px;padding:4px 14px;border-bottom:1px solid var(--cw-line);background:var(--color-gray-950)}
@@ -22,6 +26,7 @@
   .connected-workspace.has-project .cw-world-layout>.cw-inspector,.connected-workspace.has-project .cw-project-list-layout>.cw-inspector{position:fixed;inset:0;z-index:90;width:100%;height:100dvh;min-height:0;max-height:100dvh;border:0;border-radius:0;padding:16px;overflow-y:auto}
   .connected-workspace.has-project .cw-inspector.has-repository-pane{overflow:hidden;padding-bottom:0}
   .connected-workspace .cw-pane-resize,.connected-workspace.is-expanded .cw-world-layout .cw-pane-resize{display:none}
-  .cw-pane-size-controls .cw-pane-expand{display:none}
+  .cw-inspector .cw-pane-actions .cw-pane-expand{display:none}
   .cw-focus-bar .cw-muted{display:none}
 }
+@media(pointer:coarse){.cw-inspector .cw-pane-actions>button{width:44px;min-height:44px}.cw-pane-header .cw-pane-tabs button{min-height:44px}}
