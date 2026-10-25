@@ -405,9 +405,20 @@ def _resolve(argv):
     return [exe or argv[0], *argv[1:]]
 
 
+def app_browser():
+    """Chrome or Edge, which can open a page as its own app window."""
+    base = [os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+            os.environ.get("LOCALAPPDATA", "")]
+    for rel in (r"Google\Chrome\Application\chrome.exe", r"Microsoft\Edge\Application\msedge.exe"):
+        for b in base:
+            p = Path(b) / rel
+            if b and p.exists():
+                return str(p)
+    return None
+
+
 def open_window(url, how="window"):
     """Open a local page in its own app window (Chrome or Edge), or as a tab."""
-    from .appinstall import app_browser
     browser = app_browser() if sys.platform == "win32" else None
     if how == "window" and browser:
         subprocess.Popen([browser, f"--app={url}", "--new-window"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,

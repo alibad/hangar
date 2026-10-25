@@ -29,6 +29,29 @@ class PurposeCategories(unittest.TestCase):
         self.assertTrue(projects[0]["hidden"])
 
 
+class EngineModules(unittest.TestCase):
+    def test_every_internal_import_exists(self):
+        # An import of a module that only Atlas has crashed the request that used it (opening a running app).
+        import re
+        pkg = Path(__file__).resolve().parent / "hangar_engine"
+        missing = []
+        for f in pkg.glob("*.py"):
+            text = f.read_text(encoding="utf-8")
+            names = re.findall(r"^\s*from \.([a-z_]+) import", text, re.M)
+            for group in re.findall(r"^\s*from \. import ([a-z_, ]+)", text, re.M):
+                names += [n.split(" as ")[0].strip() for n in group.split(",")]
+            missing += [f"{f.name}: {n}" for n in names if n and not (pkg / f"{n}.py").exists()]
+        self.assertEqual(missing, [])
+
+    def test_opening_a_running_app_starts_an_app_window(self):
+        from unittest import mock
+        from hangar_engine import apps
+        with mock.patch.object(apps, "app_browser", return_value="C:/browser.exe"), mock.patch.object(apps.sys, "platform", "win32"), \
+                mock.patch.object(apps.subprocess, "Popen") as popen:
+            apps.open_window("http://localhost:3939/")
+        self.assertEqual(popen.call_args[0][0], ["C:/browser.exe", "--app=http://localhost:3939/", "--new-window"])
+
+
 class ArchitectureDrawings(unittest.TestCase):
     def test_reply_parsing_keeps_only_an_architecture_candidate(self):
         from hangar_engine.architecture import candidate
