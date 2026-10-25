@@ -30,3 +30,13 @@
   .cw-focus-bar .cw-muted{display:none}
 }
 @media(pointer:coarse){.cw-inspector .cw-pane-actions>button{width:44px;min-height:44px}.cw-pane-header .cw-pane-tabs button{min-height:44px}}
+/* Pane header: category and actions on one line, then the views as underline tabs that always fit. */
+.cw-pane-header{flex-direction:column;align-items:stretch;gap:6px;padding-block:2px 0}
+.cw-pane-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.cw-pane-top .cw-pane-actions{display:flex;align-items:center;gap:2px;flex-shrink:0}
+.cw-pane-header .cw-pane-tabs{display:flex;gap:0;overflow-x:auto;scrollbar-width:none;border:0;margin:0;padding:0}
+.cw-pane-header .cw-pane-tabs::-webkit-scrollbar{display:none}
+.connected-workspace .cw-pane-header .cw-pane-tabs button,.connected-workspace .cw-pane-header .cw-pane-tabs button:hover{flex:1 1 auto;min-height:36px;padding:8px 6px;border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--cw-muted);font-size:12px;font-weight:500;white-space:nowrap}
+.connected-workspace .cw-pane-header .cw-pane-tabs button:hover{color:var(--cw-ink)}
+.connected-workspace .cw-pane-header .cw-pane-tabs button[aria-pressed=true],.connected-workspace .cw-pane-header .cw-pane-tabs button[aria-pressed=true]:hover{background:transparent;color:var(--hangar-primary);border-bottom-color:var(--hangar-primary)}
+.cw-pane-top .project-category{margin:0;flex:1;min-width:0}

@@ -162,5 +162,6 @@
 .cw-tools-pane-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px}
 .cw-tools-pane-head h2{margin:0!important;font-size:17px!important}
 .cw-tools-pane-head button{padding:8px}
-.cw-lenses{max-width:calc(100% - 200px)}
-@media(max-width:700px){.cw-lenses{max-width:calc(100% - 28px)}}
+/* The lens row wraps before it reaches the map icons on the right. */
+.connected-workspace .cw-world-layout .cw-lenses{max-width:calc(100% - 200px)}
+@media(max-width:700px){.connected-workspace .cw-world-layout .cw-lenses{max-width:calc(100% - 28px)}}

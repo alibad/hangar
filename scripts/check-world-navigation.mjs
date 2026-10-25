@@ -28,7 +28,7 @@ try {
   await frame.waitForFunction(() => !document.querySelector('.district-label.has-work'));
   await page.getByRole("button", { name: "Expand world", exact: true }).click();
   assert.equal(await page.locator('.connected-workspace.is-expanded').count(), 1);
-  await page.getByRole("button", { name: "Restore world layout", exact: true }).click();
+  await page.getByRole("button", { name: "Exit expanded world", exact: true }).click();
   await page.locator('.cw-lenses button').first().click();
   await page.locator('.cw-island-picker button').nth(1).click();
   await page.waitForTimeout(1800);
