@@ -229,9 +229,11 @@ def resume(provider, session_id):
     from . import launch
     if provider not in ("claude", "codex") or not isinstance(session_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", session_id):
         raise ValueError("Invalid session")
-    if provider == "codex" and (launch._protocol("codex") or launch._mac_app("Codex")):
-        # The Codex app opens the thread itself, with its history, where you normally read it.
-        launch._open_os(f"codex://threads/{session_id}")
+    from . import desktop_sessions
+    # The desktop app opens the conversation itself, with its history, where you normally read it.
+    link = desktop_sessions.app_link(provider, session_id) if desktop_sessions.opens_in(provider, session_id) == "app" else None
+    if link:
+        launch._open_os(link)
         return {"opened": True, "provider": provider, "where": "app"}
     entry = next((e for e in collect()["files"].values() if e["provider"] == provider and e["id"] == session_id), None)
     if not entry or not entry["cwd"] or not Path(entry["cwd"]).is_dir():

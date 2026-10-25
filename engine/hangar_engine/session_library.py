@@ -9,7 +9,7 @@ import uuid
 import re
 from datetime import datetime, timezone
 
-from . import codex_library, config, local, session_index, session_topics, work
+from . import codex_library, config, desktop_sessions, local, session_index, session_topics, work
 
 _lock = threading.RLock()
 DAY = 86400
@@ -83,7 +83,7 @@ def snapshot(doc, overlay, now=None):
             "reviewed": stamp(meta.get("reviewedAt")) >= activity if meta.get("reviewedAt") else False,
             "group": group, "nativeGroup": native_group, "nativeKnown": bool(thread), "pinned": pinned,
             "archived": archived or hangar_archive, "archiveScope": "codex" if archived else "hangar" if hangar_archive else None,
-            "protected": busy, "snoozedUntil": meta.get("snoozedUntil"), "suggestion": None,
+            "protected": busy, "snoozedUntil": meta.get("snoozedUntil"), "suggestion": None, "opensIn": desktop_sessions.opens_in(provider, sid),
             "reviewDue": bool(used and now - used >= saved["idleDays"] * DAY and not archived and not hangar_archive and not busy and not pinned and stamp(meta.get("snoozedUntil")) <= now)}
         rows.append(row)
     # Purpose is suggested from native titles across repositories/providers.

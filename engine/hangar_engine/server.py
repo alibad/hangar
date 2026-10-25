@@ -108,8 +108,12 @@ def make_handler(state, port):
                 from . import session_library
                 return self._send(200, session_library.snapshot(state.doc or state.load(), scanner.overlay()))
             if path == "/api/work":
-                from . import work
-                return self._send(200, work.snapshot())
+                from . import desktop_sessions, work
+                data = work.snapshot()
+                for job in data["jobs"]:
+                    if job.get("session"):
+                        job["opensIn"] = desktop_sessions.opens_in(job["provider"], job["session"])
+                return self._send(200, data)
             if path == "/api/agents":
                 from . import agents
                 return self._send(200, agents.status())

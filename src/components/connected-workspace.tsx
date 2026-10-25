@@ -25,7 +25,7 @@ type Site = { role: string; branch?: string; dirty?: number; ahead?: number; beh
 type Repo = { homepage?: string | null; onMachine?: boolean; recency?: string; lastActivity?: string; url?: string; openPRs?: number; organizationReviewed?: boolean; fullName?: string; hiddenByIsland?: string; hidden?: boolean; attention?: string | null; id: string; name: string; family: string; description?: string; purpose?: string; sites: Site[]; meaning?: { purpose?: string; next?: string }; risks?: { id: string; text: string }[] };
 type AtlasDoc = { islands?: Island[]; generatedAt: string; repos: Repo[]; families: { id: string; name: string; repos: number }[]; apps: { id: string; name: string }[] };
 type Session = LibrarySession;
-type Job = { id: string; repo: string; project: string; provider: string; prompt: string; state: string; kind?: string; startedAt: string; endedAt: string | null; exitCode: number | null; session?: string; output: { at: string; text: string }[] };
+type Job = { id: string; repo: string; project: string; provider: string; prompt: string; state: string; kind?: string; opensIn?: "app" | "terminal"; startedAt: string; endedAt: string | null; exitCode: number | null; session?: string; output: { at: string; text: string }[] };
 type Apps = { repo: string; running: { port: number; by: string }[]; apps: { label: string; dir: string; targets: { id: string; label: string; ok: boolean; why: string; port?: number; type?: string }[] }[]; jobs?: Record<string, { state?: string; port?: number; message?: string }> };
 type Model = { id: string; target: string; provider: string; mode: string; status: string; local: boolean; detail?: string; resident?: boolean };
 type Machine = { id: string; name: string; port?: number; sshAlias?: string };
@@ -383,7 +383,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     setBusy(true); setMessage("");
     try {
       const result = await json<{ where?: string }>(`${prefix}/sessions/resume`, { provider, id });
-      setMessage(result.where === "app" ? "Opened in the Codex app." : `Opened in a terminal with ${provider === "codex" ? "codex resume" : "claude --resume"}.`);
+      setMessage(result.where === "app" ? `Opened in the ${provider === "codex" ? "Codex" : "Claude"} app.` : `The ${provider === "codex" ? "Codex" : "Claude"} app does not have this conversation, so it opened in a terminal with ${provider === "codex" ? "codex resume" : "claude --resume"}.`);
     } catch (e) { setMessage((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -438,7 +438,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
       <span className={`jv-state is-${running(job) && !liveError ? "running" : job.state}`}>{jobState(job)}</span>
       <span className="jv-when">{since(job.endedAt || job.startedAt)}</span>
     </button>
-    {job.session && job.kind !== "architecture" && machine === "local" && <button className="cw-pill" disabled={busy} onClick={() => void openSession(job.provider, job.session!)}>Open in {job.provider === "codex" ? "Codex" : "Claude Code"}</button>}
+    {job.session && job.kind !== "architecture" && machine === "local" && <button className="cw-pill" disabled={busy} title={job.opensIn === "app" ? "Opens in the desktop app" : "The desktop app does not have this conversation, so it resumes in a terminal"} onClick={() => void openSession(job.provider, job.session!)}>{job.opensIn === "app" ? `Open in ${job.provider === "codex" ? "Codex" : "Claude"}` : "Resume in a terminal"}</button>}
   </div>;
   const actionCounts = <nav className="cw-action-counts" aria-label="Repository actions">{[
     { id: "push", label: "to push", count: visibleProjects.filter(r => r.risks?.some(k => ["unpushed", "offmap"].includes(k.id))).length, color: "var(--hangar-secondary)" },
@@ -536,7 +536,7 @@ function JobView({ job, machine, machineName, local, busy, message, live, onClos
         : live ? <HangarLoading compact label="Waiting for the agent’s first step" steps={["Starting the agent", "Reading the project", "Planning the first step"]} /> : <p className="cw-muted">This job left no readable output.</p>}
     </div>
     <div className="jv-actions">
-      {openable && local && <button className="cw-primary" disabled={busy} onClick={onOpen}>Open in {agent}<ArrowRight size={15} /></button>}
+      {openable && local && <button className="cw-primary" disabled={busy} title={job.opensIn === "app" ? "Opens in the desktop app" : "The desktop app does not have this conversation, so it resumes in a terminal"} onClick={onOpen}>{job.opensIn === "app" ? `Open in ${job.provider === "codex" ? "Codex" : "Claude"}` : "Resume in a terminal"}<ArrowRight size={15} /></button>}
       {job.state === "unobserved" ? <button disabled={busy} onClick={onAcknowledge}>I checked: this job is no longer running</button>
         : live && <button disabled={busy || job.state === "stopping"} onClick={onStop}><Square size={14} />{job.state === "stopping" ? "Stopping…" : "Stop this job"}</button>}
       {!openable && !live && <p className="cw-muted">{job.kind === "architecture" ? "A read-only drawing job keeps no conversation to open." : "No conversation was recorded for this job."}</p>}

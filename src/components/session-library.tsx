@@ -12,6 +12,8 @@ export type LibrarySession = {
   archived: boolean; archiveScope: "hangar" | "codex" | null; protected: boolean; reviewDue: boolean; snoozedUntil: string | null;
   projects: { id: string; name: string; evidence: string; files: string[] }[];
   suggestion: { id: string; name: string; reason: string; confidence: string } | null;
+  /** Where Open takes it: its desktop app when the app can show it, otherwise a terminal. */
+  opensIn?: "app" | "terminal";
 };
 type Group = { id: string; name: string; source: string; nativeId?: string };
 export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; truncated: boolean; observedAt: string };
@@ -201,7 +203,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
             })}</details>
             {selected.suggestion && <div className="sl-inline-suggestion"><span><b>Suggested: {selected.suggestion.name}</b><small>{selected.suggestion.reason}{selected.suggestion.confidence === "tentative" ? " · tentative" : ""}</small></span><button disabled={busy} title="Put this session in that Hangar group. Claude and Codex are not changed." onClick={() => act({ action: "acceptSuggestion", keys: [selected.key] }, "Grouped in Hangar. Native Codex sections are unchanged.")}>Add to this group <Check size={14} /></button></div>}
             <div className="sl-session-actions">{selected.archived ? <button disabled={busy || selected.protected || (selected.archiveScope === "codex" && !selected.nativeKnown)} onClick={() => act({ action: "restore", keys: [selected.key], scope: selected.archiveScope }, "Session restored; archive suggestions snoozed for seven days.")}>Restore in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</button> : <>
-              {onOpen && <button className="sl-open" disabled={busy} title={`Open this conversation in ${selected.provider === "codex" ? "the Codex app, or codex resume in a terminal" : "a terminal with claude --resume"}`} onClick={() => onOpen(selected)}>Open in {selected.provider === "codex" ? "Codex" : "Claude Code"} <ArrowRight size={14} /></button>}
+              {onOpen && <button className="sl-open" disabled={busy} title={selected.opensIn === "app" ? `Opens in the ${selected.provider === "codex" ? "Codex" : "Claude"} app` : `The ${selected.provider === "codex" ? "Codex" : "Claude"} app does not have this conversation (it was started outside the app), so it resumes in a terminal`} onClick={() => onOpen(selected)}>{selected.opensIn === "app" ? `Open in ${selected.provider === "codex" ? "Codex" : "Claude"}` : "Resume in a terminal"} <ArrowRight size={14} /></button>}
               <button disabled={busy || !selected.canResume || !selected.projects.length} title="Give it a new task from Hangar, with its history" onClick={async () => { if (await act({ action: "opened", keys: [selected.key] }, "Session opened in Hangar.")) onContinue(selected); }}>Continue from Hangar</button>
               <button disabled={busy} title="Hangar groups sort sessions from both agents together" onClick={() => { setChosenGroup(selected.group || ""); setTarget({ key: selected.key, purpose: "group" }); }}>Group…</button>
               <button disabled={busy || selected.protected || selected.pinned} onClick={() => setTarget({ key: selected.key, purpose: "archive" })}>{selected.reviewDue ? "Review archive" : "Archive…"}</button>
