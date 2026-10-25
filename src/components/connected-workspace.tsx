@@ -33,6 +33,14 @@ export const WORLD_TABS = new Set<string>(["world", "projects", "sessions", "mac
 const running = (j: Job) => j.state === "running" || j.state === "stopping";
 /** Waiting on you: uncommitted work, commits not on GitHub, a pull to make or pull requests to review (the map's Needs attention lens). */
 const needsYou = (r: Repo) => r.sites.some(s => s.dirty) || !!r.risks?.some(k => ["unpushed", "offmap", "pull"].includes(k.id)) || !!r.openPRs;
+/** What each lens's colours mean, shown under the lens buttons (the map's own legend, in Hangar's bar). */
+const LENS_LEGEND: Record<string, [string, string][]> = {
+  working: [["#ffb85c", "Agent working now"]],
+  changes: [["#ffb03b", "Uncommitted"], ["#ff5f52", "Not pushed"], ["#4aa3ff", "Needs a pull"], ["#c084fc", "Pull requests"]],
+  where: [["", "Solid: on this machine"], ["", "See-through: only on GitHub or another machine"]],
+  activity: [["#ffad4d", "This month"], ["#f4d35e", "3 months"], ["#78c6a3", "This year"], ["#8399b3", "Dormant"]],
+  shipped: [["#e8962c", "Beam: has a website address on GitHub"]],
+};
 const LENS_NAMES: Record<string, string> = { map: "World", working: "Live work", changes: "Needs attention", where: "On this machine", activity: "Activity", shipped: "Shipped" };
 function since(value?: string) {
   if (!value) return "Not observed";
@@ -413,7 +421,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
         <div className="cw-focus-bar"><span><img src="/brand/foundry.png" alt="" width="28" height="24" />World <span className="cw-muted">/ {machineName}</span></span>{actionCounts}<button ref={exitWorld} onClick={() => setExpanded(false)} aria-label="Exit expanded world"><Minimize2 size={16} />Exit expanded view</button></div>
         <div className="cw-world">
           <div className="cw-world-tools"><button className="cw-map-controls" aria-pressed={mapControls} aria-label="History and replay" title="History and replay" onClick={() => setMapControls(v => !v)}><History size={16} /></button><button aria-label="Show all islands" onClick={home}><Home size={16} /></button><button aria-label={expanded ? "Restore world layout" : "Expand world"} onClick={() => setExpanded(v => !v)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
-          <div className="cw-lenses" aria-label="World lens">{[["map", "World"], ["working", "Live work"], ["changes", "Needs attention"], ["where", "On this machine"], ["activity", "Activity"], ["shipped", "Shipped"]].map(([id, name]) => <button key={id} aria-pressed={lens === id} onClick={() => setLens(id)}>{{ map: <Globe2 size={13} />, working: <Activity size={13} />, changes: <TriangleAlert size={13} />, where: <Laptop size={13} />, activity: <Clock3 size={13} />, shipped: <Flag size={13} /> }[id]}{name}</button>)}</div>
+          <div className="cw-lenses" aria-label="World lens">{[["map", "World"], ["working", "Live work"], ["changes", "Needs attention"], ["where", "On this machine"], ["activity", "Activity"], ["shipped", "Shipped"]].map(([id, name]) => <button key={id} aria-pressed={lens === id} onClick={() => setLens(id)}>{{ map: <Globe2 size={13} />, working: <Activity size={13} />, changes: <TriangleAlert size={13} />, where: <Laptop size={13} />, activity: <Clock3 size={13} />, shipped: <Flag size={13} /> }[id]}{name}</button>)}{LENS_LEGEND[lens] && <div className="cw-lens-legend" aria-live="polite">{LENS_LEGEND[lens].map(([color, label]) => <span key={label}>{color && <i style={{ background: color }} aria-hidden="true" />}{label}</span>)}</div>}</div>
           {doc && <iframe key={`${machine}-${worldRevision}`} ref={iframe} title={`Hangar project world on ${machineName}`} src={`/api/world/${machine}/view/index.html?embed=hangar&lens=map`} onLoad={() => send("status")} allow="clipboard-write" />}
           {!ready && <div className="cw-world-status" role="status" aria-label="Map loading status">
             {worldError ? <TriangleAlert size={15} /> : <RefreshCw size={15} className="cw-map-spinner" />}

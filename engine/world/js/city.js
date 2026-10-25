@@ -512,7 +512,15 @@ export class Building {
     if (this.beacon) {
       this.beacon.visible = s.dim < 0.6;
       this.beam.visible = s.glow > 0.02;
-      this.beam.material.opacity = s.glow * lerp(0.55, 0.8, this.night);
+      // A night sky takes the beam as added light; on a pale day sky added light turns white, so by day it is painted amber and shorter.
+      const day = this.night < 0.5;
+      if (this.beam.userData.day !== day) {
+        this.beam.userData.day = day;
+        this.beam.material.blending = day ? THREE.NormalBlending : THREE.AdditiveBlending;
+        this.beam.material.color.set(day ? "#e8962c" : "#ffc46b");
+        this.beam.scale.y = day ? 16 : 42;
+      }
+      this.beam.material.opacity = s.glow * (day ? 0.7 : lerp(0.55, 0.8, this.night));
     }
   }
 
