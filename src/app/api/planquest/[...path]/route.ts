@@ -34,7 +34,7 @@ async function handle(request: NextRequest, context: Context) {
       if (path === "status") return json(await planquest.status());
       if (path === "plans") {
         const query = (request.nextUrl.searchParams.get("q") || "").trim().toLowerCase().slice(0, 200);
-        const plans = await planquest.plans();
+        const plans = await planquest.plans(request.nextUrl.searchParams.get("fresh") === "1");
         return json({ plans: plans.filter(p => !query || `${p.title} ${p.description} ${p.folders.join(" ")}`.toLowerCase().includes(query)) });
       }
       if (path.startsWith("plans/")) return json({ plan: await planquest.plan(path.slice(6)) });

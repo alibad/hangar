@@ -29,9 +29,15 @@ export function loopbackOrigin(value: string): string {
 function equal(a: string, b: string) { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); }
 const text = (v: unknown, limit = 2000) => typeof v === "string" ? v.slice(0, limit) : "";
 const percent = (v: unknown) => typeof v === "number" && Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0;
+// People keep sign-in details in plan descriptions. Those lines never leave the server: not shown, not searchable.
+const SECRET_LINE = /\b(pass(word|code|phrase)?|pwd|secret|token|api[\s_-]?key|private[\s_-]?key|user\s?name|login|credentials?)\b[^\n]{0,40}[:=]/i;
+export const HIDDEN_LINE = "•••• hidden: looks like a sign-in detail";
+export function hideSecrets(value: string): string {
+  return value.split(/\r?\n/).map(line => SECRET_LINE.test(line) ? HIDDEN_LINE : line).join("\n");
+}
 function summary(raw: Record<string, unknown>): PlanSummary {
   const id = validatePlanId(raw.id);
-  return { id, title: text(raw.title, 120) || "Untitled plan", description: text(raw.description), access: text(raw.access, 20), archived: raw.archived === true, folders: Array.isArray(raw.folder_path) ? raw.folder_path.map(v => text(v, 120)) : [], url: `${PLANQUEST_ORIGIN}/plans/${encodeURIComponent(id)}`, updatedAt: typeof raw.updated_at === "string" ? raw.updated_at : null };
+  return { id, title: text(raw.title, 120) || "Untitled plan", description: hideSecrets(text(raw.description)), access: text(raw.access, 20), archived: raw.archived === true, folders: Array.isArray(raw.folder_path) ? raw.folder_path.map(v => text(v, 120)) : [], url: `${PLANQUEST_ORIGIN}/plans/${encodeURIComponent(id)}`, updatedAt: typeof raw.updated_at === "string" ? raw.updated_at : null };
 }
 
 // Credentials live in the OS user's private configuration directory, never in a checkout.
@@ -42,6 +48,9 @@ export function createPlanQuestClient(options: { directory?: string; fetch?: typ
   const request = options.fetch || fetch;
   const now = options.now || Date.now;
   let queue = Promise.resolve();
+  // The plan list is read once a minute at most: opening the picker repeatedly should not wait on PlanQuest each time.
+  let listed: { at: number; plans: PlanSummary[] } | null = null;
+  const forget = () => { listed = null; };
   function serial<T>(fn: () => Promise<T>): Promise<T> { const result = queue.then(fn); queue = result.then(() => undefined, () => undefined); return result; }
   async function read(): Promise<Store> { try { return JSON.parse(await readFile(file, "utf8")); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT") return {}; throw new PlanQuestError("Cannot read the local PlanQuest connection.", 500); } }
   async function save(data: Store) {
@@ -75,7 +84,7 @@ export function createPlanQuestClient(options: { directory?: string; fetch?: typ
     if (!data.token || !data.clientId) throw new PlanQuestError("Connect PlanQuest to browse your plans.", 401);
     if (data.token.expiresAt > now() + 60000) return data.token.access_token;
     const response = await remote("/api/oauth/token", { method: "POST", body: new URLSearchParams({ grant_type: "refresh_token", client_id: data.clientId, refresh_token: data.token.refresh_token, resource: PLANQUEST_MCP }) });
-    if (!response.ok) { if (response.status < 500) { delete data.token; await save(data); } throw new PlanQuestError("Your PlanQuest connection needs a new sign-in.", 401); }
+    if (!response.ok) { if (response.status < 500) { delete data.token; forget(); await save(data); } throw new PlanQuestError("Your PlanQuest connection needs a new sign-in.", 401); }
     data.token = token(await body(response)); await save(data); return data.token.access_token;
   }); }
   async function call(name: "list_plans" | "get_plan", args: Record<string, unknown>) {
@@ -120,7 +129,7 @@ export function createPlanQuestClient(options: { directory?: string; fetch?: typ
       if (!code || code.length > 1000) throw new PlanQuestError("PlanQuest did not return an authorization code.", 400);
       const response = await remote("/api/oauth/token", { method: "POST", body: new URLSearchParams({ grant_type: "authorization_code", client_id: data.clientId!, code, code_verifier: pending.verifier, redirect_uri: pending.redirect, resource: PLANQUEST_MCP }) });
       if (!response.ok) throw new PlanQuestError("PlanQuest sign-in expired. Start the connection again.", 401);
-      data.token = token(await body(response)); data.connectedAt = new Date(now()).toISOString(); await save(data);
+      data.token = token(await body(response)); data.connectedAt = new Date(now()).toISOString(); forget(); await save(data);
       return { returnTo: pending.returnTo, connected: true };
     }); },
     async disconnect() { return serial(async () => {
@@ -128,13 +137,19 @@ export function createPlanQuestClient(options: { directory?: string; fetch?: typ
       for (const value of [data.token?.access_token, data.token?.refresh_token].filter(Boolean)) {
         try { const r = await remote("/api/oauth/revoke", { method: "POST", body: new URLSearchParams({ token: value! }) }); if (!r.ok) revoked = false; } catch { revoked = false; }
       }
-      await save({ clientId: data.clientId }); return { disconnected: true, revoked };
+      forget(); await save({ clientId: data.clientId }); return { disconnected: true, revoked };
     }); },
-    async plans() { const data = await call("list_plans", { include_archived: false }); if (!Array.isArray(data.plans)) throw new PlanQuestError("PlanQuest returned no plan list."); return data.plans.map(summary) as PlanSummary[]; },
+    async plans(fresh = false) {
+      if (!fresh && listed && now() - listed.at < 60_000) return listed.plans;
+      const data = await call("list_plans", { include_archived: false }); if (!Array.isArray(data.plans)) throw new PlanQuestError("PlanQuest returned no plan list.");
+      const plans = data.plans.map(summary) as PlanSummary[];
+      listed = { at: now(), plans };
+      return plans;
+    },
     async plan(id: string): Promise<PlanDetail> {
       const data = await call("get_plan", { plan_id: validatePlanId(id) }); const p = data.plan;
       if (!p || p.id !== id || !Array.isArray(p.milestones)) throw new PlanQuestError("PlanQuest returned an unexpected plan.");
-      return { ...summary(p), progress: percent(p.progress), milestones: p.milestones.filter((m: any) => !m.archived).map((m: any) => ({ id: text(m.id, 160), title: text(m.objective, 500), progress: percent(m.progress), endDate: text(m.end_date, 50), keyResults: Array.isArray(m.key_results) ? m.key_results.filter((k: any) => !k.scratched).map((k: any) => ({ title: text(k.description, 500), progress: percent(k.progress) })) : [] })) };
+      return { ...summary(p), progress: percent(p.progress), milestones: p.milestones.filter((m: any) => !m.archived).map((m: any) => ({ id: text(m.id, 160), title: hideSecrets(text(m.objective, 500)), progress: percent(m.progress), endDate: text(m.end_date, 50), keyResults: Array.isArray(m.key_results) ? m.key_results.filter((k: any) => !k.scratched).map((k: any) => ({ title: hideSecrets(text(k.description, 500)), progress: percent(k.progress) })) : [] })) };
     },
   };
 }

@@ -69,7 +69,7 @@ export default function PlanQuestLink({ machine, repo, projectName }: { machine:
     if (!open || !status?.connected) return;
     const controller = new AbortController();
     setPlans(null);
-    api<{ plans: PlanSummary[] }>("/api/planquest/plans", undefined, controller.signal).then(data => {
+    api<{ plans: PlanSummary[] }>(`/api/planquest/plans${revision ? "?fresh=1" : ""}`, undefined, controller.signal).then(data => {
       if (!controller.signal.aborted) setPlans(data.plans);
     }).catch(e => { if (!controller.signal.aborted) setError(e.message); });
     return () => controller.abort();

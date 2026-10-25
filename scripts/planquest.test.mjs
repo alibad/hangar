@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { createPlanQuestClient, loopbackOrigin, validatePlanId, PLANQUEST_MCP } from "../src/lib/planquest.ts";
+import { createPlanQuestClient, hideSecrets, HIDDEN_LINE, loopbackOrigin, validatePlanId, PLANQUEST_MCP } from "../src/lib/planquest.ts";
 import { planquestTools } from "./planquest-tools.mjs";
 
 const origin = "http://127.0.0.1:8003";
@@ -91,6 +91,30 @@ test("plan reads use MCP, sanitize URLs and exclude archived milestones", async 
   assert.equal(plan.milestones[0].keyResults.length, 1);
   const calls = f.calls.filter(c => c.url === PLANQUEST_MCP).map(c => JSON.parse(c.init.body));
   assert.deepEqual(calls.filter(c => c.method === "tools/call").map(c => c.params), [{ name: "list_plans", arguments: { include_archived: false } }, { name: "get_plan", arguments: { plan_id: "launch" } }]);
+});
+
+test("sign-in details in plan text are hidden before they leave the server", () => {
+  const text = ["Website: https://example.test/", "Admin URL: https://example.test/wp-admin/", "Username: someone", "WordPress password: hunter2",
+    "Email password: hunter3", "API key = sk-test", "Token: abc", "Plan the launch and the password reset flow"].join("\n");
+  const out = hideSecrets(text).split("\n");
+  assert.deepEqual(out.slice(0, 2), ["Website: https://example.test/", "Admin URL: https://example.test/wp-admin/"]);
+  assert.deepEqual(out.slice(2, 7), Array(5).fill(HIDDEN_LINE));
+  assert.equal(out[7], "Plan the launch and the password reset flow");  // prose about passwords is not a credential
+  assert.ok(!/hunter|sk-test|abc|someone/.test(out.join(" ")));
+});
+
+test("the plan list is read at most once a minute unless a refresh asks for fresh data", async t => {
+  const f = await fixture(t);
+  await f.authorize();
+  const lists = () => f.calls.filter(c => c.url === PLANQUEST_MCP).map(c => JSON.parse(c.init.body)).filter(c => c.params?.name === "list_plans").length;
+  await f.client.plans(); await f.client.plans();
+  assert.equal(lists(), 1);
+  f.advance(61_000); await f.client.plans();
+  assert.equal(lists(), 2);
+  await f.client.plans(true);
+  assert.equal(lists(), 3);
+  await f.client.disconnect(); await f.authorize(); await f.client.plans();
+  assert.equal(lists(), 4);  // a new connection never sees the old list
 });
 
 test("concurrent reads rotate an expired refresh token exactly once", async t => {
