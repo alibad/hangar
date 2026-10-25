@@ -369,7 +369,7 @@ def status(doc, folders, owner=False):
             running.setdefault(rid, []).append({"port": port, "pid": pid, "url": f"http://localhost:{port}/"})
     out = []
     for r in doc["repos"]:
-        apps = [a for s in r["sites"] if s.get("role") in ("canonical", "orphan") for a in s.get("apps") or []]
+        apps = [a for s in r["sites"] if s.get("role") in config.MAIN_ROLES for a in s.get("apps") or []]
         mine = {k: v for k, v in state.items() if k.split("|")[0] == r["id"]}
         if not apps and r["id"] not in running and not mine:
             continue
@@ -422,7 +422,7 @@ def start(repo, folder, target_id, open_how="window"):
     """Start one target of a repo's app. Returns at once; the job's progress is in apps.json (see status)."""
     folder = Path(folder)
     app, target = None, None
-    for a in [a for s in repo["sites"] if s.get("role") in ("canonical", "orphan") for a in s.get("apps") or []]:
+    for a in [a for s in repo["sites"] if s.get("role") in config.MAIN_ROLES for a in s.get("apps") or []]:
         target = next((t for t in a["targets"] if t["id"] == target_id), None)
         if target:
             app = a

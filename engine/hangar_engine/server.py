@@ -310,7 +310,7 @@ def make_handler(state, port):
             action = body.get("action")
             mine = next((x for x in apps.status(doc, self._folders(), owner=True)["apps"] if x["repo"] == repo["id"]), {"running": []})
             if action == "start":
-                site = next((s for s in repo["sites"] if s.get("role") in ("canonical", "orphan")), None)
+                site = next((s for s in repo["sites"] if s.get("role") in config.MAIN_ROLES), None)
                 folder = local.site_path(scanner.overlay(), site) if site else None
                 if not folder or not folder.is_dir():
                     return self._send(404, {"error": "This repo's main folder is not on this machine."})

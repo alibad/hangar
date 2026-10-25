@@ -73,7 +73,7 @@ def signed_out():
 def checkout(doc, overlay, rid):
     """The project and its main checkout folder on this machine."""
     repo = next((r for r in doc["repos"] if r["id"] == rid), None)
-    site = next((s for s in (repo or {}).get("sites", []) if s.get("role") in ("canonical", "orphan")), None)
+    site = next((s for s in (repo or {}).get("sites", []) if s.get("role") in config.MAIN_ROLES), None)
     folder = local.site_path(overlay, site) if site else None
     if not folder or not folder.is_dir():
         raise ValueError("This project has no main checkout on this machine.")

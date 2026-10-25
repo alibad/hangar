@@ -14,6 +14,8 @@ REPO = Path(__file__).resolve().parents[2]
 LOCAL = Path(os.environ.get("HANGAR_ENGINE_DATA_DIR") or REPO / "var" / "engine").resolve()
 SPINE = LOCAL / "spine"
 VIEWER = REPO / "engine" / "world"
+# A project's own working copy on this machine: its main clone, a local-only repo, or a clone of someone else's repo.
+MAIN_ROLES = ("canonical", "orphan", "vendor")
 MACHINES = LOCAL / "machines"
 CACHE = LOCAL / "cache"
 ROOTS_FILE = LOCAL / "roots.json"

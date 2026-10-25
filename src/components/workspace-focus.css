@@ -46,3 +46,4 @@
 .connected-workspace .cw-inspector .cw-primary svg,.connected-workspace .cw-inspector .pq-card .pq-primary svg{width:15px;height:15px}
 .cw-facts>div>span.has-work{color:var(--hangar-secondary)}
 .cw-spare-worktrees{margin-top:6px;font-size:11px;color:var(--cw-muted)}.cw-spare-worktrees summary{cursor:pointer;padding:9px 0;list-style-position:inside}.cw-spare-worktrees .cw-facts{margin-top:0}
+.cw-inspector .cw-text-button + .cw-text-button{margin-inline-start:18px}

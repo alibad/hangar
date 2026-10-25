@@ -420,13 +420,13 @@ def scan(cfg, owners, progress=None, heads=None, previous=None):
         for (s, head), needed in zip(checks, pool.map(lambda c: pull_check(c[0]["_path"], c[1][1]), checks)):
             s["pull"] = {"needed": needed, "branch": head[0], "github": head[1][:7]}
     for s in sites:
-        if s["role"] in ("canonical", "orphan", "vendor"):
+        if s["role"] in config.MAIN_ROLES:
             s["checkpoint"] = checkpoint(s["_path"])
             s["readme"] = readme_summary(s["_path"])
             p = before.get((s["root"], s["rel"]))
             s["commits"] = p["commits"] if same(s, p) and p.get("commits") is not None else recent_commits(s["_path"])
             s["run"] = run_hints(s["_path"])
-        if s["role"] in ("canonical", "orphan"):
+        if s["role"] in config.MAIN_ROLES:
             s["apps"] = apps.detect(s["_path"])
             s["logo"] = logos.find(s["_path"], [a["dir"] for a in s["apps"]])
     logos.drop_stock(sites)
