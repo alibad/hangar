@@ -1,17 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ArrowRight, GitCommitHorizontal, Network, RefreshCw, Tag } from "lucide-react";
+import { ArrowRight, Network, RefreshCw } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
 import "./project-insights.css";
+import ProjectTimeline from "./project-timeline";
+import type { TimelineData } from "@/lib/project-timeline";
 
 type Module = { id: string; label: string; files: number; examples: string[] };
 type Edge = { from: string; to: string; count: number; evidence: { from: string; to: string }[] };
-type Commit = { sha: string; at: string; subject: string };
-type Insights = { available: boolean; reason?: string; observedAt: string; architecture: { nodes: Module[]; edges: Edge[]; frameworks: string[]; languages: Record<string, number>; trackedFiles: number; scannedSources: number; omittedModules: number; basis: string }; timeline: { chapters: { month: string; count: number; themes: string[]; highlights: Commit[] }[]; tags: { name: string; at: string }[]; commits: number; truncated: boolean; basis: string; createdAt?: string } };
-function githubCommit(repoUrl: string | undefined, sha: string) {
-  if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/.test(repoUrl || "") || !/^[a-f\d]{40}$/i.test(sha)) return undefined;
-  return `${repoUrl!.replace(/\/$/, "")}/commit/${sha}`;
-}
+type Insights = { available: boolean; reason?: string; observedAt: string; architecture: { nodes: Module[]; edges: Edge[]; frameworks: string[]; languages: Record<string, number>; trackedFiles: number; scannedSources: number; omittedModules: number; basis: string }; timeline: TimelineData };
 export default function ProjectInsights({ machine, repo, repoUrl, view }: { machine: string; repo: string; repoUrl?: string; view: "architecture" | "timeline" }) {
   const [data, setData] = useState<Insights | null>(null), [error, setError] = useState(""), [revision, setRevision] = useState(0), [selected, setSelected] = useState("");
   useEffect(() => {
@@ -37,16 +34,6 @@ export default function ProjectInsights({ machine, repo, repoUrl, view }: { mach
       {!a.edges.length && <p>No cross-module JS/TS imports resolved in the inspected files. Folder structure alone does not establish how these modules communicate.</p>}
       {selected && <button onClick={() => setSelected("")}>Show all connections</button>}
     </>}
-    {data?.available && view === "timeline" && t && <>
-      <p className="pi-basis">{t.basis}</p><p>{t.commits.toLocaleString()} commits · {t.chapters.length} active months · {t.tags.length} tags</p>
-      {t.truncated && <p role="status">Showing the newest 20,000 commits. Older history is outside this view.</p>}
-      <div className="pi-timeline">{t.chapters.map((chapter, i) => <details key={chapter.month} open={i === 0}><summary><GitCommitHorizontal size={20} /><div><b>{new Date(`${chapter.month}-01T12:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" })}</b><small>{chapter.count} commits · {chapter.themes.join(" / ")}</small></div></summary>
-        {t.tags.filter(tag => tag.at.startsWith(chapter.month)).map(tag => <p className="pi-tag" key={tag.name}><Tag size={14} />{tag.name}</p>)}
-        <ul>{chapter.highlights.map(c => <li key={c.sha}>{githubCommit(repoUrl, c.sha) ? <a href={githubCommit(repoUrl, c.sha)} target="_blank" rel="noopener noreferrer">{c.subject}</a> : <span>{c.subject}</span>}<small>{c.at.slice(0,10)} · {c.sha.slice(0,7)}</small></li>)}</ul>
-        {chapter.count > chapter.highlights.length && <p className="pi-basis">{chapter.count - chapter.highlights.length} more commits in this month.</p>}
-      </details>)}</div>
-      {t.createdAt && <p className="pi-origin">Repository created {new Date(t.createdAt).toLocaleDateString()}</p>}
-      {!t.chapters.length && <p>No local Git commits were available. This may be an empty or shallow checkout.</p>}
-    </>}
+    {data?.available && view === "timeline" && t && <ProjectTimeline key={`${machine}-${repo}-${revision}`} timeline={t} repoUrl={repoUrl} />}
   </section>;
 }
