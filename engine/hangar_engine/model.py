@@ -244,6 +244,8 @@ def build(github, overlay, spine, rules, now=None):
         r["meaning"] = meaning(r, o, r["sites"])
         r["notes"] = {k: v for k, v in o.items() if k not in ("hidden", "focus", "parked")}
         r["onMachine"] = bool(r["sites"])
+        counts = [s["commitCount"] for s in r["sites"] if isinstance(s.get("commitCount"), int)]
+        r["commitCount"] = max(counts) if counts else None
         r["copies"] = len(r["sites"])
         r["sessions"] = sum(s.get("sessions") or 0 for s in r["sites"])
         r["lastSession"] = max((s.get("lastSession") or "" for s in r["sites"]), default="") or None

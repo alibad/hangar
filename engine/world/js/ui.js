@@ -203,7 +203,7 @@ export function createUI(app) {
     }
     body.append(el("section", {}, el("div", { class: "facts" },
       fact(ago(r.lastActivity), r.lastActivity ? `Last activity · ${fmtDate(r.lastActivity)}` : "Last activity"),
-      fact(STAGE_NAMES[r.stage] || "", r.sizeKB ? `${fmtSize(r.sizeKB)} on GitHub` : "Size unknown"),
+      fact(STAGE_NAMES[r.stage] || "", [Number.isFinite(r.commitCount) ? `${r.commitCount.toLocaleString()} commits` : "", r.sizeKB ? `${fmtSize(r.sizeKB)} on GitHub` : ""].filter(Boolean).join(" · ") || "Size unknown"),
       fact(r.copies ? `${r.copies} folder${r.copies > 1 ? "s" : ""}` : "None", "On this machine"),
       fact(r.sessions ? `${r.sessions} chat${r.sessions > 1 ? "s" : ""}` : "None", r.lastSession ? `Claude Code · ${ago(r.lastSession)}` : "Claude Code"))));
 

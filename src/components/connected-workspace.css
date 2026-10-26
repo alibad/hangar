@@ -78,6 +78,12 @@
 .cw-world-caption p{color:#edf1ff}.cw-world-caption .cw-eyebrow{color:#b9c8e6}
 .cw-world-tools{position:absolute;right:18px;top:22px;z-index:4;display:flex;gap:6px}
 .cw-world-tools button{width:36px;background:#171b24ed;color:#edf1ff;border:1px solid #769aff44}
+.cw-size-switch{display:flex;align-items:center;gap:2px;height:36px;padding:0 3px 0 10px;background:#171b24ed;border:1px solid #769aff44;border-radius:10px;color:#a9b4d6;font-size:11px}
+.cw-size-switch>span{margin-right:5px;letter-spacing:.04em}
+.cw-world-tools .cw-size-switch button{width:auto;min-height:28px;height:28px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:#cfd8f6;font-size:12px;cursor:pointer;transition:background .15s,color .15s}
+.cw-world-tools .cw-size-switch button:hover{background:#ffffff14}
+.cw-world-tools .cw-size-switch button[aria-pressed=true]{background:var(--primary,#4f7cff);color:#fff}
+@media(max-width:550px){.cw-size-switch>span{display:none}.cw-size-switch{height:34px;padding:0 3px}}
 .cw-lenses{top:105px;flex-wrap:wrap;background:#171b24ed;border-color:#769aff44}
 .cw-lenses button[aria-pressed=true]{background:#174bff;color:#fff}
 
@@ -321,3 +327,8 @@
 .jv-bulky{padding:6px 0}.jv-bulky summary{display:flex;gap:10px;align-items:baseline;cursor:pointer;font-size:12.5px;color:var(--cw-muted)}
 .jv-bulky pre{margin:8px 0 0 74px;padding:10px;border-radius:8px;background:color-mix(in oklab,var(--cw-ink) 5%,transparent);font:11px/1.5 ui-monospace,monospace;white-space:pre-wrap;max-height:260px;overflow:auto}
 .cw-finished-jobs[open]{max-height:min(40dvh,330px);overflow-y:auto}
+/* The map's top row: search on the left, Size switch, layers and expand on the right; the search gives way. */
+.cw-world{container:cwmap/inline-size}
+.cw-map-left{max-width:calc(100% - 285px)}
+@container cwmap (max-width:640px){.cw-size-switch>span{display:none}.cw-size-switch{padding:0 3px}.cw-map-left{max-width:calc(100% - 240px)}}
+@container cwmap (max-width:420px){.cw-world-tools .cw-size-switch button{padding:0 7px}.cw-map-left{max-width:calc(100% - 228px)}}

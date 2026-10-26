@@ -2,7 +2,7 @@
 import * as THREE from "three";
 import { createWorld, detectQuality } from "./world.js";
 import { layout, reconcileLayout } from "./layout.js";
-import { Building, buildIsland, buildSheds, createShared, decorate, islandGeometry, setModelStyle, currentModelStyle } from "./city.js";
+import { Building, buildIsland, buildSheds, createShared, decorate, islandGeometry, setModelStyle, currentModelStyle, setSizeBy, currentSizeBy } from "./city.js";
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { lensById, pending, CHANGE, LAYERS } from "./lenses.js";
 import { createUI } from "./ui.js";
@@ -250,7 +250,7 @@ function start(doc, local, quality) {
   // belonging to changed islands need new instances; the terrain stays put.
   const footprint = spot => JSON.stringify(spot.cells.map(c => [c.repo.id, c.x, c.z]));
   const surfaces = spot => JSON.stringify(spot.cells.map(c => [c.repo.id, !!c.repo.hidden, !!c.repo.onMachine, c.repo.sites]));
-  const buildingShape = repo => JSON.stringify([repo.stage, repo.sizeKB, repo.recency, repo.homepage, repo.openPRs, repo.sites]);
+  const buildingShape = repo => JSON.stringify([repo.stage, repo.sizeKB, repo.commitCount, repo.recency, repo.homepage, repo.openPRs, repo.sites]);
   for (const isl of islands) {
     isl.footprint = footprint(isl.spot); isl.surfaces = surfaces(isl.spot); isl.radius = isl.spot.radius;
   }
@@ -287,7 +287,7 @@ function start(doc, local, quality) {
         let b = byRepo.get(cell.repo.id);
         // A scan may change one building's size or extra folders. Replace only
         // that building; organization-only edits reuse the existing geometry.
-        if (b && (buildingShape(b.repo) !== buildingShape(cell.repo) || b.style !== currentModelStyle())) {
+        if (b && (buildingShape(b.repo) !== buildingShape(cell.repo) || b.style !== currentModelStyle() || b.sizeBy !== currentSizeBy())) {
           const old = b;
           b = new Building(cell.repo, cell, isl, shared, shadows);
           buildings.splice(buildings.indexOf(old), 1, b); byRepo.set(cell.repo.id, b);
@@ -922,6 +922,7 @@ function start(doc, local, quality) {
       wake();
     }
     if (message.type === "style" && setModelStyle(message.style)) updateCatalog(doc);
+    if (message.type === "size" && setSizeBy(message.by)) updateCatalog(doc);
     if (message.type === "map-controls") document.body.classList.toggle("show-map-controls", !!message.visible);
     if (message.type === "work") showWork(message.jobs);
     if (message.type === "visibility") {

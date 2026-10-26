@@ -212,6 +212,12 @@ def run_hints(folder):
     return hints
 
 
+def commit_count(folder):
+    """How many commits HEAD has: how much work went into the project. None when git cannot say."""
+    out = _git(folder, "rev-list", "--count", "HEAD")
+    return int(out.strip()) if out and out.strip().isdigit() else None
+
+
 def recent_commits(folder, n=5):
     """The last few commits: what you were doing there, in your own words."""
     out = _git(folder, "log", f"-{n}", "--format=%h%x1f%cI%x1f%s")
@@ -425,6 +431,7 @@ def scan(cfg, owners, progress=None, heads=None, previous=None):
             s["readme"] = readme_summary(s["_path"])
             p = before.get((s["root"], s["rel"]))
             s["commits"] = p["commits"] if same(s, p) and p.get("commits") is not None else recent_commits(s["_path"])
+            s["commitCount"] = p["commitCount"] if same(s, p) and p.get("commitCount") is not None else commit_count(s["_path"])
             s["run"] = run_hints(s["_path"])
         if s["role"] in config.MAIN_ROLES:
             s["apps"] = apps.detect(s["_path"])

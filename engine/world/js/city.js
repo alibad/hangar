@@ -40,6 +40,28 @@ export function setModelStyle(next) {
 }
 export const currentModelStyle = () => modelStyle;
 
+// What sets a building's size: its commit count (how much work went into it), or its size on GitHub in megabytes.
+// A project with no checkout here has no commit count, so it keeps its size-based building.
+const SIZE_BY = ["commits", "megabytes"];
+let sizeBy = "commits";
+export function setSizeBy(next) {
+  if (!SIZE_BY.includes(next) || next === sizeBy) return false;
+  sizeBy = next;
+  return true;
+}
+export const currentSizeBy = () => sizeBy;
+const COMMIT_STAGES = [[15, "tent"], [60, "house"], [250, "midrise"], [1000, "tower"]];
+const COMMIT_SIZES = { tent: [1, 15], house: [15, 60], midrise: [60, 250], tower: [250, 1000], skyscraper: [1000, 10000] };
+/** The building class and where it sits inside that class (0 smallest, 1 largest). */
+export function sizing(repo) {
+  const n = repo.commitCount;
+  if (sizeBy === "commits" && Number.isFinite(n) && repo.stage !== "warehouse") {
+    const stage = n <= 0 ? "lot" : (COMMIT_STAGES.find(([limit]) => n < limit) || [0, "skyscraper"])[1];
+    return { stage, t: stage === "lot" ? 0 : spanOf(COMMIT_SIZES[stage], n) };
+  }
+  return { stage: repo.stage, t: span(repo.stage, repo.sizeKB || 0) };
+}
+
 // len/body/span/chord in plot units; wing: 0 low, 0.5 mid, 1 high; sweep in radians.
 const AIRCRAFT = {
   lot: { len: 2.5, body: 0.4, span: 4.6, chord: 0.42, wing: 0.5, sweep: 0, fin: 0.75, glider: true },
@@ -253,9 +275,11 @@ export function buildIsland(spot, shared, shadows) {
 
 // ---------- buildings ----------
 
+function spanOf([lo, hi], v) {
+  return clamp((Math.log10(Math.max(v, 1)) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo)), 0, 1);
+}
 function span(stage, kb) {
-  const [lo, hi] = SIZES[stage] || [1, 10];
-  return clamp((Math.log10(Math.max(kb, 1)) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo)), 0, 1);
+  return spanOf(SIZES[stage] || [1, 10], kb);
 }
 
 export class Building {
@@ -271,10 +295,12 @@ export class Building {
     this.solids = [];
     this.lit = LIT[repo.recency] ?? 0;
     const rand = rng(hash(repo.id));
-    this.stuff = STUFF[repo.stage] || STUFF.midrise;
+    ({ stage: this.stage, t: this.t } = sizing(repo));
+    this.sizeBy = sizeBy;
+    this.stuff = STUFF[this.stage] || STUFF.midrise;
     this.base = new THREE.Color(pickOf(this.stuff.facade, rand));
     this.base.offsetHSL(0, (rand() - 0.5) * 0.06, (rand() - 0.5) * 0.05);
-    this.roofColor = repo.stage === "house" || repo.stage === "tent" || repo.stage === "lot"
+    this.roofColor = this.stage === "house" || this.stage === "tent" || this.stage === "lot"
       ? new THREE.Color(pickOf(this.stuff.roof, rand))
       : new THREE.Color(pickOf(this.stuff.roof, rand)).lerp(familyColor(repo.family), 0.35);
     this.height = 0;
@@ -319,8 +345,7 @@ export class Building {
   }
 
   make(rand, shadows) {
-    const r = this.repo, g = this.shared.geo, kb = r.sizeKB || 0;
-    const t = span(r.stage, kb);
+    const r = this.repo, g = this.shared.geo, t = this.t;
     const box = (w, h, d, y = 0, x = 0, z = 0) => {
       const f = this.facade(w, h, d, rand), top = this.roof();
       this.add(g.block, [f, top], x, y + h / 2, z, w, h, d, shadows);
@@ -328,7 +353,7 @@ export class Building {
     };
     let top = 0;
     if (this.style === "airplanes") top = this.aircraft(rand, shadows);
-    else switch (r.stage) {
+    else switch (this.stage) {
       case "lot": {
         for (let i = 0; i < 3; i++) this.add(g.mound, this.shared.dirt, (rand() - 0.5) * 3, 0, (rand() - 0.5) * 3, 0.7 + rand() * 0.6, 0.4 + rand() * 0.4, 0.7 + rand() * 0.6, shadows);
         this.add(g.pole, this.shared.pole, 1.6, 0, 1.6, 1, 1.6, 1, shadows);
@@ -397,7 +422,7 @@ export class Building {
     }
     if (r.openPRs) {
       // An orange pennant on the roof: pull requests waiting on you. Bigger when more are waiting.
-      const k = 1.5 + Math.min(r.openPRs, 10) * 0.1, x = this.mount?.x ?? (r.stage === "tent" ? 0.6 : 1.1), z = this.mount?.z ?? x * 0.3;
+      const k = 1.5 + Math.min(r.openPRs, 10) * 0.1, x = this.mount?.x ?? (this.stage === "tent" ? 0.6 : 1.1), z = this.mount?.z ?? x * 0.3;
       this.add(g.pole, this.shared.pole, x, top - 0.1, z, 1, 2.4 * k, 1, shadows, false);
       this.pennant = this.add(g.pennant, this.shared.flag, x, top + 1.25 * k, z, k, k, k, shadows, false);
       this.pennant.rotation.y = -0.6;
@@ -412,8 +437,8 @@ export class Building {
 
   /** An aircraft parked on the plot, nose along the island's diagonal. Returns the top of its tail fin. */
   aircraft(rand, shadows) {
-    const r = this.repo, g = this.shared.geo, spec = AIRCRAFT[r.stage] || AIRCRAFT.house;
-    const k = (1 + span(r.stage, r.sizeKB || 0) * 0.14) * 1.12;
+    const r = this.repo, g = this.shared.geo, spec = AIRCRAFT[this.stage] || AIRCRAFT.house;
+    const k = (1 + this.t * 0.14) * 1.12;
     const len = spec.len * k, body = spec.body * k, wingSpan = spec.span * k, chord = spec.chord * k;
     const thick = (spec.glider ? 0.06 : 0.1) * k, gear = spec.glider ? 0.14 : 0.34 * k, y0 = gear + body / 2;
     this.group.rotation.y = -Math.PI / 4 + (rand() - 0.5) * 0.16;
