@@ -3,7 +3,7 @@ import * as THREE from "three";
 
 const C = (hex) => new THREE.Color(hex);
 const ACTIVITY = { live: C("#ffad4d"), recent: C("#f4d35e"), quiet: C("#78c6a3"), dormant: C("#8399b3"), unknown: C("#a0a4a8") };
-export const CHANGE = { push: "#ff5f52", commit: "#ffb03b", pull: "#4aa3ff", prs: "#c084fc" };
+export const CHANGE = { push: "#ff5f52", commit: "#ffb03b", pull: "#4aa3ff", prs: "#c084fc", issues: "#3fb950" };
 const CHANGE_C = Object.fromEntries(Object.entries(CHANGE).map(([k, v]) => [k, C(v)]));
 
 /** What is waiting on a repo: uncommitted changes, commits not on GitHub, a pull needed, pull requests to review. */

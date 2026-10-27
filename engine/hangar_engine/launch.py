@@ -21,6 +21,9 @@ INTENTS = {
     "push": "Some commits here are on no remote branch yet. Show me what they are and whether they are ready to push. Don't push until I say so.",
     "pull": "GitHub has newer commits than this folder. Show me what changed there and whether a fast-forward pull is safe. Don't pull until I say so.",
     "prs": "List this repo's open pull requests on GitHub with a line on each, and say which ones need me.",
+    "issues": ("Read this repo's open GitHub issues (gh issue list, then gh issue view for each). Give me one line per issue and say "
+               "which you can resolve. Then resolve them one at a time, smallest first, with a commit per issue that mentions it "
+               "(Fixes #N). Don't push, comment on or close issues until I say so."),
 }
 NAMES = {"claude": "Claude Code", "codex": "Codex", "code": "VS Code", "cursor": "Cursor",
          "folder": {"win32": "Explorer", "darwin": "Finder"}.get(sys.platform, "Files")}

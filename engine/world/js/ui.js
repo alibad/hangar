@@ -149,7 +149,7 @@ export function createUI(app) {
   // Starting a session comes first: Claude Code and Codex, then editors and the file manager (what this machine has).
   const apps = app.local ? doc.apps || [] : [];
   const APP_ICON = { claude: "spark", codex: "terminal", code: "code", cursor: "pointer", folder: "folder" };
-  const ASKS = { commit: "it looks at the uncommitted changes and suggests commits", push: "it shows the commits not on GitHub yet",
+  const ASKS = { issues: "it reads the open issues and resolves them one by one, without pushing", commit: "it looks at the uncommitted changes and suggests commits", push: "it shows the commits not on GitHub yet",
     pull: "it shows what changed on GitHub and whether a pull is safe", prs: "it goes through the open pull requests" };
   const mainSite = (r) => Math.max(0, r.sites.findIndex((x) => x.role === "canonical"));
   function starters(r, i, { intent, small, agentsOnly } = {}) {
@@ -211,7 +211,8 @@ export function createUI(app) {
       body.append(el("section", {}, el("h3", {}, "Waiting on GitHub"),
         el("div", { class: "acts-row" },
           r.openPRs && !shown.size ? el("a", { class: "btn small", href: `${r.url}/pulls`, target: "_blank", rel: "noopener", html: `${icon("pr")}${r.openPRs} pull request${r.openPRs > 1 ? "s" : ""}` }) : null,
-          r.openIssues ? el("a", { class: "btn small", href: `${r.url}/issues`, target: "_blank", rel: "noopener", html: `${icon("issue")}${r.openIssues} issue${r.openIssues > 1 ? "s" : ""}` }) : null)));
+          r.openIssues ? el("a", { class: "btn small", href: `${r.url}/issues`, target: "_blank", rel: "noopener", html: `${icon("issue")}${r.openIssues} issue${r.openIssues > 1 ? "s" : ""}` }) : null,
+          ...(r.openIssues && app.local && r.sites.length && apps.length ? starters(r, mainSite(r), { intent: "issues", small: true, agentsOnly: true }) : []))));
     }
 
     const commits = r.sites[0]?.commits || [];
@@ -606,6 +607,7 @@ export function createUI(app) {
       ["push", "To push", (r) => !!pending(r).push, (r) => [pending(r).push.text]],
       ["pull", "To pull", (r) => !!pending(r).pull, (r) => [pending(r).pull.text]],
       ["prs", "Pull requests waiting", (r) => r.openPRs > 0, (r) => [`${r.openPRs} open on GitHub`]],
+      ["issues", "Issues open", (r) => r.openIssues > 0, (r) => [`${r.openIssues} open issue${r.openIssues > 1 ? "s" : ""} on GitHub`]],
     ];
     for (const [id, title, has, lines] of kinds) {
       if (only && id !== only) continue;
@@ -628,6 +630,7 @@ export function createUI(app) {
           el("div", { class: "acts" },
             syncable.includes(r) ? syncBtn(id, r, () => row) : null,
             id === "prs" ? el("a", { class: "btn small", href: `${r.url}/pulls`, target: "_blank", rel: "noopener", html: `${icon("pr")}Review` }) : null,
+            id === "issues" ? el("a", { class: "btn small", href: `${r.url}/issues`, target: "_blank", rel: "noopener", html: `${icon("issue")}Issues` }) : null,
             ...(local ? starters(r, i, { intent: id, small: true }) : [])));
         rows.set(r.id, row);
         body.append(row);
