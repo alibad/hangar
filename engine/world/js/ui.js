@@ -148,7 +148,7 @@ export function createUI(app) {
   // ---------- agents and editors ----------
   // Starting a session comes first: Claude Code and Codex, then editors and the file manager (what this machine has).
   const apps = app.local ? doc.apps || [] : [];
-  const APP_ICON = { claude: "spark", codex: "terminal", code: "code", cursor: "pointer", folder: "folder" };
+  const APP_ICON = { claude: "spark", codex: "terminal", code: "code", cursor: "pointer", folder: "folder", github: "github" };
   const ASKS = { issues: "it reads the open issues and resolves them one by one, without pushing", commit: "it looks at the uncommitted changes and suggests commits", push: "it shows the commits not on GitHub yet",
     pull: "it shows what changed on GitHub and whether a pull is safe", prs: "it goes through the open pull requests" };
   const mainSite = (r) => Math.max(0, r.sites.findIndex((x) => x.role === "canonical"));

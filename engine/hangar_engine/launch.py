@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from . import config
 
@@ -25,7 +25,7 @@ INTENTS = {
                "which you can resolve. Then resolve them one at a time, smallest first, with a commit per issue that mentions it "
                "(Fixes #N). Don't push, comment on or close issues until I say so."),
 }
-NAMES = {"claude": "Claude Code", "codex": "Codex", "code": "VS Code", "cursor": "Cursor",
+NAMES = {"claude": "Claude Code", "codex": "Codex", "code": "VS Code", "cursor": "Cursor", "github": "GitHub Desktop",
          "folder": {"win32": "Explorer", "darwin": "Finder"}.get(sys.platform, "Files")}
 
 
@@ -92,6 +92,9 @@ def available():
     if shutil.which("cursor") or (sys.platform == "win32" and cursor_exe.is_file()) or _mac_app("Cursor"):
         apps.append({"id": "cursor", "name": NAMES["cursor"], "kind": "editor", "how": "cli"})
     apps.append({"id": "folder", "name": NAMES["folder"], "kind": "folder", "how": "os"})
+    # GitHub Desktop registers x-github-client://, which opens a folder on this machine as a repository.
+    if _protocol("x-github-client") or _mac_app("GitHub Desktop"):
+        apps.append({"id": "github", "name": NAMES["github"], "kind": "editor", "how": "app"})
     return apps
 
 
@@ -145,6 +148,8 @@ def open_in(app_id, folder, intent=None):
             _terminal(folder, [cli(app_id) or app_id] + ([prompt] if prompt else []))
         elif app_id == "cursor" and _mac_app("Cursor") and not shutil.which("cursor"):
             subprocess.Popen(["open", "-a", "Cursor", folder], **QUIET)
+        elif app_id == "github":
+            _open_os("x-github-client://openLocalRepo/" + quote(str(folder), safe=""))
         elif app_id in ("code", "cursor"):
             exe = shutil.which(app_id) or shutil.which(f"{app_id}.cmd") or str(Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "cursor" / "Cursor.exe")
             # Editors start terminals and agents of their own: they get the same clean environment.

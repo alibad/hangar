@@ -97,6 +97,17 @@ class AgentSignIn(unittest.TestCase):
             desktop_sessions._cache["at"] = 0
 
 
+class OpenWith(unittest.TestCase):
+    def test_github_desktop_opens_the_folder_as_a_repository(self):
+        from unittest import mock
+        from hangar_engine import launch
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(launch, "available", return_value=[{"id": "github", "name": "GitHub Desktop", "kind": "editor", "how": "app"}]), \
+                mock.patch.object(launch, "_open_os") as opened:
+            launch.open_in("github", d)
+        self.assertTrue(opened.call_args[0][0].startswith("x-github-client://openLocalRepo/"))
+        self.assertNotIn("\\", opened.call_args[0][0])
+
+
 class ArchitectureDrawings(unittest.TestCase):
     def test_reply_parsing_keeps_only_an_architecture_candidate(self):
         from hangar_engine.architecture import candidate
