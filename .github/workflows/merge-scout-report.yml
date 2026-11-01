@@ -1,0 +1,91 @@
+name: Merge the weekly scout report
+
+# The weekly model scout (docs/models.md, "Scheduling it") runs as a Claude Code
+# cloud routine, and the cloud harness only lets a run push its own claude/…
+# branch. Until 01-11-2026 a person had to merge each one, and two reports sat
+# unread for weeks. This lands such a branch on main when its only change is
+# config/model-scout.json, then deletes the branch. Any other branch is left
+# for a person.
+
+on:
+  push:
+    branches: ["claude/**"]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to check, e.g. claude/bold-lamport-abc123"
+        required: true
+      dry_run:
+        description: "Only say what would happen"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: merge-scout-report
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Land the report if it is the only change
+        env:
+          BRANCH: ${{ inputs.branch || github.ref_name }}
+          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Up to three tries, in case another push lands on main mid-run.
+          for attempt in 1 2 3; do
+            git fetch -q origin main "$BRANCH"
+            git checkout -q -B main origin/main
+
+            changed="$(git diff --name-only "origin/main...origin/$BRANCH")"
+            echo "Changed on $BRANCH since it left main:"
+            echo "${changed:-(nothing)}"
+            if [ "$changed" != "config/model-scout.json" ]; then
+              echo "::notice::$BRANCH changes something other than the scout report, or nothing; leaving it for a person."
+              exit 0
+            fi
+
+            git show "origin/$BRANCH:config/model-scout.json" > "$RUNNER_TEMP/report.json"
+            date="$(node -e '
+              const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+              if (!Array.isArray(r.candidates)) throw new Error("the report has no candidates array");
+              process.stdout.write(String(r.generatedAt || "").slice(0, 10));
+            ' "$RUNNER_TEMP/report.json")"
+
+            if ! git merge -q --no-ff -m "Merge weekly scout report (${date:-undated})" "origin/$BRANCH"; then
+              git merge --abort || true
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "Dry run: $BRANCH would NOT merge cleanly into main; a person would have to."
+                exit 0
+              fi
+              echo "::error::$BRANCH does not merge cleanly into main; leaving it for a person."
+              exit 1
+            fi
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "Dry run: would merge the ${date:-undated} report into main and delete $BRANCH."
+              exit 0
+            fi
+
+            if git push -q origin HEAD:main; then
+              git push -q origin --delete "$BRANCH"
+              echo "Merged the ${date:-undated} report into main and deleted $BRANCH."
+              exit 0
+            fi
+            echo "main moved during the run (try $attempt); starting again."
+          done
+          echo "::error::Could not push to main after three tries."
+          exit 1

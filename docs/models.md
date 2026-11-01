@@ -113,9 +113,40 @@ considered items on it were the least visible.
      "Four weeks outstanding" is a claim about history and should be read from it.
    Also re-read each surviving candidate's repo file listing: byte counts and licences do
    change under you, and a `basis` that was exact last week can quietly stop being true.
-2. Search Hugging Face — trending and recent — for `text-generation`, `text-to-image`,
-   `automatic-speech-recognition`, `text-to-speech`. The hub API gives exact parameter
-   counts and licences; prefer it over prose about a model.
+2. Search Hugging Face — trending and recent — **lane by lane, every lane in the table
+   below**. The hub API gives exact parameter counts and licences; prefer it over prose
+   about a model. Until 01-11-2026 this step searched four tags (text, image, speech in,
+   speech out), so the lanes the owner most wanted watched — video, sound, avatars, worlds —
+   were never scouted at all: four video models were picked by hand once, in September, and
+   whole capabilities (talking avatars, upscaling, live voice) shipped open weights without
+   this report noticing.
+
+   | lane — the `capability` value | where to look on the hub | rank on | here on 01-11-2026 |
+   | --- | --- | --- | --- |
+   | `text` | `text-generation`, `image-text-to-text` | llm-stats; do not re-list (step 4) | Qwen3-Coder 30B, Gemma 4 31B, Qwen3 32B; B5: Qwen3.8 27B |
+   | `vision` | `image-text-to-text` | adoption and licence | Qwen3-VL 32B / 8B |
+   | `image` | `text-to-image`, `image-to-image` | adoption and licence | eight models (Qwen-Image, FLUX.2 Klein, HiDream-O1, …) |
+   | `stt` | `automatic-speech-recognition` | 2b | Whisper large-v3; B5: Qwen3-ASR |
+   | `tts` | `text-to-speech` | 2c | Kokoro, Chatterbox; B5: Qwen3-TTS |
+   | `video` | `text-to-video`, `image-to-video` | 2d | Wan 2.2 5B measured; four more installed, never run (2e) |
+   | `avatar` — talking heads, lip-sync | search `avatar`, `talking`, `lip sync`, `audio-driven` | adoption and licence | nothing |
+   | `video-audio` — sound for a silent clip | `text-to-audio`; search `foley`, `video-to-audio` | adoption and licence | nothing (only LTX-2.5 makes its own) |
+   | `upscale` — video super-resolution | `video-to-video`; search `VSR`, `upscale` | adoption and licence | nothing |
+   | `music` — songs, with vocals | `text-to-audio`; search `music` | adoption and licence | ACE-Step 1.5 |
+   | `sfx` — sound effects | `text-to-audio` | adoption and licence | Stable Audio 3 small SFX |
+   | `3d` — meshes, splats, bodies | `image-to-3d`, `text-to-3d` | adoption and licence | TRELLIS.2, Pixal3D, TripoSR, SAM 3D Body |
+   | `world` — interactive, playable video | search `world model`, `interactive`, `game` | the authors' fps and latency on a named GPU | nothing |
+   | `voice-live` — full-duplex speech-to-speech | `any-to-any`, `audio-to-audio`; search `full-duplex` | VoiceBench where a model reports it | nothing (STT → LLM → TTS only) |
+
+   Write the lane id exactly as it appears in the first column. The first seven are
+   `CAPABILITIES` ids in `src/lib/providers.ts`; the rest are not wired into the router
+   yet, so their rows show on the Models page under All rather than behind a filter, and a
+   later filter will look for these exact strings. **One or two candidates per lane at
+   most**, and the bar in "Rules the report must follow" still holds. For an empty lane the
+   thing a candidate beats is "nothing here can do this", so `why` must say what it would
+   let the owner make that this machine cannot make today. A lane with nothing worth listing gets one
+   line in `notes` — "`world`: checked, nothing beats ABot-World-0" — so a quiet lane reads
+   as checked rather than skipped.
 2b. **For speech-to-text, rank on the Open ASR Leaderboard, not on trending.** Parameter
    counts, licences and a `language:` list are not accuracy, and ranking ASR on them got
    this report's picks wrong twice. Pull the CSVs directly rather than scraping the Space —
@@ -126,6 +157,10 @@ considered items on it were the least visible.
    one and lose another, and a single average hides exactly the trade the reader is making.
    A model absent from a board is unmeasured there — say so rather than ranking it on the
    board it happens to appear in.
+   **On 26-10-2026 all three results datasets started answering 401 to an anonymous
+   request.** That run read the board from the Space's own rendered Gradio config and
+   endpoints instead, which carry the same tables. Try the CSVs first; if they are still
+   closed, do the same and say in `notes` which path the numbers came from.
 2c. **For text-to-speech, rank on the Open TTS Leaderboard.** `hf-audio/open_tts_leaderboard`
    exists and is maintained — updated 17-09-2026 — and both `ResembleAI/chatterbox` and
    `tencent/AuK`, a candidate this report already carries, list it among their Spaces. 5b
@@ -162,6 +197,22 @@ considered items on it were the least visible.
    Hume's TADA is **not** on the hub and looks cloud-only. Confirm that before listing it
    anywhere as local; if it is an API it belongs to discovery, not to this report.
 
+2d. **For video, rank on the Artificial Analysis Video Arena** — the text-to-video and
+   image-to-video boards, "with audio" (the default view) — which is the evidence
+   `docs/video-model-experiment-2026-09-27.md` used. Elo is per board; give both, and the
+   date you pulled them. Licence travels with the weights: MiniMax H3 grants no rights in
+   the USA, EU, UK or South Korea, and everything built on it (Pika-H3-Flex, the H3 LoRAs
+   and pruned merges that fill the trending list) inherits that, whatever its own card
+   says. A model that is hosted-only (Wan 2.7 and 3.0 as of 01-11-2026) is not a local
+   candidate, however high it ranks.
+2e. **Installed is not measured.** Every alias in `config/model-meta.json` whose
+   `footprint.basis` starts `PROVISIONAL` has never run on its machine. On 01-11-2026 that
+   was four of BeTenshi's five video models (LTX-2.5, MiniMax H3, HunyuanVideo 1.5, Wan
+   2.2 14B), about 160 GB of weights already on D:. List each in `notes` with how long it has waited,
+   from `git log`. A night of measurement costs nothing and a download costs gigabytes, so
+   when one of these would answer the same question as a new candidate, recommending the
+   measurement is the better advice.
+
 3. Read the live vendor model lists for anything new worth an opinion.
 4. **Do not re-list what the leaderboard already covers.** The Leaderboard tab ranks every
    open-weights text model with a parameter count against this card automatically, and the
@@ -182,8 +233,16 @@ considered items on it were the least visible.
    months after `hf-audio/open_tts_leaderboard` started publishing, and the fallback is what
    let the TTS pick go unchecked.
 6. Rewrite `config/model-scout.json` **whole**, keeping the `_doc` and `_schema` keys.
-7. Run `npm test` and `npx tsc --noEmit`, then commit **only** `config/model-scout.json`
-   to `main` with a message naming what changed. Push it.
+7. Run `npm test` and `npx tsc --noEmit` (the cloud checkout has no `node_modules`; run
+   `npm install` first, and check any failure against a clean tree before blaming the
+   report). Commit **only** `config/model-scout.json`, with a message naming what changed,
+   and push the branch your session is given. **You do not push to `main` yourself, and do
+   not need to.** The cloud harness only lets a session push its own `claude/…` branch;
+   `.github/workflows/merge-scout-report.yml` then merges any such branch whose only change
+   is `config/model-scout.json` into `main`, and deletes it. Touch a second file and the
+   workflow leaves the branch for a person, which is exactly how the 19-10 and 26-10 reports
+   sat unread for weeks. If something else needs changing, this brief included, say so in
+   the summary instead.
 8. **End on one recommendation, not a digest.** The run reaches its reader as a
    notification, and a notification that lists everything gets read as nothing. Lead with
    the single thing most worth doing this week and which machine to do it on; the report
@@ -249,7 +308,27 @@ judgment, not measurement.
 | Routine | **Hangar model scout (weekly)** — a scheduled Claude routine; find it in your own routine list |
 | Schedule | `47 5 * * 1` UTC — Mondays, 08:47 Asia/Riyadh |
 | Model | `claude-opus-5` |
-| Source | `github.com/alibad/hangar`, commits `config/model-scout.json` to `main` |
+| Source | `github.com/alibad/hangar`; pushes a `claude/bold-lamport-…` branch, which `merge-scout-report.yml` lands on `main` |
+| Notifies | a push notification with the run's summary — on since 01-11-2026 |
+
+#### How a report reaches `main`
+
+The cloud harness gives every run its own branch, named from the routine's
+`claude/bold-lamport` plus a random suffix, and only lets the run push that branch. Nothing
+in the routine can make it push `main`. Until 14-10-2026 a person merged each report by
+hand (pull requests #1 and #2, then two plain merges); after that nobody did, and the 19-10
+and 26-10 reports sat on `claude/bold-lamport-yk3mca` and `-lwi0yx` while the console kept
+showing 12-10 — past its own 10-day stale mark, with the routine reporting success every
+week. Its notifications were also off, so the one-line summary step 8 asks for reached
+nobody.
+
+`.github/workflows/merge-scout-report.yml` closes that gap. On a push to any `claude/**`
+branch it checks what the branch changed since it left `main`. If the only file is
+`config/model-scout.json` and that file parses, it merges the branch into `main` (which
+deploys, like every push to `main`) and deletes the branch. Anything else, it leaves alone
+for a person. Run it by hand from the Actions tab with `dry_run` on to see what it would do
+with a branch without touching anything. On BeTenshi the console reads the file from its
+own checkout, so a new report shows there after the next `git pull`.
 
 #### The prompt is a pointer, and must stay one
 
@@ -281,9 +360,10 @@ it ever needs more than this, the extra belongs above instead:
 > "Nothing worth acting on" is a legitimate answer; say it and stop rather than inventing
 > churn.
 
-A routine created through the API cannot be edited by an agent — only by a person, at the
-link above — so if the stored prompt and the block here ever disagree, paste this one in.
-
+If the stored prompt and the block here ever disagree, paste this one in. An agent can do
+that too: this file used to say only a person could edit a routine created through the API,
+and on 01-11-2026 an agent session renamed it, re-pointed it at `alibad/hangar`, replaced
+the prompt with this block and turned notifications on, all through the routines API.
 
 Manage it at <https://claude.ai/code/routines> — including **Run now**, which is how you
 force an off-schedule refresh.

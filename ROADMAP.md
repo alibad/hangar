@@ -94,8 +94,21 @@ different line of work.
   deleted on GitHub and locally (it was identical to `main`). The switch was
   refused until a Preview-only `PUBLIC_DOMAIN` scoped to `main` was removed: its
   value was the same as Production's. Commit to `main`; a push to `main` is a
-  production deploy. Still open: merge or close the scout PR #2 and the two other
-  unmerged scout branches.
+  production deploy. (The scout PR #2 and the two other scout branches left open
+  here were merged the same day.)
+- **Scout reports reach `main` by themselves: 2026-11-01.** The weekly model scout
+  kept running and reporting success, but after 14-10 nobody merged its branches:
+  the 19-10 and 26-10 reports sat on `claude/bold-lamport-yk3mca` and `-lwi0yx`,
+  the console showed a 20-day-old report, and the routine's notifications were off,
+  so its weekly pick reached no one. The 26-10 report is now merged (it supersedes
+  19-10). `.github/workflows/merge-scout-report.yml` lands any `claude/**` branch
+  whose only change is `config/model-scout.json`. The routine was renamed, pointed
+  at `alibad/hangar` and set to send a push notification. Its brief
+  (docs/models.md) now covers video, avatars, sound for video, upscaling, music,
+  SFX, 3D, playable worlds and live voice, and flags installed models that were
+  never run. Still open: `claude/bold-lamport-yk3mca` and `-lwi0yx` remain on
+  GitHub (deleting them is the owner's call), and the Models page has filter chips
+  for only five of the scout's lanes.
 - **Three finished worktrees: removed 2026-10-26.** `../betenshi-console-video`
   (video-forge), `../betenshi-console-wt-cloudimg` (feature/cloud-image-params)
   and `.claude/worktrees/vigilant-shtern-1ba9f3` were fully merged and clean; the
@@ -116,6 +129,10 @@ different line of work.
 - The console serves the working tree of its folder live (now `main`), so
   uncommitted work there is what is running. Commit it or move it to a branch;
   never both, and not for days.
+- Anything a cloud routine makes needs a path to `main` that does not depend on
+  someone remembering to merge it. The cloud harness only lets a run push its own
+  `claude/…` branch, so "the routine succeeded" and "the console shows the result"
+  are separate facts. Check the second one.
 - Switching that folder between a branch that tracks a file and one that ignores
   it deletes the file from disk. Back up `scripts/service-commands.json` before
   such a switch and put it back after.
