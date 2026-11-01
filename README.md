@@ -275,7 +275,8 @@ single MCP server: start and stop services, read logs and the GPU, generate an
 image, transcribe audio. The same server carries the project world, so an agent
 reads what you read: `hangar_pending` (what is waiting on you, repo by repo),
 `hangar_brief` (a project's purpose, folder state, commits, app and recent
-sessions), `hangar_sessions`, `hangar_jobs` and `hangar_job`, plus focus / park /
+sessions), `hangar_sessions`, `hangar_activity` (which session made each commit, and
+where Claude and Codex overlapped), `hangar_jobs` and `hangar_job`, plus focus / park /
 hide, a note, open-in-agent and rescan. See [Connected workspace](docs/connected-workspace.md#agents).
 
 ![The services control center](docs/images/console/betenshi/services/desktop/step-01-arrive.png)

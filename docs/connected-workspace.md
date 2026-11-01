@@ -120,7 +120,8 @@ bundled engine on loopback (`HANGAR_ENGINE_URL` overrides `127.0.0.1:7789`):
 | `hangar_pending` | What is waiting on you: uncommitted, not pushed, a pull needed, open pull requests. Your own repos by default; `scope: all` adds vendor copies and forks. |
 | `hangar_brief` | One project: purpose, island, what needs you, folder and branch state, recent commits, running app, Hangar jobs, recent sessions. |
 | `hangar_find` | Projects by name or description, with folders and what is waiting. |
-| `hangar_sessions` | Recent Claude Code and Codex sessions, by project, agent and age, with where each opens. |
+| `hangar_sessions` | Recent Claude Code and Codex sessions, by project, agent and age, with where each opens and what each committed. Test runs in a temp folder are left out. |
+| `hangar_activity` | Who changed what in one project: each main-branch commit with the session that made it and why, and every stretch where two sessions (above all Claude and Codex) worked on it within two hours. |
 | `hangar_jobs`, `hangar_job` | The jobs Hangar ran and their steps; start, stop or acknowledge one (same limits as the task composer). |
 | `hangar_open`, `hangar_note`, `hangar_apps`, `hangar_rescan` | Open a folder in an agent or editor; focus / park / hide and a next step; running apps and ports; rescan. |
 

@@ -23,13 +23,36 @@ const DOC = {
       risks: [{ id: "uncommitted", level: "medium", text: "2 uncommitted changes" }], sites: [{ root: "CODE", rel: "AI/creative-lab/image/ComfyUI", role: "vendor", branch: "master", dirty: 2 }] },
     { id: "R3", name: "secret-thing", fullName: "alibad/secret-thing", kind: "mine", family: "ailab", hidden: true, openPRs: 3, risks: [], sites: [], meaning: {} },
     { id: "R4", name: "hypotheses", fullName: "alibad/hypotheses", url: "https://github.com/alibad/hypotheses", kind: "mine", family: "ailab", hidden: false, openPRs: 9, onMachine: false, risks: [{ id: "prs", level: "low", text: "9 open pull requests" }], sites: [], meaning: {} },
+    { id: "R5", name: "RTSAI-Mod", fullName: "alibad/RTSAI-Mod", kind: "mine", family: "ailab", hidden: false, openPRs: 0, onMachine: true, risks: [], meaning: {}, sites: [{ root: "CODE", rel: "hq/games/RTSAI-Mod", role: "canonical", branch: "main", dirty: 0 }] },
   ],
 };
 const LIBRARY = { idleDays: 7, groups: [], sessions: [
-  { id: "s-claude", key: "claude:s-claude", provider: "claude", title: "Fix video analysis", projects: [{ id: "R1", name: "football-ai-lab", files: ["a.ts"], evidence: "edit-tool" }], activityAt: at(60 * 26), updatedAt: at(60 * 26), idleDays: 1, unread: null, archived: false, opensIn: "app" },
+  { id: "s-claude", key: "claude:s-claude", provider: "claude", title: "Fix video analysis", projects: [{ id: "R1", name: "football-ai-lab", files: ["a.ts"], evidence: "edit-tool" }], activityAt: at(60 * 26), updatedAt: at(60 * 26), idleDays: 1, unread: null, archived: false, opensIn: "app",
+    changed: [{ sha: "9f1c2d3", subject: "Keep the upload progress on screen", repo: "football-ai-lab", at: at(60 * 27), evidence: "printed" }], changedCount: 1 },
+  { id: "s-probe", key: "codex:s-probe", provider: "codex", title: "This is a sandbox test I am running on my own temp folders.", projects: [], activityAt: at(60 * 24 * 6), updatedAt: at(60 * 24 * 6), idleDays: 6, unread: true, archived: false, probe: true },
   { id: "s-codex", key: "codex:s-codex", provider: "codex", title: "Reply with the single word ready.", projects: [], activityAt: at(60 * 24 * 30), updatedAt: at(60 * 24 * 30), idleDays: 30, unread: true, archived: false, opensIn: "app" },
   { id: "s-old", key: "claude:s-old", provider: "claude", title: "Archived one", projects: [{ id: "R1", name: "football-ai-lab", files: [], evidence: "working-directory" }], activityAt: at(60), updatedAt: at(60), idleDays: 0, unread: null, archived: true },
 ] };
+// The 26 Oct 2026 collision in RTSAI-Mod, as the engine reports it (times in UTC; Doha is UTC+3).
+const OCT26 = (hm) => `2026-10-26T${hm}+00:00`;
+const SESSION = { claude: "claude:be4050df-03f2-41f9-a66c-033f8188af48", web: "codex:01a13c80-d2c3-7131-af1e-bbde92903df8", meetup: "codex:01a16818-7a47-77d1-9a7f-281c54d0eb6d" };
+const commitRow = (short, hm, agent, session, evidence, why, subject) => ({ sha: short.padEnd(40, "0"), short, at: OCT26(hm), subject, files: [], fileCount: 1, agent, trailer: agent === "claude" ? "claude" : null, session, evidence, why });
+const ACTIVITY = { available: true, repo: "R5", name: "RTSAI-Mod", branch: "main", from: "2026-10-25T20:00:00+00:00", to: "2026-11-01T20:00:00+00:00",
+  commits: [
+    commitRow("f8c728b", "10:37:06", "codex", SESSION.meetup, "printed", "printed git's own line for this commit", "Point the web game app shortcut at the public release"),
+    commitRow("1bde6ba", "10:52:38", "claude", SESSION.claude, "seen", "printed this commit's hash 1 s after it was made", "Revert the Allied refinery depth change"),
+    commitRow("d53955d", "11:01:11", "codex", SESSION.web, "printed", "printed git's own line for this commit", "Load compact rocket impact art in every modern-faction game mode"),
+    commitRow("c4b7e1f", "11:01:35", "codex", SESSION.web, "printed", "printed git's own line for this commit", "Include the rocket impact image in the asset-library manifest"),
+    commitRow("6a5bbff", "11:07:12", "claude", SESSION.claude, "seen", "printed this commit's hash 9 s after it was made", "Modern refineries: the docked ore truck draws in front of the bay"),
+    commitRow("b51c5ef", "11:17:41", "codex", SESSION.web, "printed", "printed git's own line for this commit", "Preserve rocket flash depth when scaling it down onto the tank"),
+  ],
+  sessions: [
+    { key: SESSION.web, provider: "codex", id: SESSION.web.slice(6), title: "The Web Latest", commits: ["d53955d", "c4b7e1f", "b51c5ef"], edits: 17, spans: [{ from: OCT26("10:36:27"), to: OCT26("11:17:41") }], files: [] },
+    { key: SESSION.meetup, provider: "codex", id: SESSION.meetup.slice(6), title: "Review meetup co-speaker submission", commits: ["f8c728b"], edits: 1, spans: [{ from: OCT26("10:36:52"), to: OCT26("10:37:06") }], files: [] },
+    { key: SESSION.claude, provider: "claude", id: SESSION.claude.slice(7), title: "OpenRA quality analysis and talk prep", commits: ["1bde6ba", "6a5bbff"], edits: 0, spans: [{ from: OCT26("10:52:38"), to: OCT26("11:07:12") }], files: [] },
+  ],
+  overlaps: [{ from: OCT26("10:36:27"), to: OCT26("11:17:41"), sessions: [SESSION.web, SESSION.meetup, SESSION.claude], agents: ["claude", "codex"], crossAgent: true, sharedFiles: [] }],
+  truncated: false, basis: "Main-branch Git history joined with Claude Code and Codex session evidence on this machine." };
 const JOBS = { limit: 2, jobs: [{ id: "job1234567abc", repo: "R1", project: "football-ai-lab", provider: "claude", kind: "code", state: "failed", prompt: "Review this project", startedAt: at(50), endedAt: at(49), exitCode: 1, session: null,
   output: [{ at: at(50), text: "Started claude-opus-5-5" }, { at: at(49), text: "API Error: 401 OAuth access token is invalid. The agent's command-line sign-in has expired." }] }] };
 
@@ -65,6 +88,7 @@ async function engine(t) {
       case "/api/agents": return send(200, { agents: [{ id: "claude", name: "Claude Code", installed: true, signedIn: false, reason: "Claude Code's sign-in on this machine expired on 10 Jun 2026." }, { id: "codex", name: "Codex", installed: true, signedIn: true, reason: "" }] });
       case "/api/apps": return send(200, { machine: { os: "windows", node: true, flutter: false, androidSdk: false, xcode: false }, apps: [{ repo: "R1", name: "football-ai-lab", running: [{ port: 3100, pid: 1, by: "elsewhere" }], jobs: {}, apps: [{ kind: "next", label: "Next.js web app", dir: "web", targets: [{ id: "web", label: "Web", ok: true, why: "" }] }] }] });
       case "/api/plans": return send(200, { links: {} });
+      case "/api/activity": return send(200, url.searchParams.get("repo") === "R5" ? { ...ACTIVITY, days: Number(url.searchParams.get("days")) } : { available: false, reason: "This project is not on this machine.", repo: url.searchParams.get("repo") });
       default: return send(404, { error: "not found" });
     }
   });
@@ -73,14 +97,14 @@ async function engine(t) {
   await writeFile(join(dataDir, "roots.json"), JSON.stringify({ roots: { CODE: join(dataDir, "Code") } }));
   t.after(async () => { server.close(); await rm(dataDir, { recursive: true, force: true }); });
   const starts = [];
-  const tools = worldTools({ engine: `http://127.0.0.1:${server.address().port}`, dataDir, now: () => NOW, start: () => starts.push(1), sleep: async () => {} });
+  const tools = worldTools({ engine: `http://127.0.0.1:${server.address().port}`, dataDir, now: () => NOW, start: () => starts.push(1), sleep: async () => {}, timeZone: "Asia/Qatar" });
   const call = (name, args) => tools.find((x) => x.name === name).run(args);
   return { tools, call, posts, starts, dataDir };
 }
 
 test("every world tool has a schema, a description and no engine secrets in its description", async (t) => {
   const { tools } = await engine(t);
-  assert.equal(tools.length, 10);
+  assert.equal(tools.length, 11);
   for (const tool of tools) {
     assert.match(tool.name, /^hangar_/);
     assert.ok(tool.description.length > 40);
@@ -141,10 +165,31 @@ test("sessions filter by project, agent and age, and never list archived ones", 
   const month = await call("hangar_sessions", { days: 31 });
   assert.match(month.text, /2 sessions in every project over the last 31 days: 1 Claude Code, 1 Codex/);
   assert.match(month.text, /CX Reply with the single word ready\. — no project · 30d idle · unread · opens in app/);
+  assert.match(month.text, /1 test run in a temp folder left out/);
+  assert.doesNotMatch(month.text, /sandbox test/);
+  assert.match(month.text, /CL Fix video analysis · changed: Keep the upload progress on screen — football-ai-lab/);
   const project = await call("hangar_sessions", { repo: "football-ai-lab", days: 31 });
   assert.match(project.text, /1 session in alibad\/football-ai-lab/);
   assert.doesNotMatch(project.text, /single word ready/);
   assert.match((await call("hangar_sessions", { provider: "gemini" })).error, /provider is claude or codex/);
+});
+
+test("activity names the session behind each commit and flags the 26 Oct collision, in local time", async (t) => {
+  const { call } = await engine(t);
+  const { text, error } = await call("hangar_activity", { repo: "RTSAI-Mod" });
+  assert.equal(error, undefined);
+  assert.match(text, /^alibad\/RTSAI-Mod on main, 25 Oct 23:00 – 1 Nov 23:00 \(7 days\): 6 commits \(2 Claude, 4 Codex, 0 unknown\), 3 sessions, 1 overlap\./);
+  assert.match(text, /OVERLAP 26 Oct 13:36–14:17: Claude and Codex both worked on it — The Web Latest \(01a13c80\); Review meetup co-speaker submission \(01a16818\); OpenRA quality analysis and talk prep \(be4050df\)\. No file was touched by both\./);
+  assert.match(text, /\n26 Oct\n  13:37 CX f8c728b Point the web game app shortcut/);
+  assert.match(text, /  13:52 CL 1bde6ba Revert the Allied refinery depth change — OpenRA quality analysis and talk prep \(be4050df\): printed this commit's hash 1 s after it was made/);
+  assert.match(text, /  14:01 CX d53955d Load compact rocket impact art.* — The Web Latest \(01a13c80\): printed git's own line for this commit/);
+  assert.match(text, /  14:01 CX c4b7e1f Include the rocket impact image/);
+  assert.match(text, /  14:07 CL 6a5bbff Modern refineries/);
+  assert.match(text, /  14:17 CX b51c5ef Preserve rocket flash depth.* — The Web Latest \(01a13c80\)/);
+  assert.match(text, /- CL OpenRA quality analysis and talk prep · 2 commits, 0 edits · 26 Oct 13:52–14:07 · be4050df-/);
+  assert.match((await call("hangar_activity", { repo: "RTSAI-Mod", days: 90 })).text, /\(30 days\)/);
+  assert.match((await call("hangar_activity", { repo: "football-ai-lab" })).text, /football-ai-lab: This project is not on this machine/);
+  assert.match((await call("hangar_activity", { repo: "nothing-like-this" })).error, /No project called/);
 });
 
 test("jobs show sign-in state and the last line; one job shows every step", async (t) => {
