@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { AlertTriangle, ArrowRight, ArrowUpRight, GitCommitHorizontal } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, ChevronRight, GitCommitHorizontal } from "lucide-react";
+import { workspaceResponse } from "@/lib/workspace-response";
 import type { ActivityCommit, BoardData, ProjectActivity } from "@/lib/project-activity";
 import type { LibrarySession } from "./session-library";
 import { ProjectBadge, ProjectEmblem } from "./project-identity";
@@ -22,11 +23,17 @@ export function SessionPaneTop({ pick }: { pick: SessionPick }) {
 
 /** What a session did this week, as a picture first: where it worked and when, the commits it made, who else was in
  *  the same project at the same time, then the files. Opens beside the who-changed-what board. */
-export default function SessionPane({ pick, board, library, repoUrls = {}, busy, onOpen, onContinue, onPick }: {
-  pick: SessionPick; board: BoardData | null; library?: LibrarySession; repoUrls?: Record<string, string | undefined>; busy?: boolean;
+export default function SessionPane({ machine, pick, board, library, repoUrls = {}, busy, onOpen, onContinue, onPick }: {
+  machine: string; pick: SessionPick; board: BoardData | null; library?: LibrarySession; repoUrls?: Record<string, string | undefined>; busy?: boolean;
   onOpen?: (session: LibrarySession) => void; onContinue?: (session: LibrarySession) => void; onPick: (pick: SessionPick) => void;
 }) {
   const key = pick.session || "";
+  // A commit opens on its own in the pane, with its session one step back.
+  const [opened, setOpened] = useState<{ repo: string; sha: string; why?: string; agent?: string } | null>(null);
+  useEffect(() => {
+    const hit = pick.sha ? (board?.projects || []).flatMap(p => p.commits.map(c => ({ p, c }))).find(x => x.c.sha === pick.sha) : undefined;
+    setOpened(hit ? { repo: hit.p.repo, sha: hit.c.sha, why: hit.c.why, agent: hit.c.agent } : null);
+  }, [pick.sha, board]);
   const view = useMemo(() => {
     const projects = (board?.projects || []).filter(p => key && (p.sessions.some(s => s.key === key) || p.commits.some(c => c.session === key)));
     const own = projects.map(p => ({ project: p, session: p.sessions.find(s => s.key === key) }));
@@ -35,8 +42,9 @@ export default function SessionPane({ pick, board, library, repoUrls = {}, busy,
     const others = new Map((board?.projects || []).flatMap(p => p.sessions.map(s => [s.key, s] as const)));
     return { projects, own, commits, overlaps, others };
   }, [board, key]);
-  const lone = !key && pick.sha ? (board?.projects || []).flatMap(p => p.commits.map(commit => ({ project: p, commit }))).find(x => x.commit.sha === pick.sha) : undefined;
-  if (lone) return <LoneCommit project={lone.project} commit={lone.commit} repoUrl={repoUrls[lone.project.repo]} />;
+  if (opened) return <CommitView machine={machine} repo={opened.repo} sha={opened.sha} why={opened.why} agent={opened.agent} repoUrl={repoUrls[opened.repo]}
+    back={key ? library?.title || view.own.find(o => o.session)?.session?.title || `${NAME[agentOf(key)]} session` : undefined}
+    onBack={key ? () => { setOpened(null); onPick({ session: key }); } : undefined} />;
 
   const agent = agentOf(key);
   const first = view.own.find(o => o.session)?.session;
@@ -92,7 +100,7 @@ export default function SessionPane({ pick, board, library, repoUrls = {}, busy,
       {!view.commits.length && !older.length && <p className="sp-muted">No commits on main tied to this session.</p>}
       <ol className="sp-commits">
         {view.commits.map(({ project, commit }) => <CommitLine key={commit.sha} project={project} commit={commit} repoUrl={repoUrls[project.repo]} active={pick.sha === commit.sha} onPick={() => onPick({ session: key, sha: commit.sha })} />)}
-        {older.slice(0, 20).map(c => <li key={`${c.repo}-${c.sha}`} className="sp-commit is-older"><GitCommitHorizontal size={14} aria-hidden="true" /><span><b>{c.subject}</b><small>{c.repo} · {when(c.at)} · <code>{c.sha}</code></small></span></li>)}
+        {older.slice(0, 20).map(c => <li key={`${c.repo}-${c.sha}`} className="sp-commit is-older"><ProjectEmblem id={c.repoId} name={c.repo} size={18} /><span>{c.repoId ? <button className="sp-commit-subject" onClick={() => setOpened({ repo: c.repoId!, sha: c.sha })}>{c.subject}<ChevronRight size={13} /></button> : <b>{c.subject}</b>}<small>{c.repo} · {when(c.at)} · <code>{c.sha}</code></small></span></li>)}
       </ol>
     </section>
 
@@ -105,21 +113,67 @@ function CommitLine({ project, commit, repoUrl, active, onPick }: { project: Pro
   const url = commitUrl(repoUrl, commit.sha);
   return <li className={`sp-commit ${active ? "is-active" : ""}`}>
     <ProjectEmblem id={project.repo} name={project.name} size={18} />
-    <span><button className="sp-commit-subject" onClick={onPick}>{commit.subject}</button>
+    <span><button className="sp-commit-subject" onClick={onPick} title="See what this commit changed">{commit.subject}<ChevronRight size={13} /></button>
       <small>{project.name} · {when(commit.at)} · {url ? <a href={url} target="_blank" rel="noopener noreferrer">{commit.short}<ArrowUpRight size={11} /></a> : <code>{commit.short}</code>}</small>
-      {active && <small className="sp-why">{commit.why}{commit.files.length ? ` · ${commit.fileCount} ${commit.fileCount === 1 ? "file" : "files"}: ${commit.files.slice(0, 4).join(", ")}${commit.fileCount > 4 ? "…" : ""}` : ""}</small>}
     </span>
   </li>;
 }
 
-/** A commit no session can be tied to: what it was, where, and why Hangar cannot say who made it. */
-function LoneCommit({ project, commit, repoUrl }: { project: ProjectActivity; commit: ActivityCommit; repoUrl?: string }) {
-  const url = commitUrl(repoUrl, commit.sha);
-  return <div className="pa sp">
-    <h2 className="sp-title">{commit.subject}</h2>
-    <div className="sp-projects"><ProjectBadge id={project.repo} name={project.name} detail link /></div>
-    <div className="sp-stats"><span><b>{when(commit.at)}</b></span><span><i className={`pa-swatch is-${commit.agent}`} /><b>{NAME[commit.agent]}</b></span>{url ? <a className="sp-link" href={url} target="_blank" rel="noopener noreferrer">{commit.short} on GitHub<ArrowUpRight size={13} /></a> : <code>{commit.short}</code>}</div>
-    <p className="sp-muted">{commit.why}.</p>
-    {commit.files.length > 0 && <section className="sp-section"><h4>Files<small>{commit.fileCount}</small></h4><ul className="sp-filelist">{commit.files.map(f => <li key={f}>{f}</li>)}</ul></section>}
+type CommitDetail = {
+  repo: string; name: string; sha: string; short: string; subject: string; body: string; author: string; at: string; merge: boolean;
+  files: { path: string; added: number | null; removed: number | null; binary: boolean; patch: string; truncated: boolean }[]; added: number; removed: number; fileCount: number;
+};
+
+/** One commit: what it says, why Hangar ties it to its session, and every file it changed as a bar of lines added and
+ *  removed. A file opens to show the change itself. */
+function CommitView({ machine, repo, sha, why, agent, repoUrl, back, onBack }: { machine: string; repo: string; sha: string; why?: string; agent?: string; repoUrl?: string; back?: string; onBack?: () => void }) {
+  const [data, setData] = useState<CommitDetail | null>(null), [error, setError] = useState(""), [file, setFile] = useState("");
+  useEffect(() => {
+    const controller = new AbortController(); setData(null); setError(""); setFile("");
+    fetch(`/api/world/${machine}/proxy/commit?repo=${encodeURIComponent(repo)}&sha=${encodeURIComponent(sha)}`, { signal: controller.signal, cache: "no-store" })
+      .then(r => {
+        if (r.status === 404) throw new Error("Hangar’s engine on this machine predates this view. Restart Hangar to see the change.");
+        return workspaceResponse<CommitDetail>(r);
+      }).then(d => { if (!controller.signal.aborted) { setData(d); if (d.files.length === 1) setFile(d.files[0].path); } })
+      .catch(e => { if (!controller.signal.aborted) setError(e.message); });
+    return () => controller.abort();
+  }, [machine, repo, sha]);
+  const url = data ? commitUrl(repoUrl, data.sha) : undefined;
+  const peak = Math.max(1, ...(data?.files || []).map(f => (f.added || 0) + (f.removed || 0)));
+  return <div className="pa sp cv">
+    {onBack && <button className="cv-back" onClick={onBack}><ArrowLeft size={14} />{back}</button>}
+    {error && <p className="sp-muted">{error}</p>}
+    {!data && !error && <div className="pa-skeleton" aria-label="Reading the commit" />}
+    {data && <>
+      <h2 className="sp-title">{data.subject}</h2>
+      <div className="cv-meta"><ProjectBadge id={data.repo} name={data.name} link /><span>{when(data.at)}</span>{agent && agent !== "unknown" && <span><i className={`pa-swatch is-${agent}`} />{NAME[agent as "claude" | "codex"]}</span>}
+        {url ? <a className="sp-link" href={url} target="_blank" rel="noopener noreferrer">{data.short} on GitHub<ArrowUpRight size={13} /></a> : <code>{data.short}</code>}</div>
+      {why && <p className="cv-why">{why[0].toUpperCase() + why.slice(1)}.</p>}
+      {data.body && <details className="cv-body"><summary>Full message</summary><p>{data.body}</p></details>}
+      <div className="cv-total" aria-label={`${data.fileCount} files, ${data.added} lines added, ${data.removed} removed`}>
+        <b>{data.fileCount}</b> {data.fileCount === 1 ? "file" : "files"}<span className="is-add">+{data.added}</span><span className="is-del">−{data.removed}</span>
+        <i className="cv-ratio" aria-hidden="true"><i style={{ flexGrow: data.added }} className="is-add" /><i style={{ flexGrow: data.removed }} className="is-del" /></i>
+        {data.merge && <small>merge, against its first parent</small>}
+      </div>
+      <ol className="cv-files">{data.files.map(f => {
+        const slash = f.path.lastIndexOf("/"), total = (f.added || 0) + (f.removed || 0);
+        return <li key={f.path} className={file === f.path ? "is-open" : ""}>
+          <button aria-expanded={file === f.path} onClick={() => setFile(file === f.path ? "" : f.path)} title={f.path}>
+            <ChevronRight size={13} className="cv-chev" />
+            <span className="cv-path">{slash > 0 && <small>{f.path.slice(0, slash + 1)}</small>}<b>{f.path.slice(slash + 1)}</b></span>
+            {f.binary ? <small className="cv-bin">binary</small> : <span className="cv-counts"><span className="is-add">+{f.added}</span><span className="is-del">−{f.removed}</span></span>}
+            <i className="cv-bar" aria-hidden="true"><i className="is-add" style={{ width: `${(f.added || 0) / peak * 100}%` }} /><i className="is-del" style={{ width: `${(f.removed || 0) / peak * 100}%` }} /></i>
+          </button>
+          {file === f.path && (f.binary ? <p className="sp-muted">A binary file: no lines to show.</p> : !f.patch ? <p className="sp-muted">{total ? "The change is too large to show here." : "Moved or renamed, no lines changed."}</p> : <Patch text={f.patch} truncated={f.truncated} url={url} />)}
+        </li>;
+      })}</ol>
+    </>}
   </div>;
+}
+
+function Patch({ text, truncated, url }: { text: string; truncated: boolean; url?: string }) {
+  const lines = text.split("\n");
+  const start = Math.max(0, lines.findIndex(l => l.startsWith("@@")));
+  return <pre className="cv-patch">{lines.slice(start).map((l, i) => <span key={i} className={l.startsWith("@@") ? "is-hunk" : l.startsWith("+") ? "is-add" : l.startsWith("-") ? "is-del" : ""}>{l || " "}</span>)}
+    {truncated && <span className="is-more">Cut short here{url ? " · the rest is on GitHub" : ""}.</span>}</pre>;
 }

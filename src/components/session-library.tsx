@@ -18,7 +18,7 @@ export type LibrarySession = {
   /** A scripted run in the system temp folder that edited no project: a test, not your work. */
   probe?: boolean;
   /** What it committed, newest first, with how Hangar knows. */
-  changed?: { sha: string; subject: string; repo: string; at: string; evidence: string }[];
+  changed?: { sha: string; subject: string; repo: string; repoId?: string; at: string; evidence: string }[];
   changedCount?: number;
 };
 type Group = { id: string; name: string; source: string; nativeId?: string };

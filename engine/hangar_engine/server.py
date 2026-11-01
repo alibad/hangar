@@ -107,6 +107,14 @@ def make_handler(state, port):
             if path == "/api/sessions/library":
                 from . import session_library
                 return self._send(200, session_library.snapshot(state.doc or state.load(), scanner.overlay(), changes=True))
+            if path == "/api/commit":
+                from . import activity
+                query = parse_qs(url.query)
+                try:
+                    return self._send(200, activity.commit_detail(state.doc or state.load(), scanner.overlay(),
+                                                                  (query.get("repo") or [""])[0], (query.get("sha") or [""])[0]))
+                except ValueError as error:
+                    return self._send(400, {"error": str(error)})
             if path in ("/api/activity", "/api/activity/all"):
                 from . import activity
                 query = parse_qs(url.query)

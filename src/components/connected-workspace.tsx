@@ -515,7 +515,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
           <div className="cw-sessions-pane"><ActivityBoard key={`activity-${machine}`} machine={machine} onOpenProject={openProject} picked={sessionPick} onPick={setSessionPick} onLoad={setBoard} /></div>
           {sessionPick && <SidePane className="cw-session-pane" label={sessionPick.session ? "Session details" : "Commit details"} width={paneWidth} onWidth={setPaneWidth}
             expanded={paneExpanded} onExpand={() => setPaneExpanded(v => !v)} onClose={() => { setPaneExpanded(false); setSessionPick(null); }} top={<SessionPaneTop pick={sessionPick} />}>
-            <SessionPane key={sessionPick.session || sessionPick.sha || ""} pick={sessionPick} board={board} library={library?.sessions.find(s => s.key === sessionPick.session)}
+            <SessionPane key={sessionPick.session || sessionPick.sha || ""} machine={machine} pick={sessionPick} board={board} library={library?.sessions.find(s => s.key === sessionPick.session)}
               repoUrls={Object.fromEntries((doc?.repos || []).map(r => [r.id, r.url]))} busy={busy} onPick={setSessionPick}
               onOpen={machine === "local" ? s => void openSession(s.provider, s.id) : undefined} onContinue={continueSession} />
           </SidePane>}

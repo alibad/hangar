@@ -363,6 +363,17 @@ class IndependentEngine(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:
             self.read(f"/api/activity?repo={rid}&days=90")
         self.assertEqual(error.exception.code, 400)
+        sha = subprocess.run(["git", "-C", str(self.repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        commit = self.read(f"/api/commit?repo={rid}&sha={sha[:9]}")
+        self.assertEqual(commit["subject"], "fix: correct core value")
+        self.assertEqual([(f["path"], f["added"], f["removed"]) for f in commit["files"]], [("src/core/value.ts", 1, 1)])
+        self.assertIn("+export const value = 2;", commit["files"][0]["patch"])
+        first = subprocess.run(["git", "-C", str(self.repo), "rev-list", "--max-parents=0", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(self.read(f"/api/commit?repo={rid}&sha={first}")["fileCount"], 4)  # a first commit, against nothing
+        for bad in ("zzzzzzz", "--all", "1234567"):
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.read(f"/api/commit?repo={rid}&sha={bad}")
+            self.assertEqual(error.exception.code, 400)
         every = self.read("/api/activity/all?days=7")
         self.assertTrue(every["available"])
         self.assertEqual(every["projects"], [])  # a quiet week leaves no project on the board

@@ -9,6 +9,7 @@ The agent is that session's agent. With no session, a Co-Authored-By: Claude tra
 unknown. Two sessions with work in the project within two hours of each other overlap. Nothing here reads a transcript:
 it joins Git with the session index's edit times and printed hashes.
 """
+import re
 import subprocess
 import threading
 import time
@@ -25,6 +26,9 @@ EDITS_BEFORE = 3 * HOUR    # how long before a commit an edit to its files still
 SPAN_GAP = HOUR            # work in one project closer than this is one stretch
 OVERLAP = 2 * HOUR         # two stretches this close are two sessions on the project at once
 MAX_COMMITS = 500
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"  # what a first commit is compared with
+PATCH_LINES = 400        # per file: enough to read the change, not a whole generated file
+PATCH_BYTES = 200_000    # per commit
 _cache = {}
 _cache_lock = threading.Lock()
 
@@ -318,8 +322,60 @@ def claimed(doc, overlay, repo_ids, days=30, now=None):
         by_sha = {c["sha"]: c for c in history["commits"]}
         for sha, claim in attribute(history["commits"], entries, prefixes).items():
             commit = by_sha[sha]
-            out.setdefault(claim["session"], []).append({"sha": sha[:7], "subject": commit["subject"], "repo": repo["name"],
+            out.setdefault(claim["session"], []).append({"sha": sha[:7], "subject": commit["subject"], "repo": repo["name"], "repoId": repo["id"],
                                                          "at": iso(commit["at"]), "evidence": claim["evidence"]})
     for rows in out.values():
         rows.sort(key=lambda c: c["at"], reverse=True)
     return out
+
+
+def split_patch(text):
+    """{path: patch} from a unified diff, one block per file."""
+    blocks = {}
+    for block in re.split(r"^(?=diff --git )", text, flags=re.M):
+        first = block.split("\n", 1)[0]
+        match = re.match(r"diff --git a/(.*) b/(.*)$", first)
+        if match:
+            blocks[match.group(2)] = block
+    return blocks
+
+
+def commit_detail(doc, overlay, rid, sha):
+    """One commit, read-only: its message, when and by whom, and each file it changed with the lines added and removed
+    and the change itself (cut short for very large files). Merges are shown against their first parent."""
+    repo = next((r for r in doc["repos"] if r["id"] == rid), None)
+    if not repo:
+        raise ValueError("Choose an indexed project.")
+    if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{7,40}", sha):
+        raise ValueError("Give a commit hash.")
+    folders = folders_of(repo, overlay)
+    if not folders:
+        raise ValueError("This project is not on this machine.")
+    folder = folders[0]
+    full = git(folder, "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}").strip()
+    if not full:
+        raise ValueError("That commit is not in this project's history on this machine.")
+    head = git(folder, "show", "-s", "--format=%H%x1f%an%x1f%aI%x1f%cI%x1f%P%x1f%s%x1f%b", full)
+    parts = head.split("\x1f", 6)
+    if len(parts) != 7:
+        raise ValueError("Git could not read that commit.")
+    _, author, authored, committed, parents, subject, body = parts
+    base = parents.split()[0] if parents.split() else EMPTY_TREE
+    files, budget = [], PATCH_BYTES
+    patches = split_patch(git(folder, "diff", "--no-color", "--no-ext-diff", "-M", base, full))
+    for line in git(folder, "diff", "--numstat", "-M", base, full).splitlines():
+        cells = line.split("\t")
+        if len(cells) < 3:
+            continue
+        added, removed, path = cells[0], cells[1], cells[-1]
+        if " => " in path:  # a rename: numstat writes old => new, the patch is keyed by the new path
+            path = re.sub(r"\{[^{}]* => ([^{}]*)\}", r"\1", path).replace("//", "/") if "{" in path else path.split(" => ")[-1]
+        lines = (patches.get(path) or "").splitlines()
+        shown = lines[:PATCH_LINES] if budget > 0 else []
+        text = "\n".join(shown)
+        budget -= len(text)
+        files.append({"path": path, "added": None if added == "-" else int(added), "removed": None if removed == "-" else int(removed),
+                      "binary": added == "-", "patch": text, "truncated": len(shown) < len(lines)})
+    return {"repo": rid, "name": repo["name"], "sha": full, "short": full[:7], "subject": subject[:300], "body": body.strip()[:4000],
+            "author": author, "at": committed or authored, "merge": len(parents.split()) > 1, "files": files[:300],
+            "added": sum(f["added"] or 0 for f in files), "removed": sum(f["removed"] or 0 for f in files), "fileCount": len(files)}

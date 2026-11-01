@@ -27,6 +27,8 @@ test("Atlas bridge is an allowlist, not an arbitrary filesystem or URL proxy", (
   assert.equal(atlasPathAllowed("proxy", ["activity"], "GET"), true);
   assert.equal(atlasPathAllowed("proxy", ["activity"], "POST"), false);
   assert.equal(atlasPathAllowed("proxy", ["activity", "all"], "GET"), true);
+  assert.equal(atlasPathAllowed("proxy", ["commit"], "GET"), true);
+  assert.equal(atlasPathAllowed("proxy", ["commit"], "POST"), false);
   assert.equal(atlasPathAllowed("proxy", ["architecture"], "POST"), true);
   assert.equal(atlasPathAllowed("proxy", ["architecture", "view"], "POST"), false);
   assert.equal(atlasPathAllowed("proxy", ["git"], "POST"), true);
