@@ -76,3 +76,9 @@
 .sl-detail .sl-session-title h3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:16px;line-height:1.45}
 .connected-workspace .sl-session-actions .sl-open{color:var(--hangar-on-primary);background:var(--hangar-primary-fill);border-color:var(--hangar-primary-fill);border-radius:999px;padding:7px 14px}
 .sl-actions-help{flex-basis:100%;margin:6px 0 0;font-size:11.5px;line-height:1.5;color:var(--cw-muted)}
+/* What a session committed: one line under its title in the list, the list itself in the detail. */
+.sl-row-text .sl-changed{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:11px;font-style:normal;color:var(--cw-ink);opacity:.85;white-space:nowrap;overflow:hidden}.sl-changed svg{flex-shrink:0;color:var(--cw-muted)}
+.sl-changed i{flex-shrink:0;font-style:normal;font-size:10px;color:var(--cw-muted);padding:0 5px;border:1px solid var(--cw-line);border-radius:999px}
+.sl-commits{margin:14px 0}.sl-commits h4{display:flex;align-items:baseline;gap:8px;margin:0 0 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--cw-muted)}.sl-commits h4 small{text-transform:none;letter-spacing:0;font-weight:400}
+.sl-commits ol{display:grid;gap:9px;margin:0;padding:0;list-style:none}.sl-commits li{display:flex;gap:8px;align-items:flex-start;min-width:0}.sl-commits li svg{flex-shrink:0;margin-top:2px;color:var(--cw-muted)}
+.sl-commits li span{min-width:0}.sl-commits li b{display:block;font-size:12px;font-weight:550;line-height:1.4;overflow-wrap:anywhere}.sl-commits li small,.sl-commits>small{display:block;margin-top:2px;font-size:10.5px;color:var(--cw-muted)}.sl-commits code{font-size:10px}

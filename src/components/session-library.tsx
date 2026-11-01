@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ArrowRight, Check, Folder, Layers, Pin, X } from "lucide-react";
+import { Archive, ArrowRight, Check, Folder, GitCommitHorizontal, Layers, Pin, X } from "lucide-react";
 import "./session-library.css";
 import HangarLoading from "./hangar-loading";
 
@@ -14,6 +14,11 @@ export type LibrarySession = {
   suggestion: { id: string; name: string; reason: string; confidence: string } | null;
   /** Where Open takes it: its desktop app when the app can show it, otherwise a terminal. */
   opensIn?: "app" | "terminal";
+  /** A scripted run in the system temp folder that edited no project: a test, not your work. */
+  probe?: boolean;
+  /** What it committed, newest first, with how Hangar knows. */
+  changed?: { sha: string; subject: string; repo: string; at: string; evidence: string }[];
+  changedCount?: number;
 };
 type Group = { id: string; name: string; source: string; nativeId?: string };
 export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; truncated: boolean; observedAt: string };
@@ -59,12 +64,15 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const [agent, setAgent] = useState<Agent>("all");
   const [project, setProject] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [showProbes, setShowProbes] = useState(false);
   const dialog = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
   const updateRef = useRef(onUpdate); updateRef.current = onUpdate;
   const busyRef = useRef(false);
   const endpoint = `/api/world/${machine}/proxy/sessions/library`;
-  const rows = data?.sessions || [];
+  const everything = data?.sessions || [];
+  const probes = everything.filter(s => s.probe).length;
+  const rows = useMemo(() => showProbes ? everything : everything.filter(s => !s.probe), [everything, showProbes]);
   const targetRow = rows.find(s => s.key === target?.key);
 
   useEffect(() => {
@@ -176,7 +184,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
         <div className="sl-list-heading"><label><span className="sr-only">Find a session</span><input type="search" placeholder="Find a session or project…" value={query} onChange={e => { setQuery(e.target.value); setLimit(40); }} /></label><div className="sl-seg" role="group" aria-label="Agent">{([["all", "All"], ["claude", "Claude"], ["codex", "Codex"]] as const).map(([id, label]) => <button key={id} aria-pressed={agent === id} onClick={() => { setAgent(id); setLimit(40); }}>{id !== "all" && <i className={`sl-swatch is-${id}`} aria-hidden="true" />}{label}</button>)}</div>
           <button className="sl-toggle" aria-pressed={unreadOnly} onClick={() => setUnreadOnly(v => !v)}>Unread</button>
           {project && <button className="sl-chip" onClick={() => setProject("")} title="Show every project">{laneOf.get(project)?.name || project}<X size={13} /></button>}
-          <span>{visible.length} sessions</span>{filter && <button onClick={() => setFilter("")}>Clear group filter <X size={14} /></button>}</div>
+          <span>{visible.length} sessions</span>{probes > 0 && <button className="sl-toggle" aria-pressed={showProbes} title="Scripted runs in a temp folder that edited no project" onClick={() => setShowProbes(v => !v)}>{showProbes ? "Hide" : "Show"} {probes} test {probes === 1 ? "run" : "runs"}</button>}{filter && <button onClick={() => setFilter("")}>Clear group filter <X size={14} /></button>}</div>
         {mode === "review" && <p className="sl-help">{data.reviewCount ? `${data.reviewCount} sessions have had no observed activity for ${data.idleDays}+ days${data.unreadReviewCount ? `, ${data.unreadReviewCount} unread in Codex` : ""}. Nothing is archived without your choice. ` : ""}Unread sessions come first so useful results are not buried. Pinned sessions and projects with active or unobserved jobs are protected.</p>}
         {!!visible.length && <div className="sl-inbox">
           <div className="sl-list" aria-label="Sessions">
@@ -184,7 +192,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
               {section.name && <h4>{section.name}<small>{section.rows.length}</small></h4>}
               {section.rows.map(row => <button type="button" key={row.key} aria-pressed={selected?.key === row.key} className={`sl-row ${row.unread ? "sl-unread" : ""}`} onClick={() => pick(row.key)}>
                 <span className={`cw-session-provider is-${agentOf(row)}`}>{row.provider === "codex" ? "CX" : "CL"}</span>
-                <span className="sl-row-text"><b>{row.title}</b><small>{[row.projects.map(p => p.name).join(", ") || "No project", row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).join(" · ")}</small></span>
+                <span className="sl-row-text"><b>{row.title}</b>{!!row.changed?.length && <em className="sl-changed"><GitCommitHorizontal size={12} aria-hidden="true" />{row.changed[0].subject}{(row.changedCount || 0) > 1 && <i>+{(row.changedCount || 0) - 1}</i>}</em>}<small>{[row.projects.map(p => p.name).join(", ") || "No project", row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).join(" · ")}</small></span>
                 {row.unread === true && <i className="sl-dot" aria-label="Unread in Codex" />}
                 {row.pinned && <Pin size={13} aria-label="Pinned in Codex" />}
               </button>)}
@@ -195,6 +203,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
             <div className="sl-session-body"><div className="sl-session-title"><h3>{selected.title}</h3>{selected.pinned && <Pin size={14} aria-label="Pinned in Codex" />}</div>
             <div className="sl-tags"><span>{selected.unread === true ? "Unread in Codex" : selected.unread === false ? "Read in Codex" : "Read state unknown"}</span>{selected.reviewed && <span>Reviewed in Hangar</span>}<span>{selected.idleDays === null ? "Activity unknown" : `${selected.idleDays}d idle`}</span>{selected.group && <span>{data.groups.find(g => g.id === selected.group)?.name}</span>}{selected.protected && <span>Active project · protected</span>}{selected.archived && <span>Archived in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</span>}</div>
             <p>{selected.summary}</p>
+            {!!selected.changed?.length && <div className="sl-commits" aria-label="What this session committed"><h4>What it changed<small>{selected.changedCount} {selected.changedCount === 1 ? "commit" : "commits"}</small></h4><ol>{selected.changed.map(c => <li key={`${c.repo}-${c.sha}`}><GitCommitHorizontal size={14} aria-hidden="true" /><span><b>{c.subject}</b><small>{c.repo} · {new Date(c.at).toLocaleDateString(undefined, { day: "numeric", month: "short" })} {new Date(c.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })} · <code>{c.sha}</code></small></span></li>)}</ol>{(selected.changedCount || 0) > selected.changed.length && <small>{(selected.changedCount || 0) - selected.changed.length} more in the last 30 days</small>}</div>}
             {selected.projects.length > 0 && <div className="sl-connect" aria-label="This session's projects">{selected.projects.map(p => { const lane = laneOf.get(p.id); return <button key={p.id} onClick={() => openProject(p.id)} aria-pressed={project === p.id} title={`Every session in ${p.name}`}>
               <b>{p.name}</b><span><i className="sl-swatch is-claude" aria-hidden="true" />{lane?.claude || 0} Claude</span><span><i className="sl-swatch is-codex" aria-hidden="true" />{lane?.codex || 0} Codex</span><ArrowRight size={13} /></button>; })}</div>}
             <details><summary>File evidence & session ID</summary><code>{selected.id}</code>{selected.projects.map(p => {

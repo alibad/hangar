@@ -109,6 +109,27 @@ too” actions use the native Codex app-server protocol. Claude grouping/archivi
 is a Hangar overlay; its original transcripts remain untouched. New activity
 resurfaces a Hangar-archived session. Metadata is private to the selected machine.
 
+Test runs are left out of the list until you show them: a session that ran in the
+system temp folder and edited no project (a scripted `codex exec` or `claude -p`
+probe, say). They never come up for archive review.
+
+## Who changed what
+
+A project's Work tab shows its last seven days on main as a picture: a lane for
+Claude and one for Codex, a bar per session, a dot per commit, and a warm band
+where two sessions worked on the project within two hours of each other (striped
+when the two are different agents). The Sessions list shows what each session
+committed beside its title, and `hangar_activity` gives agents the same answer.
+
+A commit is tied to a session by evidence, strongest first: the session printed
+git's own `[main 1a2b3c4]` line for it; it printed the hash within five minutes
+after the commit (a quiet `git commit -q`, then `git log`); or it edited the
+commit's files in the three hours before. A `Co-Authored-By: Claude` trailer rules
+out Codex sessions for the last rule and still says Claude when no session is
+found. The session index keeps only commit hashes and edit times from transcripts,
+never message text. Edits made through shell commands and Claude subagents' own
+transcripts are not indexed yet, so their commits can show as "no session found".
+
 ## Agents
 
 `scripts/mcp-hangar.mjs` is the one MCP server Claude Code and Codex start for
