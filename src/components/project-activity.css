@@ -48,3 +48,27 @@
 @keyframes pa-shimmer{to{background-position:-200% 0}}
 @container (max-width:340px){.pa{--pa-label:74px}}
 @media(prefers-reduced-motion:reduce){.pa *{transition:none!important;animation:none!important}}
+
+/* Every project at once: a row per project, a Claude lane over a Codex lane, one clock for all of them. */
+.ab{margin:4px 0 34px}
+.ab-stats{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 6px}
+.ab-stats>span{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--cw-line);border-radius:10px;font-size:12px;color:var(--cw-muted)}
+.ab-stats b{font-size:16px;font-weight:600;color:var(--cw-ink);font-variant-numeric:tabular-nums}
+.ab-stats .is-collision{border-color:color-mix(in oklab,var(--pa-warm) 55%,transparent);color:var(--pa-warm)}.ab-stats .is-collision b{color:var(--pa-warm)}
+.ab .pa-days{max-width:520px}
+.ab-board{display:grid;gap:6px;margin-top:6px}
+.ab-row{display:grid;grid-template-columns:minmax(110px,180px) minmax(0,1fr);gap:12px;align-items:center}
+.pa .ab-name{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;min-height:0;padding:4px 6px!important;border:0;border-radius:8px;background:transparent;text-align:left;cursor:pointer;color:var(--cw-ink)}
+.pa .ab-name:hover{background:color-mix(in oklab,var(--cw-ink) 6%,transparent)}.pa .ab-name:disabled{cursor:default}
+.ab-name b{max-width:100%;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ab-name small{font-size:10px;color:var(--cw-muted)}
+.ab-row.is-collision .ab-name b{color:var(--pa-warm)}
+.ab-tracks{position:relative;padding:2px 0;border-radius:8px;background:color-mix(in oklab,var(--cw-ink) 2.5%,transparent)}.ab-tracks>.pa-band{top:0;bottom:0}
+.ab-lane{position:relative;height:16px}.ab-lane:before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:color-mix(in oklab,var(--cw-line) 55%,transparent)}
+.ab-lane .pa-bar{top:3px;height:10px}.ab .ab-lane .pa-dot{width:11px;height:11px;margin:-5.5px 0 0 -5.5px}
+.ab-tracks>.pa-fold{background:none;opacity:1}.ab-tracks>.pa-fold:after{content:"";position:absolute;left:50%;top:4px;bottom:4px;border-left:1px dashed color-mix(in oklab,var(--cw-line) 85%,transparent)}
+.ab-axis-row .pa-axis{border-top:0;border-bottom:1px solid var(--cw-line)}.ab-axis-row .pa-axis span{top:4px}.ab-axis-row .pa-axis i{top:2px;background:none}
+.ab .ab-more{justify-self:start;margin-top:4px}
+.ab-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.ab-detail{display:grid;gap:6px;justify-items:start}.ab-detail .pa-card{justify-self:stretch}
+.pa-card-project{color:var(--cw-ink);font-weight:600}
+@media(max-width:550px){.ab-row{grid-template-columns:90px minmax(0,1fr);gap:8px}}

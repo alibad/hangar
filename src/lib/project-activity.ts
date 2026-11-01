@@ -1,4 +1,4 @@
-/** Who changed what in one project: the engine's commit-to-session join, laid out as a day of two lanes. */
+/** Who changed what: the engine's commit-to-session join, laid out as a day of two lanes, for one project or all of them. */
 export type Agent = "claude" | "codex" | "unknown";
 export type ActivityCommit = {
   sha: string; short: string; at: string; subject: string; files: string[]; fileCount: number; agent: Agent;
@@ -6,10 +6,9 @@ export type ActivityCommit = {
 };
 export type ActivitySession = { key: string; provider: "claude" | "codex"; id: string; title: string; commits: string[]; edits: number; spans: { from: string; to: string }[]; files: string[] };
 export type ActivityOverlap = { from: string; to: string; sessions: string[]; agents: string[]; crossAgent: boolean; sharedFiles: string[] };
-export type ActivityData = {
-  available: boolean; reason?: string; repo: string; name: string; branch: string; days: number; from: string; to: string;
-  commits: ActivityCommit[]; sessions: ActivitySession[]; overlaps: ActivityOverlap[]; truncated: boolean; basis: string;
-};
+export type ProjectActivity = { repo: string; name: string; branch: string; commits: ActivityCommit[]; sessions: ActivitySession[]; overlaps: ActivityOverlap[]; truncated: boolean };
+export type ActivityData = ProjectActivity & { available: boolean; reason?: string; days: number; from: string; to: string; basis: string };
+export type BoardData = { available: boolean; days: number; from: string; to: string; projects: ProjectActivity[]; truncated: boolean; basis: string };
 
 const MINUTE = 60_000, HOUR = 60 * MINUTE, DAY = 24 * HOUR;
 const PAD = 20 * MINUTE;        // room around a stretch of work
@@ -53,24 +52,17 @@ export function defaultDay(days: DaySummary[]) {
 
 type Segment = { from: number; to: number; left: number; width: number };
 export type Row = { session: ActivitySession | null; agent: Agent; bars: { left: number; width: number }[]; commits: { commit: ActivityCommit; left: number }[] };
-export type DayView = {
-  segments: Segment[]; breaks: { left: number; width: number; minutes: number }[]; ticks: { left: number; label: string }[];
-  lanes: { agent: Agent; rows: Row[] }[]; bands: { left: number; width: number; overlap: ActivityOverlap }[]; x: (t: number) => number;
-};
+export type Fold = { segments: Segment[]; breaks: { left: number; width: number; minutes: number }[]; ticks: { left: number; label: string }[]; x: (t: number) => number };
+export type DayView = Fold & { lanes: { agent: Agent; rows: Row[] }[]; bands: { left: number; width: number; overlap: ActivityOverlap }[] };
 
 function clock(t: number) {
   return new Date(t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 
-/** Stretches of the day with work in them, quiet gaps folded, every time mapped to a percent across. */
-export function dayView(data: ActivityData, key: string): DayView {
+/** One day with work in it, quiet gaps folded, every time mapped to a percent across. Shared by every row drawn on it. */
+export function foldDay(moments: number[], key: string): Fold {
   const start = dayStart(key), end = dayEnd(key);
-  const clip = (t: number) => Math.min(end, Math.max(start, t));
-  const touches = (from: number, to: number) => from < end && to >= start;
-  const commits = data.commits.filter(c => { const t = at(c.at); return t >= start && t < end; });
-  const sessions = data.sessions.filter(s => s.spans.some(p => touches(at(p.from), at(p.to))) || commits.some(c => c.session === s.key));
-  const bandsToday = data.overlaps.filter(o => touches(at(o.from), at(o.to)));
-  const times = [...commits.map(c => at(c.at)), ...sessions.flatMap(s => s.spans.filter(p => touches(at(p.from), at(p.to))).flatMap(p => [clip(at(p.from)), clip(at(p.to))]))].sort((a, b) => a - b);
+  const times = [...moments].sort((a, b) => a - b);
   const stretches: [number, number][] = [];
   for (const t of times) {
     const last = stretches.at(-1);
@@ -106,8 +98,32 @@ export function dayView(data: ActivityData, key: string): DayView {
   for (const s of segments) {
     const span = s.to - s.from;
     const step = [15, 30, 60, 120, 180, 360].map(m => m * MINUTE).find(m => span / m <= Math.max(2, Math.round(s.width / 14))) ?? 6 * HOUR;
-    for (let t = Math.ceil(s.from / step) * step; t <= s.to; t += step) ticks.push({ left: x(t), label: clock(t) });
+    for (let t = Math.ceil(s.from / step) * step; t <= s.to; t += step) {
+      const left = x(t);
+      // Labels never crowd each other or a fold mark, however many stretches the day has.
+      if ((ticks.length && left - ticks.at(-1)!.left < 11) || breaks.some(b => Math.abs(b.left + b.width / 2 - left) < 4)) continue;
+      ticks.push({ left, label: clock(t) });
+    }
   }
+  return { segments, breaks, ticks, x };
+}
+
+/** What one project did on one day: its commits, the sessions working in it and where they overlapped. */
+function dayOf(data: ProjectActivity, key: string) {
+  const start = dayStart(key), end = dayEnd(key);
+  const clip = (t: number) => Math.min(end, Math.max(start, t));
+  const touches = (from: number, to: number) => from < end && to >= start;
+  const commits = data.commits.filter(c => { const t = at(c.at); return t >= start && t < end; });
+  const sessions = data.sessions.filter(s => s.spans.some(p => touches(at(p.from), at(p.to))) || commits.some(c => c.session === s.key));
+  const bands = data.overlaps.filter(o => touches(at(o.from), at(o.to)));
+  const moments = [...commits.map(c => at(c.at)), ...sessions.flatMap(s => s.spans.filter(p => touches(at(p.from), at(p.to))).flatMap(p => [clip(at(p.from)), clip(at(p.to))]))];
+  return { commits, sessions, bands, moments, clip, touches };
+}
+
+/** One project's day: a row per session in its agent's lane, quiet hours folded. */
+export function dayView(data: ProjectActivity, key: string): DayView {
+  const { commits, sessions, bands: bandsToday, moments, clip, touches } = dayOf(data, key);
+  const fold = foldDay(moments, key), { x } = fold;
   const rowFor = (session: ActivitySession | null, agent: Agent): Row => {
     const mine = commits.filter(c => session ? c.session === session.key : !c.session && c.agent === agent);
     return {
@@ -123,5 +139,37 @@ export function dayView(data: ActivityData, key: string): DayView {
     return { agent, rows };
   }).filter(l => l.rows.length || l.agent !== "unknown");
   const bands = bandsToday.map(o => { const a = x(clip(at(o.from))), b = x(clip(at(o.to))); return { left: a, width: Math.max(1.5, b - a), overlap: o }; });
-  return { segments, breaks, ticks, lanes, bands, x };
+  return { ...fold, lanes, bands };
+}
+
+/** Every project as one data set, for the week strip. */
+export function boardTotals(board: BoardData): ActivityData {
+  return { available: board.available, days: board.days, from: board.from, to: board.to, basis: board.basis, truncated: board.truncated,
+    repo: "", name: "All projects", branch: "main", commits: board.projects.flatMap(p => p.commits),
+    sessions: board.projects.flatMap(p => p.sessions), overlaps: board.projects.flatMap(p => p.overlaps) };
+}
+
+export type Lane = { agent: Agent; bars: { left: number; width: number }[]; commits: { commit: ActivityCommit; left: number }[] };
+export type BoardRow = { project: ProjectActivity; lanes: Lane[]; bands: { left: number; width: number; overlap: ActivityOverlap }[]; crossAgent: boolean; commits: number };
+
+/** Every project that did something on the day, on one shared clock: a Claude lane and a Codex lane each (and unknown
+ *  commits when there are any), collisions first. */
+export function boardDay(board: BoardData, key: string): Fold & { rows: BoardRow[] } {
+  const days = board.projects.map(project => ({ project, ...dayOf(project, key) })).filter(d => d.commits.length || d.sessions.length);
+  const fold = foldDay(days.flatMap(d => d.moments), key), { x } = fold;
+  const rows = days.map(({ project, commits, sessions, bands, clip, touches }) => {
+    const lane = (agent: Agent): Lane => ({
+      agent,
+      bars: agent === "unknown" ? [] : sessions.filter(s => s.provider === agent).flatMap(s => s.spans.filter(p => touches(at(p.from), at(p.to))))
+        .map(p => { const a = x(clip(at(p.from))), b = x(clip(at(p.to))); return { left: a, width: Math.max(1.2, b - a) }; }),
+      commits: commits.filter(c => c.agent === agent).map(c => ({ commit: c, left: x(at(c.at)) })),
+    });
+    return {
+      project, lanes: (["claude", "codex", "unknown"] as Agent[]).map(lane).filter(l => l.agent !== "unknown" || l.commits.length),
+      bands: bands.map(o => { const a = x(clip(at(o.from))), b = x(clip(at(o.to))); return { left: a, width: Math.max(1.5, b - a), overlap: o }; }),
+      crossAgent: bands.some(o => o.crossAgent), commits: commits.length,
+    };
+  });
+  rows.sort((a, b) => Number(b.crossAgent) - Number(a.crossAgent) || b.bands.length - a.bands.length || b.commits - a.commits || a.project.name.localeCompare(b.project.name));
+  return { ...fold, rows };
 }

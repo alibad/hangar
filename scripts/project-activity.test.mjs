@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 process.env.TZ = "Asia/Qatar"; // the owner's clock; the layout is in local time
-const { dayKey, dayView, defaultDay, windowDays } = await import("../src/lib/project-activity.ts");
+const { boardDay, boardTotals, dayKey, dayView, defaultDay, windowDays } = await import("../src/lib/project-activity.ts");
 
 // RTSAI-Mod on 26 Oct 2026, as the engine joined it (UTC). Doha is UTC+3.
 const utc = (hm, day = 26) => `2026-10-${day}T${hm}+00:00`;
@@ -66,4 +66,23 @@ test("commits with no session sit in their agent's lane, and unknown ones get th
   const empty = dayView({ ...DATA, commits: [], sessions: [], overlaps: [] }, "2026-10-27");
   assert.deepEqual([empty.segments.length, empty.bands.length, empty.x(Date.now())], [0, 0, 0]);
   assert.deepEqual(empty.lanes.map(l => l.agent), ["claude", "codex"]);
+});
+
+test("the all-projects board puts every active project on one clock, collisions first", () => {
+  const quiet = { repo: "R7", name: "atlas", branch: "main", truncated: false, overlaps: [], sessions: [], commits: [commit("cafe123", "06:00:00", "claude", null, { trailer: "claude" })] };
+  const later = { repo: "R8", name: "zeta", branch: "main", truncated: false, overlaps: [], sessions: [], commits: [commit("beef456", "08:00:00", "codex", null, { at: utc("08:00:00", 27) })] };
+  const board = { available: true, days: 7, from: DATA.from, to: DATA.to, truncated: false, basis: "", projects: [quiet, DATA, later] };
+  const day = boardDay(board, "2026-10-26");
+  assert.deepEqual(day.rows.map(r => r.project.name), ["RTSAI-Mod", "atlas"], "zeta worked on the 27th only; the collision comes first");
+  const [mod, atlas] = day.rows;
+  assert.equal(mod.crossAgent, true);
+  assert.deepEqual(mod.lanes.map(l => [l.agent, l.commits.length]), [["claude", 3], ["codex", 4]]);
+  assert.ok(mod.lanes[1].bars.length >= 2, "both Codex sessions draw a bar");
+  assert.deepEqual(atlas.lanes.map(l => [l.agent, l.commits.length, l.bars.length]), [["claude", 1, 0], ["codex", 0, 0]]);
+  // One clock: 09:00 in Doha sits between the 00:25 stretch and the 13:36 one, so each row lines up with the next.
+  const at0900 = atlas.lanes[0].commits[0].left, first = Math.max(...mod.lanes[0].commits.map(c => c.left).filter(l => l < 50));
+  assert.ok(first < at0900 && at0900 < mod.bands[0].left);
+  const totals = windowDays(boardTotals(board), NOW);
+  assert.deepEqual([totals[0].claude, totals[0].codex, totals[1].codex], [4, 4, 1]);
+  assert.equal(defaultDay(totals), "2026-10-26");
 });

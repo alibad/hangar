@@ -118,8 +118,12 @@ probe, say). They never come up for archive review.
 A project's Work tab shows its last seven days on main as a picture: a lane for
 Claude and one for Codex, a bar per session, a dot per commit, and a warm band
 where two sessions worked on the project within two hours of each other (striped
-when the two are different agents). The Sessions list shows what each session
-committed beside its title, and `hangar_activity` gives agents the same answer.
+when the two are different agents). The Sessions page opens with the same picture
+for every project at once: a row per project on one shared clock, a Claude lane
+over a Codex lane, collisions first, and a card for each time Claude and Codex
+worked on the same project within two hours. The Sessions list shows what each
+session committed beside its title. `hangar_activity` gives agents the same answer,
+for one project or, without `repo`, for all of them.
 
 A commit is tied to a session by evidence, strongest first: the session printed
 git's own `[main 1a2b3c4]` line for it; it printed the hash within five minutes
@@ -142,7 +146,7 @@ bundled engine on loopback (`HANGAR_ENGINE_URL` overrides `127.0.0.1:7789`):
 | `hangar_brief` | One project: purpose, island, what needs you, folder and branch state, recent commits, running app, Hangar jobs, recent sessions. |
 | `hangar_find` | Projects by name or description, with folders and what is waiting. |
 | `hangar_sessions` | Recent Claude Code and Codex sessions, by project, agent and age, with where each opens and what each committed. Test runs in a temp folder are left out. |
-| `hangar_activity` | Who changed what in one project: each main-branch commit with the session that made it and why, and every stretch where two sessions (above all Claude and Codex) worked on it within two hours. |
+| `hangar_activity` | Who changed what across every project (collisions between Claude and Codex first) or, with `repo`, in one project: each main-branch commit with the session that made it and why, and every stretch where two sessions (above all Claude and Codex) worked on it within two hours. |
 | `hangar_jobs`, `hangar_job` | The jobs Hangar ran and their steps; start, stop or acknowledge one (same limits as the task composer). |
 | `hangar_open`, `hangar_note`, `hangar_apps`, `hangar_rescan` | Open a folder in an agent or editor; focus / park / hide and a next step; running apps and ports; rescan. |
 
