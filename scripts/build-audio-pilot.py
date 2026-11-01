@@ -1,7 +1,8 @@
 """Prepare redistributable CC0 pilot stems using the existing local sound renderer.
 
-Usage: <sound-stack-python> scripts/build-audio-pilot.py <rtsai-sound-root> <RTSAI-Web-root>
-The source library and generation environments stay outside this repository.
+Usage: <sound-stack-python> scripts/build-audio-pilot.py <sound-lab-code> <RTSAI-Web-root> [<sources>]
+<sound-lab-code> is RTSAI-Art/tools/sound; <sources> defaults to D:/Datasets/Sounds. The source library and
+generation environments stay outside this repository.
 """
 import copy
 import hashlib
@@ -9,8 +10,9 @@ import json
 from pathlib import Path
 import sys
 
-sound_root, web_root = map(Path, sys.argv[1:3])
-sys.path.insert(0, str(sound_root / "scripts"))
+sound_code, web_root = map(Path, sys.argv[1:3])
+sources = Path(sys.argv[3]) if len(sys.argv) > 3 else Path("D:/Datasets/Sounds")
+sys.path.insert(0, str(sound_code))
 import sfxlib as S
 from design_cc0 import RECIPES
 
@@ -18,7 +20,7 @@ out = Path(__file__).resolve().parent.parent / "public/audio-lab/pilot"
 out.mkdir(parents=True, exist_ok=True)
 catalog = json.loads((web_root / "data/art-lab.json").read_text("utf-8"))
 actor = catalog["actors"]["r2m1a2s"]
-source_index = json.loads((sound_root / "sources/SOURCES.json").read_text("utf-8"))
+source_index = json.loads((sources / "SOURCES.json").read_text("utf-8"))
 events, provenance = [], []
 specs = [
     ("main-gun", "Tank main gun", "weapon:report", "tank_main_gun", [[0, 1, 4], [2, 3], [5]], ["Mechanical attack", "Blast body", "Outdoor tail"]),
