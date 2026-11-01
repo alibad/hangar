@@ -1,22 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
 import { boardDay, boardTotals, defaultDay, windowDays, type ActivitySession, type BoardData } from "@/lib/project-activity";
-import { CommitCard, NAMES, OverlapCard } from "./project-activity";
+import { NAMES, OverlapCard } from "./project-activity";
+import type { SessionPick } from "./session-pane";
 import { ProjectEmblem } from "./project-identity";
 import "./project-activity.css";
 
 const SHOWN = 8; // collisions and the busiest projects first; the quiet tail on request
 
 /** Every project's week at once: which agent changed what, and where Claude and Codex worked on the same project at
- *  the same time. One row per project, a Claude lane over a Codex lane, all on one clock. */
-export default function ActivityBoard({ machine, repoUrls = {}, onOpenProject }: { machine: string; repoUrls?: Record<string, string | undefined>; onOpenProject?: (repo: string) => void }) {
+ *  the same time. One row per project, a Claude lane over a Codex lane, all on one clock. A dot (a commit) or a bar
+ *  (a session's stretch of work) opens that session in the side pane through `onPick`. */
+export default function ActivityBoard({ machine, onOpenProject, picked, onPick, onLoad }: {
+  machine: string; onOpenProject?: (repo: string) => void; picked?: SessionPick | null; onPick?: (pick: SessionPick) => void; onLoad?: (data: BoardData) => void;
+}) {
   const [data, setData] = useState<BoardData | null>(null), [error, setError] = useState("");
-  const [day, setDay] = useState(""), [picked, setPicked] = useState(""), [all, setAll] = useState(false);
+  const [day, setDay] = useState(""), [all, setAll] = useState(false);
+  useEffect(() => { if (data) onLoad?.(data); }, [data, onLoad]);
   useEffect(() => {
-    const controller = new AbortController(); setData(null); setError(""); setDay(""); setPicked("");
+    const controller = new AbortController(); setData(null); setError(""); setDay("");
     fetch(`/api/world/${machine}/proxy/activity/all?days=7`, { signal: controller.signal, cache: "no-store" })
       .then(r => {
         if (r.status === 404) throw new Error("Hangar’s engine on this machine predates this view. Restart Hangar to see who changed what.");
@@ -36,7 +41,6 @@ export default function ActivityBoard({ machine, repoUrls = {}, onOpenProject }:
   if (!data || !totals || !view) return <section className="pa ab" aria-busy="true">{head}<div className="pa-skeleton" aria-label="Reading every project's commits and sessions" /></section>;
   const peak = Math.max(1, ...days.map(d => d.claude + d.codex + d.unknown));
   const collisions = totals.overlaps.filter(o => o.crossAgent).length;
-  const picked_ = picked ? data.projects.flatMap(p => p.commits.map(c => ({ project: p, commit: c }))).find(x => x.commit.sha === picked) : undefined;
   const overlapsToday = view.rows.flatMap(r => r.bands.map(b => ({ project: r.project, overlap: b.overlap })));
   // The cards are for Claude and Codex meeting; two sessions of one agent are only counted.
   const today = overlapsToday.filter(x => x.overlap.crossAgent), sameAgent = overlapsToday.length - today.length;
@@ -52,7 +56,7 @@ export default function ActivityBoard({ machine, repoUrls = {}, onOpenProject }:
     <div className="pa-days" role="group" aria-label="Choose a day">
       {days.map(d => { const date = new Date(`${d.key}T12:00:00`); return <button key={d.key} aria-pressed={d.key === key} className={d.crossAgent ? "is-collision" : d.overlap ? "is-overlap" : ""}
         aria-label={`${date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}: ${d.claude} Claude, ${d.codex} Codex${d.unknown ? `, ${d.unknown} unknown` : ""} commits${d.crossAgent ? ", Claude and Codex in the same project at once" : ""}`}
-        onClick={() => { setDay(d.key); setPicked(""); setAll(false); }}>
+        onClick={() => { setDay(d.key); setAll(false); }}>
         <span className="pa-day-bars" aria-hidden="true"><i className="is-codex" style={{ height: `${d.codex / peak * 100}%` }} /><i className="is-claude" style={{ height: `${d.claude / peak * 100}%` }} /><i className="is-unknown" style={{ height: `${d.unknown / peak * 100}%` }} /></span>
         <small>{date.toLocaleDateString(undefined, { weekday: "short" })}</small><b>{date.getDate()}</b>
         {d.overlap && <AlertTriangle className="pa-day-flag" size={11} aria-hidden="true" />}
@@ -72,20 +76,19 @@ export default function ActivityBoard({ machine, repoUrls = {}, onOpenProject }:
             {view.breaks.map((b, i) => <span key={`f${i}`} className="pa-fold" style={{ left: `${b.left}%`, width: `${b.width}%` }} aria-hidden="true" />)}
             {row.bands.map((b, i) => <span key={`b${i}`} className={`pa-band ${b.overlap.crossAgent ? "is-collision" : ""}`} style={{ left: `${b.left}%`, width: `${b.width}%` }} aria-hidden="true" />)}
             {row.lanes.map(lane => <div className={`ab-lane is-${lane.agent}`} key={lane.agent} aria-label={`${NAMES[lane.agent]} in ${row.project.name}`}>
-              {lane.bars.map((b, i) => <span key={i} className={`pa-bar is-${lane.agent}`} style={{ left: `${b.left}%`, width: `${b.width}%` }} />)}
+              {lane.bars.map((b, i) => <button key={i} className={`pa-bar is-${lane.agent} is-pickable ${picked?.session === b.session && !picked?.sha ? "is-picked" : ""}`} style={{ left: `${b.left}%`, width: `${b.width}%` }}
+                title={sessions.get(b.session)?.title || `${NAMES[lane.agent]} session`} aria-label={`Open the ${NAMES[lane.agent]} session ${sessions.get(b.session)?.title || ""} in ${row.project.name}`} onClick={() => onPick?.({ session: b.session })} />)}
               {lane.commits.map(({ commit, left }) => <button key={commit.sha} className={`pa-dot is-${lane.agent} ${commit.evidence === "printed" || commit.evidence === "seen" ? "" : "is-likely"}`}
-                style={{ left: `${left}%` }} aria-pressed={picked === commit.sha} title={`${row.project.name} · ${commit.short} ${commit.subject}`}
+                style={{ left: `${left}%` }} aria-pressed={picked?.sha === commit.sha} title={`${row.project.name} · ${commit.short} ${commit.subject}`}
                 aria-label={`${row.project.name}, ${NAMES[lane.agent]} commit ${commit.short}: ${commit.subject}`}
-                onClick={() => setPicked(picked === commit.sha ? "" : commit.sha)} />)}
+                onClick={() => onPick?.({ session: commit.session, sha: commit.sha })} />)}
             </div>)}
           </div>
         </div>)}
         {view.rows.length > SHOWN && <button className="cw-text-button ab-more" onClick={() => setAll(v => !v)}>{all ? "Show fewer projects" : `Show ${view.rows.length - SHOWN} more ${view.rows.length - SHOWN === 1 ? "project" : "projects"}`}</button>}
       </div>
-      {picked_ ? <div className="ab-detail"><CommitCard commit={picked_.commit} project={picked_.project.name} projectId={picked_.project.repo} session={picked_.commit.session ? sessions.get(picked_.commit.session) : undefined} repoUrl={repoUrls[picked_.project.repo]} />
-          {onOpenProject && <button className="cw-text-button" onClick={() => onOpenProject(picked_.project.repo)}>Open {picked_.project.name} <ArrowRight size={14} /></button>}</div>
-        : <>{today.length > 0 && <div className="ab-cards">{today.map(({ project, overlap }, i) => <OverlapCard key={`${project.repo}-${i}`} overlap={overlap} name={project.name} repo={project.repo} sessions={sessions} commits={project.commits} />)}</div>}
-          <p className="pa-note">{today.length ? "" : "No Claude and Codex collisions on this day. "}{sameAgent ? `${sameAgent} more ${sameAgent === 1 ? "overlap" : "overlaps"} between sessions of one agent (plain bands). ` : ""}Tap a dot to see the commit and the session that made it.</p></>}
+      {today.length > 0 && <div className="ab-cards">{today.map(({ project, overlap }, i) => <OverlapCard key={`${project.repo}-${i}`} overlap={overlap} name={project.name} repo={project.repo} sessions={sessions} commits={project.commits} onSession={onPick ? key => onPick({ session: key }) : undefined} />)}</div>}
+      <p className="pa-note">{today.length ? "" : "No Claude and Codex collisions on this day. "}{sameAgent ? `${sameAgent} more ${sameAgent === 1 ? "overlap" : "overlaps"} between sessions of one agent (plain bands). ` : ""}Tap a dot or a bar to open that session.</p>
     </>}
   </section>;
 }

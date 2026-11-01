@@ -265,6 +265,18 @@
 .cw-sessions-tabs small{font-size:11px;color:var(--cw-muted);font-variant-numeric:tabular-nums}.cw-sessions-tabs small.is-live{color:#53cfb5}
 .cw-sessions>.cw-sessions-pane{min-width:0}
 @media (min-width:851px) and (min-height:620px){.is-fit .connected-workspace .cw-sessions>.cw-sessions-pane{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:6px;scrollbar-width:thin}}
+/* The board with a session open beside it: the same split and pane as a project beside the grid. */
+.cw-split{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;min-width:0}
+.cw-split.has-pane{grid-template-columns:minmax(0,1fr) minmax(360px,var(--cw-pane-width))}
+.cw-split>.cw-sessions-pane{min-width:0}
+.cw-split>.cw-inspector{border-radius:14px;border:1px solid var(--cw-line)}
+.is-pane-expanded .cw-split{grid-template-columns:minmax(0,1fr)!important}.is-pane-expanded .cw-split>.cw-sessions-pane{display:none}
+@media (min-width:851px) and (min-height:620px){
+  .is-fit .connected-workspace .cw-sessions>.cw-split{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr)}
+  .is-fit .cw-split>.cw-sessions-pane{min-height:0;overflow-y:auto;padding-right:6px;scrollbar-width:thin}
+  .is-fit .cw-split>.cw-inspector{min-height:0;max-height:none;overflow-y:auto}
+}
+@media(max-width:850px){.cw-split.has-pane{grid-template-columns:minmax(0,1fr)}.cw-split>.cw-inspector{grid-row:1}}
 /* Sessions page: tighter headings so the session list gets the height. */
 .cw-sessions .cw-section-title{margin:6px 0 10px}
 .cw-sessions .cw-section-title h2{font-size:17px}

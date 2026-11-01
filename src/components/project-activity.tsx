@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
 import { dayView, defaultDay, windowDays, type ActivityCommit, type ActivityData, type ActivityOverlap, type ActivitySession, type Agent } from "@/lib/project-activity";
@@ -101,11 +101,11 @@ export function CommitCard({ commit, session, repoUrl, project, projectId }: { c
   </div>;
 }
 
-export function OverlapCard({ overlap, name, repo, sessions, commits }: { overlap: ActivityOverlap; name: string; repo?: string; sessions: Map<string, ActivitySession>; commits: ActivityCommit[] }) {
+export function OverlapCard({ overlap, name, repo, sessions, commits, onSession }: { overlap: ActivityOverlap; name: string; repo?: string; sessions: Map<string, ActivitySession>; commits: ActivityCommit[]; onSession?: (key: string) => void }) {
   const from = Date.parse(overlap.from), to = Date.parse(overlap.to);
   return <div className={`pa-card pa-overlap ${overlap.crossAgent ? "is-collision" : ""}`} role="status">
     <div className="pa-card-top"><AlertTriangle size={14} />{repo && <ProjectEmblem id={repo} name={name} size={20} />}<b>{overlap.crossAgent ? "Claude and Codex both changed" : `${overlap.sessions.length} sessions changed`} {name}</b><time>{clock(overlap.from)}–{clock(overlap.to)}</time></div>
-    <ul>{overlap.sessions.map(k => { const s = sessions.get(k); const made = commits.filter(c => c.session === k && Date.parse(c.at) >= from - 60_000 && Date.parse(c.at) <= to + 60_000).length; return s && <li key={k}><i className={`pa-swatch is-${s.provider}`} /><span>{s.title || `${NAMES[s.provider]} session`}</span><small>{made} {made === 1 ? "commit" : "commits"}</small></li>; })}</ul>
+    <ul>{overlap.sessions.map(k => { const s = sessions.get(k); const made = commits.filter(c => c.session === k && Date.parse(c.at) >= from - 60_000 && Date.parse(c.at) <= to + 60_000).length; return s && <li key={k} {...(onSession ? { className: "is-pickable", role: "button", tabIndex: 0, title: "Open this session", onClick: () => onSession(k), onKeyDown: (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSession(k); } } } : {})}><i className={`pa-swatch is-${s.provider}`} /><span>{s.title || `${NAMES[s.provider]} session`}</span><small>{made} {made === 1 ? "commit" : "commits"}</small></li>; })}</ul>
     {overlap.sharedFiles.length > 0 ? <small>Both touched {overlap.sharedFiles.slice(0, 3).join(", ")}{overlap.sharedFiles.length > 3 ? ` and ${overlap.sharedFiles.length - 3} more` : ""}.</small> : <small>Different files, same project.</small>}
   </div>;
 }

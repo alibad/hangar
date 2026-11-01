@@ -149,7 +149,7 @@ export function boardTotals(board: BoardData): ActivityData {
     sessions: board.projects.flatMap(p => p.sessions), overlaps: board.projects.flatMap(p => p.overlaps) };
 }
 
-export type Lane = { agent: Agent; bars: { left: number; width: number }[]; commits: { commit: ActivityCommit; left: number }[] };
+export type Lane = { agent: Agent; bars: { left: number; width: number; session: string }[]; commits: { commit: ActivityCommit; left: number }[] };
 export type BoardRow = { project: ProjectActivity; lanes: Lane[]; bands: { left: number; width: number; overlap: ActivityOverlap }[]; crossAgent: boolean; commits: number };
 
 /** Every project that did something on the day, on one shared clock: a Claude lane and a Codex lane each (and unknown
@@ -160,8 +160,8 @@ export function boardDay(board: BoardData, key: string): Fold & { rows: BoardRow
   const rows = days.map(({ project, commits, sessions, bands, clip, touches }) => {
     const lane = (agent: Agent): Lane => ({
       agent,
-      bars: agent === "unknown" ? [] : sessions.filter(s => s.provider === agent).flatMap(s => s.spans.filter(p => touches(at(p.from), at(p.to))))
-        .map(p => { const a = x(clip(at(p.from))), b = x(clip(at(p.to))); return { left: a, width: Math.max(1.2, b - a) }; }),
+      bars: agent === "unknown" ? [] : sessions.filter(s => s.provider === agent).flatMap(s => s.spans.filter(p => touches(at(p.from), at(p.to)))
+        .map(p => { const a = x(clip(at(p.from))), b = x(clip(at(p.to))); return { left: a, width: Math.max(1.2, b - a), session: s.key }; })),
       commits: commits.filter(c => c.agent === agent).map(c => ({ commit: c, left: x(at(c.at)) })),
     });
     return {

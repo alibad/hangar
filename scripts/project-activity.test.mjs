@@ -78,6 +78,7 @@ test("the all-projects board puts every active project on one clock, collisions 
   assert.equal(mod.crossAgent, true);
   assert.deepEqual(mod.lanes.map(l => [l.agent, l.commits.length]), [["claude", 3], ["codex", 4]]);
   assert.ok(mod.lanes[1].bars.length >= 2, "both Codex sessions draw a bar");
+  assert.deepEqual([...new Set(mod.lanes[1].bars.map(b => b.session))].sort(), ["codex:meetup", "codex:web"], "each bar knows its session, so tapping it opens that session");
   assert.deepEqual(atlas.lanes.map(l => [l.agent, l.commits.length, l.bars.length]), [["claude", 1, 0], ["codex", 0, 0]]);
   // One clock: 09:00 in Doha sits between the 00:25 stretch and the 13:36 one, so each row lines up with the next.
   const at0900 = atlas.lanes[0].commits[0].left, first = Math.max(...mod.lanes[0].commits.map(c => c.left).filter(l => l < 50));
