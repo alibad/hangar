@@ -2,10 +2,13 @@
 
 An edit tool followed by a successful result is evidence; a working directory is
 only a fallback. Activity timestamps do not prove that an agent is still running.
+Commit hashes are the one thing kept from command output: git's own "[main 1a2b3c4]"
+line, or a short reply that starts with a hash, with the time it was printed.
 """
 import json
 import os
 import re
+import tempfile
 import threading
 import time
 from datetime import datetime, timezone
@@ -15,18 +18,88 @@ from . import config, local
 
 MAX_FILES = 2000
 MAX_LINE = 4 * 1024 * 1024
+MAX_EDIT_TIMES = 12
+MAX_HASHES = 600
+VERSION = 4
 _lock = threading.Lock()
 _checked = 0.0
 _cache = None
+# git commit, cherry-pick and amend confirm with "[branch 1a2b3c4] subject"; git log --oneline starts a line with one.
+COMMIT_LINE = re.compile(r"\[[^\]\n\\]{1,80}? (?:\(root-commit\) )?([0-9a-f]{7,40})\] ([^\n\\]{0,160})")
+HASH_LINE = re.compile(r"(?:^|\n|\\n)([0-9a-f]{7,40}) (?=\S)")
 
 
 def norm(path):
     return os.path.normcase(os.path.abspath(path)).replace("\\", "/").rstrip("/")
 
 
+def stamp(value):
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return int((parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)).timestamp())
+    except (ValueError, TypeError, AttributeError, OverflowError):
+        return None
+
+
 def fresh(provider, path):
     return {"provider": provider, "id": path.stem, "cwd": "", "model": "", "offset": 0,
-            "files": [], "pending": {}, "lastEvent": None, "state": "unknown"}
+            "files": [], "edits": {}, "commits": {}, "origin": "", "pending": {}, "lastEvent": None, "state": "unknown"}
+
+
+def note_edits(state, paths, at):
+    """When each confirmed edit landed, newest few per file: enough to say which session last touched it before a commit."""
+    if at is None:
+        return
+    for path in paths:
+        times = state["edits"].setdefault(path, [])
+        if not times or at - times[-1] > 30:
+            times.append(at)
+            del times[:-MAX_EDIT_TIMES]
+
+
+def note_hashes(state, text, at):
+    """Commit hashes in a tool's output. A confirmation line means the session made that commit; a reply of at most
+    three lines that start with a hash means it looked at those commits then. Long logs are not evidence."""
+    if at is None or not isinstance(text, str) or len(text) > 400_000:
+        return
+    found = {}
+    for sha, subject in COMMIT_LINE.findall(text):
+        found[sha] = [at, 1, subject.strip()[:160]]
+    if not found:
+        seen = [sha for sha in HASH_LINE.findall(text) if any(c.isdigit() for c in sha)]
+        if 0 < len(seen) <= 3:
+            found = {sha: [at, 0, ""] for sha in seen}
+    commits = state["commits"]
+    for sha, value in found.items():
+        old = commits.get(sha)
+        if old is None or (value[1] and not old[1]):
+            commits[sha] = value
+    if len(commits) > MAX_HASHES:
+        for sha in sorted(commits, key=lambda k: (commits[k][1], commits[k][0]))[:len(commits) - MAX_HASHES]:
+            del commits[sha]
+
+
+def output_text(content):
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(b.get("text", "") for b in content if isinstance(b, dict) and isinstance(b.get("text"), str))
+    return ""
+
+
+def temp_folders():
+    """System scratch space. A session that ran there and edited no project is a test run, not your work."""
+    home = Path.home()
+    candidates = [tempfile.gettempdir(), os.environ.get("TEMP"), os.environ.get("TMP"), os.environ.get("TMPDIR"),
+                  home / "AppData" / "Local" / "Temp", "/tmp", "/private/tmp", "/var/folders", "/private/var/folders"]
+    return sorted({norm(str(c)) for c in candidates if c}, key=len, reverse=True)
+
+
+def in_temp(cwd, folders=None):
+    if not cwd:
+        return False
+    path = norm(cwd.removeprefix("\\\\?\\"))
+    return any(path == t or path.startswith(t + "/") for t in (folders or temp_folders()))
 
 
 def edit_paths(name, arguments):
@@ -48,6 +121,8 @@ def ingest(state, record):
     timestamp = record.get("timestamp")
     if isinstance(timestamp, str):
         state["lastEvent"] = timestamp
+    if not state["origin"] and isinstance(record.get("entrypoint"), str):
+        state["origin"] = record["entrypoint"][:40]  # cli, claude-desktop, sdk-cli…
     p = record.get("payload") or {}
     if not isinstance(p, dict):
         return
@@ -57,6 +132,9 @@ def ingest(state, record):
             state["id"] = sid
         if isinstance(p.get("cwd"), str):
             state["cwd"] = p["cwd"]
+        source = p.get("originator") or p.get("source")
+        state["origin"] = (source if isinstance(source, str) else "subagent" if isinstance(source, dict) else state["origin"])[:40]
+    at = lambda: stamp(timestamp) if isinstance(timestamp, str) else None
     if record.get("type") == "turn_context":
         if isinstance(p.get("model"), str):
             state["model"] = p["model"]
@@ -68,7 +146,9 @@ def ingest(state, record):
     if p.get("type") == "item_completed" and item.get("type") == "FileChange" and item.get("status") == "completed":
         changes = item.get("changes")
         if isinstance(changes, dict):
-            state["files"] = sorted(set(state["files"] + [norm(Path(state["cwd"] or ".") / path) for path in changes]))[:2000]
+            paths = [norm(Path(state["cwd"] or ".") / path) for path in changes]
+            state["files"] = sorted(set(state["files"] + paths))[:2000]
+            note_edits(state, paths, at())
     if isinstance(record.get("sessionId"), str):
         state["id"] = record["sessionId"]
     msg = record.get("message") or {}
@@ -87,6 +167,7 @@ def ingest(state, record):
         paths = state["pending"].pop(key, [])
         if success:
             state["files"] = sorted(set(state["files"] + paths))[:2000]
+            note_edits(state, paths, at())
 
     if state["provider"] == "claude" and isinstance(msg, dict):
         blocks = msg.get("content")
@@ -97,6 +178,7 @@ def ingest(state, record):
                 call(block.get("id"), block.get("name", ""), block.get("input") or {})
             if block.get("type") == "tool_result":
                 result(block.get("tool_use_id"), not block.get("is_error", False))
+                note_hashes(state, output_text(block.get("content")), at())
     if p.get("type") in ("function_call", "custom_tool_call"):
         args = p.get("input") or p.get("arguments") or {}
         if isinstance(args, str) and p.get("name") != "apply_patch":
@@ -110,6 +192,7 @@ def ingest(state, record):
         # apply_patch's successful response is explicit. Arbitrary shell output is not evidence.
         success = isinstance(output, str) and ("Success. Updated the following files" in output or output.startswith("{\"output\":\"Success."))
         result(p.get("call_id"), success)
+        note_hashes(state, output_text(output), at())
     if p.get("type") in ("task_complete", "turn_aborted", "task_started"):
         state["state"] = {"task_complete": "completed", "turn_aborted": "interrupted", "task_started": "unknown"}[p["type"]]
 
@@ -156,7 +239,7 @@ def collect():
         if _cache is not None and time.monotonic() - _checked < 15:
             return _cache
         saved = config.read_json(config.LOCAL / "session-index.json", {}) or {}
-        old = saved.get("files", {}) if saved.get("version") == 3 else {}
+        old = saved.get("files", {}) if saved.get("version") == VERSION else {}
         claude = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "projects"
         codex = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
         candidates = []
@@ -175,7 +258,7 @@ def collect():
                 files[str(path)]["nativeArchived"] = provider == "codex" and "archived_sessions" in path.parts
             except OSError:
                 continue
-        _cache = {"version": 3, "files": files, "truncated": len(candidates) > MAX_FILES,
+        _cache = {"version": VERSION, "files": files, "truncated": len(candidates) > MAX_FILES,
                   "indexedAt": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         config.write_json(config.LOCAL / "session-index.json", _cache)
         _checked = time.monotonic()
@@ -199,6 +282,7 @@ def timeline(doc, overlay, repo_id=None, limit=300):
     def match(path):
         return next((p for p in paths if path == p[0] or path.startswith(p[0] + "/")), None)
     index = collect()
+    scratch = temp_folders()
     sessions = []
     for entry in index["files"].values():
         touched = {}
@@ -219,6 +303,7 @@ def timeline(doc, overlay, repo_id=None, limit=300):
                          "updatedAt": entry["updatedAt"], "state": entry["state"], "projects": projects,
                          "lastEventAt": entry.get("lastEvent"), "nativeArchived": entry.get("nativeArchived", False),
                          "summary": f"Edited {count} files across {len(projects)} projects" if count else "Session in " + (projects[0]["name"] if projects else "an unindexed folder"),
+                         "origin": entry.get("origin", ""), "probe": not projects and in_temp(entry["cwd"], scratch),
                          "canResume": bool(re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", entry["id"]))})
     sessions.sort(key=lambda s: s["updatedAt"], reverse=True)
     return {"sessions": sessions[:limit], "total": len(sessions), "truncated": index["truncated"] or (limit is not None and len(sessions) > limit),

@@ -10,6 +10,7 @@ import re
 from datetime import datetime, timezone
 
 from . import codex_library, config, desktop_sessions, local, session_index, session_topics, work
+from .activity import claimed
 
 _lock = threading.RLock()
 DAY = 86400
@@ -34,7 +35,8 @@ def read():
     return {"version": 1, "idleDays": data.get("idleDays", 7), "groups": data.get("groups", {}), "sessions": data.get("sessions", {})}
 
 
-def snapshot(doc, overlay, now=None):
+def snapshot(doc, overlay, now=None, changes=False):
+    """changes adds what each session committed (one short git log per project, cached), for the session list."""
     now = time.time() if now is None else now
     saved = read()
     native = codex_library.snapshot()
@@ -54,6 +56,7 @@ def snapshot(doc, overlay, now=None):
         match = next((r for p, r in paths if cwd == p or cwd.startswith(p + "/")), None)
         entries[("codex", sid)] = {"id": sid, "provider": "codex", "model": "", "updatedAt": iso(thread["updated_at"]),
             "state": "unknown", "summary": "Codex session metadata; edit evidence not indexed.", "canResume": bool(match and re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", sid)),
+            "probe": not match and session_index.in_temp(thread["cwd"]),
             "projects": [{"id": match["id"], "name": match["name"], "files": [], "evidence": "working-directory"}] if match else []}
     groups = {"codex:" + s["id"]: {"id": "codex:" + s["id"], "name": s["name"], "source": "codex", "nativeId": s["id"]} for s in native["sections"]}
     groups.update({gid: {"id": gid, "name": g["name"], "source": "hangar"} for gid, g in saved["groups"].items()})
@@ -84,7 +87,8 @@ def snapshot(doc, overlay, now=None):
             "group": group, "nativeGroup": native_group, "nativeKnown": bool(thread), "pinned": pinned,
             "archived": archived or hangar_archive, "archiveScope": "codex" if archived else "hangar" if hangar_archive else None,
             "protected": busy, "snoozedUntil": meta.get("snoozedUntil"), "suggestion": None, "opensIn": desktop_sessions.opens_in(provider, sid),
-            "reviewDue": bool(used and now - used >= saved["idleDays"] * DAY and not archived and not hangar_archive and not busy and not pinned and stamp(meta.get("snoozedUntil")) <= now)}
+            "reviewDue": bool(used and now - used >= saved["idleDays"] * DAY and not archived and not hangar_archive and not busy and not pinned
+                              and not session.get("probe") and stamp(meta.get("snoozedUntil")) <= now)}
         rows.append(row)
     # Purpose is suggested from native titles across repositories/providers.
     # When titles are ambiguous, fall back to project evidence explicitly.
@@ -109,6 +113,15 @@ def snapshot(doc, overlay, now=None):
         evidence = "Confirmed file edits" if project["evidence"] == "edit-tool" else "Working directory only"
         reason = f"{evidence} in {project['name']}" + ("; matches an existing Codex section" if len(matches) == 1 else "")
         row["suggestion"] = {"id": gid, "name": name, "reason": reason, "confidence": "strong" if project["evidence"] == "edit-tool" else "tentative"}
+    if changes:
+        recent = {p["id"] for row in rows if now - stamp(row["activityAt"]) <= 30 * DAY for p in row["projects"]}
+        try:
+            made = claimed(doc, overlay, recent, now=now)
+        except Exception:  # what a session changed is a bonus; the list must still load
+            made = {}
+        for row in rows:
+            row["changed"] = made.get(row["key"], [])[:8]
+            row["changedCount"] = len(made.get(row["key"], []))
     rows.sort(key=lambda s: s["updatedAt"], reverse=True)
     return {"sessions": rows, "groups": list(groups.values()), "idleDays": saved["idleDays"], "nativeAvailable": native["available"],
             "reviewCount": sum(s["reviewDue"] for s in rows), "unreadReviewCount": sum(s["reviewDue"] and s["unread"] is True for s in rows),

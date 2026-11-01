@@ -28,7 +28,7 @@ async function proxy(request: Request, context: Context) {
       : `/api/world/local/${kind}/${parts.join("/")}`;
     const query = new URL(request.url).searchParams;
     const safeQuery = new URLSearchParams();
-    for (const key of ["repo", "v"]) if (query.has(key)) safeQuery.set(key, query.get(key)!);
+    for (const key of ["repo", "v", "days"]) if (query.has(key)) safeQuery.set(key, query.get(key)!);
     let body = request.method === "POST" ? await request.text() : undefined;
     if (body && body.length > 32768) return Response.json({ error: "Request is too large" }, { status: 413 });
     const localApi = machine === "local" && kind === "proxy";
@@ -71,7 +71,7 @@ async function proxy(request: Request, context: Context) {
     const response = await fetch(`${base}${target}?${safeQuery}`, {
       method: request.method, body, redirect: "error", cache: "no-store",
       headers: { "Content-Type": "application/json", "X-Atlas": "1", "X-Hangar": "1" },
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(["sessions", "insights"].includes(parts[0]) ? 90000 : 20000)]),
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(["sessions", "insights", "activity"].includes(parts[0]) ? 90000 : 20000)]),
     });
     if (localApi && operation === "atlas" && response.ok) {
       return Response.json(await islandStore.apply(await response.json()), { headers: { "Cache-Control": "no-store" } });

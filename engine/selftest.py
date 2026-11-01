@@ -108,6 +108,77 @@ class OpenWith(unittest.TestCase):
         self.assertNotIn("\\", opened.call_args[0][0])
 
 
+class WhoChangedWhat(unittest.TestCase):
+    T = 1793011958  # 26 Oct 2026 10:52:38 UTC
+
+    def session(self, provider, sid, records):
+        from hangar_engine import session_index
+        state = session_index.fresh(provider, Path(sid + ".jsonl"))
+        for record in records:
+            session_index.ingest(state, record)
+        return state
+
+    def at(self, seconds):
+        from hangar_engine.activity import iso
+        return iso(self.T + seconds).replace("+00:00", "Z")
+
+    def test_commit_hashes_and_edit_times_come_only_from_git_output_and_confirmed_edits(self):
+        claude = self.session("claude", "c1", [
+            {"type": "assistant", "cwd": "C:/work/game", "timestamp": self.at(-60), "entrypoint": "claude-desktop", "message": {"content": [
+                {"type": "tool_use", "id": "e1", "name": "Edit", "input": {"file_path": "C:/work/game/a.yaml"}},
+                {"type": "tool_use", "id": "b1", "name": "Bash", "input": {"command": "git commit -q -m x && git log --oneline -1"}}]}},
+            {"type": "user", "timestamp": self.at(-50), "message": {"content": [{"type": "tool_result", "tool_use_id": "e1", "content": "ok"}]}},
+            {"type": "user", "timestamp": self.at(1), "message": {"content": [{"type": "tool_result", "tool_use_id": "b1", "content": "0/0\n1bde6ba Revert the depth change"}]}},
+            {"type": "user", "timestamp": self.at(2), "message": {"content": [{"type": "tool_result", "tool_use_id": "b2", "content": "\n".join(f"{i}abcdef{i} subject" for i in range(5))}]}},
+        ])
+        self.assertEqual(claude["origin"], "claude-desktop")
+        self.assertEqual(claude["commits"], {"1bde6ba": [self.T + 1, 0, ""]})  # a five-line log is not evidence
+        self.assertEqual([p.rsplit("/", 1)[-1] for p in claude["edits"]], ["a.yaml"])
+        self.assertEqual(len(next(iter(claude["edits"].values()))), 1)
+        codex = self.session("codex", "x1", [
+            {"type": "session_meta", "timestamp": self.at(-900), "payload": {"id": "x1", "cwd": "C:/work/game", "originator": "Codex Desktop"}},
+            {"type": "response_item", "timestamp": self.at(500), "payload": {"type": "custom_tool_call_output", "call_id": "c",
+             "output": "{\"output\":\"warning: CRLF\\n[main d53955d] Load compact rocket art\\n 4 files changed\"}"}},
+        ])
+        self.assertEqual(codex["origin"], "Codex Desktop")
+        self.assertEqual(codex["commits"]["d53955d"], [self.T + 500, 1, "Load compact rocket art"])
+
+    def test_commits_join_the_session_that_made_them_and_overlaps_are_flagged(self):
+        from hangar_engine import activity
+        prefix = "c:/work/game"
+        claude = {"provider": "claude", "id": "c1", "edits": {}, "commits": {"1bde6ba": [self.T + 1, 0, ""], "aaaa111": [self.T + 1900, 0, ""]}}
+        codex = {"provider": "codex", "id": "x1", "edits": {prefix + "/rockets.yaml": [self.T + 400]},
+                 "commits": {"d53955d": [self.T + 513, 1, "Load"], "1bde6ba": [self.T + 470, 0, ""]}}
+        late = {"provider": "codex", "id": "x2", "edits": {prefix + "/allied.yaml": [self.T - 2 * 3600]}, "commits": {}}
+        commit = lambda sha, dt, files, trailer=None: {"sha": sha + "0" * (40 - len(sha)), "at": self.T + dt, "files": files, "trailer": trailer}
+        commits = [commit("1bde6ba", 0, ["allied.yaml"], "claude"), commit("d53955d", 513, ["mod.yaml"]),
+                   commit("bbbb222", 1200, ["rockets.yaml"]), commit("aaaa111", 0, ["x"]), commit("cccc333", 600, ["allied.yaml"], "claude")]
+        claims = activity.attribute(commits, [claude, codex, late], [prefix])
+        self.assertEqual(claims[commits[0]["sha"]], {"session": "claude:c1", "evidence": "seen", "why": "printed this commit's hash 1 s after it was made"})
+        self.assertEqual(claims[commits[1]["sha"]]["evidence"], "printed")
+        self.assertEqual(claims[commits[1]["sha"]]["session"], "codex:x1")
+        self.assertEqual(claims[commits[2]["sha"]], {"session": "codex:x1", "evidence": "files", "why": "edited 1 of its 1 files, the last 13 min before it"})
+        self.assertNotIn(commits[3]["sha"], claims)  # printed 32 minutes later: looking at history, not making it
+        self.assertNotIn(commits[4]["sha"], claims)  # Claude's trailer rules out the Codex session that edited the file
+        sessions = [{"key": "claude:c1", "provider": "claude", "_spans": [[self.T, self.T + 900]], "_first": self.T, "_touches": [("a", self.T)]},
+                    {"key": "codex:x1", "provider": "codex", "_spans": [[self.T + 6000, self.T + 7000]], "_first": self.T + 6000, "_touches": [("a", self.T + 6000)]},
+                    {"key": "codex:x2", "provider": "codex", "_spans": [[self.T + 20 * 3600, self.T + 21 * 3600]], "_first": self.T + 20 * 3600, "_touches": []}]
+        bands = activity.overlaps(sessions)
+        self.assertEqual(len(bands), 1)
+        self.assertEqual(bands[0]["sessions"], ["claude:c1", "codex:x1"])
+        self.assertTrue(bands[0]["crossAgent"])
+        self.assertEqual(bands[0]["sharedFiles"], ["a"])
+        self.assertEqual(activity.spans([10, 20, 20 + 3601]), [[10, 20], [3621, 3621]])
+
+    def test_scratch_folder_runs_are_test_runs(self):
+        from hangar_engine import session_index
+        folders = session_index.temp_folders()
+        self.assertTrue(session_index.in_temp(str(Path(tempfile.gettempdir()) / "claude" / "probe"), folders))
+        self.assertTrue(session_index.in_temp("\\\\?\\" + str(Path(tempfile.gettempdir()) / "x"), folders))
+        self.assertFalse(session_index.in_temp(str(Path.home() / "Code" / "game"), folders))
+        self.assertFalse(session_index.in_temp("", folders))
+
+
 class ArchitectureDrawings(unittest.TestCase):
     def test_reply_parsing_keeps_only_an_architecture_candidate(self):
         from hangar_engine.architecture import candidate
@@ -281,6 +352,17 @@ class IndependentEngine(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(self.base + "/api/architecture/view?repo=" + rid)
         self.assertEqual(error.exception.code, 404)
+
+    def test_activity_joins_main_branch_commits_with_sessions(self):
+        rid = self.project()["id"]
+        result = self.read(f"/api/activity?repo={rid}&days=7")
+        self.assertTrue(result["available"])
+        self.assertIn(result["branch"], ("main", "master"))
+        self.assertEqual(result["commits"], [])  # the sample's commits are from 2025
+        self.assertEqual(result["overlaps"], [])
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.read(f"/api/activity?repo={rid}&days=90")
+        self.assertEqual(error.exception.code, 400)
 
     def test_unknown_projects_and_cross_origin_writes_rejected(self):
         with self.assertRaises(urllib.error.HTTPError) as error:

@@ -106,7 +106,15 @@ def make_handler(state, port):
                                   (parse_qs(url.query).get("repo") or [None])[0]))
             if path == "/api/sessions/library":
                 from . import session_library
-                return self._send(200, session_library.snapshot(state.doc or state.load(), scanner.overlay()))
+                return self._send(200, session_library.snapshot(state.doc or state.load(), scanner.overlay(), changes=True))
+            if path == "/api/activity":
+                from . import activity
+                query = parse_qs(url.query)
+                try:
+                    days = int((query.get("days") or ["7"])[0])
+                    return self._send(200, activity.activity(state.doc or state.load(), scanner.overlay(), (query.get("repo") or [""])[0], days))
+                except ValueError as error:
+                    return self._send(400, {"error": str(error)})
             if path == "/api/work":
                 from . import desktop_sessions, work
                 data = work.snapshot()
