@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, GitCommitHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowRight } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
 import { boardDay, boardTotals, defaultDay, windowDays, type ActivitySession, type BoardData } from "@/lib/project-activity";
 import { CommitCard, NAMES, OverlapCard } from "./project-activity";
@@ -29,7 +29,8 @@ export default function ActivityBoard({ machine, repoUrls = {}, onOpenProject }:
   const key = day || defaultDay(days);
   const view = useMemo(() => data?.available && key ? boardDay(data, key) : null, [data, key]);
   const sessions = useMemo(() => new Map<string, ActivitySession>((data?.projects || []).flatMap(p => p.sessions.map(s => [s.key, s] as const))), [data]);
-  const head = <div className="cw-section-title"><h2><GitCommitHorizontal size={20} /> Who changed what</h2><span>All projects · {data?.days || 7} days</span></div>;
+  // The Sessions tab already names the view; the board only says what it covers.
+  const head = <p className="ab-scope">All projects · last {data?.days || 7} days · main</p>;
   if (error) return <section className="pa ab">{head}<p className="pa-note">{error}</p></section>;
   if (!data || !totals || !view) return <section className="pa ab" aria-busy="true">{head}<div className="pa-skeleton" aria-label="Reading every project's commits and sessions" /></section>;
   const peak = Math.max(1, ...days.map(d => d.claude + d.codex + d.unknown));

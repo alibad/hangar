@@ -258,6 +258,11 @@
   .is-fit .sl-inbox>.sl-list{max-height:none;min-height:0}
   .is-fit .sl-inbox>.sl-detail{position:static;max-height:100%;overflow-y:auto;align-self:start}
 }
+/* Sessions page: one view at a time under its tabs, each scrolling on its own when the page is fitted to the window. */
+.cw-sessions-tabs{margin:0 0 14px}.cw-sessions-tabs button{display:inline-flex;align-items:center;gap:7px}
+.cw-sessions-tabs small{font-size:11px;color:var(--cw-muted);font-variant-numeric:tabular-nums}.cw-sessions-tabs small.is-live{color:#53cfb5}
+.cw-sessions>.cw-sessions-pane{min-width:0}
+@media (min-width:851px) and (min-height:620px){.is-fit .connected-workspace .cw-sessions>.cw-sessions-pane{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:6px;scrollbar-width:thin}}
 /* Sessions page: tighter headings so the session list gets the height. */
 .cw-sessions .cw-section-title{margin:6px 0 10px}
 .cw-sessions .cw-section-title h2{font-size:17px}

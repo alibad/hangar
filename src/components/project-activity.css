@@ -51,6 +51,7 @@
 
 /* Every project at once: a row per project, a Claude lane over a Codex lane, one clock for all of them. */
 .ab{margin:4px 0 34px}
+.ab-scope{margin:0;font-size:12px;color:var(--cw-muted)}
 .ab-stats{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 6px}
 .ab-stats>span{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--cw-line);border-radius:10px;font-size:12px;color:var(--cw-muted)}
 .ab-stats b{font-size:16px;font-weight:600;color:var(--cw-ink);font-variant-numeric:tabular-nums}
