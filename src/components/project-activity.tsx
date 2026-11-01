@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
 import { dayView, defaultDay, windowDays, type ActivityCommit, type ActivityData, type ActivityOverlap, type ActivitySession, type Agent } from "@/lib/project-activity";
 import "./project-activity.css";
+import { ProjectEmblem } from "./project-identity";
 
 export const NAMES: Record<Agent, string> = { claude: "Claude", codex: "Codex", unknown: "Unknown" };
 const clock = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -90,20 +91,20 @@ function Row({ row, name, picked, onPick }: { row: ReturnType<typeof dayView>["l
   </>;
 }
 
-export function CommitCard({ commit, session, repoUrl, project }: { commit: ActivityCommit; session?: ActivitySession; repoUrl?: string; project?: string }) {
+export function CommitCard({ commit, session, repoUrl, project, projectId }: { commit: ActivityCommit; session?: ActivitySession; repoUrl?: string; project?: string; projectId?: string }) {
   const url = commitUrl(repoUrl, commit.sha);
   return <div className={`pa-card is-${commit.agent}`} role="status">
-    <div className="pa-card-top"><i className={`pa-swatch is-${commit.agent}`} />{project && <b className="pa-card-project">{project}</b>}<time dateTime={commit.at}>{clock(commit.at)}</time>
+    <div className="pa-card-top"><i className={`pa-swatch is-${commit.agent}`} />{project && <span className="pa-card-project"><ProjectEmblem id={projectId} name={project} size={16} /><b>{project}</b></span>}<time dateTime={commit.at}>{clock(commit.at)}</time>
       {url ? <a href={url} target="_blank" rel="noopener noreferrer">{commit.short}<ArrowUpRight size={12} /></a> : <code>{commit.short}</code>}</div>
     <b>{commit.subject}</b>
     <small>{session ? session.title || `${NAMES[session.provider]} session` : commit.agent === "unknown" ? "No agent session found" : `${NAMES[commit.agent]} · no session found`} · {commit.why}</small>
   </div>;
 }
 
-export function OverlapCard({ overlap, name, sessions, commits }: { overlap: ActivityOverlap; name: string; sessions: Map<string, ActivitySession>; commits: ActivityCommit[] }) {
+export function OverlapCard({ overlap, name, repo, sessions, commits }: { overlap: ActivityOverlap; name: string; repo?: string; sessions: Map<string, ActivitySession>; commits: ActivityCommit[] }) {
   const from = Date.parse(overlap.from), to = Date.parse(overlap.to);
   return <div className={`pa-card pa-overlap ${overlap.crossAgent ? "is-collision" : ""}`} role="status">
-    <div className="pa-card-top"><AlertTriangle size={14} /><b>{overlap.crossAgent ? "Claude and Codex both changed" : `${overlap.sessions.length} sessions changed`} {name}</b><time>{clock(overlap.from)}–{clock(overlap.to)}</time></div>
+    <div className="pa-card-top"><AlertTriangle size={14} />{repo && <ProjectEmblem id={repo} name={name} size={20} />}<b>{overlap.crossAgent ? "Claude and Codex both changed" : `${overlap.sessions.length} sessions changed`} {name}</b><time>{clock(overlap.from)}–{clock(overlap.to)}</time></div>
     <ul>{overlap.sessions.map(k => { const s = sessions.get(k); const made = commits.filter(c => c.session === k && Date.parse(c.at) >= from - 60_000 && Date.parse(c.at) <= to + 60_000).length; return s && <li key={k}><i className={`pa-swatch is-${s.provider}`} /><span>{s.title || `${NAMES[s.provider]} session`}</span><small>{made} {made === 1 ? "commit" : "commits"}</small></li>; })}</ul>
     {overlap.sharedFiles.length > 0 ? <small>Both touched {overlap.sharedFiles.slice(0, 3).join(", ")}{overlap.sharedFiles.length > 3 ? ` and ${overlap.sharedFiles.length - 3} more` : ""}.</small> : <small>Different files, same project.</small>}
   </div>;

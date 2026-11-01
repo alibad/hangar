@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowRight } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
 import { boardDay, boardTotals, defaultDay, windowDays, type ActivitySession, type BoardData } from "@/lib/project-activity";
 import { CommitCard, NAMES, OverlapCard } from "./project-activity";
+import { ProjectEmblem } from "./project-identity";
 import "./project-activity.css";
 
 const SHOWN = 8; // collisions and the busiest projects first; the quiet tail on request
@@ -65,7 +66,7 @@ export default function ActivityBoard({ machine, repoUrls = {}, onOpenProject }:
         </div></div>
         {view.rows.slice(0, all ? undefined : SHOWN).map(row => <div className={`ab-row ${row.crossAgent ? "is-collision" : ""}`} key={row.project.repo}>
           <button className="ab-name" title={`Open ${row.project.name}`} onClick={() => onOpenProject?.(row.project.repo)} disabled={!onOpenProject}>
-            <b>{row.project.name}</b><small>{row.commits} {row.commits === 1 ? "commit" : "commits"}</small>
+            <ProjectEmblem id={row.project.repo} name={row.project.name} size={26} /><span><b>{row.project.name}</b><small>{row.commits} {row.commits === 1 ? "commit" : "commits"}</small></span>
           </button>
           <div className="ab-tracks">
             {view.breaks.map((b, i) => <span key={`f${i}`} className="pa-fold" style={{ left: `${b.left}%`, width: `${b.width}%` }} aria-hidden="true" />)}
@@ -81,9 +82,9 @@ export default function ActivityBoard({ machine, repoUrls = {}, onOpenProject }:
         </div>)}
         {view.rows.length > SHOWN && <button className="cw-text-button ab-more" onClick={() => setAll(v => !v)}>{all ? "Show fewer projects" : `Show ${view.rows.length - SHOWN} more ${view.rows.length - SHOWN === 1 ? "project" : "projects"}`}</button>}
       </div>
-      {picked_ ? <div className="ab-detail"><CommitCard commit={picked_.commit} project={picked_.project.name} session={picked_.commit.session ? sessions.get(picked_.commit.session) : undefined} repoUrl={repoUrls[picked_.project.repo]} />
+      {picked_ ? <div className="ab-detail"><CommitCard commit={picked_.commit} project={picked_.project.name} projectId={picked_.project.repo} session={picked_.commit.session ? sessions.get(picked_.commit.session) : undefined} repoUrl={repoUrls[picked_.project.repo]} />
           {onOpenProject && <button className="cw-text-button" onClick={() => onOpenProject(picked_.project.repo)}>Open {picked_.project.name} <ArrowRight size={14} /></button>}</div>
-        : <>{today.length > 0 && <div className="ab-cards">{today.map(({ project, overlap }, i) => <OverlapCard key={`${project.repo}-${i}`} overlap={overlap} name={project.name} sessions={sessions} commits={project.commits} />)}</div>}
+        : <>{today.length > 0 && <div className="ab-cards">{today.map(({ project, overlap }, i) => <OverlapCard key={`${project.repo}-${i}`} overlap={overlap} name={project.name} repo={project.repo} sessions={sessions} commits={project.commits} />)}</div>}
           <p className="pa-note">{today.length ? "" : "No Claude and Codex collisions on this day. "}{sameAgent ? `${sameAgent} more ${sameAgent === 1 ? "overlap" : "overlaps"} between sessions of one agent (plain bands). ` : ""}Tap a dot to see the commit and the session that made it.</p></>}
     </>}
   </section>;

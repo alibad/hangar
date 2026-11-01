@@ -21,6 +21,7 @@ import TaskComposer from "./task-composer";
 import { WorkspaceOperations, type OperationPanel, type Island } from "./workspace-operations";
 import { ProjectContextMenu, RepositoryPane, RemoveProjectDialog, type ProjectChoice, type ProjectMenuTarget } from "./project-controls";
 import SessionLibrary, { type LibrarySession, type SessionLibraryData } from "./session-library";
+import { ProjectDirectoryProvider, ProjectEmblem, type ProjectInfo } from "./project-identity";
 import "./workspace-focus.css";
 
 type Site = { role: string; branch?: string; dirty?: number; ahead?: number; behind?: number; rel: string; logo?: { hash: string } };
@@ -327,6 +328,14 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
 
   const home = () => { setSelected(null); setFamily(""); setQuery(""); send("district", { family: null }); };
   const choose = (repo: Repo, tab: "work" | "repository" = "work") => { setSelected(repo.id); setProjectTab(tab); setComposer(false); setResume(null); if (!repo.hidden) send("select", { repo: repo.id }); };
+  // Logo, name and purpose for every project, so any view that names one shows it the same way and can open it.
+  const directory = useMemo(() => new Map<string, ProjectInfo>((doc?.repos || []).map(r => {
+    const logo = r.sites.find(s => s.logo)?.logo;
+    return [r.id, { id: r.id, name: r.name, purpose: r.meaning?.purpose || r.description || undefined,
+      island: (doc?.islands || doc?.families)?.find(f => f.id === r.family)?.name,
+      logo: logo ? `/api/world/${machine}/proxy/logo?repo=${encodeURIComponent(r.id)}&v=${encodeURIComponent(logo.hash)}` : undefined }];
+  })), [doc, machine]);
+  const openProject = (id: string) => { const repo = doc?.repos.find(r => r.id === id); if (!repo) return; choose(repo); if (view !== "world" && view !== "projects") onSelect("projects"); };
   const refreshProjects = useCallback(async () => {
     try {
       const fresh = await json<AtlasDoc>(`${prefix}/atlas`);
@@ -445,7 +454,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   const jobRow = (job: (typeof jobs)[number]) => <div className="jv-row" key={job.id}>
     <button className="jv-row-main" onClick={() => setInspectJob(job.id)} title="See what the agent did">
       <span className={`jv-agent is-${job.provider === "codex" ? "codex" : "claude"}`}>{job.provider === "codex" ? "CX" : "CL"}</span>
-      <span className="jv-row-text"><b>{job.project}</b><small>{job.kind === "architecture" ? "Architecture drawing" : "Coding task"} · {job.prompt}</small></span>
+      <span className="jv-row-text"><b className="jv-project"><ProjectEmblem id={job.repo} name={job.project} size={18} />{job.project}</b><small>{job.kind === "architecture" ? "Architecture drawing" : "Coding task"} · {job.prompt}</small></span>
       <span className={`jv-state is-${running(job) && !liveError ? "running" : job.state}`}>{jobState(job)}</span>
       <span className="jv-when">{since(job.endedAt || job.startedAt)}</span>
     </button>
@@ -459,7 +468,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     { id: "apps", label: "running", count: apps.filter(a => a.running.length && visibleProjects.some(r => r.id === a.repo)).length, color: "var(--ok-400)" },
   ].map(item => <button key={item.id} style={{ "--chip-color": item.color } as CSSProperties} disabled={!doc} onClick={() => openTools(item.id)}><i aria-hidden="true" /><b>{item.count}</b>{item.label}</button>)}</nav>;
 
-  return <section ref={workspace} style={{ "--cw-pane-width": `${paneWidth}%` } as CSSProperties} className={`connected-workspace ${expanded ? "is-expanded" : ""} ${project || toolsView ? "has-project" : ""} ${(project || view === "world") && paneExpanded ? "is-pane-expanded" : ""}`} aria-label="Connected workspace" hidden={!active}>
+  return <ProjectDirectoryProvider projects={directory} open={openProject}><section ref={workspace} style={{ "--cw-pane-width": `${paneWidth}%` } as CSSProperties} className={`connected-workspace ${expanded ? "is-expanded" : ""} ${project || toolsView ? "has-project" : ""} ${(project || view === "world") && paneExpanded ? "is-pane-expanded" : ""}`} aria-label="Connected workspace" hidden={!active}>
     <div className="cw-topbar"><h1>{{ world: "World", projects: "Projects", sessions: "Sessions", machines: "Machines", models: "Models" }[view]}</h1>
     {view === "world" && doc && <span className="cw-topbar-count">{doc.families.length} islands · {doc.repos.filter(r => !r.hidden).length} projects</span>}
     <div className="cw-machine-rail" aria-label="Machine scope">
@@ -519,7 +528,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     {operation && <WorkspaceOperations key={`${machine}-${operation.kind}-${operation.repo?.id || operation.island || ""}`} panel={operation} machine={machine} machineName={machineName} projects={doc?.repos || []} onClose={() => setOperation(null)} onChanged={refreshProjects} />}
     {composer && project && <TaskComposer project={project} machine={machine} machineName={machineName} sessions={projectSessions} initialSession={resume} initialProvider={provider} blocked={jobs.some(j => j.repo === project.id && (running(j) || j.state === "unobserved"))} onClose={() => setComposer(false)} onSubmit={async body => { const ok = await act("work", { action: "start", repo: project.id, ...body }); if (ok) { setComposer(false); onSelect("sessions"); } return ok; }} />}
     {inspectJob && (() => { const job = jobs.find(j => j.id === inspectJob); if (!job) return null; return <JobView job={job} machine={machine} machineName={machineName} local={machine === "local"} busy={busy} message={message} live={running(job) && !liveError} onClose={() => setInspectJob(null)} onStop={() => act("work", { action: "stop", id: job.id })} onAcknowledge={() => act("work", { action: "acknowledge", id: job.id })} onOpen={() => job.session && void openSession(job.provider, job.session)} />; })()}
-  </section>;
+  </section></ProjectDirectoryProvider>;
 }
 
 /** A job's state in words. */
@@ -639,13 +648,7 @@ function ProjectSearch({ query, setQuery, onPick, results, onChoose, shortcut }:
       else if (e.key === "Enter" && query.trim()) { e.preventDefault(); if (list[active] && onChoose) pick(list[active].repo); else onPick?.(); }
       else if (e.key === "Escape" && results) { e.preventDefault(); setQuery(""); e.currentTarget.blur(); }
     }} placeholder="Find a project…" aria-label="Find a project" role={results ? "combobox" : undefined} aria-expanded={results ? open && list.length > 0 : undefined} aria-controls={results ? "cw-search-results" : undefined} aria-autocomplete={results ? "list" : undefined} />{shortcut && !query && <kbd aria-hidden="true">/</kbd>}</label>
-    {open && list.length > 0 && <ul id="cw-search-results" className="cw-search-results" role="listbox" aria-label="Matching projects">{list.map(({ repo, island }, i) => <li key={repo.id} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onMouseDown={e => { e.preventDefault(); pick(repo); }}><b>{repo.name}</b><small>{island}</small></li>)}</ul>}</div>;
-}
-function ProjectEmblem({ repo, machine }: { repo: Repo; machine: string }) {
-  const logo = repo.sites.find(s => s.logo)?.logo;
-  const source = logo ? `/api/world/${machine}/proxy/logo?repo=${encodeURIComponent(repo.id)}&v=${encodeURIComponent(logo.hash)}` : "";
-  const [failed, setFailed] = useState("");
-  return <span className="cw-project-emblem" aria-hidden="true">{source && failed !== source ? <img src={source} alt="" loading="lazy" width="32" height="32" onError={() => setFailed(source)} /> : repo.name.slice(0, 2).toUpperCase()}</span>;
+    {open && list.length > 0 && <ul id="cw-search-results" className="cw-search-results" role="listbox" aria-label="Matching projects">{list.map(({ repo, island }, i) => <li key={repo.id} role="option" aria-selected={i === active} onMouseEnter={() => setActive(i)} onMouseDown={e => { e.preventDefault(); pick(repo); }}><ProjectEmblem id={repo.id} name={repo.name} size={22} /><span><b>{repo.name}</b><small>{island}</small></span></li>)}</ul>}</div>;
 }
 /** The Projects page: a filter by what is going on, a sort, and cards that show what waits, what runs and who worked on it. */
 function ProjectGrid({ repos, islands, machine, jobs, apps, sessions, selected, status, setStatus, sort, setSort, onOpen, onMenu }: {
@@ -678,7 +681,7 @@ function ProjectGrid({ repos, islands, machine, jobs, apps, sessions, selected, 
       const app = runningApp(repo), job = working(repo), a = agents.get(repo.id);
       const quiet = !dirty && !push && !pull && !repo.openPRs && !app && !job;
       return <div className="pg-wrap" key={repo.id}><button className={`pg-card ${repo.id === selected ? "is-selected" : ""}`} onClick={() => onOpen(repo)} onContextMenu={e => { e.preventDefault(); onMenu(repo, e.clientX, e.clientY); }}>
-        <span className="pg-head"><ProjectEmblem repo={repo} machine={machine} /><span className="pg-title"><b>{repo.name}</b><small>{islands.find(f => f.id === repo.family)?.name || repo.family}</small></span></span>
+        <span className="pg-head"><ProjectEmblem id={repo.id} name={repo.name} /><span className="pg-title"><b>{repo.name}</b><small>{islands.find(f => f.id === repo.family)?.name || repo.family}</small></span></span>
         <span className="pg-desc">{about(repo)}</span>
         <span className="pg-status-row">
           {job && <span className="pg-pill is-agent">{job.provider === "codex" ? "Codex" : "Claude"} working</span>}
@@ -699,11 +702,11 @@ function ProjectGrid({ repos, islands, machine, jobs, apps, sessions, selected, 
 function ProjectRow({ repo, machine, jobs, apps, onClick, onMenu }: { repo: Repo; machine: string; jobs: Job[]; apps: Apps[]; onClick: () => void; onMenu: (x: number, y: number) => void }) {
   const job = jobs.find(j => j.repo === repo.id && running(j));
   const app = apps.find(a => a.repo === repo.id && a.running.length);
-  return <div className="cw-row-wrap" onContextMenu={e => { e.preventDefault(); onMenu(e.clientX, e.clientY); }}><button className="cw-project-row" onClick={onClick}><ProjectEmblem repo={repo} machine={machine} /><span><b>{repo.name}</b><small>{job ? `${job.provider} working` : app ? `App on :${app.running[0].port}` : needsYou(repo) ? waitingText(repo) : repo.sites.length ? "On this machine" : "GitHub only"}</small></span><span className={`cw-project-dot ${job || app ? "is-live" : ""}`} /><ChevronRight size={14} /></button><button className="cw-row-more" aria-label={`More actions for ${repo.name}`} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); onMenu(r.left, r.bottom + 4); }}><MoreHorizontal size={16} /></button></div>;
+  return <div className="cw-row-wrap" onContextMenu={e => { e.preventDefault(); onMenu(e.clientX, e.clientY); }}><button className="cw-project-row" onClick={onClick}><ProjectEmblem id={repo.id} name={repo.name} /><span><b>{repo.name}</b><small>{job ? `${job.provider} working` : app ? `App on :${app.running[0].port}` : needsYou(repo) ? waitingText(repo) : repo.sites.length ? "On this machine" : "GitHub only"}</small></span><span className={`cw-project-dot ${job || app ? "is-live" : ""}`} /><ChevronRight size={14} /></button><button className="cw-row-more" aria-label={`More actions for ${repo.name}`} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); onMenu(r.left, r.bottom + 4); }}><MoreHorizontal size={16} /></button></div>;
 }
 function ProjectDetail({ project, machine, machineName, sessions, jobs, app, appsChecked, busy, onStart, onClone, onContinue, onAction, onJob, onSelect }: { project: Repo; machine: string; machineName: string; sessions: Session[]; jobs: Job[]; app?: Apps; appsChecked: boolean; busy: boolean; onStart: () => void; onClone: () => void; onContinue: (s: Session) => void; onAction: (p: string, b: unknown) => Promise<boolean>; onJob: (id: string) => void; onSelect: (tab: ConsoleTab) => void }) {
   const local = project.sites.some(s => MAIN_ROLES.includes(s.role));
-  return <><div className="cw-inspector-top"><span className="cw-eyebrow">PROJECT / {machineName}</span></div><h2>{project.name}</h2><p className="cw-muted">{project.meaning?.purpose || project.description || "Your project, its code and its recent work."}</p>{local ? <button className="cw-primary" disabled={busy || jobs.some(j => running(j) || j.state === "unobserved")} onClick={onStart}>{sessions.some(s => s.canResume && !s.archived) ? "Start or continue coding" : "Start a coding task"} <ArrowRight size={16} /></button>
+  return <><div className="cw-inspector-top"><span className="cw-eyebrow">PROJECT / {machineName}</span></div><h2 className="cw-pane-name"><ProjectEmblem id={project.id} name={project.name} size={36} />{project.name}</h2><p className="cw-muted">{project.meaning?.purpose || project.description || "Your project, its code and its recent work."}</p>{local ? <button className="cw-primary" disabled={busy || jobs.some(j => running(j) || j.state === "unobserved")} onClick={onStart}>{sessions.some(s => s.canResume && !s.archived) ? "Start or continue coding" : "Start a coding task"} <ArrowRight size={16} /></button>
     : <div className="cw-clone-prompt"><FolderDown size={18} aria-hidden="true" /><div><b>Not on {machineName} yet</b><small>{project.sites.length ? "Only secondary checkouts are here. Open the machine with the main checkout." : "Clone it to start coding here."}</small></div>{!project.sites.length && project.fullName && <button className="cw-primary" disabled={busy} onClick={onClone}>Clone</button>}</div>}<Checkouts sites={project.sites} />{jobs.filter(running).map(j => <button key={j.id} className="cw-project-row" onClick={() => onJob(j.id)}><Activity size={16} /><span><b>{j.provider} working</b><small>Inspect output</small></span><ArrowRight size={14} /></button>)}<AppSection key={project.id} app={app} checked={appsChecked} repo={project.id} local={machine === "local"} busy={busy} onAction={onAction} /><PlanQuestLink key={`${machine}-${project.id}`} machine={machine} repo={project.id} projectName={project.name} />{local && <ProjectActivity key={`activity-${machine}-${project.id}`} machine={machine} repo={project.id} repoUrl={project.url} />}<h3>Recent sessions</h3>{sessions.slice(0, 3).map(s => <button className="cw-project-row" key={`${s.provider}-${s.id}`} disabled={!s.canResume || !local || busy} onClick={() => onContinue(s)}><Terminal size={15} /><span><b>{s.provider} · {since(s.updatedAt)}</b><small>{s.summary}</small></span><ArrowRight size={14} /></button>)}{!sessions.length && <p className="cw-muted">No indexed session evidence for this project yet.</p>}<button className="cw-text-button" onClick={() => onSelect("sessions")}>All session history <ArrowRight size={14} /></button>{machine === "local" && local && <button className="cw-text-button" disabled={busy} onClick={() => onAction("open", { repo: project.id, with: "folder" })}>Open project folder <ArrowRight size={14} /></button>}</>;
 }
 

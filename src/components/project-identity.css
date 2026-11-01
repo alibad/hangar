@@ -1,0 +1,17 @@
+/* A project looks the same everywhere: its mark, its name, and one line about it where there is room. */
+.project-emblem{--pe-size:32px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 var(--pe-size);width:var(--pe-size);height:var(--pe-size);overflow:hidden;
+  border:1px solid var(--cw-line,var(--border));border-radius:calc(var(--pe-size) * .28);background:var(--cw-panel,var(--card));color:var(--cw-accent,var(--primary));
+  font-size:calc(var(--pe-size) * .31);font-weight:650;line-height:1;letter-spacing:.02em}
+.project-emblem img{width:100%;height:100%;object-fit:contain}
+.project-badge{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:100%;color:inherit;vertical-align:middle}
+.project-badge.is-xs{gap:5px}.project-badge.is-md{gap:10px}
+.project-badge .pb-text{display:flex;flex-direction:column;min-width:0}
+.project-badge .pb-text b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.project-badge.is-xs .pb-text b{font-weight:500}
+.project-badge .pb-text small{margin-top:1px;font-size:11px;font-weight:400;color:var(--cw-muted,var(--muted-foreground));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button.project-badge.is-link{padding:2px 6px 2px 2px;margin:-2px 0 -2px -2px;border:0;border-radius:8px;background:transparent;cursor:pointer;text-align:left;min-height:0}
+button.project-badge.is-link:hover{background:color-mix(in oklab,var(--cw-ink,currentColor) 7%,transparent)}
+button.project-badge.is-link:focus-visible{outline:2px solid var(--ring,var(--cw-accent));outline-offset:1px}
+.project-list{display:inline-flex;align-items:center;gap:10px;min-width:0;max-width:100%;vertical-align:middle}
+.project-list .project-badge{flex-shrink:1}
+.project-list .pl-more{flex-shrink:0;font-size:10px;padding:0 5px;border:1px solid var(--cw-line,var(--border));border-radius:999px;color:var(--cw-muted,var(--muted-foreground))}
