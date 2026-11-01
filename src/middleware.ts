@@ -69,7 +69,8 @@ export function middleware(req: NextRequest) {
     // Expose only the installation page and its exact public SEO resources.
     // Machine APIs remain refused above; unrelated operator paths redirect to
     // the public entry rather than becoming duplicate HTTP-200 documents.
-    const publicResources = new Set(["/robots.txt", "/sitemap.xml", "/manifest.json", "/social/console.png"]);
+    // /guide must also pass: it is the internal rewrite target of /.
+    const publicResources = new Set(["/guide", "/robots.txt", "/sitemap.xml", "/manifest.json", "/social/console.png"]);
     if (pathname === "/") {
       const guide = req.nextUrl.clone();
       guide.pathname = "/guide";
