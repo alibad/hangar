@@ -205,13 +205,20 @@ considered items on it were the least visible.
    and pruned merges that fill the trending list) inherits that, whatever its own card
    says. A model that is hosted-only (Wan 2.7 and 3.0 as of 01-11-2026) is not a local
    candidate, however high it ranks.
-2e. **Installed is not measured.** Every alias in `config/model-meta.json` whose
-   `footprint.basis` starts `PROVISIONAL` has never run on its machine. On 01-11-2026 that
-   was four of BeTenshi's five video models (LTX-2.5, MiniMax H3, HunyuanVideo 1.5, Wan
-   2.2 14B), about 160 GB of weights already on D:. List each in `notes` with how long it has waited,
-   from `git log`. A night of measurement costs nothing and a download costs gigabytes, so
-   when one of these would answer the same question as a new candidate, recommending the
-   measurement is the better advice.
+2e. **Check what has already run before calling a model untested.** A `footprint.basis`
+   that starts `PROVISIONAL` means nobody updated the number. It does not mean the model
+   never ran. On 01-11-2026 four video aliases still said PROVISIONAL, and the first draft
+   of this step wrongly called all four unmeasured. The Video Forge's 02-10 bake-off had run
+   three of them (`docs/video-forge.md`, "What the first bake-off measured": Wan 2.2 14B at
+   132 s a clip and 28.0 GB VRAM, LTX-2.5 at 86 s and 28.4 GB, HunyuanVideo 1.5 at 84 s and
+   30.1 GB), and Montage (`hq/montage`, each film's `stack.video`) has cut films with
+   HunyuanVideo 1.5 since. Read both before writing a verdict. Two things are worth a note:
+   - Only MiniMax H3 has never run. It wanted ~46 GB of host RAM and BeTenshi had 44.7 GB free.
+   - Wan 2.2 14B and LTX-2.5 work, but usually sit out because they need ~38 GB of free host
+     RAM. On BeTenshi, host RAM is what holds video back, not a missing model.
+
+   Also name any alias that is still PROVISIONAL after a measurement exists, because the
+   console's fit check reads those numbers.
 
 3. Read the live vendor model lists for anything new worth an opinion.
 4. **Do not re-list what the leaderboard already covers.** The Leaderboard tab ranks every

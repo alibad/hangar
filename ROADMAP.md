@@ -105,8 +105,11 @@ different line of work.
   whose only change is `config/model-scout.json`. The routine was renamed, pointed
   at `alibad/hangar` and set to send a push notification. Its brief
   (docs/models.md) now covers video, avatars, sound for video, upscaling, music,
-  SFX, 3D, playable worlds and live voice, and flags installed models that were
-  never run. Still open: `claude/bold-lamport-yk3mca` and `-lwi0yx` remain on
+  SFX, 3D, playable worlds and live voice. It checks the Video Forge bake-off and
+  Montage before calling a model untested: an hour after this change it was found
+  to have wrongly called four video models unmeasured, three of which the 02-10
+  bake-off had run. Three of the four `PROVISIONAL` video footprints in
+  `config/model-meta.json` can take the bake-off's numbers; H3 has none yet. Still open: `claude/bold-lamport-yk3mca` and `-lwi0yx` remain on
   GitHub (deleting them is the owner's call), and the Models page has filter chips
   for only five of the scout's lanes.
 - **Three finished worktrees: removed 2026-10-26.** `../betenshi-console-video`
