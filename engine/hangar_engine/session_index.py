@@ -4,6 +4,8 @@ An edit tool followed by a successful result is evidence; a working directory is
 only a fallback. Activity timestamps do not prove that an agent is still running.
 Commit hashes are the one thing kept from command output: git's own "[main 1a2b3c4]"
 line, or a short reply that starts with a hash, with the time it was printed.
+A Claude session's helper agents keep their own transcripts beside it; what they edit
+and commit counts as the session's work.
 """
 import json
 import os
@@ -17,6 +19,7 @@ from pathlib import Path
 from . import config, local
 
 MAX_FILES = 2000
+MAX_HELPERS = 4000
 MAX_LINE = 4 * 1024 * 1024
 MAX_EDIT_TIMES = 12
 MAX_HASHES = 600
@@ -24,6 +27,7 @@ VERSION = 4
 _lock = threading.Lock()
 _checked = 0.0
 _cache = None
+_view = None
 # git commit, cherry-pick and amend confirm with "[branch 1a2b3c4] subject"; git log --oneline starts a line with one.
 COMMIT_LINE = re.compile(r"\[[^\]\n\\]{1,80}? (?:\(root-commit\) )?([0-9a-f]{7,40})\] ([^\n\\]{0,160})")
 HASH_LINE = re.compile(r"(?:^|\n|\\n)([0-9a-f]{7,40}) (?=\S)")
@@ -233,23 +237,61 @@ def update_file(path, provider, previous=None):
     return state
 
 
+def parent_of(helper):
+    """Claude keeps a helper agent's transcript at <project>/<session>/subagents/agent-<id>.jsonl, and a workflow's
+    agents one folder down, under subagents/workflows/<run>/."""
+    folder = next((p for p in Path(helper).parents if p.name == "subagents"), None)
+    return str(folder.parent.parent / (folder.parent.name + ".jsonl")) if folder else ""
+
+
+def fold(entry, helpers):
+    """The session plus its helper agents: their edits, their commits and their last activity are the session's.
+    Copies, so the per-file states keep their own read positions."""
+    merged = dict(entry, files=list(entry["files"]), edits={p: list(t) for p, t in entry["edits"].items()},
+                  commits=dict(entry["commits"]), helpers=len(helpers))
+    for helper in helpers:
+        merged["files"] = sorted(set(merged["files"]) | set(helper["files"]))[:2000]
+        for path, times in helper["edits"].items():
+            merged["edits"][path] = sorted(set(merged["edits"].get(path, [])) | set(times))[-MAX_EDIT_TIMES:]
+        for sha, value in helper["commits"].items():
+            old = merged["commits"].get(sha)
+            # Making a commit outranks seeing it; otherwise the first sighting counts.
+            if old is None or value[1] > old[1] or (value[1] == old[1] and value[0] < old[0]):
+                merged["commits"][sha] = value
+        if (stamp(helper.get("lastEvent") or "") or 0) > (stamp(merged.get("lastEvent") or "") or 0):
+            merged["lastEvent"] = helper["lastEvent"]
+        merged["updatedAt"] = max(merged["updatedAt"], helper.get("updatedAt") or "")
+    return merged
+
+
+def view(index):
+    by_parent = {}
+    for path, helper in index.get("helpers", {}).items():
+        by_parent.setdefault(parent_of(path), []).append(helper)
+    files = {path: fold(entry, by_parent[path]) if path in by_parent else entry for path, entry in index["files"].items()}
+    return {**index, "files": files}
+
+
 def collect():
-    global _cache, _checked
+    global _cache, _view, _checked
     with _lock:
-        if _cache is not None and time.monotonic() - _checked < 15:
-            return _cache
+        if _view is not None and time.monotonic() - _checked < 15:
+            return _view
         saved = config.read_json(config.LOCAL / "session-index.json", {}) or {}
         old = saved.get("files", {}) if saved.get("version") == VERSION else {}
+        old_helpers = saved.get("helpers", {}) if saved.get("version") == VERSION else {}
         claude = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "projects"
         codex = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
-        candidates = []
-        for provider, base, pattern in (("claude", claude, "*/*.jsonl"), ("codex", codex / "sessions", "**/*.jsonl"),
-                                        ("codex", codex / "archived_sessions", "**/*.jsonl")):
+        def newest(base, pattern, provider):
+            found = []
             for path in base.glob(pattern):
                 try:
-                    candidates.append((path.stat().st_mtime, provider, path))
+                    found.append((path.stat().st_mtime, provider, path))
                 except OSError:
                     pass
+            return found
+        candidates = [*newest(claude, "*/*.jsonl", "claude"), *newest(codex / "sessions", "**/*.jsonl", "codex"),
+                      *newest(codex / "archived_sessions", "**/*.jsonl", "codex")]
         candidates.sort(key=lambda x: x[0], reverse=True)
         files = {}
         for _, provider, path in candidates[:MAX_FILES]:
@@ -258,11 +300,19 @@ def collect():
                 files[str(path)]["nativeArchived"] = provider == "codex" and "archived_sessions" in path.parts
             except OSError:
                 continue
-        _cache = {"version": VERSION, "files": files, "truncated": len(candidates) > MAX_FILES,
+        helpers = {}
+        for _, provider, path in sorted(newest(claude, "*/*/subagents/**/*.jsonl", "claude"), key=lambda x: x[0], reverse=True)[:MAX_HELPERS]:
+            if parent_of(path) in files:
+                try:
+                    helpers[str(path)] = update_file(path, provider, old_helpers.get(str(path)))
+                except OSError:
+                    continue
+        _cache = {"version": VERSION, "files": files, "helpers": helpers, "truncated": len(candidates) > MAX_FILES,
                   "indexedAt": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         config.write_json(config.LOCAL / "session-index.json", _cache)
+        _view = view(_cache)
         _checked = time.monotonic()
-        return _cache
+        return _view
 
 
 def invalidate():
@@ -304,6 +354,7 @@ def timeline(doc, overlay, repo_id=None, limit=300):
                          "lastEventAt": entry.get("lastEvent"), "nativeArchived": entry.get("nativeArchived", False),
                          "summary": f"Edited {count} files across {len(projects)} projects" if count else "Session in " + (projects[0]["name"] if projects else "an unindexed folder"),
                          "origin": entry.get("origin", ""), "probe": not projects and in_temp(entry["cwd"], scratch),
+                         "helpers": entry.get("helpers", 0),
                          "canResume": bool(re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", entry["id"]))})
     sessions.sort(key=lambda s: s["updatedAt"], reverse=True)
     return {"sessions": sessions[:limit], "total": len(sessions), "truncated": index["truncated"] or (limit is not None and len(sessions) > limit),

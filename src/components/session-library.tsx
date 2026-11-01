@@ -20,6 +20,8 @@ export type LibrarySession = {
   /** What it committed, newest first, with how Hangar knows. */
   changed?: { sha: string; subject: string; repo: string; repoId?: string; at: string; evidence: string }[];
   changedCount?: number;
+  /** Helper agents it started (Claude); their edits and commits count as its own. */
+  helpers?: number;
 };
 type Group = { id: string; name: string; source: string; nativeId?: string };
 export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; truncated: boolean; observedAt: string };

@@ -206,7 +206,8 @@ def folders_of(repo, overlay):
 
 BASIS = ("Main-branch Git history joined with Claude Code and Codex session evidence on this machine: git's own "
          "commit line or a hash printed just after the commit, else edits to the commit's files in the 3 hours "
-         "before it. Edits made through shell commands are invisible to the index.")
+         "before it. A Claude session's helper agents count as the session. Edits made through shell commands are "
+         "invisible to the index.")
 
 
 def window(days, now):

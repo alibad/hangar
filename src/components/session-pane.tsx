@@ -67,6 +67,7 @@ export default function SessionPane({ machine, pick, board, library, repoUrls = 
       <span><b>{view.commits.length}</b>{view.commits.length === 1 ? "commit" : "commits"}</span>
       <span><b>{edits}</b>{edits === 1 ? "edit" : "edits"}</span>
       <span><b>{projects.length}</b>{projects.length === 1 ? "project" : "projects"}</span>
+      {!!library?.helpers && <span title="Helper agents it started. What they edited and committed counts as this session's work."><b>{library.helpers}</b>{library.helpers === 1 ? "helper agent" : "helper agents"}</span>}
       {view.overlaps.some(o => o.overlap.crossAgent) && <span className="is-collision"><AlertTriangle size={13} /><b>{view.overlaps.filter(o => o.overlap.crossAgent).length}</b>{view.overlaps.filter(o => o.overlap.crossAgent).length === 1 ? "collision" : "collisions"}</span>}
     </div>
 

@@ -131,8 +131,11 @@ after the commit (a quiet `git commit -q`, then `git log`); or it edited the
 commit's files in the three hours before. A `Co-Authored-By: Claude` trailer rules
 out Codex sessions for the last rule and still says Claude when no session is
 found. The session index keeps only commit hashes and edit times from transcripts,
-never message text. Edits made through shell commands and Claude subagents' own
-transcripts are not indexed yet, so their commits can show as "no session found".
+never message text. A Claude session's helper agents (its subagents and workflow
+agents, kept under `<session>/subagents/`) count as the session: their edits and
+commits are its work, and the session pane says how many it started. Edits made
+through shell commands are not indexed, so their commits can show as "no session
+found".
 
 ## Agents
 

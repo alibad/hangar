@@ -170,6 +170,45 @@ class WhoChangedWhat(unittest.TestCase):
         self.assertEqual(bands[0]["sharedFiles"], ["a"])
         self.assertEqual(activity.spans([10, 20, 20 + 3601]), [[10, 20], [3621, 3621]])
 
+    def test_helper_agents_work_counts_for_the_session_that_started_them(self):
+        from unittest import mock
+        from hangar_engine import config, session_index
+        line = lambda record: json.dumps(record) + "\n"
+        helper = lambda at, content: {"type": "user", "sessionId": "s1", "isSidechain": True, "cwd": "C:/work/game", "timestamp": self.at(at), "message": {"content": content}}
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            folder = root / ".claude/projects/C--work-game"
+            (folder / "s1/subagents/workflows/wf_1").mkdir(parents=True)
+            (folder / "gone/subagents").mkdir(parents=True)
+            (folder / "s1.jsonl").write_text(line({"type": "user", "sessionId": "s1", "cwd": "C:/work/game", "timestamp": self.at(0), "message": {"content": "go"}}))
+            (folder / "s1/subagents/agent-a1.jsonl").write_text(line(helper(60, [{"type": "tool_use", "id": "e1", "name": "Edit", "input": {"file_path": "C:/work/game/a.yaml"}}]))
+                                                                + line(helper(70, [{"type": "tool_result", "tool_use_id": "e1", "content": "ok"}])))
+            made = helper(900, [{"type": "tool_result", "tool_use_id": "b1", "content": "[main 1bde6ba] Revert the depth change"}])
+            (folder / "s1/subagents/workflows/wf_1/agent-a2.jsonl").write_text(line(made))
+            (folder / "gone/subagents/agent-a3.jsonl").write_text(line(made))  # its session's transcript is gone
+            session_index._view = None
+            try:
+                with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(root / ".claude"), "CODEX_HOME": str(root / ".codex")}), \
+                     mock.patch.object(config, "LOCAL", root / "engine"):
+                    index = session_index.collect()
+                    self.assertEqual(list(index["files"]), [str(folder / "s1.jsonl")])  # helpers are not sessions of their own
+                    entry = index["files"][str(folder / "s1.jsonl")]
+                    self.assertEqual((entry["id"], entry["helpers"], entry["lastEvent"]), ("s1", 2, self.at(900)))
+                    self.assertEqual({p.rsplit("/", 1)[-1]: t for p, t in entry["edits"].items()}, {"a.yaml": [self.T + 70]})
+                    self.assertEqual(entry["commits"], {"1bde6ba": [self.T + 900, 1, "Revert the depth change"]})
+                    saved = json.loads((root / "engine/session-index.json").read_text(encoding="utf-8"))
+                    self.assertEqual(saved["files"][str(folder / "s1.jsonl")]["commits"], {})  # each transcript keeps its own state
+                    self.assertEqual(len(saved["helpers"]), 2)
+                    with (folder / "s1/subagents/agent-a1.jsonl").open("a") as f:
+                        f.write(line(helper(2000, [{"type": "tool_result", "tool_use_id": "b2", "content": "[main 6a5bbff] Keep the depth"}])))
+                    session_index.invalidate()
+                    entry = session_index.collect()["files"][str(folder / "s1.jsonl")]
+                    self.assertEqual(sorted(entry["commits"]), ["1bde6ba", "6a5bbff"])
+                    self.assertEqual(list(entry["edits"].values()), [[self.T + 70]])  # read once, not again on the next pass
+            finally:
+                session_index._view = None
+                session_index._checked = 0.0
+
     def test_scratch_folder_runs_are_test_runs(self):
         from hangar_engine import session_index
         folders = session_index.temp_folders()
