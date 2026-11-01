@@ -363,6 +363,12 @@ class IndependentEngine(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:
             self.read(f"/api/activity?repo={rid}&days=90")
         self.assertEqual(error.exception.code, 400)
+        every = self.read("/api/activity/all?days=7")
+        self.assertTrue(every["available"])
+        self.assertEqual(every["projects"], [])  # a quiet week leaves no project on the board
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.read("/api/activity/all?days=0")
+        self.assertEqual(error.exception.code, 400)
 
     def test_unknown_projects_and_cross_origin_writes_rejected(self):
         with self.assertRaises(urllib.error.HTTPError) as error:

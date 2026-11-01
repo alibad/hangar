@@ -107,12 +107,15 @@ def make_handler(state, port):
             if path == "/api/sessions/library":
                 from . import session_library
                 return self._send(200, session_library.snapshot(state.doc or state.load(), scanner.overlay(), changes=True))
-            if path == "/api/activity":
+            if path in ("/api/activity", "/api/activity/all"):
                 from . import activity
                 query = parse_qs(url.query)
                 try:
                     days = int((query.get("days") or ["7"])[0])
-                    return self._send(200, activity.activity(state.doc or state.load(), scanner.overlay(), (query.get("repo") or [""])[0], days))
+                    doc = state.doc or state.load()
+                    if path == "/api/activity/all":
+                        return self._send(200, activity.board(doc, scanner.overlay(), days))
+                    return self._send(200, activity.activity(doc, scanner.overlay(), (query.get("repo") or [""])[0], days))
                 except ValueError as error:
                     return self._send(400, {"error": str(error)})
             if path == "/api/work":

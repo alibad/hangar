@@ -200,22 +200,54 @@ def folders_of(repo, overlay):
     return paths
 
 
+BASIS = ("Main-branch Git history joined with Claude Code and Codex session evidence on this machine: git's own "
+         "commit line or a hash printed just after the commit, else edits to the commit's files in the 3 hours "
+         "before it. Edits made through shell commands are invisible to the index.")
+
+
+def window(days, now):
+    if type(days) is not int or not 1 <= days <= 30:
+        raise ValueError("Choose 1 to 30 days.")
+    now = int(time.time() if now is None else now)
+    return now - days * 86400, now
+
+
+def recent_entries(since):
+    """Sessions that could have worked in the window: anything older cannot have made, seen or prepared its commits."""
+    return [e for e in session_index.collect()["files"].values()
+            if (session_index.stamp(e.get("lastEvent") or "") or 0) >= since - EDITS_BEFORE]
+
+
 def activity(doc, overlay, rid, days=7, now=None):
     repo = next((r for r in doc["repos"] if r["id"] == rid), None)
     if not repo:
         raise ValueError("Choose an indexed project.")
-    if type(days) is not int or not 1 <= days <= 30:
-        raise ValueError("Choose 1 to 30 days.")
-    now = int(time.time() if now is None else now)
-    since = now - days * 86400
+    since, now = window(days, now)
     folders = folders_of(repo, overlay)
     if not folders:
         return {"available": False, "reason": "This project is not on this machine.", "repo": rid}
+    return {"available": True, "days": days, "from": iso(since), "to": iso(now),
+            **join(repo, folders, since, now, recent_entries(since), titles()), "basis": BASIS}
+
+
+def board(doc, overlay, days=7, now=None):
+    """Every project on this machine with commits on main or session work in the window, busiest collisions first."""
+    since, now = window(days, now)
+    repos = [(repo, folders) for repo in doc["repos"] if not repo.get("hidden") and (folders := folders_of(repo, overlay))]
+    with ThreadPoolExecutor(max_workers=8) as pool:  # warms the git log cache in parallel
+        list(pool.map(lambda item: log(item[1][0], since, now), repos))
+    entries, names = recent_entries(since), titles()
+    projects = [p for repo, folders in repos if (p := join(repo, folders, since, now, entries, names))["commits"] or p["sessions"]]
+    projects.sort(key=lambda p: (-sum(o["crossAgent"] for o in p["overlaps"]), -len(p["overlaps"]), -len(p["commits"]), p["name"].lower()))
+    return {"available": True, "days": days, "from": iso(since), "to": iso(now), "projects": projects,
+            "truncated": any(p["truncated"] for p in projects), "basis": BASIS}
+
+
+def join(repo, folders, since, now, entries, names):
+    """One project's commits in the window, each with the session behind it, its sessions and their overlaps."""
     history = log(folders[0], since, now)
     prefixes = sorted({session_index.norm(str(f)) for f in folders}, key=len, reverse=True)
-    entries = list(session_index.collect()["files"].values())
     claims = attribute(history["commits"], entries, prefixes)
-    names = titles()
     by_key = {key_of(e): e for e in entries}
     rows = {}
 
@@ -263,12 +295,8 @@ def activity(doc, overlay, rid, days=7, now=None):
         for k in [k for k in s if k.startswith("_")]:
             del s[k]
     commits.sort(key=lambda c: c["at"])
-    return {"available": True, "repo": rid, "name": repo["name"], "branch": history["branch"], "days": days,
-            "from": iso(since), "to": iso(now), "commits": commits, "sessions": sessions, "overlaps": bands,
-            "truncated": history["truncated"],
-            "basis": "Main-branch Git history joined with Claude Code and Codex session evidence on this machine: git's own "
-                     "commit line or a hash printed just after the commit, else edits to the commit's files in the 3 hours "
-                     "before it. Edits made through shell commands are invisible to the index."}
+    return {"repo": repo["id"], "name": repo["name"], "branch": history["branch"], "commits": commits, "sessions": sessions,
+            "overlaps": bands, "truncated": history["truncated"]}
 
 
 def claimed(doc, overlay, repo_ids, days=30, now=None):
