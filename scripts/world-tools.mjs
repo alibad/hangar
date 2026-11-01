@@ -239,13 +239,42 @@ export function worldTools({
   const agentName = (a) => (a === "claude" ? "Claude" : a === "codex" ? "Codex" : "unknown");
   const tag = (a) => (a === "claude" ? "CL" : a === "codex" ? "CX" : "??");
 
+  const dayFormat = () => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone });
+  const clockFormat = () => new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone });
+
+  /** Every project at once: totals, then each Claude-and-Codex collision, then each project's share. */
+  async function everyProject(days) {
+    const b = await api(`/api/activity/all?days=${days}`);
+    const day = dayFormat(), clock = clockFormat();
+    const when = (iso) => `${day.format(new Date(iso))} ${clock.format(new Date(iso))}`;
+    const commits = b.projects.flatMap((p) => p.commits);
+    const count = (list, agent) => list.filter((c) => c.agent === agent).length;
+    const named = (p, key) => { const s = p.sessions.find((x) => x.key === key); return s ? `${tag(s.provider)} ${s.title || `${agentName(s.provider)} session`} (${s.id.slice(0, 8)})` : key; };
+    const bands = b.projects.flatMap((p) => p.overlaps.map((o) => ({ p, o })));
+    const cross = bands.filter((x) => x.o.crossAgent).sort((x, y) => Date.parse(y.o.from) - Date.parse(x.o.from));
+    const lines = [`All projects, ${when(b.from)} – ${when(b.to)} (${b.days} days): ${commits.length} commit${commits.length === 1 ? "" : "s"} on main ` +
+      `(${count(commits, "claude")} Claude, ${count(commits, "codex")} Codex, ${count(commits, "unknown")} unknown) in ${b.projects.length} project${b.projects.length === 1 ? "" : "s"}; ` +
+      `${cross.length} collision${cross.length === 1 ? "" : "s"} between Claude and Codex${bands.length > cross.length ? `, ${bands.length - cross.length} more between sessions of one agent` : ""}.`];
+    if (cross.length) lines.push("\nCOLLISIONS (Claude and Codex in the same project within two hours):");
+    for (const { p, o } of cross) {
+      lines.push(`- ${p.name} ${when(o.from)}–${clock.format(new Date(o.to))}: ${o.sessions.map((k) => named(p, k)).join("; ")}. ${o.sharedFiles.length ? `Both touched ${o.sharedFiles.slice(0, 3).join(", ")}.` : "Different files."}`);
+    }
+    if (b.projects.length) lines.push("\nProjects (commits: Claude / Codex / unknown):");
+    for (const p of b.projects) {
+      lines.push(`- ${p.name}: ${p.commits.length} (${count(p.commits, "claude")} / ${count(p.commits, "codex")} / ${count(p.commits, "unknown")}) · ${p.sessions.length} session${p.sessions.length === 1 ? "" : "s"}${p.overlaps.some((o) => o.crossAgent) ? " · collision" : ""}`);
+    }
+    if (!b.projects.length) lines.push("\nNo commits on main and no agent sessions in any project in this window.");
+    lines.push("\nGive a repo for one project's commits, the session behind each and why.");
+    return lines.join("\n");
+  }
+
   async function activityTool({ repo, days = 7 } = {}) {
     days = Math.min(Math.max(Math.round(Number(days)) || 7, 1), 30);
+    if (!(repo || "").trim()) return everyProject(days);
     const r = resolve(await doc(), repo);
     const a = await api(`/api/activity?repo=${encodeURIComponent(r.id)}&days=${days}`);
     if (!a.available) return `${label(r)}: ${a.reason}`;
-    const day = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone });
-    const clock = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone });
+    const day = dayFormat(), clock = clockFormat();
     const when = (iso) => `${day.format(new Date(iso))} ${clock.format(new Date(iso))}`;
     const sessions = new Map(a.sessions.map((s) => [s.key, s]));
     const named = (key) => { const s = sessions.get(key); return s ? `${s.title || `${agentName(s.provider)} session`} (${s.id.slice(0, 8)})` : key; };
@@ -363,7 +392,7 @@ export function worldTools({
     { name: "hangar_brief", description: "What an agent should know before working in a project: purpose, island, what needs the user, the folder on this machine with its branch state, recent commits, whether its app is running, Hangar jobs, and recent Claude Code and Codex sessions. Session history is evidence of past work, never proof that something is running or finished.", inputSchema: { type: "object", properties: { repo: REPO }, required: ["repo"] }, annotations: read, run: guard(brief) },
     { name: "hangar_find", description: "Find projects by name or description: GitHub address, island, folders on this machine and what is waiting on each.", inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] }, annotations: read, run: guard(find) },
     { name: "hangar_sessions", description: "Recent Claude Code and Codex sessions indexed on this machine, newest first, with the project each touched and whether its desktop app can open it. Filter by project, agent and days. Use it to find the conversation to continue rather than starting over.", inputSchema: { type: "object", properties: { repo: REPO, provider: { type: "string", enum: ["claude", "codex"] }, days: { type: "number", description: "Look back this many days (default 14)." }, limit: { type: "number", description: "At most this many rows (default 20)." } } }, annotations: read, run: guard(sessionsTool) },
-    { name: "hangar_activity", description: "Who changed what in one project: its main-branch commits over the last days, each tied to the Claude Code or Codex session that made it and the evidence why, and every stretch where two sessions (above all one of each agent) worked on it within two hours of each other. Use it to find out which agent made a change, or whether two collided before a release.", inputSchema: { type: "object", properties: { repo: REPO, days: { type: "number", description: "Look back this many days, 1 to 30 (default 7)." } }, required: ["repo"] }, annotations: read, run: guard(activityTool) },
+    { name: "hangar_activity", description: "Who changed what. Without repo: every project's main-branch commits over the last days split by Claude Code and Codex, and each collision where both agents worked on the same project within two hours. With repo: that project's commits, each tied to the session that made it and the evidence why, and every overlap between its sessions. Use it to find out which agent made a change, or whether two collided before a release.", inputSchema: { type: "object", properties: { repo: { ...REPO, description: "Optional: one project (name, owner/name or Hangar id). Leave out for every project." }, days: { type: "number", description: "Look back this many days, 1 to 30 (default 7)." } } }, annotations: read, run: guard(activityTool) },
     { name: "hangar_jobs", description: "The coding jobs Hangar itself ran (an agent started from Hangar in a project folder): state, when, and the last thing it said, plus whether Claude Code and Codex are signed in for the next one. With id, the full step-by-step output of one job.", inputSchema: { type: "object", properties: { id: { type: "string", description: "A job id or its first characters." } } }, annotations: read, run: guard(jobs) },
     { name: "hangar_job", description: "start: run Claude Code or Codex on a task in a project's main folder as a Hangar job (at most two at once, one per checkout; the agent's own permissions apply; optionally continue an indexed session). stop: end a running job. acknowledge: clear a job the engine lost track of. Ask the user before starting work on their behalf.", inputSchema: { type: "object", properties: { action: { type: "string", enum: ["start", "stop", "acknowledge"] }, repo: REPO, provider: { type: "string", enum: ["claude", "codex"] }, prompt: { type: "string", description: "start: the task, up to 8,000 characters." }, session: { type: "string", description: "start: a session id from hangar_sessions to continue." }, id: { type: "string", description: "stop / acknowledge: the job id." } }, required: ["action"] }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }, run: guard(job) },
     { name: "hangar_open", description: "Open a project's main folder on this machine in claude (a new Claude Code session), codex (a new Codex thread), code (VS Code), cursor, or folder (the file manager). intent gives the new session a starting question about what is waiting: commit, push, pull, prs, or issues (resolve the open GitHub issues one by one, without pushing). Ask the user before opening apps for them.", inputSchema: { type: "object", properties: { repo: REPO, app: { type: "string", enum: APPS }, intent: { type: "string", enum: INTENTS } }, required: ["repo", "app"] }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }, run: guard(open) },

@@ -88,6 +88,9 @@ async function engine(t) {
       case "/api/agents": return send(200, { agents: [{ id: "claude", name: "Claude Code", installed: true, signedIn: false, reason: "Claude Code's sign-in on this machine expired on 10 Jun 2026." }, { id: "codex", name: "Codex", installed: true, signedIn: true, reason: "" }] });
       case "/api/apps": return send(200, { machine: { os: "windows", node: true, flutter: false, androidSdk: false, xcode: false }, apps: [{ repo: "R1", name: "football-ai-lab", running: [{ port: 3100, pid: 1, by: "elsewhere" }], jobs: {}, apps: [{ kind: "next", label: "Next.js web app", dir: "web", targets: [{ id: "web", label: "Web", ok: true, why: "" }] }] }] });
       case "/api/plans": return send(200, { links: {} });
+      case "/api/activity/all": return send(200, { available: true, days: Number(url.searchParams.get("days")), from: ACTIVITY.from, to: ACTIVITY.to, truncated: false, basis: ACTIVITY.basis,
+        projects: [{ ...ACTIVITY, available: undefined }, { repo: "R1", name: "football-ai-lab", branch: "main", truncated: false, overlaps: [], sessions: [],
+          commits: [commitRow("9f1c2d3", "07:00:00", "claude", null, "trailer", "its Co-Authored-By trailer names Claude; no session found", "Keep the upload progress on screen")] }] });
       case "/api/activity": return send(200, url.searchParams.get("repo") === "R5" ? { ...ACTIVITY, days: Number(url.searchParams.get("days")) } : { available: false, reason: "This project is not on this machine.", repo: url.searchParams.get("repo") });
       default: return send(404, { error: "not found" });
     }
@@ -190,6 +193,17 @@ test("activity names the session behind each commit and flags the 26 Oct collisi
   assert.match((await call("hangar_activity", { repo: "RTSAI-Mod", days: 90 })).text, /\(30 days\)/);
   assert.match((await call("hangar_activity", { repo: "football-ai-lab" })).text, /football-ai-lab: This project is not on this machine/);
   assert.match((await call("hangar_activity", { repo: "nothing-like-this" })).error, /No project called/);
+});
+
+test("activity without a repo sums every project and lists each Claude-and-Codex collision", async (t) => {
+  const { call } = await engine(t);
+  const { text, error } = await call("hangar_activity", {});
+  assert.equal(error, undefined);
+  assert.match(text, /^All projects, 25 Oct 23:00 – 1 Nov 23:00 \(7 days\): 7 commits on main \(3 Claude, 4 Codex, 0 unknown\) in 2 projects; 1 collision between Claude and Codex\./);
+  assert.match(text, /COLLISIONS.*\n- RTSAI-Mod 26 Oct 13:36–14:17: CX The Web Latest \(01a13c80\); CX Review meetup co-speaker submission \(01a16818\); CL OpenRA quality analysis and talk prep \(be4050df\)\. Different files\./);
+  assert.match(text, /- RTSAI-Mod: 6 \(2 \/ 4 \/ 0\) · 3 sessions · collision/);
+  assert.match(text, /- football-ai-lab: 1 \(1 \/ 0 \/ 0\) · 0 sessions\n/);
+  assert.match((await call("hangar_activity", { days: 99 })).text, /\(30 days\)/);
 });
 
 test("jobs show sign-in state and the last line; one job shows every step", async (t) => {
