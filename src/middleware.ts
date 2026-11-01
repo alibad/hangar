@@ -66,18 +66,19 @@ export function middleware(req: NextRequest) {
         { status: 404 },
       );
     }
-    // Every public-facing path is the setup guide. This includes bookmarks such
-    // as /llm and /models from the operator console: a visitor should never land
-    // in a machine dashboard that cannot actually see their machine. Keep the
-    // guide route and installable-app manifest reachable as themselves.
-    if (pathname !== "/guide" && pathname !== "/manifest.json") {
+    // Expose only the installation page and its exact public SEO resources.
+    // Machine APIs remain refused above; unrelated operator paths redirect to
+    // the public entry rather than becoming duplicate HTTP-200 documents.
+    const publicResources = new Set(["/robots.txt", "/sitemap.xml", "/manifest.json", "/social/console.png"]);
+    if (pathname === "/") {
       const guide = req.nextUrl.clone();
       guide.pathname = "/guide";
       const response = NextResponse.rewrite(guide);
-      // Do not let browsers preserve an old operator document for a public
-      // hostname. The guide itself can still cache its immutable assets.
       response.headers.set("Cache-Control", "no-store, max-age=0");
       return response;
+    }
+    if (!publicResources.has(pathname)) {
+      return NextResponse.redirect(new URL("/", req.url), 308);
     }
   }
 

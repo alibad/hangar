@@ -1,10 +1,13 @@
 import Image from "next/image";
 import type { Metadata } from "next";
+import { PUBLIC_SITE_URL, PUBLIC_SITE_TITLE, PUBLIC_SITE_DESCRIPTION } from "@/lib/public-site";
 import HostedOnboarding from "@/components/hosted-onboarding";
 
 export const metadata: Metadata = {
-  title: "Run Hangar locally",
-  description: "Install Hangar beside Ollama and a local LLM, configure your machine, and verify the private local console.",
+  title: PUBLIC_SITE_TITLE, description: PUBLIC_SITE_DESCRIPTION,
+  alternates: { canonical: PUBLIC_SITE_URL },
+  openGraph: { type: "website", siteName: "Hangar Console", url: PUBLIC_SITE_URL, title: PUBLIC_SITE_TITLE, description: PUBLIC_SITE_DESCRIPTION, images: [{url: `${PUBLIC_SITE_URL}/social/console.png`,width:1200,height:630,alt:"Hangar — local AI, fitted to your machine"}] },
+  twitter: {card:"summary_large_image",title:PUBLIC_SITE_TITLE,description:PUBLIC_SITE_DESCRIPTION,images:[`${PUBLIC_SITE_URL}/social/console.png`]},
 };
 
 export default function GuidePage() {
@@ -21,8 +24,13 @@ export default function GuidePage() {
         </div>
       </header>
       <main className="mx-auto max-w-[1500px] px-4 pb-16 pt-5 sm:px-6">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify({"@context":"https://schema.org","@type":"SoftwareApplication",name:"Hangar Console",url:PUBLIC_SITE_URL,description:PUBLIC_SITE_DESCRIPTION,applicationCategory:"DeveloperApplication",operatingSystem:"macOS, Windows, Linux",codeRepository:"https://github.com/alibad/hangar",publisher:{"@type":"Organization",name:"Human Quest",url:"https://www.humanquest.net/"}}).replace(/</g,"\\u003c")}}/>
         <HostedOnboarding />
       </main>
+      <footer className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 border-t border-gray-800 px-4 py-8 text-xs text-gray-400 sm:px-6">
+        <p>A <a href="https://www.humanquest.net/" className="text-gray-200 underline underline-offset-4">Human Quest</a> project.</p>
+        <a href="https://www.humanquest.net/ai-patterns" className="underline underline-offset-4">Explore AI Patterns ↗</a>
+      </footer>
     </div>
   );
 }
