@@ -4,39 +4,43 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
 import { boardDay, boardTotals, defaultDay, windowDays, type ActivitySession, type BoardData } from "@/lib/project-activity";
-import { NAMES, OverlapCard } from "./project-activity";
+import { NAMES, OverlapCard, WeekPager, weekQuery } from "./project-activity";
 import type { SessionPick } from "./session-pane";
 import { ProjectEmblem } from "./project-identity";
 import "./project-activity.css";
 
 const SHOWN = 8; // collisions and the busiest projects first; the quiet tail on request
 
+/** Where the board stands: the week (its last day, "" for the one ending now) and the day picked in it. */
+export type BoardFocus = { end: string; day: string };
+
 /** Every project's week at once: which agent changed what, and where Claude and Codex worked on the same project at
  *  the same time. One row per project, a Claude lane over a Codex lane, all on one clock. A dot (a commit) or a bar
- *  (a session's stretch of work) opens that session in the side pane through `onPick`. */
+ *  (a session's stretch of work) opens that session in the side pane through `onPick`; a project opens on the same
+ *  week and day. */
 export default function ActivityBoard({ machine, onOpenProject, picked, onPick, onLoad }: {
-  machine: string; onOpenProject?: (repo: string) => void; picked?: SessionPick | null; onPick?: (pick: SessionPick) => void; onLoad?: (data: BoardData) => void;
+  machine: string; onOpenProject?: (repo: string, focus: BoardFocus) => void; picked?: SessionPick | null; onPick?: (pick: SessionPick) => void; onLoad?: (data: BoardData) => void;
 }) {
   const [data, setData] = useState<BoardData | null>(null), [error, setError] = useState("");
-  const [day, setDay] = useState(""), [all, setAll] = useState(false);
+  const [end, setEnd] = useState(""), [day, setDay] = useState(""), [all, setAll] = useState(false);
   useEffect(() => { if (data) onLoad?.(data); }, [data, onLoad]);
   useEffect(() => {
-    const controller = new AbortController(); setData(null); setError(""); setDay("");
-    fetch(`/api/world/${machine}/proxy/activity/all?days=7`, { signal: controller.signal, cache: "no-store" })
+    const controller = new AbortController(); setData(null); setError("");
+    fetch(`/api/world/${machine}/proxy/activity/all?${weekQuery(end)}`, { signal: controller.signal, cache: "no-store" })
       .then(r => {
         if (r.status === 404) throw new Error("Hangar’s engine on this machine predates this view. Restart Hangar to see who changed what.");
         return workspaceResponse<BoardData>(r);
       }).then(d => { if (!controller.signal.aborted) setData(d); })
       .catch(e => { if (!controller.signal.aborted) setError(e.message); });
     return () => controller.abort();
-  }, [machine]);
+  }, [machine, end]);
   const totals = useMemo(() => data?.available ? boardTotals(data) : null, [data]);
-  const days = useMemo(() => totals ? windowDays(totals) : [], [totals]);
-  const key = day || defaultDay(days);
+  const days = useMemo(() => totals ? windowDays(totals, Date.parse(totals.to)) : [], [totals]);
+  const key = days.some(d => d.key === day) ? day : defaultDay(days);
   const view = useMemo(() => data?.available && key ? boardDay(data, key) : null, [data, key]);
   const sessions = useMemo(() => new Map<string, ActivitySession>((data?.projects || []).flatMap(p => p.sessions.map(s => [s.key, s] as const))), [data]);
   // The Sessions tab already names the view; the board only says what it covers.
-  const head = <p className="ab-scope">All projects · last {data?.days || 7} days · main</p>;
+  const head = <p className="ab-scope">All projects · <WeekPager end={end} onEnd={next => { setEnd(next); setDay(""); setAll(false); }} /> · main</p>;
   if (error) return <section className="pa ab">{head}<p className="pa-note">{error}</p></section>;
   if (!data || !totals || !view) return <section className="pa ab" aria-busy="true">{head}<div className="pa-skeleton" aria-label="Reading every project's commits and sessions" /></section>;
   const peak = Math.max(1, ...days.map(d => d.claude + d.codex + d.unknown));
@@ -69,7 +73,7 @@ export default function ActivityBoard({ machine, onOpenProject, picked, onPick, 
           {view.breaks.map((b, i) => <i key={i} title={`${Math.round(b.minutes / 60)} quiet hours`} style={{ left: `${b.left + b.width / 2}%` }}>≈</i>)}
         </div></div>
         {view.rows.slice(0, all ? undefined : SHOWN).map(row => <div className={`ab-row ${row.crossAgent ? "is-collision" : ""}`} key={row.project.repo}>
-          <button className="ab-name" title={`Open ${row.project.name}`} onClick={() => onOpenProject?.(row.project.repo)} disabled={!onOpenProject}>
+          <button className="ab-name" title={`Open ${row.project.name}`} onClick={() => onOpenProject?.(row.project.repo, { end, day: key })} disabled={!onOpenProject}>
             <ProjectEmblem id={row.project.repo} name={row.project.name} size={26} /><span><b>{row.project.name}</b><small>{row.commits} {row.commits === 1 ? "commit" : "commits"}</small></span>
           </button>
           <div className="ab-tracks">

@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, ChevronRight, GitCommitHorizontal } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
-import type { ActivityCommit, BoardData, ProjectActivity } from "@/lib/project-activity";
+import { dayKey, weekLabel, type ActivityCommit, type BoardData, type ProjectActivity } from "@/lib/project-activity";
 import type { LibrarySession } from "./session-library";
 import { ProjectBadge, ProjectEmblem } from "./project-identity";
 import "./project-activity.css";
 
 export type SessionPick = { session?: string | null; sha?: string | null };
 const NAME = { claude: "Claude", codex: "Codex", unknown: "Unknown" } as const;
+const DAY = 86_400_000;
 const agentOf = (key: string) => key.startsWith("codex:") ? "codex" : "claude";
 const when = (iso: string) => `${new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" })} ${new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}`;
 const clock = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -71,8 +72,8 @@ export default function SessionPane({ machine, pick, board, library, repoUrls = 
       {view.overlaps.some(o => o.overlap.crossAgent) && <span className="is-collision"><AlertTriangle size={13} /><b>{view.overlaps.filter(o => o.overlap.crossAgent).length}</b>{view.overlaps.filter(o => o.overlap.crossAgent).length === 1 ? "collision" : "collisions"}</span>}
     </div>
 
-    {view.own.length > 0 && board && <section className="sp-section" aria-label="Where and when it worked this week">
-      <h4>This week</h4>
+    {view.own.length > 0 && board && <section className="sp-section" aria-label="Where and when it worked in these days">
+      <h4>{Date.now() - span[1] < DAY ? "This week" : weekLabel(dayKey(span[1]), board.days)}</h4>
       <div className="sp-week">
         <div className="sp-week-row sp-week-days" aria-hidden="true"><span />{<div className="sp-week-track">{days.map(d => <i key={d.getTime()} style={{ left: `${xOf(d.toISOString())}%` }}><small>{d.toLocaleDateString(undefined, { weekday: "short" })}</small></i>)}</div>}</div>
         {view.own.map(({ project, session }) => <div className="sp-week-row" key={project.repo}>

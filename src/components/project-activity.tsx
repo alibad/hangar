@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { AlertTriangle, ArrowUpRight } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
-import { dayView, defaultDay, windowDays, type ActivityCommit, type ActivityData, type ActivityOverlap, type ActivitySession, type Agent } from "@/lib/project-activity";
+import { dayView, defaultDay, stepWeek, untilOf, weekLabel, windowDays, type ActivityCommit, type ActivityData, type ActivityOverlap, type ActivitySession, type Agent } from "@/lib/project-activity";
 import "./project-activity.css";
 import { ProjectEmblem } from "./project-identity";
 
@@ -11,14 +11,27 @@ export const NAMES: Record<Agent, string> = { claude: "Claude", codex: "Codex", 
 const clock = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const commitUrl = (repoUrl: string | undefined, sha: string) => /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/.test(repoUrl || "") && /^[a-f\d]{40}$/i.test(sha) ? `${repoUrl!.replace(/\/$/, "")}/commit/${sha}` : undefined;
 
+/** Which 7 days a view shows: `end` is the last of them, "" for the 7 days up to now. */
+export const DAYS = 7;
+export const weekQuery = (end: string) => `days=${DAYS}${end ? `&until=${untilOf(end)}` : ""}`;
+
+/** Steps to the week before or after; the later arrow stops at the current week. */
+export function WeekPager({ end, onEnd }: { end: string; onEnd: (end: string) => void }) {
+  return <span className="pa-week">
+    <button aria-label="Show the week before" title="Earlier week" onClick={() => onEnd(stepWeek(end, -1))}><ChevronLeft size={14} /></button>
+    <span>{end ? weekLabel(end, DAYS) : `last ${DAYS} days`}</span>
+    <button aria-label="Show the week after" title="Later week" disabled={!end} onClick={() => onEnd(stepWeek(end, 1))}><ChevronRight size={14} /></button>
+  </span>;
+}
+
 /** Who changed this project, day by day: one lane per agent, a bar per session, a dot per commit on main, and a warm
- *  band where two sessions worked on it within two hours. */
-export default function ProjectActivity({ machine, repo, repoUrl }: { machine: string; repo: string; repoUrl?: string }) {
+ *  band where two sessions worked on it within two hours. Opens on `end`'s week and on `day` when given. */
+export default function ProjectActivity({ machine, repo, repoUrl, end: initialEnd = "", day: initialDay = "" }: { machine: string; repo: string; repoUrl?: string; end?: string; day?: string }) {
   const [data, setData] = useState<ActivityData | null>(null), [error, setError] = useState("");
-  const [day, setDay] = useState(""), [picked, setPicked] = useState("");
+  const [end, setEnd] = useState(initialEnd), [day, setDay] = useState(initialDay), [picked, setPicked] = useState("");
   useEffect(() => {
-    const controller = new AbortController(); setData(null); setError(""); setDay(""); setPicked("");
-    fetch(`/api/world/${machine}/proxy/activity?repo=${encodeURIComponent(repo)}&days=7`, { signal: controller.signal, cache: "no-store" })
+    const controller = new AbortController(); setData(null); setError("");
+    fetch(`/api/world/${machine}/proxy/activity?repo=${encodeURIComponent(repo)}&${weekQuery(end)}`, { signal: controller.signal, cache: "no-store" })
       .then(r => {
         // An engine started before this view existed has no such route until it restarts.
         if (r.status === 404) throw new Error("Hangar’s engine on this machine predates this view. Restart Hangar to see who changed what.");
@@ -26,20 +39,22 @@ export default function ProjectActivity({ machine, repo, repoUrl }: { machine: s
       }).then(d => { if (!controller.signal.aborted) setData(d); })
       .catch(e => { if (!controller.signal.aborted) setError(e.message); });
     return () => controller.abort();
-  }, [machine, repo]);
-  const days = useMemo(() => data?.available ? windowDays(data) : [], [data]);
-  const key = day || defaultDay(days);
+  }, [machine, repo, end]);
+  const days = useMemo(() => data?.available ? windowDays(data, Date.parse(data.to)) : [], [data]);
+  const key = days.some(d => d.key === day) ? day : defaultDay(days);
   const view = useMemo(() => data?.available && key ? dayView(data, key) : null, [data, key]);
-  if (error) return <section className="pa"><h3>Who changed what</h3><p className="pa-note">{error}</p></section>;
-  if (!data) return <section className="pa" aria-busy="true"><h3>Who changed what</h3><div className="pa-skeleton" aria-label="Reading commits and sessions" /></section>;
+  const pager = <WeekPager end={end} onEnd={next => { setEnd(next); setDay(""); setPicked(""); }} />;
+  const head = <div className="pa-head"><h3>Who changed what</h3><span>{pager}{data?.available ? ` · ${data.branch}` : ""}</span></div>;
+  if (error) return <section className="pa">{head}<p className="pa-note">{error}</p></section>;
+  if (!data) return <section className="pa" aria-busy="true">{head}<div className="pa-skeleton" aria-label="Reading commits and sessions" /></section>;
   if (!data.available || !view) return null;
   const sessions = new Map(data.sessions.map(s => [s.key, s]));
   const peak = Math.max(1, ...days.map(d => d.claude + d.codex + d.unknown));
   const commit = data.commits.find(c => c.sha === picked);
   const bandsToday = view.bands.map(b => b.overlap);
   const quiet = days.every(d => !d.claude && !d.codex && !d.unknown && !d.sessions);
-  return <section className="pa" aria-label={`Who changed ${data.name} in the last ${data.days} days`}>
-    <div className="pa-head"><h3>Who changed what</h3><span>{data.days} days · {data.branch}</span></div>
+  return <section className="pa" aria-label={`Who changed ${data.name}, ${end ? weekLabel(end, DAYS) : `the last ${data.days} days`}`}>
+    {head}
     <div className="pa-days" role="group" aria-label="Choose a day">
       {days.map(d => { const date = new Date(`${d.key}T12:00:00`); return <button key={d.key} aria-pressed={d.key === key} className={d.crossAgent ? "is-collision" : d.overlap ? "is-overlap" : ""}
         aria-label={`${date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}: ${d.claude} Claude, ${d.codex} Codex${d.unknown ? `, ${d.unknown} unknown` : ""} commits${d.crossAgent ? ", both agents at once" : d.overlap ? ", two sessions at once" : ""}`}
@@ -49,7 +64,7 @@ export default function ProjectActivity({ machine, repo, repoUrl }: { machine: s
         {d.overlap && <AlertTriangle className="pa-day-flag" size={11} aria-hidden="true" />}
       </button>; })}
     </div>
-    {quiet ? <p className="pa-note">No commits on {data.branch} and no agent sessions this week.</p> : <>
+    {quiet ? <p className="pa-note">No commits on {data.branch} and no agent sessions {end ? "that" : "this"} week.</p> : <>
       <div className="pa-plot">
         <div className="pa-bands" aria-hidden="true">
           {view.breaks.map((b, i) => <span key={i} className="pa-fold" style={{ left: `${b.left}%`, width: `${b.width}%` }} />)}

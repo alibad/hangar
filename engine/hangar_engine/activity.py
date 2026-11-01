@@ -211,10 +211,21 @@ BASIS = ("Main-branch Git history joined with Claude Code and Codex session evid
 
 
 def window(days, now):
+    """The `days` before `now`, which is the present unless an earlier week is asked for; never the future."""
     if type(days) is not int or not 1 <= days <= 30:
         raise ValueError("Choose 1 to 30 days.")
-    now = int(time.time() if now is None else now)
+    present = int(time.time())
+    now = present if now is None else min(int(now), present)
     return now - days * 86400, now
+
+
+def ending(value):
+    """A window's end from ?until=, in Unix seconds."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not re.fullmatch(r"\d{9,11}", value):
+        raise ValueError("Give until as a time in Unix seconds.")
+    return int(value)
 
 
 def recent_entries(since):

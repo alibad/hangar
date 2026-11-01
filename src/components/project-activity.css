@@ -1,5 +1,8 @@
 .pa{--pa-claude:#d97757;--pa-codex:#10a37f;--pa-unknown:#8a93a6;--pa-warm:#f2a93b;--pa-label:96px;--pa-gap:10px;--pa-ground:var(--color-gray-950,#0b0d10);margin:24px 0 4px;min-width:0}
 .pa .pa-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px}.pa .pa-head h3,.pa>h3{margin:0}.pa-head span{font-size:10px;color:var(--cw-muted)}
+.pa-week{display:inline-flex;align-items:center;gap:2px;vertical-align:middle;white-space:nowrap}.pa .pa-week span{font-size:inherit;color:inherit}
+.pa-week button{display:inline-grid;place-items:center;width:22px;height:22px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--cw-muted);cursor:pointer}
+.pa-week button:hover:not(:disabled){background:color-mix(in srgb,var(--cw-ink) 10%,transparent);color:var(--cw-ink)}.pa-week button:disabled{opacity:.3;cursor:default}
 .pa-swatch{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}.pa-swatch.is-claude{background:var(--pa-claude)}.pa-swatch.is-codex{background:var(--pa-codex)}.pa-swatch.is-unknown{background:var(--pa-unknown)}
 
 /* The week: a small bar of each agent's commits per day; a warm mark where two sessions met. */

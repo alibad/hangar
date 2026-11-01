@@ -122,8 +122,10 @@ when the two are different agents). The Sessions page opens with the same pictur
 for every project at once: a row per project on one shared clock, a Claude lane
 over a Codex lane, collisions first, and a card for each time Claude and Codex
 worked on the same project within two hours. The Sessions list shows what each
-session committed beside its title. `hangar_activity` gives agents the same answer,
-for one project or, without `repo`, for all of them.
+session committed beside its title. Arrows beside "last 7 days" step to earlier
+weeks (the engine's `until=` ends the window at a given Unix second), and a project
+opened from the board shows the board's week and day. `hangar_activity` gives
+agents the same answer, for one project or, without `repo`, for all of them.
 
 A commit is tied to a session by evidence, strongest first: the session printed
 git's own `[main 1a2b3c4]` line for it; it printed the hash within five minutes

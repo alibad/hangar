@@ -25,6 +25,27 @@ const dayStart = (key: string) => new Date(`${key}T00:00:00`).getTime();
 // Local midnight to local midnight, so a daylight-saving day is 23 or 25 hours.
 const dayEnd = (key: string) => { const d = new Date(`${key}T00:00:00`); d.setDate(d.getDate() + 1); return d.getTime(); };
 
+/** An earlier week is named by its last day; its window ends at that day's last second, in Unix seconds. */
+export function untilOf(end: string) {
+  return Math.floor((dayEnd(end) - 1000) / 1000);
+}
+
+/** The last day of the week `by` weeks from the one ending on `end` ("" is the week ending today, and stays so). */
+export function stepWeek(end: string, by: number, now = Date.now()) {
+  const d = new Date(`${end || dayKey(now)}T12:00:00`);
+  d.setDate(d.getDate() + by * 7);
+  const key = dayKey(d.getTime());
+  return key >= dayKey(now) ? "" : key;
+}
+
+/** "20 Oct – 26 Oct" for the `days` ending on `end`. */
+export function weekLabel(end: string, days: number) {
+  const last = new Date(`${end}T12:00:00`), first = new Date(last);
+  first.setDate(first.getDate() - days + 1);
+  const short = (d: Date) => d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return `${short(first)} – ${short(last)}`;
+}
+
 export type DaySummary = { key: string; claude: number; codex: number; unknown: number; sessions: number; overlap: boolean; crossAgent: boolean };
 
 /** One entry per day of the window, oldest first, ending today. */

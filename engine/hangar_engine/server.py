@@ -120,10 +120,11 @@ def make_handler(state, port):
                 query = parse_qs(url.query)
                 try:
                     days = int((query.get("days") or ["7"])[0])
+                    until = activity.ending((query.get("until") or [None])[0])
                     doc = state.doc or state.load()
                     if path == "/api/activity/all":
-                        return self._send(200, activity.board(doc, scanner.overlay(), days))
-                    return self._send(200, activity.activity(doc, scanner.overlay(), (query.get("repo") or [""])[0], days))
+                        return self._send(200, activity.board(doc, scanner.overlay(), days, until))
+                    return self._send(200, activity.activity(doc, scanner.overlay(), (query.get("repo") or [""])[0], days, until))
                 except ValueError as error:
                     return self._send(400, {"error": str(error)})
             if path == "/api/work":

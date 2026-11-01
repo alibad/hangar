@@ -1,4 +1,5 @@
 """Exercise a clean Hangar engine with synthetic data; no other checkout is used."""
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -399,6 +400,16 @@ class IndependentEngine(unittest.TestCase):
         self.assertIn(result["branch"], ("main", "master"))
         self.assertEqual(result["commits"], [])  # the sample's commits are from 2025
         self.assertEqual(result["overlaps"], [])
+        week = self.read(f"/api/activity?repo={rid}&days=7&until=1739318399")  # an earlier week, ending 11 Feb 2025
+        self.assertEqual([c["subject"] for c in week["commits"]], ["fix: correct core value"])
+        self.assertEqual((week["from"], week["to"]), ("2025-02-04T23:59:59+00:00", "2025-02-11T23:59:59+00:00"))
+        self.assertEqual(len(self.read("/api/activity/all?days=7&until=1739318399")["projects"]), 1)
+        later = self.read(f"/api/activity?repo={rid}&days=7&until=99999999999")  # never past the present
+        self.assertLessEqual(datetime.fromisoformat(later["to"]).timestamp(), time.time() + 1)
+        for bad in ("yesterday", "-5", "1739318399.5"):
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.read(f"/api/activity?repo={rid}&days=7&until={bad}")
+            self.assertEqual(error.exception.code, 400)
         with self.assertRaises(urllib.error.HTTPError) as error:
             self.read(f"/api/activity?repo={rid}&days=90")
         self.assertEqual(error.exception.code, 400)

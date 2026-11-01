@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 process.env.TZ = "Asia/Qatar"; // the owner's clock; the layout is in local time
-const { boardDay, boardTotals, dayKey, dayView, defaultDay, windowDays } = await import("../src/lib/project-activity.ts");
+const { boardDay, boardTotals, dayKey, dayView, defaultDay, stepWeek, untilOf, weekLabel, windowDays } = await import("../src/lib/project-activity.ts");
 
 // RTSAI-Mod on 26 Oct 2026, as the engine joined it (UTC). Doha is UTC+3.
 const utc = (hm, day = 26) => `2026-10-${day}T${hm}+00:00`;
@@ -86,4 +86,19 @@ test("the all-projects board puts every active project on one clock, collisions 
   const totals = windowDays(boardTotals(board), NOW);
   assert.deepEqual([totals[0].claude, totals[0].codex, totals[1].codex], [4, 4, 1]);
   assert.equal(defaultDay(totals), "2026-10-26");
+});
+
+test("earlier weeks step back from today and their window ends on the last second of the last day", () => {
+  // On 15 Nov, 26 Oct is two weeks back: the week of 26 Oct to 1 Nov.
+  const nov15 = Date.parse("2026-11-15T09:00:00Z");
+  const back = stepWeek(stepWeek("", -1, nov15), -1, nov15);
+  assert.equal(back, "2026-11-01");
+  assert.equal(stepWeek(back, 1, nov15), "2026-11-08");
+  assert.equal(stepWeek("2026-11-08", 1, nov15), "");  // reaching today is the current week again
+  assert.equal(stepWeek("", 1, nov15), "");
+  assert.equal(new Date(untilOf("2026-11-01") * 1000).toISOString(), "2026-11-01T20:59:59.000Z");  // 23:59:59 in Doha
+  assert.match(weekLabel("2026-11-01", 7), /^(26 Oct – 1 Nov|Oct 26 – Nov 1)$/);  // in the reader's locale
+  // The engine's window for that week lays out the same seven days, 26 Oct first, still opening on the collision.
+  const days = windowDays({ ...DATA, to: new Date(untilOf("2026-11-01") * 1000).toISOString() }, untilOf("2026-11-01") * 1000);
+  assert.deepEqual([days[0].key, days.at(-1).key, defaultDay(days)], ["2026-10-26", "2026-11-01", "2026-10-26"]);
 });
