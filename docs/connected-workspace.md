@@ -128,7 +128,8 @@ opened from the board shows the board's week and day. `hangar_activity` gives
 agents the same answer, for one project or, without `repo`, for all of them.
 
 A commit is tied to a session by evidence, strongest first: the session printed
-git's own `[main 1a2b3c4]` line for it; it printed the hash within five minutes
+git's own `[main 1a2b3c4]` line for it within half an hour (the same line read days
+later, in a log or a test file, is history); it printed the hash within five minutes
 after the commit (a quiet `git commit -q`, then `git log`); the hash was among the
 newest three lines of a longer `git log` it printed within two minutes after; its
 `git push` moved the branch to the commit within five minutes after (the only trace

@@ -181,10 +181,11 @@ class WhoChangedWhat(unittest.TestCase):
         maker = {"provider": "claude", "id": "c1", "edits": {}, "commits": {
             "cdfe21e": [self.T + 1, si.LISTED, ""], "16a872b": [self.T + 13, si.PUSHED, ""],
             "45c250f": [self.T + 200, si.LISTED, ""], "aaaa111": [self.T + 1, si.LISTED, ""]}}
-        viewer = {"provider": "codex", "id": "x1", "edits": {}, "commits": {"cdfe21e": [self.T + 30, si.SEEN, ""]}}
+        viewer = {"provider": "codex", "id": "x1", "edits": {}, "commits": {"cdfe21e": [self.T + 30, si.SEEN, ""], "16a872b": [self.T + 6 * 86400, si.MADE, "Merge"]}}
         commits = [{"sha": sha + "0" * 33, "at": self.T, "files": [], "trailer": None} for sha in ("cdfe21e", "16a872b", "45c250f", "aaaa111")]
         claims = activity.attribute(commits, [maker, viewer], ["c:/work/game"])
         self.assertEqual(claims[commits[0]["sha"]]["session"], "codex:x1")  # a short reply outranks a longer log
+        # Git's own commit line read six days later (a log, a test file) is history: the push still names the maker.
         self.assertEqual(claims[commits[1]["sha"]], {"session": "claude:c1", "evidence": "pushed", "why": "pushed this commit 13 s after it was made"})
         self.assertNotIn(commits[2]["sha"], claims)  # a longer log 200 s later is looking at history
         self.assertEqual(claims[commits[3]["sha"]], {"session": "claude:c1", "evidence": "listed", "why": "listed this commit in a git log 1 s after it was made"})

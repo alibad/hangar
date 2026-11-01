@@ -2,7 +2,8 @@
 
 Each main-branch commit in the window is joined to the Claude Code or Codex session that most likely made it. The
 evidence, strongest first:
-  printed  the session's output carries git's own confirmation line for the commit ("[main 1a2b3c4] …");
+  printed  the session's output carries git's own confirmation line for the commit ("[main 1a2b3c4] …") within half
+           an hour after it (a line read days later, in a log or a test file, is history);
   seen     the session printed the hash within five minutes after the commit (a quiet commit, then git log);
   listed   the hash was among the newest lines of a longer git log the session printed within two minutes after;
   pushed   the session's git push moved the branch to the commit within five minutes after (a merge prints no hash);
@@ -24,6 +25,7 @@ from . import codex_library, local, session_index
 HOUR = 3600
 SEEN_AFTER = 300           # a quiet commit's hash printed or pushed by the same session this soon after
 LISTED_AFTER = 120         # a longer log is weaker: only this soon after does it point at the commit just made
+PRINTED_AFTER = 1800       # git prints its commit line as it commits; a hook or a chained push can hold the output back
 SKEW = 60                  # clocks and commit timestamps disagree by seconds, not minutes
 EDITS_BEFORE = 3 * HOUR    # how long before a commit an edit to its files still counts
 SPAN_GAP = HOUR            # work in one project closer than this is one stretch
@@ -122,7 +124,7 @@ def attribute(commits, entries, prefixes):
             if not sha.startswith(printed):
                 continue
             delay = seen_at - at
-            if kind == session_index.MADE:
+            if kind == session_index.MADE and -SKEW <= delay <= PRINTED_AFTER:
                 rank, evidence, why = (3, -abs(delay)), "printed", "printed git's own line for this commit"
             elif kind == session_index.SEEN and -SKEW <= delay <= SEEN_AFTER:
                 rank, evidence, why = (2, 2, -delay), "seen", f"printed this commit's hash {max(0, delay)} s after it was made"
