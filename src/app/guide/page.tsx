@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Script from "next/script";
 import type { Metadata } from "next";
 import { PUBLIC_SITE_URL, PUBLIC_SITE_TITLE, PUBLIC_SITE_DESCRIPTION } from "@/lib/public-site";
 import HostedOnboarding from "@/components/hosted-onboarding";
@@ -27,6 +28,13 @@ export default function GuidePage() {
         <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify({"@context":"https://schema.org","@type":"SoftwareApplication",name:"Hangar Console",url:PUBLIC_SITE_URL,description:PUBLIC_SITE_DESCRIPTION,applicationCategory:"DeveloperApplication",operatingSystem:"macOS, Windows, Linux",codeRepository:"https://github.com/alibad/hangar",publisher:{"@type":"Organization",name:"Human Quest",url:"https://www.humanquest.net/"}}).replace(/</g,"\\u003c")}}/>
         <HostedOnboarding />
       </main>
+      {/* The shared Human Quest band: back to humanquest.net and on to the other quests. */}
+      <div className="mx-auto max-w-[1500px] px-4 pb-8 sm:px-6">
+        <hq-footer current="hangar" theme="dark">
+          <a href="https://www.humanquest.net/?ref=hangar">A Human Quest AI pattern · humanquest.net</a>
+        </hq-footer>
+        <Script src="https://www.humanquest.net/embed/hq-footer.js" strategy="afterInteractive" />
+      </div>
       <footer className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-4 border-t border-gray-800 px-4 py-8 text-xs text-gray-400 sm:px-6">
         <p>A <a href="https://www.humanquest.net/" className="text-gray-200 underline underline-offset-4">Human Quest</a> project.</p>
         <a href="https://www.humanquest.net/ai-patterns" className="underline underline-offset-4">Explore AI Patterns ↗</a>

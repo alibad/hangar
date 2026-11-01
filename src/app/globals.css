@@ -1740,3 +1740,15 @@ html:root:not(.dark) .console-shell .models-page tbody tr:hover {
 
 
 
+
+/* Shared Human Quest footer band (https://www.humanquest.net/embed/hq-footer.js), in the public guide's dark grays and orange. */
+hq-footer {
+  display: block;
+  --hq-bg: #111827;
+  --hq-surface: #1f2937;
+  --hq-ink: #f3f4f6;
+  --hq-muted: #9ca3af;
+  --hq-border: #1f2937;
+  --hq-accent: #f97316;
+}
+hq-footer:not(:defined) { min-height: 150px; }
