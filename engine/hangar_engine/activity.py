@@ -4,6 +4,8 @@ Each main-branch commit in the window is joined to the Claude Code or Codex sess
 evidence, strongest first:
   printed  the session's output carries git's own confirmation line for the commit ("[main 1a2b3c4] …");
   seen     the session printed the hash within five minutes after the commit (a quiet commit, then git log);
+  listed   the hash was among the newest lines of a longer git log the session printed within two minutes after;
+  pushed   the session's git push moved the branch to the commit within five minutes after (a merge prints no hash);
   files    the session edited the commit's files in the three hours before it.
 The agent is that session's agent. With no session, a Co-Authored-By: Claude trailer still says Claude; anything else is
 unknown. Two sessions with work in the project within two hours of each other overlap. Nothing here reads a transcript:
@@ -20,7 +22,8 @@ from pathlib import Path
 from . import codex_library, local, session_index
 
 HOUR = 3600
-SEEN_AFTER = 300           # a quiet commit's hash printed by the same session this soon after
+SEEN_AFTER = 300           # a quiet commit's hash printed or pushed by the same session this soon after
+LISTED_AFTER = 120         # a longer log is weaker: only this soon after does it point at the commit just made
 SKEW = 60                  # clocks and commit timestamps disagree by seconds, not minutes
 EDITS_BEFORE = 3 * HOUR    # how long before a commit an edit to its files still counts
 SPAN_GAP = HOUR            # work in one project closer than this is one stretch
@@ -115,19 +118,22 @@ def attribute(commits, entries, prefixes):
     for commit in commits:
         sha, at = commit["sha"], commit["at"]
         best = None
-        for entry, printed, (seen_at, made, _subject) in hashes.get(sha[:7], []):
+        for entry, printed, (seen_at, kind, _subject) in hashes.get(sha[:7], []):
             if not sha.startswith(printed):
                 continue
-            if made:
-                rank = (3, -abs(seen_at - at))
-                why = "printed git's own line for this commit"
-            elif -SKEW <= seen_at - at <= SEEN_AFTER:
-                rank = (2, -(seen_at - at))
-                why = f"printed this commit's hash {max(0, seen_at - at)} s after it was made"
+            delay = seen_at - at
+            if kind == session_index.MADE:
+                rank, evidence, why = (3, -abs(delay)), "printed", "printed git's own line for this commit"
+            elif kind == session_index.SEEN and -SKEW <= delay <= SEEN_AFTER:
+                rank, evidence, why = (2, 2, -delay), "seen", f"printed this commit's hash {max(0, delay)} s after it was made"
+            elif kind == session_index.LISTED and -SKEW <= delay <= LISTED_AFTER:
+                rank, evidence, why = (2, 1, -delay), "listed", f"listed this commit in a git log {max(0, delay)} s after it was made"
+            elif kind == session_index.PUSHED and -SKEW <= delay <= SEEN_AFTER:
+                rank, evidence, why = (2, 0, -delay), "pushed", f"pushed this commit {max(0, delay)} s after it was made"
             else:
                 continue
             if best is None or rank > best[0]:
-                best = (rank, entry, "printed" if made else "seen", why)
+                best = (rank, entry, evidence, why)
         if best is None and commit["files"]:
             wanted = set(commit["files"])
             for entry, edits in edited:
@@ -205,7 +211,7 @@ def folders_of(repo, overlay):
 
 
 BASIS = ("Main-branch Git history joined with Claude Code and Codex session evidence on this machine: git's own "
-         "commit line or a hash printed just after the commit, else edits to the commit's files in the 3 hours "
+         "commit line or a hash printed, listed or pushed just after the commit, else edits to the commit's files in the 3 hours "
          "before it. A Claude session's helper agents count as the session. Edits made through shell commands are "
          "invisible to the index.")
 

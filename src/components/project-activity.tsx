@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { AlertTriangle, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
-import { dayView, defaultDay, stepWeek, untilOf, weekLabel, windowDays, type ActivityCommit, type ActivityData, type ActivityOverlap, type ActivitySession, type Agent } from "@/lib/project-activity";
+import { dayView, defaultDay, hashEvidence, stepWeek, untilOf, weekLabel, windowDays, type ActivityCommit, type ActivityData, type ActivityOverlap, type ActivitySession, type Agent } from "@/lib/project-activity";
 import "./project-activity.css";
 import { ProjectEmblem } from "./project-identity";
 
@@ -98,7 +98,7 @@ function Row({ row, name, picked, onPick }: { row: ReturnType<typeof dayView>["l
     <div className={`pa-row-label ${row.session ? "" : "is-orphan"}`} title={name}>{name}</div>
     <div className="pa-track">
       {row.bars.map((b, i) => <span key={i} className={`pa-bar is-${row.agent}`} style={{ left: `${b.left}%`, width: `${b.width}%` }} />)}
-      {row.commits.map(({ commit, left }) => <button key={commit.sha} className={`pa-dot is-${row.agent} ${commit.evidence === "printed" || commit.evidence === "seen" ? "" : "is-likely"}`}
+      {row.commits.map(({ commit, left }) => <button key={commit.sha} className={`pa-dot is-${row.agent} ${hashEvidence(commit.evidence) ? "" : "is-likely"}`}
         style={{ left: `${left}%` }} aria-pressed={picked === commit.sha} title={`${clock(commit.at)} ${commit.short} ${commit.subject}`}
         aria-label={`${clock(commit.at)}, ${row.agent === "unknown" ? "unknown agent" : row.agent} commit ${commit.short}: ${commit.subject}`}
         onClick={() => onPick(picked === commit.sha ? "" : commit.sha)} />)}

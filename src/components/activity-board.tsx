@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
-import { boardDay, boardTotals, defaultDay, windowDays, type ActivitySession, type BoardData } from "@/lib/project-activity";
+import { boardDay, boardTotals, defaultDay, hashEvidence, windowDays, type ActivitySession, type BoardData } from "@/lib/project-activity";
 import { NAMES, OverlapCard, WeekPager, weekQuery } from "./project-activity";
 import type { SessionPick } from "./session-pane";
 import { ProjectEmblem } from "./project-identity";
@@ -82,7 +82,7 @@ export default function ActivityBoard({ machine, onOpenProject, picked, onPick, 
             {row.lanes.map(lane => <div className={`ab-lane is-${lane.agent}`} key={lane.agent} aria-label={`${NAMES[lane.agent]} in ${row.project.name}`}>
               {lane.bars.map((b, i) => <button key={i} className={`pa-bar is-${lane.agent} is-pickable ${picked?.session === b.session && !picked?.sha ? "is-picked" : ""}`} style={{ left: `${b.left}%`, width: `${b.width}%` }}
                 title={sessions.get(b.session)?.title || `${NAMES[lane.agent]} session`} aria-label={`Open the ${NAMES[lane.agent]} session ${sessions.get(b.session)?.title || ""} in ${row.project.name}`} onClick={() => onPick?.({ session: b.session })} />)}
-              {lane.commits.map(({ commit, left }) => <button key={commit.sha} className={`pa-dot is-${lane.agent} ${commit.evidence === "printed" || commit.evidence === "seen" ? "" : "is-likely"}`}
+              {lane.commits.map(({ commit, left }) => <button key={commit.sha} className={`pa-dot is-${lane.agent} ${hashEvidence(commit.evidence) ? "" : "is-likely"}`}
                 style={{ left: `${left}%` }} aria-pressed={picked?.sha === commit.sha} title={`${row.project.name} · ${commit.short} ${commit.subject}`}
                 aria-label={`${row.project.name}, ${NAMES[lane.agent]} commit ${commit.short}: ${commit.subject}`}
                 onClick={() => onPick?.({ session: commit.session, sha: commit.sha })} />)}

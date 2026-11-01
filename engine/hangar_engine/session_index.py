@@ -3,7 +3,8 @@
 An edit tool followed by a successful result is evidence; a working directory is
 only a fallback. Activity timestamps do not prove that an agent is still running.
 Commit hashes are the one thing kept from command output: git's own "[main 1a2b3c4]"
-line, or a short reply that starts with a hash, with the time it was printed.
+line, a short reply that starts with a hash, the newest lines of a longer log, or the
+commit a push moved the branch to, with the time it was printed.
 A Claude session's helper agents keep their own transcripts beside it; what they edit
 and commit counts as the session's work.
 """
@@ -23,7 +24,9 @@ MAX_HELPERS = 4000
 MAX_LINE = 4 * 1024 * 1024
 MAX_EDIT_TIMES = 12
 MAX_HASHES = 600
-VERSION = 4
+VERSION = 5
+# What a printed hash says about the session, strongest first. Each sighting is kept as [time, kind, subject].
+MADE, SEEN, LISTED, PUSHED = 1, 0, -1, -2
 _lock = threading.Lock()
 _checked = 0.0
 _cache = None
@@ -31,6 +34,8 @@ _view = None
 # git commit, cherry-pick and amend confirm with "[branch 1a2b3c4] subject"; git log --oneline starts a line with one.
 COMMIT_LINE = re.compile(r"\[[^\]\n\\]{1,80}? (?:\(root-commit\) )?([0-9a-f]{7,40})\] ([^\n\\]{0,160})")
 HASH_LINE = re.compile(r"(?:^|\n|\\n)([0-9a-f]{7,40}) (?=\S)")
+# git push reports "   0d58754..45c250f  main -> main"; a fetch reports the same shape ending in "-> origin/main".
+PUSH_LINE = re.compile(r"(?:^|\n|\\n)[ \t]*\+?[ \t]*[0-9a-f]{7,40}\.\.\.?([0-9a-f]{7,40})[ \t]+(\S+) -> (\S+)")
 
 
 def norm(path):
@@ -61,22 +66,31 @@ def note_edits(state, paths, at):
             del times[:-MAX_EDIT_TIMES]
 
 
+def counts_over(value, old):
+    """Making a commit outranks seeing it; otherwise the first sighting counts."""
+    made, was_made = value[1] == MADE, old is not None and old[1] == MADE
+    return old is None or made > was_made or (made == was_made and value[0] < old[0])
+
+
 def note_hashes(state, text, at):
     """Commit hashes in a tool's output. A confirmation line means the session made that commit; a reply of at most
-    three lines that start with a hash means it looked at those commits then. Long logs are not evidence."""
+    three lines that start with a hash means it looked at those commits then; a longer log lists its newest three; a
+    push names the commit it moved the branch to."""
     if at is None or not isinstance(text, str) or len(text) > 400_000:
         return
     found = {}
     for sha, subject in COMMIT_LINE.findall(text):
-        found[sha] = [at, 1, subject.strip()[:160]]
+        found[sha] = [at, MADE, subject.strip()[:160]]
     if not found:
         seen = [sha for sha in HASH_LINE.findall(text) if any(c.isdigit() for c in sha)]
-        if 0 < len(seen) <= 3:
-            found = {sha: [at, 0, ""] for sha in seen}
+        kind = SEEN if len(seen) <= 3 else LISTED
+        found = {sha: [at, kind, ""] for sha in seen[:3]}
+    for sha, source, target in PUSH_LINE.findall(text):
+        if source in (target, "HEAD"):  # a fetch moves origin/main, not main
+            found.setdefault(sha, [at, PUSHED, ""])
     commits = state["commits"]
     for sha, value in found.items():
-        old = commits.get(sha)
-        if old is None or (value[1] and not old[1]):
+        if counts_over(value, commits.get(sha)):
             commits[sha] = value
     if len(commits) > MAX_HASHES:
         for sha in sorted(commits, key=lambda k: (commits[k][1], commits[k][0]))[:len(commits) - MAX_HASHES]:
@@ -254,9 +268,7 @@ def fold(entry, helpers):
         for path, times in helper["edits"].items():
             merged["edits"][path] = sorted(set(merged["edits"].get(path, [])) | set(times))[-MAX_EDIT_TIMES:]
         for sha, value in helper["commits"].items():
-            old = merged["commits"].get(sha)
-            # Making a commit outranks seeing it; otherwise the first sighting counts.
-            if old is None or value[1] > old[1] or (value[1] == old[1] and value[0] < old[0]):
+            if counts_over(value, merged["commits"].get(sha)):
                 merged["commits"][sha] = value
         if (stamp(helper.get("lastEvent") or "") or 0) > (stamp(merged.get("lastEvent") or "") or 0):
             merged["lastEvent"] = helper["lastEvent"]

@@ -131,9 +131,14 @@ class WhoChangedWhat(unittest.TestCase):
             {"type": "user", "timestamp": self.at(-50), "message": {"content": [{"type": "tool_result", "tool_use_id": "e1", "content": "ok"}]}},
             {"type": "user", "timestamp": self.at(1), "message": {"content": [{"type": "tool_result", "tool_use_id": "b1", "content": "0/0\n1bde6ba Revert the depth change"}]}},
             {"type": "user", "timestamp": self.at(2), "message": {"content": [{"type": "tool_result", "tool_use_id": "b2", "content": "\n".join(f"{i}abcdef{i} subject" for i in range(5))}]}},
+            {"type": "user", "timestamp": self.at(3), "message": {"content": [{"type": "tool_result", "tool_use_id": "b3", "content": "To https://github.com/a/b.git\n   1bde6ba..6a5bbff  main -> main"}]}},
+            {"type": "user", "timestamp": self.at(4), "message": {"content": [{"type": "tool_result", "tool_use_id": "b4", "content": "From https://github.com/a/b\n   6a5bbff..f8c728b  main       -> origin/main"}]}},
         ])
         self.assertEqual(claude["origin"], "claude-desktop")
-        self.assertEqual(claude["commits"], {"1bde6ba": [self.T + 1, 0, ""]})  # a five-line log is not evidence
+        self.assertEqual(claude["commits"]["1bde6ba"], [self.T + 1, 0, ""])
+        # A five-line log lists only its newest three; a push names the commit it moved main to; a fetch is not a push.
+        self.assertEqual({sha: v[1] for sha, v in claude["commits"].items() if sha != "1bde6ba"},
+                         {"0abcdef0": -1, "1abcdef1": -1, "2abcdef2": -1, "6a5bbff": -2})
         self.assertEqual([p.rsplit("/", 1)[-1] for p in claude["edits"]], ["a.yaml"])
         self.assertEqual(len(next(iter(claude["edits"].values()))), 1)
         codex = self.session("codex", "x1", [
@@ -170,6 +175,22 @@ class WhoChangedWhat(unittest.TestCase):
         self.assertTrue(bands[0]["crossAgent"])
         self.assertEqual(bands[0]["sharedFiles"], ["a"])
         self.assertEqual(activity.spans([10, 20, 20 + 3601]), [[10, 20], [3621, 3621]])
+
+    def test_a_longer_log_or_a_push_counts_only_just_after_the_commit(self):
+        from hangar_engine import activity, session_index as si
+        maker = {"provider": "claude", "id": "c1", "edits": {}, "commits": {
+            "cdfe21e": [self.T + 1, si.LISTED, ""], "16a872b": [self.T + 13, si.PUSHED, ""],
+            "45c250f": [self.T + 200, si.LISTED, ""], "aaaa111": [self.T + 1, si.LISTED, ""]}}
+        viewer = {"provider": "codex", "id": "x1", "edits": {}, "commits": {"cdfe21e": [self.T + 30, si.SEEN, ""]}}
+        commits = [{"sha": sha + "0" * 33, "at": self.T, "files": [], "trailer": None} for sha in ("cdfe21e", "16a872b", "45c250f", "aaaa111")]
+        claims = activity.attribute(commits, [maker, viewer], ["c:/work/game"])
+        self.assertEqual(claims[commits[0]["sha"]]["session"], "codex:x1")  # a short reply outranks a longer log
+        self.assertEqual(claims[commits[1]["sha"]], {"session": "claude:c1", "evidence": "pushed", "why": "pushed this commit 13 s after it was made"})
+        self.assertNotIn(commits[2]["sha"], claims)  # a longer log 200 s later is looking at history
+        self.assertEqual(claims[commits[3]["sha"]], {"session": "claude:c1", "evidence": "listed", "why": "listed this commit in a git log 1 s after it was made"})
+        # Folding helper agents keeps the first sighting, unless a later one shows the commit was made there.
+        self.assertFalse(si.counts_over([self.T + 5, si.SEEN, ""], [self.T + 1, si.LISTED, ""]))
+        self.assertTrue(si.counts_over([self.T + 9, si.MADE, "x"], [self.T + 1, si.LISTED, ""]))
 
     def test_helper_agents_work_counts_for_the_session_that_started_them(self):
         from unittest import mock

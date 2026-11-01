@@ -2,8 +2,10 @@
 export type Agent = "claude" | "codex" | "unknown";
 export type ActivityCommit = {
   sha: string; short: string; at: string; subject: string; files: string[]; fileCount: number; agent: Agent;
-  trailer: string | null; session: string | null; evidence: "printed" | "seen" | "files" | "trailer" | null; why: string;
+  trailer: string | null; session: string | null; evidence: "printed" | "seen" | "listed" | "pushed" | "files" | "trailer" | null; why: string;
 };
+/** The session printed this very commit's hash; file edits and trailers only make it likely. */
+export const hashEvidence = (evidence: ActivityCommit["evidence"]) => evidence === "printed" || evidence === "seen" || evidence === "listed" || evidence === "pushed";
 export type ActivitySession = { key: string; provider: "claude" | "codex"; id: string; title: string; commits: string[]; edits: number; spans: { from: string; to: string }[]; files: string[] };
 export type ActivityOverlap = { from: string; to: string; sessions: string[]; agents: string[]; crossAgent: boolean; sharedFiles: string[] };
 export type ProjectActivity = { repo: string; name: string; branch: string; commits: ActivityCommit[]; sessions: ActivitySession[]; overlaps: ActivityOverlap[]; truncated: boolean };

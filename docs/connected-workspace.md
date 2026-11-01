@@ -129,8 +129,10 @@ agents the same answer, for one project or, without `repo`, for all of them.
 
 A commit is tied to a session by evidence, strongest first: the session printed
 git's own `[main 1a2b3c4]` line for it; it printed the hash within five minutes
-after the commit (a quiet `git commit -q`, then `git log`); or it edited the
-commit's files in the three hours before. A `Co-Authored-By: Claude` trailer rules
+after the commit (a quiet `git commit -q`, then `git log`); the hash was among the
+newest three lines of a longer `git log` it printed within two minutes after; its
+`git push` moved the branch to the commit within five minutes after (the only trace
+a merge leaves); or it edited the commit's files in the three hours before. A `Co-Authored-By: Claude` trailer rules
 out Codex sessions for the last rule and still says Claude when no session is
 found. The session index keeps only commit hashes and edit times from transcripts,
 never message text. A Claude session's helper agents (its subagents and workflow
