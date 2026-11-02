@@ -556,6 +556,8 @@ export type LibraryItem = {
 export type LibraryFilter = {
   shelf?: string; project?: string; group?: string; studio?: string; kind?: string; faction?: string; status?: string;
   q?: string; from?: number; to?: number;
+  /** Only files inside this folder (Storage's "Open in Library"). */
+  dir?: string;
 };
 
 const ITEM_COLUMNS = `id, kind, name, shelf, project, grp, studio, faction, status, mtime, size, prompt, model, poster, count`;
@@ -589,6 +591,12 @@ function where(f: LibraryFilter): { sql: string; params: unknown[] } {
   eq("kind", f.kind);
   eq("faction", f.faction);
   eq("status", f.status);
+  if (f.dir) {
+    // Windows paths match whatever their case.
+    const dir = path.resolve(f.dir).replace(/[\\/]+$/, "").toLowerCase();
+    clauses.push("(lower(path) = ? OR starts_with(lower(path), ?))");
+    params.push(dir, dir + path.sep);
+  }
   if (f.from) {
     clauses.push("mtime >= ?");
     params.push(f.from);

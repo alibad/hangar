@@ -12,6 +12,7 @@ import {
   File,
   Folder,
   HardDrive,
+  Images,
   LoaderCircle,
   MoveRight,
   Play,
@@ -23,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { ToolPageHeader } from "@/components/tool-page";
+import { openLibrary } from "@/lib/library-nav";
 
 type Drive = {
   root: string;
@@ -204,6 +206,13 @@ export default function StorageManager() {
   const [mode, setMode] = useState<"overview" | "explorer" | "changes" | "duplicates">("overview");
   const [currentPath, setCurrentPath] = useState<string>("");
   const [currentParent, setCurrentParent] = useState<string | null>(null);
+  // The folders the Library reads: a folder inside one opens there, as posters.
+  const [libraryRoots, setLibraryRoots] = useState<string[]>([]);
+  useEffect(() => {
+    fetch("/api/library?view=roots").then((r) => (r.ok ? r.json() : null)).then((d) => setLibraryRoots((d?.roots ?? []).map((r: { path: string }) => r.path))).catch(() => {});
+  }, []);
+  const norm = (p: string) => p.replace(/[\\/]+$/, "").replace(/\//g, "\\").toLowerCase();
+  const inLibrary = !!currentPath && !currentPath.startsWith("Search:") && libraryRoots.some((root) => norm(currentPath) === norm(root) || norm(currentPath).startsWith(norm(root) + "\\"));
   const [items, setItems] = useState<IndexedItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -469,6 +478,7 @@ export default function StorageManager() {
           <div className="storage-explorer-toolbar">
             <button type="button" className="storage-icon-button" disabled={!currentPath && !active?.scannedAt} onClick={goBackFromExplorer} aria-label={currentParent ? "Open parent folder" : "Back to space map"}><ArrowLeft /></button>
             <div className="storage-path"><HardDrive /><span>{currentPath || activeDrive || "Choose a drive"}</span></div>
+            {inLibrary && <button type="button" className="storage-button" onClick={() => openLibrary({ dir: currentPath })} title="See this folder's pictures, clips and sounds in the Library"><Images className="h-3.5 w-3.5" /> Open in Library</button>}
             <form onSubmit={(event) => { event.preventDefault(); void search(); }} className="storage-search"><Search /><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search cached names…" aria-label="Search indexed files and folders" /><button type="submit" disabled={searching || searchQuery.trim().length < 2}>{searching ? <LoaderCircle className="animate-spin" /> : "Search"}</button></form>
           </div>
           <div className="storage-explorer-grid">

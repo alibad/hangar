@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isHostedRuntime } from "@/lib/runtime";
-import { countMedia, facetCounts, getMedia, librarySummary, listMedia, projectMedia, scanIfStale, scanStudios, startScan, type LibraryFilter } from "@/lib/library";
+import { countMedia, facetCounts, getMedia, libraryConfig, librarySummary, listMedia, projectMedia, scanIfStale, scanStudios, startScan, type LibraryFilter } from "@/lib/library";
 import { revealInExplorer } from "@/lib/reveal-in-explorer";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ function filterFrom(params: URLSearchParams): LibraryFilter {
   const num = (key: string) => (params.get(key) ? Number(params.get(key)) || undefined : undefined);
   return {
     shelf: pick("shelf"), project: pick("project"), group: pick("group"), studio: pick("studio"), kind: pick("kind"),
-    faction: pick("faction"), status: pick("status"), q: pick("q"), from: num("from"), to: num("to"),
+    faction: pick("faction"), status: pick("status"), q: pick("q"), from: num("from"), to: num("to"), dir: pick("dir"),
   };
 }
 
@@ -22,6 +22,7 @@ function filterFrom(params: URLSearchParams): LibraryFilter {
  * GET ?view=list&<filters>     one page of the wall (cursor, limit)
  * GET ?view=item&id=           everything known about one file
  * GET ?view=project&repo=      a World project's newest posters
+ * GET ?view=roots               the folders the Library reads, and their shelves
  */
 export async function GET(request: NextRequest) {
   const refused = local();
@@ -36,6 +37,9 @@ export async function GET(request: NextRequest) {
     if (view === "item") {
       const item = await getMedia(params.get("id") ?? "");
       return item ? NextResponse.json(item) : NextResponse.json({ error: "Not in the Library" }, { status: 404 });
+    }
+    if (view === "roots") {
+      return NextResponse.json({ roots: libraryConfig().roots.map((r) => ({ path: r.path, shelf: r.shelf })) });
     }
     if (view === "project") {
       return NextResponse.json(await projectMedia(params.get("repo") ?? "", Number(params.get("limit")) || 8));

@@ -9,6 +9,8 @@
 
 export type LibraryNav = {
   shelf?: string; project?: string; group?: string; studio?: string; kind?: string; faction?: string; status?: string; q?: string;
+  /** A folder: only what is inside it. */
+  dir?: string;
 };
 
 const EVENT = "hangar:library-nav";

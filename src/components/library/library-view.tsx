@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { ArrowUpRight, CalendarDays, Database, Film, Image as ImageIcon, Layers, LoaderCircle, Pause, Play, RefreshCw, Search, Sparkles, X, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Database, Film, FolderOpen, Image as ImageIcon, Layers, LoaderCircle, Pause, Play, RefreshCw, Search, Sparkles, X, type LucideIcon } from "lucide-react";
 import { useTabActive } from "@/components/tab-pane";
 import { onLibraryNav, openLibrary, takeLibraryNav, type LibraryNav } from "@/lib/library-nav";
 import { DATES, fileUrl, hueOf, KIND_ICON, KIND_LABEL, nowPlaying, num, playSound, previewUrl, STATUS_LABEL, stopSound, STUDIO_LABEL, titleCase, type Facet, type LibraryFilter, type LibraryItem, type Summary } from "./library-shared";
@@ -212,6 +212,11 @@ export default function LibraryView({ lock, compact = false, refreshKey }: { loc
 
       {(hasAny || compact) && (
         <nav className="lib-chips" aria-label="Filters">
+          {effective.dir && (
+            <Chip on onClick={() => setFilter((f) => ({ ...f, dir: undefined }))}>
+              <FolderOpen size={14} /><span className="lib-folder-chip" title={effective.dir}>{effective.dir.split(/[\\/]/).filter(Boolean).pop()}</span><X size={12} />
+            </Chip>
+          )}
           {facets.kinds.length > 1 && facets.kinds.map((f) => {
             const Icon = KIND_ICON[f.value] ?? Layers;
             return <Chip key={`k-${f.value}`} on={effective.kind === f.value} onClick={() => toggle("kind", f.value)} count={f.count}><Icon size={14} />{KIND_LABEL[f.value] ?? f.value}</Chip>;
