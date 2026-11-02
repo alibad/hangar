@@ -54,6 +54,13 @@ import { planquestTools } from "./planquest-tools.mjs";
 import { worldTools } from "./world-tools.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+// Where the studios save is set in the console's .env.local, which Next loads
+// and this process does not. Read those two settings from it, so the path a
+// "Saved to …" reply names is where the file really is.
+for (const line of (() => { try { return fs.readFileSync(path.join(HERE, "..", ".env.local"), "utf8").split(/\r?\n/); } catch { return []; } })()) {
+  const m = /^(QWEN_OUTPUT_DIR|MUSIC_OUTPUT_DIR)=(.*)$/.exec(line.trim());
+  if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
+}
 const MANAGER = process.env.MANAGER_URL ?? "http://localhost:8099";
 const CONSOLE = process.env.CONSOLE_URL ?? "http://localhost:8003";
 /** Long enough for a cold model load; the first call after a reboot pays it. */

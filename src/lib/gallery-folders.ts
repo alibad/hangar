@@ -19,8 +19,13 @@
  * "0" folders whose delete would remove a lab's jobs, and a disk rescan would
  * have imported their PNGs as gallery images. Kept literal so this module
  * stays import-free; the test checks it against MESH_ROOT.
+ *
+ * With every studio writing under D:\Generated\Hangar (2 Nov 2026), the
+ * Activity archive, the Music list and the Effects lab sit beside the gallery's
+ * folders too, under the names their settings give them there.
+ * ("3d-sources" stays a gallery: the 3D Lab saves its input pictures there.)
  */
-export const LAB_STORAGE_ROOTS: readonly string[] = ["3d", "video"];
+export const LAB_STORAGE_ROOTS: readonly string[] = ["3d", "video", "archive", "music", "effects"];
 
 /** True for a gallery-relative path inside another lab's storage. */
 export function isLabStorage(rel: string): boolean {
