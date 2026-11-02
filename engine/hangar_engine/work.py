@@ -144,8 +144,9 @@ def start(doc, overlay, body):
     return begin(doc, overlay, repo["id"], provider, prompt.strip(), session)
 
 
-def begin(doc, overlay, rid, provider, prompt, session=None, kind="code", read_dirs=None, on_finish=None, label=None):
-    """Start a validated job. on_finish(job, reply) runs after the agent exits, with its final reply."""
+def begin(doc, overlay, rid, provider, prompt, session=None, kind="code", read_dirs=None, on_finish=None, label=None, meta=None):
+    """Start a validated job. on_finish(job, reply) runs after the agent exits, with its final reply. meta adds fields
+    the console reads (a review job names its review and the session it reviews)."""
     snapshot()
     repo, folder = checkout(doc, overlay, rid)
     # A job that cannot sign in fails after it starts; say so before, with the way to fix it.
@@ -167,7 +168,7 @@ def begin(doc, overlay, rid, provider, prompt, session=None, kind="code", read_d
         jid = uuid.uuid4().hex
         job = {"id": jid, "repo": repo["id"], "project": repo["name"], "provider": provider,
                "prompt": label or prompt, "kind": kind, "state": "running", "startedAt": now(), "endedAt": None,
-               "exitCode": None, "output": collections.deque(maxlen=120), "session": session}
+               "exitCode": None, "output": collections.deque(maxlen=120), "session": session, **(meta or {})}
         _jobs[jid] = job
         _processes[jid] = process
         try:

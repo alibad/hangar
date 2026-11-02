@@ -151,6 +151,10 @@ def make_handler(state, port):
                     return self._send(200, insights.inspect(state.doc or state.load(), scanner.overlay(), (parse_qs(url.query).get("repo") or [""])[0]))
                 except ValueError as error:
                     return self._send(400, {"error": str(error)})
+            if path == "/api/reviews":
+                from . import review
+                query = parse_qs(url.query)
+                return self._send(200, review.listing((query.get("session") or [""])[0], (query.get("id") or [""])[0]))
             if path == "/api/architecture":
                 from . import architecture
                 return self._send(200, architecture.status(state.doc or state.load(), scanner.overlay(), (parse_qs(url.query).get("repo") or [""])[0]))
@@ -220,6 +224,12 @@ def make_handler(state, port):
                 try:
                     return self._send(200, agents.sign_in(body.get("agent")))
                 except (ValueError, launch.LaunchError, OSError) as e:
+                    return self._send(400, {"error": str(e)})
+            if path == "/api/reviews":
+                from . import review
+                try:
+                    return self._send(202, review.start(state.doc or state.load(), scanner.overlay(), body))
+                except (ValueError, OSError) as e:
                     return self._send(400, {"error": str(e)})
             if path == "/api/architecture":
                 from . import architecture

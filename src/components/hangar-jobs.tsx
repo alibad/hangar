@@ -6,15 +6,18 @@ import AgentMark from "./agent-mark";
 import HangarLoading from "./hangar-loading";
 import { SignInNotice } from "./agent-sign-in";
 import { ProjectEmblem } from "./project-identity";
+import { JobReview } from "./session-reviews";
 
-export type HangarJob = { id: string; repo: string; project: string; provider: string; prompt: string; state: string; kind?: string; opensIn?: "app" | "terminal"; startedAt: string; endedAt: string | null; exitCode: number | null; session?: string; output: { at: string; text: string }[] };
+export type HangarJob = { id: string; repo: string; project: string; provider: string; prompt: string; state: string; kind?: string; opensIn?: "app" | "terminal"; startedAt: string; endedAt: string | null; exitCode: number | null; session?: string; output: { at: string; text: string }[];
+  /** A review job: its review, and the session it reviews. */
+  review?: string; reviewOf?: { session: string; provider: string; id: string; title: string } };
 
 export const jobRunning = (j: HangarJob) => j.state === "running" || j.state === "stopping";
 /** Still on the agent's side: running, stopping, or last seen running and not checked since. */
 const open = (j: HangarJob) => jobRunning(j) || j.state === "unobserved";
 const agentOf = (j: HangarJob) => j.provider === "codex" ? "codex" : "claude";
 const agentName = (j: HangarJob) => j.provider === "codex" ? "Codex" : "Claude Code";
-const kindName = (j: HangarJob) => j.kind === "architecture" ? "Architecture drawing" : "Coding task";
+const kindName = (j: HangarJob) => j.kind === "architecture" ? "Architecture drawing" : j.kind === "review" ? "Code review" : "Coding task";
 /** What was asked: a task started from the composer carries the project's context first (see taskPrompt), then the ask. */
 const asked = (j: HangarJob) => j.prompt.split("User task (authoritative):\n").at(-1)!.trim();
 
@@ -108,8 +111,8 @@ export function JobDetail({ job, machine, machineName, local, busy, message, liv
   useEffect(() => { const el = log.current; if (el && stick.current) el.scrollTop = el.scrollHeight; }, [lines.length]);
   const action = (t: string) => /^(Ran|Read|Edited|Wrote|Searched|Looked for|Changed|Used|Updated its plan|Asked a helper|Started)\b/.test(t);
   // Drawing jobs run read-only and ephemeral: there is no conversation to reopen even when one was recorded.
-  const drawing = job.kind === "architecture";
-  const openable = !!job.session && !drawing;
+  const drawing = job.kind === "architecture", reviewing = job.kind === "review";
+  const openable = !!job.session && !drawing && !reviewing;
   const why = reason(job);
   // Long structured replies (a drawing's JSON) fold away instead of filling the view.
   const bulky = (t: string) => t.length > 600 && /^\s*(\{|\[|```)/.test(t);
@@ -121,7 +124,7 @@ export function JobDetail({ job, machine, machineName, local, busy, message, liv
     <div className="jv-actions">
       {drawing && !live && <button className="cw-primary" onClick={onDrawing}><Network size={15} />See the drawing</button>}
       {openable && local && !live && <button className={drawing ? "" : "cw-primary"} disabled={busy} title={job.opensIn === "app" ? "Opens in the desktop app" : "The desktop app does not have this conversation, so it resumes in a terminal"} onClick={onOpen}>{job.opensIn === "app" ? `Open in ${job.provider === "codex" ? "Codex" : "Claude"}` : "Resume in a terminal"}<ArrowRight size={15} /></button>}
-      {!drawing && !live && job.state !== "unobserved" && <button disabled={busy || blocked} title={blocked ? "Another job is running in this project" : "Start the same task again, in a fresh conversation"} onClick={() => void onRun(job.prompt, null)}><RotateCcw size={14} />Run again</button>}
+      {!drawing && !reviewing && !live && job.state !== "unobserved" && <button disabled={busy || blocked} title={blocked ? "Another job is running in this project" : "Start the same task again, in a fresh conversation"} onClick={() => void onRun(job.prompt, null)}><RotateCcw size={14} />Run again</button>}
       {job.state === "unobserved" ? <button disabled={busy} onClick={onAcknowledge}>I checked: this job is no longer running</button>
         : live && <button disabled={busy || job.state === "stopping"} onClick={onStop}><Square size={14} />{job.state === "stopping" ? "Stopping…" : "Stop this job"}</button>}
     </div>
@@ -131,7 +134,9 @@ export function JobDetail({ job, machine, machineName, local, busy, message, liv
         onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && reply.trim()) { e.preventDefault(); void send(); } }} />
       <div><small>{blocked ? "Another job is running in this project. Reply when it finishes." : `Runs as a new job that continues this conversation on ${machineName}.`}</small><button type="submit" className="cw-primary" disabled={busy || blocked || !reply.trim()}><Send size={14} />Send</button></div>
     </form>}
-    {!openable && !live && <p className="cw-muted jd-note">{drawing ? "A drawing job is read-only: it keeps no conversation to reply to. Redraw it from the project’s Architecture tab." : "No conversation was recorded for this job, so it can only run again."}</p>}
+    {reviewing && job.review && <JobReview machine={machine} id={job.review} />}
+    {!openable && !live && <p className="cw-muted jd-note">{drawing ? "A drawing job is read-only: it keeps no conversation to reply to. Redraw it from the project’s Architecture tab."
+      : reviewing ? "A review job only reads. Its findings also show on the session it reviewed, under Sessions." : "No conversation was recorded for this job, so it can only run again."}</p>}
     {!live && job.state === "failed" && <SignInNotice machine={machine} machineName={machineName} agent={agentOf(job)} compact />}
     {message && <p role="status" className="jv-message">{message}</p>}
     <h3 className="jd-heading">What the agent did</h3>

@@ -7,6 +7,7 @@ import { dayKey, weekLabel, type ActivityCommit, type BoardData, type ProjectAct
 import type { LibrarySession } from "./session-library";
 import { ProjectBadge, ProjectEmblem } from "./project-identity";
 import AgentMark from "./agent-mark";
+import SessionReviews from "./session-reviews";
 import "./project-activity.css";
 
 export type SessionPick = { session?: string | null; sha?: string | null };
@@ -65,6 +66,7 @@ export default function SessionPane({ machine, pick, board, library, repoUrls = 
       {onOpen && <button className="cw-primary" disabled={busy} onClick={() => onOpen(library)} title={library.opensIn === "app" ? `Opens in the ${NAME[agent]} app` : "The desktop app does not have this conversation, so it resumes in a terminal"}>{library.opensIn === "app" ? `Open in ${NAME[agent]}` : "Resume in a terminal"}<ArrowUpRight size={15} /></button>}
       {onContinue && library.canResume && library.projects.length > 0 && <button disabled={busy} onClick={() => onContinue(library)} title="Give it a new task from Hangar, with its history">Continue from Hangar</button>}
     </div>}
+    {library && <SessionReviews key={library.key} machine={machine} session={library} />}
     <div className="sp-stats">
       <span><b>{view.commits.length}</b>{view.commits.length === 1 ? "commit" : "commits"}</span>
       <span><b>{edits}</b>{edits === 1 ? "edit" : "edits"}</span>

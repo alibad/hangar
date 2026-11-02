@@ -6,6 +6,7 @@ import "./session-library.css";
 import HangarLoading from "./hangar-loading";
 import { ProjectBadge, ProjectList } from "./project-identity";
 import AgentMark from "./agent-mark";
+import SessionReviews from "./session-reviews";
 
 export type LibrarySession = {
   id: string; key: string; provider: string; model: string; title: string; updatedAt: string; activityAt: string;
@@ -208,6 +209,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
             <div className="sl-tags"><span>{selected.unread === true ? "Unread in Codex" : selected.unread === false ? "Read in Codex" : "Read state unknown"}</span>{selected.reviewed && <span>Reviewed in Hangar</span>}<span>{selected.idleDays === null ? "Activity unknown" : `${selected.idleDays}d idle`}</span>{selected.group && <span>{data.groups.find(g => g.id === selected.group)?.name}</span>}{selected.protected && <span>Active project · protected</span>}{selected.archived && <span>Archived in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</span>}</div>
             <p>{selected.summary}</p>
             {!!selected.changed?.length && <div className="sl-commits" aria-label="What this session committed"><h4>What it changed<small>{selected.changedCount} {selected.changedCount === 1 ? "commit" : "commits"}</small></h4><ol>{selected.changed.map(c => <li key={`${c.repo}-${c.sha}`}><GitCommitHorizontal size={14} aria-hidden="true" /><span><b>{c.subject}</b><small>{c.repo} · {new Date(c.at).toLocaleDateString(undefined, { day: "numeric", month: "short" })} {new Date(c.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })} · <code>{c.sha}</code></small></span></li>)}</ol>{(selected.changedCount || 0) > selected.changed.length && <small>{(selected.changedCount || 0) - selected.changed.length} more in the last 30 days</small>}</div>}
+            <SessionReviews key={selected.key} machine={machine} session={selected} />
             {selected.projects.length > 0 && <div className="sl-connect" aria-label="This session's projects">{selected.projects.map(p => { const lane = laneOf.get(p.id); return <button key={p.id} onClick={() => openProject(p.id)} aria-pressed={project === p.id} title={`Every session in ${p.name}`}>
               <ProjectBadge id={p.id} name={p.name} detail /><span><i className="sl-swatch is-claude" aria-hidden="true" />{lane?.claude || 0} Claude</span><span><i className="sl-swatch is-codex" aria-hidden="true" />{lane?.codex || 0} Codex</span><ArrowRight size={13} /></button>; })}</div>}
             <details><summary>File evidence & session ID</summary><code>{selected.id}</code>{selected.projects.map(p => {
