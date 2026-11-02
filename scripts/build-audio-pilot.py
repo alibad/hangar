@@ -14,6 +14,7 @@ sound_code, web_root = map(Path, sys.argv[1:3])
 sources = Path(sys.argv[3]) if len(sys.argv) > 3 else Path("D:/Datasets/Sounds")
 sys.path.insert(0, str(sound_code))
 import sfxlib as S
+S.SOURCES = sources  # the renderer and the provenance paths read the same library as SOURCES.json
 from design_cc0 import RECIPES
 
 out = Path(__file__).resolve().parent.parent / "public/audio-lab/pilot"

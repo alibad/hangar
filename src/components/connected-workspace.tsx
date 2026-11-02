@@ -127,7 +127,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   useEffect(() => { if (onSessions) prefetchBoard(machine); }, [onSessions, machine]);
   // A job picked on the Hangar jobs tab opens in the side pane; a reply or a rerun picks the job it starts once it shows.
   const [pickedJob, setPickedJob] = useState<string | null>(null);
-  const awaitJob = useRef<{ repo: string; after: number } | null>(null);
+  const awaitJob = useRef<{ id: string; machine: string } | null>(null);
   // A session (or a lone commit) picked on the who-changed-what board opens in the side pane, with the board's data.
   const [sessionPick, setSessionPick] = useState<SessionPick | null>(null), [board, setBoard] = useState<BoardData | null>(null);
   // A project opened from the board shows the board's week and day.
@@ -254,10 +254,10 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     return () => { controller.abort(); clearTimeout(timer); };
   }, [prefix, active, revision]);
   useEffect(() => {
-    const wait = awaitJob.current, job = wait && jobs.find(j => j.repo === wait.repo && Date.parse(j.startedAt) >= wait.after);
+    const wait = awaitJob.current, job = wait && wait.machine === machine && jobs.find(j => j.id === wait.id);
     if (!job) return;
     awaitJob.current = null; setPickedJob(job.id); setInspectJob(current => current ? job.id : current);
-  }, [jobs]);
+  }, [jobs, machine]);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== iframe.current?.contentWindow || event.data?.source !== "atlas") return;
@@ -463,9 +463,14 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   </SidePane>;
   // A reply continues the job's conversation as a new job; a rerun starts the same task fresh. Either opens once it shows.
   const runJob = async (job: Job, prompt: string, session: string | null) => {
-    const ok = await act("work", { action: "start", repo: job.repo, provider: job.provider, prompt, session });
-    if (ok) awaitJob.current = { repo: job.repo, after: Date.now() - 5000 };
-    return ok;
+    setBusy(true); setMessage("");
+    try {
+      const started = await json<{ id: string }>(`${prefix}/work`, { action: "start", repo: job.repo, provider: job.provider, prompt, session });
+      awaitJob.current = { id: started.id, machine };
+      setMessage("Request accepted.");
+      return true;
+    } catch (e) { setMessage((e as Error).message); return false; }
+    finally { setBusy(false); }
   };
   const jobDetail = (job: Job) => <JobDetail key={job.id} job={job} machine={machine} machineName={machineName} local={machine === "local"} busy={busy} message={message} live={running(job) && !liveError}
     blocked={jobs.some(j => j.repo === job.repo && j.id !== job.id && (running(j) || j.state === "unobserved"))}
@@ -553,7 +558,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     {removing && <RemoveProjectDialog project={removing} busy={busy} error={removeError} onClose={() => setRemoving(null)} onConfirm={() => void attention(removing, "hidden")} />}
     {reviewing && <ProjectReview projects={doc?.repos || []} islands={doc?.islands || []} machine={machine} onClose={() => setReviewing(false)} onChanged={refreshProjects} onInspect={id => { const repo = doc?.repos.find(r => r.id === id); if (repo) choose(repo); }} />}
     {operation && <WorkspaceOperations key={`${machine}-${operation.kind}-${operation.repo?.id || operation.island || ""}`} panel={operation} machine={machine} machineName={machineName} projects={doc?.repos || []} onClose={() => setOperation(null)} onChanged={refreshProjects} />}
-    {composer && project && <TaskComposer project={project} machine={machine} machineName={machineName} sessions={projectSessions} initialSession={resume} initialProvider={provider} blocked={jobs.some(j => j.repo === project.id && (running(j) || j.state === "unobserved"))} onClose={() => setComposer(false)} onSubmit={async body => { const ok = await act("work", { action: "start", repo: project.id, ...body }); if (ok) { setComposer(false); enterTab.current = "jobs"; onSelect("sessions"); } return ok; }} />}
+    {composer && project && <TaskComposer project={project} machine={machine} machineName={machineName} sessions={projectSessions} initialSession={resume} initialProvider={provider} blocked={jobs.some(j => j.repo === project.id && (running(j) || j.state === "unobserved"))} onClose={() => setComposer(false)} onSubmit={async body => { const ok = await act("work", { action: "start", repo: project.id, ...body }); if (ok) { setComposer(false); if (onSessions) setSessionsTab("jobs"); else { enterTab.current = "jobs"; onSelect("sessions"); } } return ok; }} />}
     {inspectJob && (() => { const job = jobs.find(j => j.id === inspectJob); if (!job) return null; return <JobView job={job} machineName={machineName} onClose={() => setInspectJob(null)}>{jobDetail(job)}</JobView>; })()}
   </section></ProjectDirectoryProvider>;
 }
