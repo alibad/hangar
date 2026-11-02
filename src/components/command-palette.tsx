@@ -7,6 +7,7 @@ import {
   FlaskConical,
   Gauge,
   HardDrive,
+  Images,
   Image,
   Film,
   Mic,
@@ -36,6 +37,7 @@ type Destination = {
 
 const DESTINATIONS: Destination[] = [
   { id: "world", label: "World", hint: "Atlas islands, connected machines and live work", keywords: "atlas world islands home", icon: Server },
+  { id: "library", label: "Library", hint: "Every video, AI-made file and dataset on this machine", keywords: "gallery media videos images pictures sounds 3d models datasets generated history prompts", icon: Images },
   { id: "projects", label: "Projects", hint: "Find a project and start work", keywords: "repos repositories code", icon: Brain },
   { id: "sessions", label: "Sessions", hint: "Coding jobs and agent history", keywords: "claude codex continue resume", icon: Activity },
   { id: "machines", label: "Machines", hint: "Connect and inspect your computers", keywords: "ssh remote laptop desktop fleet", icon: Server },

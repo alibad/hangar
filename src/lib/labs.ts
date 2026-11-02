@@ -163,6 +163,7 @@ export const LABS: LabDefinition[] = [
 /** Every tab that is not a Lab. Order is irrelevant; membership is the point. */
 export const BUILTIN_TABS = [
   "world",
+  "library",
   "projects",
   "sessions",
   "machines",

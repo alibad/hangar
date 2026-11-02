@@ -200,14 +200,18 @@ function text(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
 }
 
-/** The prompt and model in a sidecar, whichever studio wrote it. */
-export function promptFromSidecar(meta: unknown): PromptInfo {
+/**
+ * The prompt and model in a sidecar, whichever studio wrote it. A 3D job's
+ * meta.json lists every mesh it made, so `file` picks that mesh's model.
+ */
+export function promptFromSidecar(meta: unknown, file?: string): PromptInfo {
   if (!meta || typeof meta !== "object") return { prompt: null, model: null };
   const m = meta as Record<string, unknown>;
   const meshes = Array.isArray(m.meshes) ? (m.meshes as Record<string, unknown>[]) : [];
+  const mesh = meshes.find((x) => file && String(x?.file ?? "").toLowerCase() === file.toLowerCase()) ?? meshes[0];
   const request = (m.request && typeof m.request === "object" ? m.request : {}) as Record<string, unknown>;
   const prompt = text(m.prompt) ?? text(request.prompt) ?? text(m.caption) ?? text(m.subject) ?? text(m.description) ?? text(m.title) ?? text(m.name);
-  const model = text(m.model) ?? text(request.model) ?? text(meshes[0]?.model) ?? text(m.checkpoint) ?? text(m.engine);
+  const model = text(mesh?.model) ?? text(m.model) ?? text(request.model) ?? text(m.checkpoint) ?? text(m.engine);
   return { prompt, model };
 }
 

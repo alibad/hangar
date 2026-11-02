@@ -39,6 +39,7 @@ import { useAudioRecorder } from "@/lib/use-audio-recorder";
 import type { VoiceOption } from "@/app/api/tts/voices/route";
 import ServicesControlCenter from "@/components/services-control-center";
 import StorageManager from "@/components/storage-manager";
+const LibraryView = dynamic(() => import("@/components/library/library-view"), { ssr: false });
 import { ToolPageHeader, ToolSectionHeading } from "@/components/tool-page";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { ChatCircleText, Waveform as WaveformIcon } from "@phosphor-icons/react";
@@ -866,6 +867,7 @@ export default function Home() {
     { id: "stack" as const, label: "Engine room", count: runningServices + "/" + managedServices.length },
     { id: "services" as const, label: "Services" },
     { id: "storage" as const, label: "Storage" },
+    { id: "library" as const, label: "Library" },
     { id: "llm" as const, label: "LLM" },
     { id: "speech" as const, label: "Speech" },
     // One tab for every image model on the box. "Creative" used to sit beside
@@ -973,6 +975,16 @@ export default function Home() {
               available={["Real disk capacity and mounted volumes", "Private SQLite file index and duplicate candidates", "Filesystem watching, Finder or Explorer reveal, and guarded moves"]}
             />
           ) : <StorageManager />}
+        </TabPane>
+
+        <TabPane {...pane("library")}>
+          {HOSTED_RUNTIME ? (
+            <LocalMachineRequired
+              title="The Library shows the media on the machine running Hangar"
+              description="A hosted server cannot read your drives. Run Hangar locally to browse every video, AI-made file and dataset on them."
+              available={["Videos, generated files and datasets as poster walls", "Prompt search across every studio", "Clips, sounds and 3D models played in place"]}
+            />
+          ) : <LibraryView />}
         </TabPane>
 
         {/* Kept hidden for one checkpoint so the former Stack markup remains a

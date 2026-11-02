@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Globe2, Image, MessageSquare, Workflow, Server, Network, Gauge, Menu, X, Video, Clapperboard, Flame, Box, Scissors, Terminal, Swords, Scale, GitBranch, PanelLeftClose, PanelLeftOpen, Activity, BarChart3, HardDrive } from "lucide-react";
+import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Globe2, Image, Images, MessageSquare, Workflow, Server, Network, Gauge, Menu, X, Video, Clapperboard, Flame, Box, Scissors, Terminal, Swords, Scale, GitBranch, PanelLeftClose, PanelLeftOpen, Activity, BarChart3, HardDrive } from "lucide-react";
 import { ENGINE_ROOM_LINKS, PRIMARY_LINKS, WORKSTREAMS, workstreamFor, type WorkstreamLink } from "@/lib/workstreams";
 import { hostHasTab } from "@/lib/host";
 import type { ConsoleTab } from "@/lib/labs";
@@ -50,6 +50,8 @@ export default function WorkstreamSidebar({ active, onSelect, speechMode, collap
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
+        {/* Everything this machine has made or keeps: videos, AI-made files, datasets. */}
+        <button type="button" className="hangar-nav-group" aria-label="Library" title="Library — every video, AI-made file and dataset on this machine" aria-current={active === "library" ? "page" : undefined} onClick={() => go("library")}><Images size={19} /><span>Library</span></button>
         <div className="hangar-nav-row">
           <button type="button" className={`hangar-nav-group${ENGINE_ROOM_LINKS.some(item => item.id === active) ? " is-current" : ""}`} aria-label="Engine room" title="Engine room — your local AI: what is running, what fits and what to try" aria-current={active === "stack" ? "page" : undefined} onClick={() => { go("stack"); setEngineOpen(true); }}><Gauge size={19} /><span>Engine room</span></button>
           <button type="button" className="hangar-sidebar-toggle" aria-expanded={engineOpen} aria-controls="nav-engine-room" aria-label={engineOpen ? "Hide Engine room pages" : "Show Engine room pages"} title={engineOpen ? "Hide Engine room pages" : "Show Engine room pages"} onClick={() => setEngineOpen(v => !v)}><ChevronDown size={14} className={engineOpen ? "is-open" : ""} /></button>

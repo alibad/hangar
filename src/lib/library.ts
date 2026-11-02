@@ -169,6 +169,8 @@ export type ScanState = {
 const SKIP_DIR = /^(\.|\$recycle\.bin$|system volume information$|node_modules$|__pycache__$|frames$)/i;
 /** A scan this old is redone when the Library is opened. */
 const RESCAN_AFTER_MS = 30 * 60 * 1000;
+/** Bumped when the rules for reading prompts change, so every file is read again. */
+const INDEX_VERSION = 2;
 
 type Previous = { size: number | null; mtime: number; prompt: string | null; model: string | null; sidecar: string | null };
 
@@ -288,15 +290,18 @@ async function loadVideoPrompts(): Promise<Map<string, { prompt: string | null; 
 async function runScan(state: ScanState) {
   const config = libraryConfig();
   const scan = Date.now().toString(36);
-  const [review, { factions, unitFaction }, videoPrompts, before] = await Promise.all([
+  const [review, { factions, unitFaction }, videoPrompts, before, version] = await Promise.all([
     config.rtsaiArt ? readJsonFile(path.join(config.rtsaiArt, "review.json"), 32 * 1024 * 1024).then(readReview) : Promise.resolve(new Map() as ReviewMap),
     loadFactions(config),
     loadVideoPrompts(),
     all<Previous & { id: string }>(`SELECT id, size, mtime, prompt, model, sidecar FROM media`),
+    all<{ value: string }>(`SELECT value FROM library_state WHERE key = 'indexVersion'`),
   ]);
+  // Prompts read by an older version of the rules are read again.
+  const reuse = version[0]?.value === String(INDEX_VERSION);
   const ctx: ScanContext = {
     config, dirs: studioDirs(), review, factions, unitFaction, videoPrompts,
-    previous: new Map(before.map((r) => [r.id, { ...r, size: r.size == null ? null : Number(r.size), mtime: Number(r.mtime) }])),
+    previous: new Map(reuse ? before.map((r) => [r.id, { ...r, size: r.size == null ? null : Number(r.size), mtime: Number(r.mtime) }]) : []),
     pending: [], scan, state,
   };
   const walked: string[] = [];
@@ -320,6 +325,7 @@ async function runScan(state: ScanState) {
   const configured = config.roots.map((r) => r.path);
   await run(`DELETE FROM media WHERE root NOT IN (${configured.map(() => "?").join(",")})`, configured);
   await run(`INSERT OR REPLACE INTO library_state VALUES ('lastScan', ?)`, [String(Date.now())]);
+  await run(`INSERT OR REPLACE INTO library_state VALUES ('indexVersion', ?)`, [String(INDEX_VERSION)]);
   state.state = "idle";
   state.current = undefined;
   state.finishedAt = Date.now();
@@ -479,7 +485,7 @@ async function readPrompt(
   }
   const folder = await folderInfo();
   if (folder) {
-    const info = promptFromSidecar(folder);
+    const info = promptFromSidecar(folder, name);
     if (info.prompt || info.model) return { ...info, sidecar: lower.has("meta.json") ? path.join(dir, "meta.json") : null };
   }
   if (extOf(name) === ".png") {
@@ -517,7 +523,7 @@ function toItem(r: Record<string, unknown>): LibraryItem {
     project: (r.project as string) ?? null, group: (r.grp as string) ?? null, studio: (r.studio as string) ?? null,
     faction: (r.faction as string) ?? null, status: (r.status as ReviewStatus) ?? null, mtime: Number(r.mtime),
     size: r.size == null ? null : Number(r.size), prompt: r.prompt ? String(r.prompt).slice(0, 400) : null,
-    model: (r.model as string) ?? null, poster: r.kind !== "sound" && (r.kind !== "model" || !!r.poster),
+    model: (r.model as string) ?? null, poster: r.kind === "model" || r.kind === "collection" ? !!r.poster : r.kind !== "sound",
     count: r.count == null ? null : Number(r.count),
   };
 }
@@ -585,21 +591,29 @@ export type ShelfSummary = {
   projects: Facet[]; studios: Facet[]; factions: Facet[]; statuses: Facet[];
 };
 
+/** Each faction's accent colour from the catalog, so its chips match the game. */
+async function factionAccents(config: LibraryConfig): Promise<Record<string, string>> {
+  if (!config.rtsaiMod) return {};
+  const catalog = (await readJsonFile(path.join(config.rtsaiMod, "catalog", "factions.json"), 8 * 1024 * 1024)) as { factions?: { id: string; name?: string; accent?: string }[] } | null;
+  return Object.fromEntries((catalog?.factions ?? []).filter((f) => f.accent).map((f) => [f.id, f.accent!]));
+}
+
 /** Each shelf's size, its banner's posters and the values its filters offer. */
-export async function librarySummary(): Promise<{ shelves: ShelfSummary[]; scan: ScanState; lastScan: number | null; roots: { path: string; shelf: Shelf; present: boolean }[] }> {
+export async function librarySummary(): Promise<{ shelves: ShelfSummary[]; scan: ScanState; lastScan: number | null; roots: { path: string; shelf: Shelf; present: boolean }[]; factionColors: Record<string, string> }> {
   const config = libraryConfig();
-  const [groups, samples, lastScan] = await Promise.all([
+  const [groups, samples, lastScan, factionColors] = await Promise.all([
     all<{ shelf: Shelf; project: string | null; studio: string | null; faction: string | null; status: string | null; kind: string; n: number | bigint }>(
       `SELECT shelf, project, studio, faction, status, kind, count(*) AS n FROM media GROUP BY ALL`,
     ),
     // The newest few of each project, so a banner shows the shelf's range.
     all<Record<string, unknown>>(
       `SELECT ${ITEM_COLUMNS} FROM (
-         SELECT *, row_number() OVER (PARTITION BY shelf, project ORDER BY mtime DESC) AS rn FROM media
-         WHERE kind IN ('image', 'video', 'collection') OR (kind = 'model' AND poster IS NOT NULL)
+         SELECT *, row_number() OVER (PARTITION BY shelf, project ORDER BY kind = 'sound', mtime DESC) AS rn FROM media
+         WHERE kind IN ('image', 'video', 'sound') OR (kind IN ('model', 'collection') AND poster IS NOT NULL)
        ) WHERE rn <= 4 ORDER BY mtime DESC`,
     ),
     lastScanAt(),
+    factionAccents(config),
   ]);
   const shelves = SHELVES.map(({ id, label }) => {
     const mine = groups.filter((r) => r.shelf === id);
@@ -626,7 +640,7 @@ export async function librarySummary(): Promise<{ shelves: ShelfSummary[]; scan:
     };
   });
   const roots = await Promise.all(config.roots.map(async (r) => ({ path: r.path, shelf: r.shelf, present: !!(await fsp.stat(r.path).catch(() => null)) })));
-  return { shelves, scan: scanState(), lastScan, roots };
+  return { shelves, scan: scanState(), lastScan, roots, factionColors };
 }
 
 /** Everything known about one file, for the viewer. */

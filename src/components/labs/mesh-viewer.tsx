@@ -136,12 +136,15 @@ export default function MeshViewer({
   downloadName,
   onStats,
   className = "",
+  autoSpin = false,
 }: {
   /** A GLB the browser can fetch. */
   url: string;
   downloadName?: string;
   onStats?: (s: MeshStats) => void;
   className?: string;
+  /** Start on the turntable, as the Library's viewer does. */
+  autoSpin?: boolean;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const ctx = useRef<{
@@ -163,7 +166,7 @@ export default function MeshViewer({
   const [lighting, setLighting] = useState<Lighting>("studio");
   const [wireframe, setWireframe] = useState(false);
   const [clay, setClay] = useState(false);
-  const [spin, setSpin] = useState(false);
+  const [spin, setSpin] = useState(autoSpin);
   const [grid, setGrid] = useState(true);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);

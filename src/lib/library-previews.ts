@@ -21,7 +21,7 @@ const FFMPEG = process.env.FFMPEG_PATH || "ffmpeg";
 const FFPROBE = process.env.FFPROBE_PATH || "ffprobe";
 const SCRUB_FRAMES = 12;
 /** Bumped when a preview's look changes, so cached ones are made again. */
-const PREVIEW_VERSION = 2;
+const PREVIEW_VERSION = 3;
 
 /** At most `n` jobs at once; previews are asked for a hundred at a time. */
 function gate(n: number) {
@@ -86,6 +86,13 @@ async function frameAt(file: string, t: number, width: number): Promise<Buffer |
   }
 }
 
+/** Mean brightness of a frame, 0-255. */
+async function brightness(frame: Buffer): Promise<number> {
+  const stats = await sharp(frame).stats().catch(() => null);
+  if (!stats) return 255;
+  return stats.channels.slice(0, 3).reduce((sum, c) => sum + c.mean, 0) / 3;
+}
+
 async function writeAtomic(target: string, data: Buffer) {
   await fsp.mkdir(path.dirname(target), { recursive: true });
   const temp = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
@@ -121,7 +128,9 @@ async function make(file: ServedFile, variant: PreviewVariant, width: number, sa
   if (file.kind === "video" && variant === "poster") {
     return gates.ffmpeg(async () => {
       const d = await duration(file.path);
-      const frame = (await frameAt(file.path, d ? Math.min(d * 0.15, 20) : 1, width)) ?? (await frameAt(file.path, 0, width));
+      let frame = (await frameAt(file.path, d ? Math.min(d * 0.15, 20) : 1, width)) ?? (await frameAt(file.path, 0, width));
+      // A fade-in or a title card leaves a black poster; look further in.
+      if (frame && d && (await brightness(frame)) < 14) frame = (await frameAt(file.path, d * 0.4, width)) ?? frame;
       return frame ? picture(frame, width) : null;
     });
   }
