@@ -104,6 +104,7 @@ const g = globalThis as typeof globalThis & {
   __libraryDb?: Promise<Db>;
   __libraryWrites?: Promise<unknown>;
   __libraryScan?: ScanState;
+  __libraryJob?: Promise<void>;
 };
 
 async function db(): Promise<Db> {
@@ -196,17 +197,40 @@ export async function lastScanAt(): Promise<number | null> {
   return rows[0] ? Number(rows[0].value) : null;
 }
 
-/** Start a scan in the background unless one is running. */
+// Scans run one after another: two at once would each delete the rows the
+// other just wrote.
+function queueScan(only?: string[]): { state: ScanState; done: Promise<void> } {
+  const state: ScanState = { state: "scanning", startedAt: Date.now(), seen: 0 };
+  const done = (g.__libraryJob ?? Promise.resolve())
+    .then(() => {
+      g.__libraryScan = state;
+      return runScan(state, only);
+    })
+    .catch((err) => {
+      state.state = "error";
+      state.error = err instanceof Error ? err.message : String(err);
+      state.finishedAt = Date.now();
+    });
+  g.__libraryJob = done;
+  return { state, done };
+}
+
+/** Start a full scan in the background unless one is running. */
 export function startScan(): ScanState {
   if (g.__libraryScan?.state === "scanning") return g.__libraryScan;
-  const state: ScanState = { state: "scanning", startedAt: Date.now(), seen: 0 };
-  g.__libraryScan = state;
-  void runScan(state).catch((err) => {
-    state.state = "error";
-    state.error = err instanceof Error ? err.message : String(err);
-    state.finishedAt = Date.now();
-  });
-  return state;
+  return queueScan().state;
+}
+
+/**
+ * Re-read only Hangar's studio folders, and wait for it: a studio's History
+ * shows a new picture as soon as it is saved. A few thousand files whose
+ * prompts are already known take a second or two.
+ */
+export async function scanStudios(): Promise<ScanState> {
+  const dirs = studioDirs();
+  const job = queueScan([dirs.gallery, dirs.archive, dirs.music, dirs.effects]);
+  await job.done;
+  return job.state;
 }
 
 /** Scan when the index is missing or older than half an hour. */
@@ -287,8 +311,11 @@ async function loadVideoPrompts(): Promise<Map<string, { prompt: string | null; 
   return map;
 }
 
-async function runScan(state: ScanState) {
+/** A full scan, or with `only` just those folders (each inside some root). */
+async function runScan(state: ScanState, folders?: string[]) {
   const config = libraryConfig();
+  // The archive can sit inside the gallery folder; walk it once.
+  const only = folders?.filter((d) => !folders.some((o) => normPath(o) !== normPath(d) && isInside(d, o)));
   const scan = Date.now().toString(36);
   const [review, { factions, unitFaction }, videoPrompts, before, version] = await Promise.all([
     config.rtsaiArt ? readJsonFile(path.join(config.rtsaiArt, "review.json"), 32 * 1024 * 1024).then(readReview) : Promise.resolve(new Map() as ReviewMap),
@@ -313,10 +340,26 @@ async function runScan(state: ScanState) {
       continue; // an unplugged drive keeps its rows until it is back
     }
     if (!st.isDirectory()) continue;
+    if (only) {
+      for (const dir of only.filter((d) => isInside(d, root.path))) {
+        if (!(await fsp.stat(dir).catch(() => null))?.isDirectory()) continue;
+        await walk(ctx, root, dir, path.relative(root.path, dir).split(path.sep).filter(Boolean).length);
+        walked.push(dir);
+      }
+      continue;
+    }
     await walk(ctx, root, root.path, 0);
     walked.push(root.path);
   }
   await flush(ctx, true);
+  if (only) {
+    // Gone from those folders since the last scan.
+    for (const dir of walked) await run(`DELETE FROM media WHERE scan <> ? AND (path = ? OR starts_with(path, ?))`, [scan, dir, dir + path.sep]);
+    state.state = "idle";
+    state.current = undefined;
+    state.finishedAt = Date.now();
+    return;
+  }
   // Gone from disk: rows of walked roots this scan didn't see, and rows of
   // roots no longer configured.
   if (walked.length) {
@@ -577,6 +620,23 @@ export async function listMedia(f: LibraryFilter & { cursor?: string; limit?: nu
   const items = rows.slice(0, limit).map(toItem);
   const last = items[items.length - 1];
   return { items, next: rows.length > limit && last ? `${last.mtime}:${last.id}` : null };
+}
+
+export type FacetSet = { kinds: Facet[]; projects: Facet[]; studios: Facet[]; factions: Facet[]; statuses: Facet[] };
+
+/**
+ * What each filter can still narrow to, given the others: a dimension's counts
+ * ignore its own choice, so picking one project still lists the rest.
+ */
+export async function facetCounts(f: LibraryFilter): Promise<FacetSet> {
+  const dims = [["kinds", "kind"], ["projects", "project"], ["studios", "studio"], ["factions", "faction"], ["statuses", "status"]] as const;
+  const out = { kinds: [], projects: [], studios: [], factions: [], statuses: [] } as FacetSet;
+  for (const [key, column] of dims) {
+    const w = where({ ...f, [column]: undefined });
+    const rows = await all<{ v: string | null; n: number | bigint }>(`SELECT ${column} AS v, count(*) AS n FROM media ${w.sql} GROUP BY 1 ORDER BY 2 DESC`, w.params);
+    out[key] = rows.filter((r) => r.v).map((r) => ({ value: String(r.v), count: Number(r.n) }));
+  }
+  return out;
 }
 
 export async function countMedia(f: LibraryFilter): Promise<number> {

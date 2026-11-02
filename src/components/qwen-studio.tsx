@@ -21,6 +21,7 @@ import CompareView from "./compare-view";
 import ImageEvalView from "./image-eval-view";
 import CapacityBlocker from "./capacity-blocker";
 import { useTabActive } from "./tab-pane";
+import LibraryView from "./library/library-view";
 import { qwenCheckpointState } from "@/lib/qwen-checkpoint";
 import CloudImageControls, { CHECKERBOARD, CloudParamsDetails, cloudFormErrors, fmtUsd } from "./cloud-image-controls";
 import { defaultCloudImageParams, resolveCloudImageSpec, type CloudImageParams, type CloudImageSpec } from "@/lib/cloud-image-models";
@@ -275,6 +276,16 @@ export default function QwenStudio() {
   const [comfyHealth, setComfyHealth] = useState<{ up: boolean; error?: string } | null>(null);
   /** Memory cost per model, so the picker can say what each one holds. */
   const { footprints, liveMb } = useLocalFootprints();
+
+  // History shows the Library's wall unless you chose Organize last time.
+  const [historyView, setHistoryView] = useState<"library" | "organize">("library");
+  useEffect(() => {
+    try { if (localStorage.getItem("hangar:image-history-view") === "organize") setHistoryView("organize"); } catch { /* storage can be unavailable */ }
+  }, []);
+  const chooseHistoryView = (view: "library" | "organize") => {
+    setHistoryView(view);
+    try { localStorage.setItem("hangar:image-history-view", view); } catch { /* storage can be unavailable */ }
+  };
 
   // disk-backed history
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
@@ -3029,10 +3040,18 @@ export default function QwenStudio() {
 
       <section ref={galleryRef} className="image-history-panel">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-            History {gallery.length > 0 && <span className="text-gray-600">({gallery.length})</span>}
-          </h2>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+              History {historyView === "organize" && gallery.length > 0 && <span className="text-gray-600">({gallery.length})</span>}
+            </h2>
+            {/* History is the Library, filtered to this studio. Organize keeps the
+                gallery's own folders, favourites and moves, which the Library never does. */}
+            <div className="image-history-switch" role="group" aria-label="History view">
+              <button type="button" aria-pressed={historyView === "library"} onClick={() => chooseHistoryView("library")}>Library</button>
+              <button type="button" aria-pressed={historyView === "organize"} onClick={() => chooseHistoryView("organize")}>Organize</button>
+            </div>
+          </div>
+          {historyView === "organize" && <div className="flex flex-wrap items-center justify-end gap-2">
             {pagedImages.length > 0 && (
               <button
                 onClick={() => (allPageSelected ? clearSelection() : selectPage())}
@@ -3052,10 +3071,12 @@ export default function QwenStudio() {
             <button onClick={refreshGallery} className="text-[11px] text-gray-400 hover:text-gray-100 border border-gray-700 hover:border-gray-500 rounded-md px-2 py-1 transition">
               Refresh
             </button>
-          </div>
+          </div>}
         </div>
 
-        {galleryLoading ? (
+        {historyView === "library" ? (
+          <LibraryView lock={{ studio: "image" }} compact refreshKey={`${gallery.length}:${gallery[0]?.rel ?? ""}`} />
+        ) : galleryLoading ? (
           <p className="text-sm text-gray-600">Loading history…</p>
         ) : (
           <div className="flex flex-col gap-5 items-start lg:flex-row">

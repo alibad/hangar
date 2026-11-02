@@ -12,31 +12,30 @@ export type LibraryNav = {
 };
 
 const EVENT = "hangar:library-nav";
-let pending: LibraryNav | null = null;
+/** Asks the console to show a tab; page.tsx listens. */
+export const SELECT_TAB_EVENT = "hangar:select-tab";
+// On window, not in this module: the page loads the Library in its own chunk,
+// and a studio that imports it statically may hold a second copy of this file.
+const box = () => window as typeof window & { __hangarLibraryNav?: LibraryNav | null };
 
 export function openLibrary(nav: LibraryNav = {}) {
-  pending = nav;
+  box().__hangarLibraryNav = nav;
   window.dispatchEvent(new CustomEvent<LibraryNav>(EVENT, { detail: nav }));
-  try {
-    window.localStorage.setItem("bt-active-tab", "library");
-  } catch {
-    /* storage can be unavailable */
-  }
-  // The console switches tabs on popstate (see page.tsx), from the hash.
-  window.history.pushState({ tab: "library" }, "", "#library");
-  window.dispatchEvent(new PopStateEvent("popstate", { state: { tab: "library" } }));
+  // page.tsx switches tabs on this event. A synthetic popstate would not do:
+  // Next's router answers a history entry it didn't make with a full reload.
+  window.dispatchEvent(new CustomEvent(SELECT_TAB_EVENT, { detail: "library" }));
 }
 
 /** The filter a caller left for a Library that wasn't built yet. */
 export function takeLibraryNav(): LibraryNav | null {
-  const nav = pending;
-  pending = null;
+  const nav = box().__hangarLibraryNav ?? null;
+  box().__hangarLibraryNav = null;
   return nav;
 }
 
 export function onLibraryNav(fn: (nav: LibraryNav) => void): () => void {
   const listener = (e: Event) => {
-    pending = null;
+    box().__hangarLibraryNav = null;
     fn((e as CustomEvent<LibraryNav>).detail);
   };
   window.addEventListener(EVENT, listener);

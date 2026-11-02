@@ -40,6 +40,7 @@ import type { VoiceOption } from "@/app/api/tts/voices/route";
 import ServicesControlCenter from "@/components/services-control-center";
 import StorageManager from "@/components/storage-manager";
 const LibraryView = dynamic(() => import("@/components/library/library-view"), { ssr: false });
+import { SELECT_TAB_EVENT } from "@/lib/library-nav";
 import { ToolPageHeader, ToolSectionHeading } from "@/components/tool-page";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { ChatCircleText, Waveform as WaveformIcon } from "@phosphor-icons/react";
@@ -460,6 +461,16 @@ export default function Home() {
     },
     [switchTab],
   );
+
+  // A component without onSelectTab (the Library's openLibrary) asks for a tab.
+  useEffect(() => {
+    const onSelect = (e: Event) => {
+      const next = (e as CustomEvent<string>).detail;
+      if (isConsoleTab(next)) selectTab(next);
+    };
+    window.addEventListener(SELECT_TAB_EVENT, onSelect);
+    return () => window.removeEventListener(SELECT_TAB_EVENT, onSelect);
+  }, [selectTab]);
 
   useEffect(() => {
     // Built-in tabs and every registered Lab — see src/lib/labs.ts.

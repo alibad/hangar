@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { ArrowUpRight, CalendarDays, Database, Film, Image as ImageIcon, Layers, LoaderCircle, Pause, Play, RefreshCw, Search, Sparkles, X, type LucideIcon } from "lucide-react";
 import { useTabActive } from "@/components/tab-pane";
 import { onLibraryNav, openLibrary, takeLibraryNav, type LibraryNav } from "@/lib/library-nav";
-import { DATES, fileUrl, hueOf, KIND_ICON, KIND_LABEL, nowPlaying, num, playSound, previewUrl, STATUS_LABEL, stopSound, STUDIO_LABEL, titleCase, type Facet, type LibraryFilter, type LibraryItem, type ShelfSummary, type Summary } from "./library-shared";
+import { DATES, fileUrl, hueOf, KIND_ICON, KIND_LABEL, nowPlaying, num, playSound, previewUrl, STATUS_LABEL, stopSound, STUDIO_LABEL, titleCase, type Facet, type LibraryFilter, type LibraryItem, type Summary } from "./library-shared";
+
+type FacetSet = { kinds: Facet[]; projects: Facet[]; studios: Facet[]; factions: Facet[]; statuses: Facet[] };
 import LibraryViewer from "./library-viewer";
 import "./library.css";
 
@@ -26,7 +28,7 @@ function queryString(f: LibraryFilter, extra: Record<string, string | number | u
  * poster wall. `lock` pins filters (a studio's History shows only its own
  * outputs); `compact` drops the shelves for use inside a studio.
  */
-export default function LibraryView({ lock, compact = false }: { lock?: LibraryFilter; compact?: boolean }) {
+export default function LibraryView({ lock, compact = false, refreshKey }: { lock?: LibraryFilter; compact?: boolean; refreshKey?: string }) {
   const active = useTabActive();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [filter, setFilter] = useState<LibraryFilter>({});
@@ -37,6 +39,8 @@ export default function LibraryView({ lock, compact = false }: { lock?: LibraryF
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openAt, setOpenAt] = useState<number | null>(null);
+  // What each filter can narrow to from here, counted by the server.
+  const [facets, setFacets] = useState<FacetSet>({ kinds: [], projects: [], studios: [], factions: [], statuses: [] });
   const request = useRef(0);
   const sentinel = useRef<HTMLDivElement>(null);
   const lockKey = JSON.stringify(lock ?? {});
@@ -83,7 +87,10 @@ export default function LibraryView({ lock, compact = false }: { lock?: LibraryF
       if (!res.ok) throw new Error(data.error || `Library unavailable (${res.status})`);
       setItems((prev) => (cursor ? [...prev, ...data.items] : data.items));
       setNext(data.next);
-      if (!cursor) setTotal(data.total ?? null);
+      if (!cursor) {
+        setTotal(data.total ?? null);
+        if (data.facets) setFacets(data.facets);
+      }
       setError(null);
     } catch (e) {
       if (id === request.current) setError(e instanceof Error ? e.message : String(e));
@@ -95,6 +102,19 @@ export default function LibraryView({ lock, compact = false }: { lock?: LibraryF
   useEffect(() => {
     void loadPage(null);
   }, [loadPage]);
+
+  // A studio changes its key when it saves something: its folders are re-read
+  // (a second or two) and the wall shows the new file.
+  const seenKey = useRef(refreshKey);
+  useEffect(() => {
+    if (refreshKey === undefined || refreshKey === seenKey.current) return;
+    seenKey.current = refreshKey;
+    let live = true;
+    void fetch("/api/library", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "scan", scope: "studios" }) })
+      .then(() => { if (live) void loadPage(null); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [refreshKey, loadPage]);
 
   useEffect(() => {
     if (active) void loadSummary();
@@ -138,22 +158,6 @@ export default function LibraryView({ lock, compact = false }: { lock?: LibraryF
     setFilter((f) => ({ ...f, [k]: f[k] === v ? undefined : v }));
 
   // The filters offered are the chosen shelf's, or every shelf's together.
-  const facets = useMemo(() => {
-    const shelves = (summary?.shelves ?? []).filter((s) => !effective.shelf || s.id === effective.shelf);
-    const merge = (pick: (s: ShelfSummary) => Facet[]) => {
-      const m = new Map<string, number>();
-      for (const s of shelves) for (const f of pick(s)) m.set(f.value, (m.get(f.value) ?? 0) + f.count);
-      return [...m].map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count);
-    };
-    return {
-      kinds: merge((s) => Object.entries(s.kinds).map(([value, count]) => ({ value, count }))),
-      projects: merge((s) => s.projects),
-      studios: merge((s) => s.studios),
-      factions: merge((s) => s.factions),
-      statuses: merge((s) => s.statuses),
-    };
-  }, [summary, effective.shelf]);
-
   const colors = summary?.factionColors ?? {};
   const hasAny = (summary?.shelves ?? []).some((s) => s.count > 0);
   const filtered = Object.entries(filter).some(([k, v]) => v != null && v !== "" && !(lock && k in lock));

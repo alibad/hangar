@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isHostedRuntime } from "@/lib/runtime";
-import { countMedia, getMedia, librarySummary, listMedia, projectMedia, scanIfStale, startScan, type LibraryFilter } from "@/lib/library";
+import { countMedia, facetCounts, getMedia, librarySummary, listMedia, projectMedia, scanIfStale, scanStudios, startScan, type LibraryFilter } from "@/lib/library";
 import { revealInExplorer } from "@/lib/reveal-in-explorer";
 
 export const dynamic = "force-dynamic";
@@ -43,19 +43,26 @@ export async function GET(request: NextRequest) {
     const filter = filterFrom(params);
     const cursor = params.get("cursor") ?? undefined;
     const page = await listMedia({ ...filter, cursor, limit: Number(params.get("limit")) || undefined });
-    // The total only on the first page; scrolling doesn't change it.
-    return NextResponse.json({ ...page, total: cursor ? undefined : await countMedia(filter) });
+    // The total and the filters' counts only on the first page; scrolling doesn't change them.
+    if (cursor) return NextResponse.json(page);
+    const [total, facets] = await Promise.all([countMedia(filter), facetCounts(filter)]);
+    return NextResponse.json({ ...page, total, facets });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 
-/** POST {action:"scan"} rescans now; {action:"reveal", id} shows the file in Explorer. */
+/**
+ * POST {action:"scan"}                    rescan everything, in the background
+ * POST {action:"scan", scope:"studios"}   re-read Hangar's studio folders, and answer when done
+ * POST {action:"reveal", id}              show the file in Explorer
+ */
 export async function POST(request: NextRequest) {
   const refused = local();
   if (refused) return refused;
-  const body = (await request.json().catch(() => ({}))) as { action?: string; id?: string };
+  const body = (await request.json().catch(() => ({}))) as { action?: string; id?: string; scope?: string };
   try {
+    if (body.action === "scan" && body.scope === "studios") return NextResponse.json(await scanStudios());
     if (body.action === "scan") return NextResponse.json(startScan());
     if (body.action === "reveal") {
       const item = await getMedia(body.id ?? "");
