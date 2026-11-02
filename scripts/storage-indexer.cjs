@@ -35,6 +35,10 @@ const DB_PATH =
 const STATUS_PATH = path.join(STATE_DIR, "scan-status.json");
 const LOCK_PATH = path.join(STATE_DIR, "scan.lock");
 const WATCHERS_PATH = path.join(STATE_DIR, "watchers.json");
+// A live scan rewrites its status every 350 ms, so a lock whose scan has said
+// nothing for this long belongs to a dead worker even if Windows has since
+// given its pid to another process.
+const STALE_SCAN_MS = 10 * 60 * 1000;
 
 const SKIP_NAMES = new Set([
   "$recycle.bin",
@@ -217,15 +221,31 @@ function openDb() {
   return db;
 }
 
+// Write a temp file, flush it to disk, then rename it over the target, so a
+// crash leaves the old file or the new one and never a half-written one. The
+// 31 Oct 2026 crash caught a plain overwrite and left scan-status.json as 389
+// zero bytes. Mirrored in src/lib/storage-index.ts.
 async function writeJsonAtomic(target, value) {
   await fsp.mkdir(path.dirname(target), { recursive: true });
-  const data = JSON.stringify(value, null, 2);
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  const temp = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  const handle = await fsp.open(temp, "w");
+  try {
+    await handle.writeFile(JSON.stringify(value, null, 2), "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  for (let attempt = 0; ; attempt += 1) {
     try {
-      await fsp.writeFile(target, data, "utf8");
+      await fsp.rename(temp, target);
       return;
     } catch (error) {
-      if (!/^(EPERM|EBUSY|EACCES)$/.test(String(error && error.code || "")) || attempt === 4) throw error;
+      // Windows refuses the rename while another process (an antivirus scan,
+      // an editor) holds the target open, so wait a moment and try again.
+      if (!/^(EPERM|EBUSY|EACCES)$/.test(String(error && error.code || "")) || attempt === 7) {
+        await fsp.unlink(temp).catch(() => {});
+        throw error;
+      }
       await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
     }
   }
@@ -268,8 +288,10 @@ async function scanDrive(rootInput) {
       break;
     } catch {
       const previous = await readJson(LOCK_PATH, {});
+      const status = await readJson(STATUS_PATH, {});
+      const heardAt = Date.parse((status.pid === previous.pid && status.updatedAt) || previous.startedAt || "") || 0;
       let alive = false;
-      try { if (previous.pid) { process.kill(previous.pid, 0); alive = true; } } catch {}
+      try { if (previous.pid) { process.kill(previous.pid, 0); alive = Date.now() - heardAt < STALE_SCAN_MS; } } catch {}
       if (alive || attempt > 0) throw new Error("Another storage scan is already running.");
       await fsp.unlink(LOCK_PATH).catch(() => {});
     }

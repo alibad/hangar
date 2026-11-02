@@ -283,19 +283,52 @@ async function readJson<T>(target: string, fallback: T): Promise<T> {
   return fallback;
 }
 
+// Temp file, flush, rename: a crash leaves the old file or the new one, never
+// the 389 zero bytes the 31 Oct 2026 crash left. Mirrors scripts/storage-indexer.cjs.
 async function writeJsonAtomic(target: string, value: unknown) {
   await fsp.mkdir(path.dirname(target), { recursive: true });
-  const data = JSON.stringify(value, null, 2);
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  const temp = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  const handle = await fsp.open(temp, "w");
+  try {
+    await handle.writeFile(JSON.stringify(value, null, 2), "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  for (let attempt = 0; ; attempt += 1) {
     try {
-      await fsp.writeFile(target, data, "utf8");
+      await fsp.rename(temp, target);
       return;
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
-      if (!/^(EPERM|EBUSY|EACCES)$/.test(code) || attempt === 4) throw error;
+      if (!/^(EPERM|EBUSY|EACCES)$/.test(code) || attempt === 7) {
+        await fsp.unlink(temp).catch(() => {});
+        throw error;
+      }
       await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
     }
   }
+}
+
+// A live scan rewrites its status every 350 ms; one silent this long is dead,
+// even when Windows has handed its pid to some other process since.
+const STALE_SCAN_MS = 10 * 60 * 1000;
+
+/**
+ * The scan status file, or what the lock says when that file can't be read.
+ * Reading an unreadable file as "idle" is what kept D: on "scanning" after the
+ * 31 Oct crash: the dead-worker recovery below only runs for a scanning status.
+ */
+async function readScanStatus(): Promise<ScanStatus> {
+  const status = await readJson<ScanStatus | null>(STATUS_PATH, null);
+  if (status) return status;
+  const lock = await readJson<{ pid?: number; root?: string; startedAt?: string } | null>(LOCK_PATH, null);
+  return lock ? { state: "scanning", pid: lock.pid, root: lock.root, startedAt: lock.startedAt, updatedAt: lock.startedAt } : { state: "idle" };
+}
+
+function scanAlive(status: ScanStatus) {
+  const heardAt = Date.parse(status.updatedAt || status.startedAt || "") || 0;
+  return processAlive(status.pid) && Date.now() - heardAt < STALE_SCAN_MS;
 }
 
 async function updateWatcherRecord(root: string, patch: Record<string, unknown>) {
@@ -309,8 +342,8 @@ function processAlive(pid: number | undefined) {
 }
 
 export async function getScanStatus(): Promise<ScanStatus> {
-  const status = await readJson<ScanStatus>(STATUS_PATH, { state: "idle" });
-  if (status.state === "scanning" && !processAlive(status.pid)) {
+  const status = await readScanStatus();
+  if (status.state === "scanning" && !scanAlive(status)) {
     // The worker writes the final status immediately before exiting. A poll can
     // read the previous progress snapshot, then observe the process exit, even
     // though the completed snapshot is already replacing it. Re-read before
@@ -388,7 +421,7 @@ export async function stopScan() {
     db.close();
   }
   await fsp.unlink(LOCK_PATH).catch(() => {});
-  await fsp.writeFile(STATUS_PATH, JSON.stringify({ ...status, state: "error", error: "Scan cancelled", completedAt: new Date().toISOString() }, null, 2), "utf8");
+  await writeJsonAtomic(STATUS_PATH, { ...status, state: "error", error: "Scan cancelled", completedAt: new Date().toISOString() });
   return { stopped: true };
 }
 
