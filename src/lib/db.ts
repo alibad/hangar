@@ -56,10 +56,23 @@ function makeDb(db: duckdb.Database): Db {
   };
 }
 
-function open(): Promise<Db> {
+/** The data folder Hangar's own databases live in (outside the project root). */
+export const DATA_DIR = path.dirname(DB_PATH === ":memory:" ? path.join(DATA_ROOT, "hangar", "hangar.db") : DB_PATH);
+
+/**
+ * A DuckDB file of its own. The duckdb binding runs every statement on one
+ * shared connection, and two statements in flight at once fail, so a store
+ * that writes in bulk (the Library's scan) opens its own file rather than
+ * queueing behind, or blocking, every other route on the console's database.
+ */
+export function openDatabase(file: string): Promise<Db> {
+  return open(process.env.NEXT_PHASE === "phase-production-build" ? ":memory:" : file);
+}
+
+function open(file = DB_PATH): Promise<Db> {
   return new Promise((resolve, reject) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const db = new duckdb.Database(DB_PATH, (err: any) => {
+    const db = new duckdb.Database(file, (err: any) => {
       if (err) reject(err as Error);
       else resolve(makeDb(db));
     });

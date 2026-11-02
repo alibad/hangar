@@ -39,6 +39,8 @@ public/walkthroughs/
 
 # Existing offline effect runtime; machine paths stay local.
 /config/effects-runtime.*.local.json
+# The Library's folders on this machine (see config/library.example.json).
+/config/library.local.json
 
 # Next 16 regenerates this file for dev and for build; it must not be tracked.
 next-env.d.ts

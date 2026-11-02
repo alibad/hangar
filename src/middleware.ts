@@ -95,6 +95,8 @@ export function middleware(req: NextRequest) {
   const skip =
     pathname.startsWith("/api/planquest/") ||
     (req.method === "GET" && ((pathname.startsWith("/api/atlas/") || pathname.startsWith("/api/world/")) || pathname.startsWith("/api/fleet"))) ||
+    // One Library page asks for a hundred posters; that is browsing, not traffic.
+    (req.method === "GET" && pathname.startsWith("/api/library")) ||
     (req.method === "POST" && /^\/api\/fleet\/[^/]+\/inference$/.test(pathname)) ||
     pathname.startsWith("/api/traffic") ||
     pathname === "/api/qwen/generate" ||
