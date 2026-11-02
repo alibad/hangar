@@ -14,6 +14,25 @@ const SHOWN = 8; // collisions and the busiest projects first; the quiet tail on
 /** Where the board stands: the week (its last day, "" for the one ending now) and the day picked in it. */
 export type BoardFocus = { end: string; day: string };
 
+/** Boards read or being read, by machine and week, so the board can load behind another tab and show at once. A board
+ *  older than FRESH is read again, and the last one shows until the new one arrives. */
+const boards = new Map<string, { at: number; data: Promise<BoardData>; value?: BoardData }>();
+const FRESH = 120_000;
+function readBoard(machine: string, end: string) {
+  const key = `${machine}|${end}`, hit = boards.get(key);
+  if (hit && Date.now() - hit.at < FRESH) return hit;
+  const entry: { at: number; data: Promise<BoardData>; value?: BoardData } = { at: Date.now(), value: hit?.value, data: fetch(`/api/world/${machine}/proxy/activity/all?${weekQuery(end)}`, { cache: "no-store" })
+    .then(r => {
+      if (r.status === 404) throw new Error("Hangar’s engine on this machine predates this view. Restart Hangar to see who changed what.");
+      return workspaceResponse<BoardData>(r);
+    }) };
+  entry.data.then(d => { entry.value = d; }, () => { if (boards.get(key) === entry) boards.delete(key); });
+  boards.set(key, entry);
+  return entry;
+}
+/** Start reading this week's board now, so "Who changed what" opens without waiting. */
+export function prefetchBoard(machine: string) { readBoard(machine, ""); }
+
 /** Every project's week at once: which agent changed what, and where Claude and Codex worked on the same project at
  *  the same time. One row per project, a Claude lane over a Codex lane, all on one clock. A dot (a commit) or a bar
  *  (a session's stretch of work) opens that session in the side pane through `onPick`; a project opens on the same
@@ -21,18 +40,14 @@ export type BoardFocus = { end: string; day: string };
 export default function ActivityBoard({ machine, onOpenProject, picked, onPick, onLoad }: {
   machine: string; onOpenProject?: (repo: string, focus: BoardFocus) => void; picked?: SessionPick | null; onPick?: (pick: SessionPick) => void; onLoad?: (data: BoardData) => void;
 }) {
-  const [data, setData] = useState<BoardData | null>(null), [error, setError] = useState("");
+  const [data, setData] = useState<BoardData | null>(() => readBoard(machine, "").value ?? null), [error, setError] = useState("");
   const [end, setEnd] = useState(""), [day, setDay] = useState(""), [all, setAll] = useState(false);
   useEffect(() => { if (data) onLoad?.(data); }, [data, onLoad]);
   useEffect(() => {
-    const controller = new AbortController(); setData(null); setError("");
-    fetch(`/api/world/${machine}/proxy/activity/all?${weekQuery(end)}`, { signal: controller.signal, cache: "no-store" })
-      .then(r => {
-        if (r.status === 404) throw new Error("Hangar’s engine on this machine predates this view. Restart Hangar to see who changed what.");
-        return workspaceResponse<BoardData>(r);
-      }).then(d => { if (!controller.signal.aborted) setData(d); })
-      .catch(e => { if (!controller.signal.aborted) setError(e.message); });
-    return () => controller.abort();
+    let live = true; const board = readBoard(machine, end);
+    setData(board.value ?? null); setError("");
+    board.data.then(d => { if (live) setData(d); }, (e: Error) => { if (live && !board.value) setError(e.message); });
+    return () => { live = false; };
   }, [machine, end]);
   const totals = useMemo(() => data?.available ? boardTotals(data) : null, [data]);
   const days = useMemo(() => totals ? windowDays(totals, Date.parse(totals.to)) : [], [totals]);

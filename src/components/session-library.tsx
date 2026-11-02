@@ -5,6 +5,7 @@ import { Archive, ArrowRight, Check, Folder, GitCommitHorizontal, Layers, Pin, X
 import "./session-library.css";
 import HangarLoading from "./hangar-loading";
 import { ProjectBadge, ProjectList } from "./project-identity";
+import AgentMark from "./agent-mark";
 
 export type LibrarySession = {
   id: string; key: string; provider: string; model: string; title: string; updatedAt: string; activityAt: string;
@@ -194,7 +195,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
             {sections.map(section => <div className="sl-section" key={section.id}>
               {section.name && <h4>{section.name}<small>{section.rows.length}</small></h4>}
               {section.rows.map(row => <button type="button" key={row.key} aria-pressed={selected?.key === row.key} className={`sl-row ${row.unread ? "sl-unread" : ""}`} onClick={() => pick(row.key)}>
-                <span className={`cw-session-provider is-${agentOf(row)}`}>{row.provider === "codex" ? "CX" : "CL"}</span>
+                <span className={`cw-session-provider is-${agentOf(row)}`}><AgentMark agent={agentOf(row)} /></span>
                 <span className="sl-row-text"><b>{row.title}</b>{!!row.changed?.length && <em className="sl-changed"><GitCommitHorizontal size={12} aria-hidden="true" />{row.changed[0].subject}{(row.changedCount || 0) > 1 && <i>+{(row.changedCount || 0) - 1}</i>}</em>}<small className="sl-row-meta"><ProjectList projects={row.projects} />{[row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).map(part => <span key={part}>{part}</span>)}</small></span>
                 {row.unread === true && <i className="sl-dot" aria-label="Unread in Codex" />}
                 {row.pinned && <Pin size={13} aria-label="Pinned in Codex" />}

@@ -5,6 +5,7 @@ import { ChevronDown, History, Play, Sparkles, X } from "lucide-react";
 import { taskContext, taskDraft, taskPrompt, type TaskProject, type TaskSession } from "@/lib/task-context";
 import "./task-composer.css";
 import { SignInNoticeView, useAgents, useSignedInAgain } from "./agent-sign-in";
+import AgentMark from "./agent-mark";
 
 const AGENTS = [{ id: "codex", name: "Codex" }, { id: "claude", name: "Claude Code" }];
 /** Ready-made asks for a new task; the first is the project's own next step (or a review when none is recorded). */
@@ -57,7 +58,7 @@ export default function TaskComposer({ project, machine, machineName, sessions, 
     {session ? <div className="tc-sessions" role="radiogroup" aria-label="Conversation to continue">{candidates.map(s => {
       const on = session.id === s.id && session.provider === s.provider;
       return <button key={`${s.provider}-${s.id}`} role="radio" aria-checked={on} disabled={busy} onClick={() => choose(s)}>
-        <span className={`tc-agent is-${s.provider === "codex" ? "codex" : "claude"}`}>{s.provider === "codex" ? "CX" : "CL"}</span>
+        <span className={`tc-agent is-${s.provider === "codex" ? "codex" : "claude"}`}><AgentMark agent={s.provider} /></span>
         <span className="tc-session-text"><b>{s.title || s.summary || "Untitled session"}</b><small>{s.provider === "codex" ? "Codex" : "Claude Code"} · {ago(s.updatedAt)}</small></span>
       </button>;
     })}</div> : <div className="tc-agents" role="radiogroup" aria-label="Coding agent">{AGENTS.map(a => <button key={a.id} role="radio" aria-checked={provider === a.id} disabled={busy} onClick={() => setProvider(a.id)}><i className={`tc-dot is-${a.id}`} aria-hidden="true" />{a.name}</button>)}</div>}

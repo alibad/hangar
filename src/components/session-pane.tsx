@@ -6,6 +6,7 @@ import { workspaceResponse } from "@/lib/workspace-response";
 import { dayKey, weekLabel, type ActivityCommit, type BoardData, type ProjectActivity } from "@/lib/project-activity";
 import type { LibrarySession } from "./session-library";
 import { ProjectBadge, ProjectEmblem } from "./project-identity";
+import AgentMark from "./agent-mark";
 import "./project-activity.css";
 
 export type SessionPick = { session?: string | null; sha?: string | null };
@@ -19,7 +20,7 @@ const commitUrl = (repoUrl: string | undefined, sha: string) => /^https:\/\/gith
 /** The pane's title row: the agent's chip and what this is. */
 export function SessionPaneTop({ pick }: { pick: SessionPick }) {
   const agent = pick.session ? agentOf(pick.session) : null;
-  return <span className="sp-top">{agent ? <><span className={`cw-session-provider is-${agent}`}>{agent === "codex" ? "CX" : "CL"}</span><span>{agent === "codex" ? "Codex session" : "Claude Code session"}</span></> : <><GitCommitHorizontal size={16} /><span>Commit</span></>}</span>;
+  return <span className="sp-top">{agent ? <><span className={`cw-session-provider is-${agent}`}><AgentMark agent={agent} /></span><span>{agent === "codex" ? "Codex session" : "Claude Code session"}</span></> : <><GitCommitHorizontal size={16} /><span>Commit</span></>}</span>;
 }
 
 /** What a session did this week, as a picture first: where it worked and when, the commits it made, who else was in

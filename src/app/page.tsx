@@ -883,7 +883,7 @@ export default function Home() {
   ];
 
   /** Props for one tab's pane: which tab is showing, which are kept built, and its name for errors. */
-  const fitView = !HOSTED_RUNTIME && (tab === "world" || tab === "sessions");
+  const fitView = !HOSTED_RUNTIME && tab === "world";
   const pane = (id: ConsoleTab) => ({ id, current: id === "speech" && speechTab(tab) ? "speech" : tab, kept: kept.map(t => speechTab(t) ? "speech" : t), label: tabs.find((item) => item.id === id)?.label ?? "Console" });
 
   return (

@@ -13,7 +13,7 @@
 
 /* Sessions read like an inbox: a compact list grouped by topic beside the selected session. */
 .sl-inbox{display:grid;grid-template-columns:minmax(280px,380px) minmax(0,1fr);gap:16px;align-items:start;margin-top:12px}
-.sl-list{display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 250px);overflow-y:auto;padding-right:4px;scrollbar-width:thin}
+.sl-list{display:flex;flex-direction:column;gap:14px;padding-right:4px}
 .sl-section h4{display:flex;justify-content:space-between;gap:8px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--cw-muted);margin:0 0 4px;padding:0 8px}
 .connected-workspace .sl-row{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;padding:8px;border-radius:10px;text-align:left}
 .connected-workspace .sl-row:hover{background:var(--hover)}
@@ -24,7 +24,7 @@
 .sl-row-text small{display:block;font-size:10px;color:var(--cw-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .sl-row>svg{flex-shrink:0;color:var(--cw-muted)}
 .sl-dot{width:7px;height:7px;border-radius:50%;background:var(--cw-accent);flex-shrink:0}
-.sl-detail{position:sticky;top:12px;border:1px solid var(--cw-line);border-radius:14px;padding:18px 20px;background:var(--cw-panel);min-width:0}
+.sl-detail{position:sticky;top:76px;max-height:calc(100dvh - 92px);overflow-y:auto;scrollbar-width:thin;border:1px solid var(--cw-line);border-radius:14px;padding:18px 20px;background:var(--cw-panel);min-width:0}
 .sl-detail .sl-session-title h3{font-size:17px}
 @media(max-width:1000px){.sl-inbox{grid-template-columns:1fr}.sl-list{max-height:none}.sl-detail{position:static}}
 .sl-detail>p{font-size:13px;line-height:1.65;margin-top:12px;color:var(--cw-ink)}.sl-detail details{margin-top:10px}.sl-detail details summary{font-size:12px;color:var(--cw-muted);cursor:pointer}.sl-detail details li,.sl-detail details p{font-size:11px;line-height:1.6}.sl-detail code{font-size:10px;overflow-wrap:anywhere}

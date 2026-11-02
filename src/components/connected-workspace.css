@@ -138,7 +138,6 @@
 @media(max-width:850px){.cw-world{height:520px}.cw-inspector{max-height:none}}
 @media(max-width:1100px){.cw-topbar{flex-wrap:wrap}.cw-topbar .cw-machine-rail{order:3;flex-basis:100%}}
 @media(max-width:550px){.cw-topbar{gap:8px}.cw-map-hint{bottom:18px}.cw-world{height:480px}}
-.cw-finished-jobs{margin-top:6px}.cw-finished-jobs summary{cursor:pointer;font-size:12px;color:var(--cw-muted);padding:10px 0}
 
 /* The map's overlays follow the theme and light or dark mode instead of a fixed navy. */
 .connected-workspace{--cw-accent:var(--hangar-primary);--cw-map-panel:color-mix(in oklab,var(--workspace-panel) 90%,transparent);--cw-map-ink:var(--workspace-ink);--cw-map-muted:var(--workspace-muted);--cw-map-line:color-mix(in oklab,var(--workspace-line) 85%,transparent)}
@@ -249,41 +248,24 @@
   .is-fit .connected-workspace:not(.is-expanded) .cw-world-layout:not([hidden]){flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr)}
   .is-fit .connected-workspace:not(.is-expanded) .cw-world{height:auto;min-height:0}
   .is-fit .connected-workspace:not(.is-expanded) .cw-world-layout>.cw-inspector{max-height:none;min-height:0}
-  .is-fit .connected-workspace .cw-sessions{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
-  .is-fit .connected-workspace .cw-sessions>*{flex-shrink:0}
-  .is-fit .connected-workspace .cw-sessions>.sl-library{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin-top:18px}
-  .is-fit .sl-library>*{flex-shrink:0}
-  .is-fit .sl-library>.sl-main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
-  .is-fit .sl-main.is-scroll{overflow-y:auto;display:block}
-  .is-fit .sl-main>*{flex-shrink:0}
-  .is-fit .sl-main>.sl-inbox{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
-  .is-fit .sl-inbox>.sl-list{max-height:none;min-height:0}
-  .is-fit .sl-inbox>.sl-detail{position:static;max-height:100%;overflow-y:auto;align-self:start}
 }
-/* Sessions page: one view at a time under its tabs, each scrolling on its own when the page is fitted to the window. */
+/* Sessions page: one view at a time under its tabs, scrolling with the page; a side pane stays in view beside it. */
 .cw-sessions-tabs{margin:0 0 14px}.cw-sessions-tabs button{display:inline-flex;align-items:center;gap:7px}
 .cw-sessions-tabs small{font-size:11px;color:var(--cw-muted);font-variant-numeric:tabular-nums}.cw-sessions-tabs small.is-live{color:#53cfb5}
 .cw-sessions>.cw-sessions-pane{min-width:0}
-@media (min-width:851px) and (min-height:620px){.is-fit .connected-workspace .cw-sessions>.cw-sessions-pane{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:6px;scrollbar-width:thin}}
 /* The board with a session open beside it: the same split and pane as a project beside the grid. */
 .cw-split{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;min-width:0}
 .cw-split.has-pane{grid-template-columns:minmax(0,1fr) minmax(360px,var(--cw-pane-width))}
 .cw-split>.cw-sessions-pane{min-width:0}
-.cw-split>.cw-inspector{border-radius:14px;border:1px solid var(--cw-line)}
+.cw-split>.cw-inspector{border-radius:14px;border:1px solid var(--cw-line);position:sticky;top:76px;align-self:start;max-height:calc(100dvh - 92px);overflow-y:auto}
 .is-pane-expanded .cw-split{grid-template-columns:minmax(0,1fr)!important}.is-pane-expanded .cw-split>.cw-sessions-pane{display:none}
-@media (min-width:851px) and (min-height:620px){
-  .is-fit .connected-workspace .cw-sessions>.cw-split{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr)}
-  .is-fit .cw-split>.cw-sessions-pane{min-height:0;overflow-y:auto;padding-right:6px;scrollbar-width:thin}
-  .is-fit .cw-split>.cw-inspector{min-height:0;max-height:none;overflow-y:auto}
-}
-@media(max-width:850px){.cw-split.has-pane{grid-template-columns:minmax(0,1fr)}.cw-split>.cw-inspector{grid-row:1}}
+@media(max-width:850px){.cw-split.has-pane{grid-template-columns:minmax(0,1fr)}.cw-split>.cw-inspector{grid-row:1;position:static;max-height:none}}
 /* Sessions page: tighter headings so the session list gets the height. */
 .cw-sessions .cw-section-title{margin:6px 0 10px}
 .cw-sessions .cw-section-title h2{font-size:17px}
 .cw-sessions>.cw-section-title:first-child{margin-top:0}
 .cw-sessions .cw-job-row{padding-block:10px}
 .cw-sessions .sl-toolbar{margin:8px 0 12px}
-@media (min-width:851px) and (min-height:620px){.is-fit .connected-workspace .cw-sessions>.sl-library{margin-top:8px}}
 /* Projects page: filter by what is going on, sort, and cards that show what waits, what runs and who worked on it. */
 .pg-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px}
 .pg-status{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border:1px solid var(--cw-line);border-radius:999px}
@@ -345,9 +327,49 @@
 .jv-help{margin:-4px 0 10px;font-size:12px;color:var(--cw-muted)}
 .jv-bulky{padding:6px 0}.jv-bulky summary{display:flex;gap:10px;align-items:baseline;cursor:pointer;font-size:12.5px;color:var(--cw-muted)}
 .jv-bulky pre{margin:8px 0 0 74px;padding:10px;border-radius:8px;background:color-mix(in oklab,var(--cw-ink) 5%,transparent);font:11px/1.5 ui-monospace,monospace;white-space:pre-wrap;max-height:260px;overflow:auto}
-.cw-finished-jobs[open]{max-height:min(40dvh,330px);overflow-y:auto}
 /* The map's top row: search on the left, Size switch, layers and expand on the right; the search gives way. */
 .cw-world{container:cwmap/inline-size}
 .cw-map-left{max-width:calc(100% - 285px)}
 @container cwmap (max-width:640px){.cw-size-switch>span{display:none}.cw-size-switch{padding:0 3px}.cw-map-left{max-width:calc(100% - 240px)}}
 @container cwmap (max-width:420px){.cw-world-tools .cw-size-switch button{padding:0 7px}.cw-map-left{max-width:calc(100% - 228px)}}
+/* Agent logos inside the agent tiles (session rows, job rows, the composer): drawn in the tile's colour. */
+.agent-mark{width:64%;height:64%;display:block}
+/* Hangar jobs: how a job works, filters, then running jobs and each day's jobs in full; a job opens in the side pane. */
+.jb .cw-section-title{margin:4px 0 14px}
+.connected-workspace .jb-start{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:8px 15px;border-radius:999px;color:var(--color-gray-950)}
+.jb-how{list-style:none;margin:0 0 16px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.jb-how li{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid var(--cw-line);border-radius:12px;background:color-mix(in oklab,var(--cw-ink) 3%,transparent)}
+.jb-how li>svg{flex-shrink:0;color:var(--hangar-primary);margin-top:1px}
+.jb-how b{display:block;font-size:13px;font-weight:600}.jb-how small{display:block;font-size:12px;line-height:1.45;color:var(--cw-muted);margin-top:3px}
+@media(max-width:900px){.jb-how{grid-template-columns:1fr}}
+.jb-filters{margin:4px 0 6px}.jb-filters button{display:inline-flex;align-items:center;gap:7px}.jb-filters small{font-size:11px;color:var(--cw-muted);font-variant-numeric:tabular-nums}
+.jb-filters button.is-failed small{color:var(--err-400,#e5484d)}.jb-filters button.is-live small{color:#53cfb5}
+.jb-day{margin-top:18px}
+.jb-day h3{display:flex;align-items:baseline;gap:8px;margin:0 0 4px;padding-bottom:6px;font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--cw-muted);border-bottom:1px solid var(--cw-line)}
+.jb-day h3 small{font-size:11px;font-weight:400}
+.connected-workspace .jb-row{width:100%;display:flex;align-items:center;gap:14px;padding:12px 10px;border:0;border-bottom:1px solid var(--cw-line);border-radius:0;background:transparent;text-align:start;color:inherit}
+.connected-workspace .jb-row:hover{background:var(--hover)}
+.connected-workspace .jb-row[aria-pressed=true]{background:color-mix(in oklab,var(--hangar-primary) 10%,transparent);box-shadow:inset 3px 0 0 var(--hangar-primary)}
+.jb-text{flex:1;min-width:0}
+.jb-text b{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600}
+.jb-text b em{font-style:normal;font-size:11px;font-weight:500;color:var(--cw-muted);padding:1px 8px;border:1px solid var(--cw-line);border-radius:999px}
+.jb-text small{display:block;font-size:12px;color:var(--cw-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+.jb-text .jb-why{display:flex;align-items:center;gap:6px;color:var(--err-400,#e5484d)}
+.jb-when{flex:0 0 92px;text-align:end}.jb-when b{display:block;font-size:12px;font-weight:500}.jb-when small{display:block;font-size:11px;color:var(--cw-muted);margin-top:2px}
+@media(max-width:600px){.jb-when{display:none}}
+/* One job, in the side pane or a dialog: the ask, how it went, the ways on, then the agent's steps. */
+.jd-prompt{font-size:18px!important;line-height:1.4;margin:4px 0 10px!important;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.jd-why{display:flex;align-items:flex-start;gap:8px;margin:12px 0 0!important;padding:10px 12px;border-radius:10px;font-size:12.5px;line-height:1.5;color:var(--err-400,#e5484d);background:color-mix(in oklab,var(--err-400,#e5484d) 10%,transparent)}
+.jd-why svg{flex-shrink:0;margin-top:2px}
+.jd .jv-actions{margin-top:16px}
+.jd-reply{margin-top:16px;padding:14px;border:1px solid var(--cw-line);border-radius:12px;background:color-mix(in oklab,var(--cw-ink) 3%,transparent)}
+.jd-reply label{display:block;font-size:12px;font-weight:600;margin-bottom:8px}
+.jd-reply textarea{width:100%;resize:vertical;min-height:72px;border:1px solid var(--cw-line);border-radius:10px;padding:10px 12px;background:var(--cw-panel);color:var(--cw-ink);font:inherit;font-size:13px}
+.jd-reply>div{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}
+.jd-reply small{font-size:11.5px;color:var(--cw-muted)}
+.connected-workspace .jd-reply .cw-primary{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:8px 16px;border-radius:999px;flex-shrink:0}
+.jd-note{margin-top:14px!important;font-size:12px}
+.jd-heading{margin:22px 0 0;font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--cw-muted)}
+.jv-pane .jv-log{max-height:none;min-height:0;margin-top:8px}
+/* The pane is narrow: each step's time sits over its text, so the text gets the width. */
+.jv-pane .jv-say,.jv-pane .jv-step{flex-direction:column;gap:2px}.jv-pane .jv-log time{flex:none}

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import SidePane, { SIDE } from "./side-pane";
 import ProjectInsights from "./project-insights";
 import ProjectActivity from "./project-activity";
-import ActivityBoard, { type BoardFocus } from "./activity-board";
+import ActivityBoard, { prefetchBoard, type BoardFocus } from "./activity-board";
+import { JobDetail, JobsList, JobTop, jobRunning, type HangarJob } from "./hangar-jobs";
 import SessionPane, { SessionPaneTop, type SessionPick } from "./session-pane";
 import type { BoardData } from "@/lib/project-activity";
 import ProjectArchitecture from "./project-architecture";
@@ -30,14 +31,15 @@ type Site = { role: string; branch?: string; dirty?: number; ahead?: number; beh
 type Repo = { homepage?: string | null; onMachine?: boolean; recency?: string; lastActivity?: string; url?: string; openPRs?: number; organizationReviewed?: boolean; fullName?: string; hiddenByIsland?: string; hidden?: boolean; attention?: string | null; id: string; name: string; family: string; description?: string; purpose?: string; sites: Site[]; meaning?: { purpose?: string; next?: string }; risks?: { id: string; text: string }[] };
 type AtlasDoc = { islands?: Island[]; generatedAt: string; repos: Repo[]; families: { id: string; name: string; repos: number }[]; apps: { id: string; name: string }[] };
 type Session = LibrarySession;
-type Job = { id: string; repo: string; project: string; provider: string; prompt: string; state: string; kind?: string; opensIn?: "app" | "terminal"; startedAt: string; endedAt: string | null; exitCode: number | null; session?: string; output: { at: string; text: string }[] };
+type Job = HangarJob;
 type Apps = { repo: string; running: { port: number; by: string }[]; apps: { label: string; dir: string; targets: { id: string; label: string; ok: boolean; why: string; port?: number; type?: string }[] }[]; jobs?: Record<string, { state?: string; port?: number; message?: string }> };
 type Model = { id: string; target: string; provider: string; mode: string; status: string; local: boolean; detail?: string; resident?: boolean };
 type Machine = { id: string; name: string; port?: number; sshAlias?: string };
 type MachineStatus = { machine: string; name: string; atlas: boolean; platform: string; observedAt: string; error?: string; memory?: { kind: string; vramTotalGb?: number; ramTotalGb?: number } };
 type View = "world" | "projects" | "sessions" | "machines" | "models";
+type SessionsTab = "activity" | "history" | "jobs";
 export const WORLD_TABS = new Set<string>(["world", "projects", "sessions", "machines", "models"]);
-const running = (j: Job) => j.state === "running" || j.state === "stopping";
+const running = jobRunning;
 /** The side panel's width as a share of the workspace; the CSS floor keeps it at least as wide as its content needs. */
 /** A project's own working copy here: its main clone, a local-only repo, or a clone of someone else's repo (same rule as the engine). */
 const MAIN_ROLES = ["canonical", "orphan", "vendor"];
@@ -115,14 +117,21 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     try { const saved = Number(localStorage.getItem("hangar-side-width")); if (saved >= SIDE.min && saved <= SIDE.max) setPaneWidthState(saved); } catch { /* the default width */ }
   }, []);
   const setPaneWidth = (width: number) => { setPaneWidthState(width); try { localStorage.setItem("hangar-side-width", String(width)); } catch { /* kept for this visit */ } };
-  // Sessions shows one thing at a time, each with the whole height: who changed what, the session list, Hangar's own jobs.
-  const [sessionsTab, setSessionsTabState] = useState<"activity" | "history" | "jobs">("activity");
+  // Sessions shows one thing at a time: who changed what, the session list, Hangar's own jobs. It opens on the session
+  // list, the quickest to show, while who changed what (seconds to read when cold) loads behind it. Starting a task
+  // opens it on Hangar jobs instead (`enterTab`).
+  const [sessionsTab, setSessionsTab] = useState<SessionsTab>("history");
+  const enterTab = useRef<SessionsTab>("history");
+  const onSessions = active && view === "sessions";
+  useEffect(() => { if (!onSessions) return; setSessionsTab(enterTab.current); enterTab.current = "history"; }, [onSessions]);
+  useEffect(() => { if (onSessions) prefetchBoard(machine); }, [onSessions, machine]);
+  // A job picked on the Hangar jobs tab opens in the side pane; a reply or a rerun picks the job it starts once it shows.
+  const [pickedJob, setPickedJob] = useState<string | null>(null);
+  const awaitJob = useRef<{ repo: string; after: number } | null>(null);
   // A session (or a lone commit) picked on the who-changed-what board opens in the side pane, with the board's data.
   const [sessionPick, setSessionPick] = useState<SessionPick | null>(null), [board, setBoard] = useState<BoardData | null>(null);
   // A project opened from the board shows the board's week and day.
   const [activityFocus, setActivityFocus] = useState<(BoardFocus & { repo: string }) | null>(null);
-  useEffect(() => { try { const saved = localStorage.getItem("hangar-sessions-tab"); if (saved === "activity" || saved === "history" || saved === "jobs") setSessionsTabState(saved); } catch { /* the default tab */ } }, []);
-  const setSessionsTab = (tab: "activity" | "history" | "jobs") => { setSessionsTabState(tab); try { localStorage.setItem("hangar-sessions-tab", tab); } catch { /* kept for this visit */ } };
   const [showAll, setShowAll] = useState(false);
   const [gridStatus, setGridStatus] = useState<GridStatus>("all");
   const [gridSort, setGridSort] = useState<"attention" | "recent" | "name">("attention");
@@ -244,6 +253,11 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     void poll();
     return () => { controller.abort(); clearTimeout(timer); };
   }, [prefix, active, revision]);
+  useEffect(() => {
+    const wait = awaitJob.current, job = wait && jobs.find(j => j.repo === wait.repo && Date.parse(j.startedAt) >= wait.after);
+    if (!job) return;
+    awaitJob.current = null; setPickedJob(job.id); setInspectJob(current => current ? job.id : current);
+  }, [jobs]);
   useEffect(() => {
     const receive = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== iframe.current?.contentWindow || event.data?.source !== "atlas") return;
@@ -447,15 +461,18 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     <div className="cw-tools-pane-head"><h2>Repository tools</h2><button aria-label="Close repository tools" onClick={() => setToolsView(null)}><X size={18} /></button></div>
     <RepositoryPane key={`tools-${machine}-${toolsView}`} machine={machine} view={toolsView} onClose={() => setToolsView(null)} onSelect={id => { setToolsView(null); setSelected(id); }} onChanged={refreshProjects} />
   </SidePane>;
-  const jobRow = (job: (typeof jobs)[number]) => <div className="jv-row" key={job.id}>
-    <button className="jv-row-main" onClick={() => setInspectJob(job.id)} title="See what the agent did">
-      <span className={`jv-agent is-${job.provider === "codex" ? "codex" : "claude"}`}>{job.provider === "codex" ? "CX" : "CL"}</span>
-      <span className="jv-row-text"><b className="jv-project"><ProjectEmblem id={job.repo} name={job.project} size={18} />{job.project}</b><small>{job.kind === "architecture" ? "Architecture drawing" : "Coding task"} · {job.prompt}</small></span>
-      <span className={`jv-state is-${running(job) && !liveError ? "running" : job.state}`}>{jobState(job)}</span>
-      <span className="jv-when">{since(job.endedAt || job.startedAt)}</span>
-    </button>
-    {job.session && job.kind !== "architecture" && machine === "local" && <button className="cw-pill" disabled={busy} title={job.opensIn === "app" ? "Opens in the desktop app" : "The desktop app does not have this conversation, so it resumes in a terminal"} onClick={() => void openSession(job.provider, job.session!)}>{job.opensIn === "app" ? `Open in ${job.provider === "codex" ? "Codex" : "Claude"}` : "Resume in a terminal"}</button>}
-  </div>;
+  // A reply continues the job's conversation as a new job; a rerun starts the same task fresh. Either opens once it shows.
+  const runJob = async (job: Job, prompt: string, session: string | null) => {
+    const ok = await act("work", { action: "start", repo: job.repo, provider: job.provider, prompt, session });
+    if (ok) awaitJob.current = { repo: job.repo, after: Date.now() - 5000 };
+    return ok;
+  };
+  const jobDetail = (job: Job) => <JobDetail key={job.id} job={job} machine={machine} machineName={machineName} local={machine === "local"} busy={busy} message={message} live={running(job) && !liveError}
+    blocked={jobs.some(j => j.repo === job.repo && j.id !== job.id && (running(j) || j.state === "unobserved"))}
+    onStop={() => void act("work", { action: "stop", id: job.id })} onAcknowledge={() => void act("work", { action: "acknowledge", id: job.id })}
+    onOpen={() => job.session && void openSession(job.provider, job.session)} onRun={(prompt, session) => runJob(job, prompt, session)}
+    onDrawing={() => { setInspectJob(null); openProject(job.repo); setProjectTab("architecture"); }} />;
+  const pickedJobRow = jobs.find(j => j.id === pickedJob);
   const actionCounts = <nav className="cw-action-counts" aria-label="Repository actions">{[
     { id: "push", label: "to push", count: visibleProjects.filter(r => r.risks?.some(k => ["unpushed", "offmap"].includes(k.id))).length, color: "var(--hangar-secondary)" },
     { id: "pull", label: "to pull", count: visibleProjects.filter(r => r.risks?.some(k => k.id === "pull")).length, color: "var(--hangar-primary)" },
@@ -464,7 +481,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     { id: "apps", label: "running", count: apps.filter(a => a.running.length && visibleProjects.some(r => r.id === a.repo)).length, color: "var(--ok-400)" },
   ].map(item => <button key={item.id} style={{ "--chip-color": item.color } as CSSProperties} disabled={!doc} onClick={() => openTools(item.id)}><i aria-hidden="true" /><b>{item.count}</b>{item.label}</button>)}</nav>;
 
-  return <ProjectDirectoryProvider projects={directory} open={openProject}><section ref={workspace} style={{ "--cw-pane-width": `${paneWidth}%` } as CSSProperties} className={`connected-workspace ${expanded ? "is-expanded" : ""} ${project || toolsView ? "has-project" : ""} ${(project || view === "world" || (view === "sessions" && sessionsTab === "activity" && sessionPick)) && paneExpanded ? "is-pane-expanded" : ""}`} aria-label="Connected workspace" hidden={!active}>
+  return <ProjectDirectoryProvider projects={directory} open={openProject}><section ref={workspace} style={{ "--cw-pane-width": `${paneWidth}%` } as CSSProperties} className={`connected-workspace ${expanded ? "is-expanded" : ""} ${project || toolsView ? "has-project" : ""} ${(project || view === "world" || (view === "sessions" && ((sessionsTab === "activity" && sessionPick) || (sessionsTab === "jobs" && pickedJobRow)))) && paneExpanded ? "is-pane-expanded" : ""}`} aria-label="Connected workspace" hidden={!active}>
     <div className="cw-topbar"><h1>{{ world: "World", projects: "Projects", sessions: "Sessions", machines: "Machines", models: "Models" }[view]}</h1>
     {view === "world" && doc && <span className="cw-topbar-count">{doc.families.length} islands · {doc.repos.filter(r => !r.hidden).length} projects</span>}
     <div className="cw-machine-rail" aria-label="Machine scope">
@@ -522,7 +539,13 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
               onOpen={machine === "local" ? s => void openSession(s.provider, s.id) : undefined} onContinue={continueSession} />
           </SidePane>}
         </div>}
-        {sessionsTab === "jobs" && <div className="cw-sessions-pane"><div className="cw-section-title"><h2><Activity size={20} /> Jobs Hangar ran</h2><span>{machineName}</span></div><p className="jv-help">Tasks you started from Hangar. Open one to see what the agent did, or open its conversation in Claude Code or Codex to carry on.</p><SignInNotice machine={machine} machineName={machineName} agent="claude" compact /><SignInNotice machine={machine} machineName={machineName} agent="codex" compact />{liveError && <p role="alert" className="cw-error">{liveError}. Last observed work may be stale.</p>}{jobs.length ? <>{jobs.filter(job => running(job) || job.state === "unobserved").map(jobRow)}{jobs.some(job => !running(job) && job.state !== "unobserved") && <details className="cw-finished-jobs"><summary>{jobs.filter(job => !running(job) && job.state !== "unobserved").length} finished jobs</summary>{jobs.filter(job => !running(job) && job.state !== "unobserved").map(jobRow)}</details>}</> : <div className="cw-empty-inline"><Terminal size={24} /><div><b>No Hangar coding jobs observed.</b><p>Start a task from a project to see its output and control it here. Other apps’ sessions are under Sessions.</p></div><button onClick={() => onSelect("projects")}>Choose project</button></div>}</div>}
+        {sessionsTab === "jobs" && <div className={`cw-split ${pickedJobRow ? "has-pane" : ""}`}>
+          <div className="cw-sessions-pane"><JobsList jobs={jobs} machine={machine} machineName={machineName} liveError={liveError} picked={pickedJobRow?.id || null} onPick={id => { setMessage(""); setPickedJob(id); }} onStart={() => onSelect("projects")} /></div>
+          {pickedJobRow && <SidePane className="cw-session-pane jv-pane" label="Job details" width={paneWidth} onWidth={setPaneWidth}
+            expanded={paneExpanded} onExpand={() => setPaneExpanded(v => !v)} onClose={() => { setPaneExpanded(false); setPickedJob(null); }} top={<JobTop job={pickedJobRow} />}>
+            {jobDetail(pickedJobRow)}
+          </SidePane>}
+        </div>}
         {sessionsTab === "history" && <SessionLibrary key={machine} machine={machine} data={library} error={sessionsError} onUpdate={receiveLibrary} onContinue={continueSession} onOpen={machine === "local" ? s => void openSession(s.provider, s.id) : undefined} />}
       </div>}
     </>
@@ -530,53 +553,17 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     {removing && <RemoveProjectDialog project={removing} busy={busy} error={removeError} onClose={() => setRemoving(null)} onConfirm={() => void attention(removing, "hidden")} />}
     {reviewing && <ProjectReview projects={doc?.repos || []} islands={doc?.islands || []} machine={machine} onClose={() => setReviewing(false)} onChanged={refreshProjects} onInspect={id => { const repo = doc?.repos.find(r => r.id === id); if (repo) choose(repo); }} />}
     {operation && <WorkspaceOperations key={`${machine}-${operation.kind}-${operation.repo?.id || operation.island || ""}`} panel={operation} machine={machine} machineName={machineName} projects={doc?.repos || []} onClose={() => setOperation(null)} onChanged={refreshProjects} />}
-    {composer && project && <TaskComposer project={project} machine={machine} machineName={machineName} sessions={projectSessions} initialSession={resume} initialProvider={provider} blocked={jobs.some(j => j.repo === project.id && (running(j) || j.state === "unobserved"))} onClose={() => setComposer(false)} onSubmit={async body => { const ok = await act("work", { action: "start", repo: project.id, ...body }); if (ok) { setComposer(false); onSelect("sessions"); } return ok; }} />}
-    {inspectJob && (() => { const job = jobs.find(j => j.id === inspectJob); if (!job) return null; return <JobView job={job} machine={machine} machineName={machineName} local={machine === "local"} busy={busy} message={message} live={running(job) && !liveError} onClose={() => setInspectJob(null)} onStop={() => act("work", { action: "stop", id: job.id })} onAcknowledge={() => act("work", { action: "acknowledge", id: job.id })} onOpen={() => job.session && void openSession(job.provider, job.session)} />; })()}
+    {composer && project && <TaskComposer project={project} machine={machine} machineName={machineName} sessions={projectSessions} initialSession={resume} initialProvider={provider} blocked={jobs.some(j => j.repo === project.id && (running(j) || j.state === "unobserved"))} onClose={() => setComposer(false)} onSubmit={async body => { const ok = await act("work", { action: "start", repo: project.id, ...body }); if (ok) { setComposer(false); enterTab.current = "jobs"; onSelect("sessions"); } return ok; }} />}
+    {inspectJob && (() => { const job = jobs.find(j => j.id === inspectJob); if (!job) return null; return <JobView job={job} machineName={machineName} onClose={() => setInspectJob(null)}>{jobDetail(job)}</JobView>; })()}
   </section></ProjectDirectoryProvider>;
 }
 
-/** A job's state in words. */
-function jobState(job: Job) {
-  return { running: "Running", stopping: "Stopping", completed: "Finished", failed: "Failed", stopped: "Stopped", unobserved: "Not seen", acknowledged: "Closed" }[job.state] || job.state;
-}
-/** What a job did, as readable steps: the agent's words as text, its tool calls as compact action lines; and where to go on from here. */
-function JobView({ job, machine, machineName, local, busy, message, live, onClose, onStop, onAcknowledge, onOpen }: {
-  job: Job; machine: string; machineName: string; local: boolean; busy: boolean; message: string; live: boolean;
-  onClose: () => void; onStop: () => void; onAcknowledge: () => void; onOpen: () => void;
-}) {
-  const log = useRef<HTMLDivElement>(null);
-  const stick = useRef(true);
-  // Older jobs logged bare event names; they carry nothing to read.
-  const lines = job.output.filter(l => !/^(system|user|assistant|result|rate_limit_event|stream_event|Agent activity)( · .*)?$/.test(l.text.trim()));
-  useEffect(() => { const el = log.current; if (el && stick.current) el.scrollTop = el.scrollHeight; }, [lines.length]);
-  const agent = job.provider === "codex" ? "Codex" : "Claude Code";
-  const action = (t: string) => /^(Ran|Read|Edited|Wrote|Searched|Looked for|Changed|Used|Updated its plan|Asked a helper|Started)\b/.test(t);
-  // Drawing jobs run read-only and ephemeral: there is no conversation to reopen even when one was recorded.
-  const openable = !!job.session && job.kind !== "architecture";
-  // Long structured replies (a drawing's JSON) fold away instead of filling the view.
-  const bulky = (t: string) => t.length > 600 && /^\s*(\{|\[|```)/.test(t);
-  const took = job.endedAt ? Math.max(0, Math.round((Date.parse(job.endedAt) - Date.parse(job.startedAt)) / 60000)) : null;
-  return <div className="cw-dialog-backdrop"><section className="cw-dialog jv" role="dialog" aria-modal="true" aria-labelledby="cw-job-title"><DialogFocus onClose={onClose} />
-    <button className="cw-dialog-close" aria-label="Close job output" onClick={onClose}><X size={20} /></button>
-    <span className="cw-eyebrow">{machineName} · {job.project} · {job.kind === "architecture" ? "Architecture drawing" : "Coding task"}</span>
-    <h2 id="cw-job-title">{job.prompt}</h2>
-    <div className="jv-facts"><span><i className={`jv-dot is-${job.provider === "codex" ? "codex" : "claude"}`} />{agent}</span><span className={`jv-state is-${live ? "running" : job.state}`}>{jobState(job)}</span><span>Started {new Date(job.startedAt).toLocaleTimeString()}{took !== null ? ` · took ${took < 1 ? "under a minute" : `${took} min`}` : ""}</span></div>
-    <div className="jv-log" ref={log} role="log" aria-label="What the agent did" onScroll={e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40; }}>
-      {lines.length ? lines.map((line, i) => action(line.text)
-        ? <p key={`${i}-${line.at}`} className="jv-step"><time>{new Date(line.at).toLocaleTimeString()}</time><span>{line.text}</span></p>
-        : bulky(line.text) ? <details key={`${i}-${line.at}`} className="jv-bulky"><summary><time>{new Date(line.at).toLocaleTimeString()}</time>Structured reply · {line.text.split("\n").length} lines</summary><pre>{line.text}</pre></details>
-        : <div key={`${i}-${line.at}`} className="jv-say"><time>{new Date(line.at).toLocaleTimeString()}</time><p>{line.text}</p></div>)
-        : live ? <HangarLoading compact label="Waiting for the agent’s first step" steps={["Starting the agent", "Reading the project", "Planning the first step"]} /> : <p className="cw-muted">This job left no readable output.</p>}
-    </div>
-    <div className="jv-actions">
-      {openable && local && <button className="cw-primary" disabled={busy} title={job.opensIn === "app" ? "Opens in the desktop app" : "The desktop app does not have this conversation, so it resumes in a terminal"} onClick={onOpen}>{job.opensIn === "app" ? `Open in ${job.provider === "codex" ? "Codex" : "Claude"}` : "Resume in a terminal"}<ArrowRight size={15} /></button>}
-      {job.state === "unobserved" ? <button disabled={busy} onClick={onAcknowledge}>I checked: this job is no longer running</button>
-        : live && <button disabled={busy || job.state === "stopping"} onClick={onStop}><Square size={14} />{job.state === "stopping" ? "Stopping…" : "Stop this job"}</button>}
-      {!openable && !live && <p className="cw-muted">{job.kind === "architecture" ? "A read-only drawing job keeps no conversation to open." : "No conversation was recorded for this job."}</p>}
-      {!live && job.exitCode !== null && job.exitCode !== 0 && <p className="cw-muted">The agent stopped with exit code {job.exitCode}.</p>}
-    </div>
-    {!live && job.state === "failed" && <SignInNotice machine={machine} machineName={machineName} agent={job.provider === "codex" ? "codex" : "claude"} compact />}
-    {message && <p role="status" className="jv-message">{message}</p>}
+/** A job over another view (the map, a project): the same detail as on the Hangar jobs tab, in a dialog. */
+function JobView({ job, machineName, onClose, children }: { job: Job; machineName: string; onClose: () => void; children: React.ReactNode }) {
+  return <div className="cw-dialog-backdrop"><section className="cw-dialog jv" role="dialog" aria-modal="true" aria-label="Job details"><DialogFocus onClose={onClose} />
+    <button className="cw-dialog-close" aria-label="Close job" onClick={onClose}><X size={20} /></button>
+    <span className="cw-eyebrow">{machineName} · {job.kind === "architecture" ? "Architecture drawing" : "Coding task"}</span>
+    {children}
   </section></div>;
 }
 function DialogFocus({ onClose }: { onClose: () => void }) {
