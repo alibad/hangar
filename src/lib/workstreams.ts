@@ -4,6 +4,7 @@ export type WorkstreamLink = { id: ConsoleTab; label: string; hint: string };
 export type WorkstreamGroup = { id: string; label: string; links: WorkstreamLink[] };
 export const PRIMARY_LINKS: WorkstreamLink[] = [
   { id: "world", label: "World", hint: "Atlas islands and live work" },
+  { id: "library", label: "Library", hint: "Every video, AI-made file and dataset on this machine" },
   { id: "projects", label: "Projects", hint: "Repositories across your machines" },
   { id: "sessions", label: "Sessions", hint: "Live jobs and coding history" },
   { id: "models", label: "Models", hint: "Use models on a connected machine" },
