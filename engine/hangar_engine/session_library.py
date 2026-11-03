@@ -149,7 +149,7 @@ def snapshot(doc, overlay, now=None, changes=False):
     rows.sort(key=lambda s: s["updatedAt"], reverse=True)
     return {"sessions": rows, "groups": list(groups.values()), "idleDays": saved["idleDays"], "nativeAvailable": native["available"],
             "reviewCount": sum(s["reviewDue"] for s in rows), "unreadReviewCount": sum(s["reviewDue"] and s["unread"] is True for s in rows),
-            "claudeApp": bool(app), "claudeQueue": [{"key": r["key"], "appId": r["appId"], "title": r["title"]} for r in rows if r["archivePending"]],
+            "claudeApp": bool(app), "checking": _checking(), "claudeQueue": [{"key": r["key"], "appId": r["appId"], "title": r["title"]} for r in rows if r["archivePending"]],
             "truncated": history["truncated"] or native["truncated"], "observedAt": iso(now)}
 
 
@@ -254,3 +254,8 @@ def _archive(saved, rows, keys, body):
     config.write_json(config.LOCAL / "session-library.json", saved)
     return {"saved": True, "archived": len(live) - len(failed), "codexArchived": len(codex) - len(failed), "codexFailed": len(failed),
             "claudeQueued": len(claude), "hangarOnly": len(elsewhere)}
+
+
+def _checking():
+    from . import checkin  # checkin reads this module's sessions
+    return checkin.progress()

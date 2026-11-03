@@ -22,7 +22,9 @@ from pathlib import Path
 from . import activity, codex_library, config, session_index, session_library, work
 
 VERDICTS = ("done", "left", "elsewhere", "unclear", "working")
+BATCH = 40
 _lock = threading.Lock()
+_progress = {"running": False, "done": 0, "total": 0, "startedAt": None, "error": None}
 _TAG = re.compile(r"<(system-reminder|command-[a-z-]+|local-command-[a-z-]+|environment_context|user_instructions)>.*?</\1>", re.S)
 
 
@@ -206,8 +208,8 @@ def verdict(row, entry, talk, own, checkouts, states, histories, claims, prefixe
         result, headline = "left", f"{len(unpushed)} of its commits never reached the remote."
     elif leftovers and not later:
         result, headline = "left", "It left edits uncommitted."
-    elif leftovers:
-        result, headline = "left", "Its files are still uncommitted, though later work touched them too."
+    elif leftovers:  # newer sessions committed these files since, so the edits sitting there now are most likely theirs
+        result, headline = "elsewhere", "Later sessions took these files over; the uncommitted edits in them now are most likely theirs."
     elif waiting:
         result, headline = "left", "It stopped to ask you something."
     elif (stopped or (edited and not own)) and later:
@@ -227,6 +229,36 @@ def verdict(row, entry, talk, own, checkouts, states, histories, claims, prefixe
     return {"verdict": result, "headline": headline, "reasons": reasons, "asked": talk["asked"], "answer": talk["answer"],
             "commits": len(own), "pushed": len(pushed), "unpushed": [c["sha"] for c in unpushed], "leftovers": leftovers[:20],
             "later": later[-8:], "activityAt": row["activityAt"], "checkedAt": now(), "by": "hangar"}
+
+
+def progress():
+    """The background run: how many sessions it has checked so far."""
+    return dict(_progress)
+
+
+def start(doc, overlay, keys):
+    """Check many sessions in the background, a batch at a time, keeping each batch as it lands, so a run over every
+    session never holds a request open and its results appear while it goes."""
+    known = {r["key"] for r in session_library.snapshot(doc, overlay)["sessions"]}
+    if not isinstance(keys, list) or not 1 <= len(keys) <= 600 or any(k not in known for k in keys):
+        raise ValueError("Choose 1–600 known sessions on this machine.")
+    with _lock:
+        if _progress["running"]:
+            raise ValueError("A check-in run is already going; its progress shows on the Sessions page.")
+        _progress.update(running=True, done=0, total=len(keys), startedAt=now(), error=None)
+
+    def through():
+        try:
+            for i in range(0, len(keys), BATCH):
+                run(doc, overlay, keys[i:i + BATCH])
+                _progress["done"] = min(len(keys), i + BATCH)
+        except Exception as error:  # the run must end, and say why, rather than look busy forever
+            _progress["error"] = str(error)[:300]
+        finally:
+            _progress["running"] = False
+
+    threading.Thread(target=through, daemon=True, name="hangar-checkin").start()
+    return {"started": True, "total": len(keys)}
 
 
 def run(doc, overlay, keys):

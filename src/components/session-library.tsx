@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ArrowRight, Check, Folder, GitCommitHorizontal, Layers, Pin, X } from "lucide-react";
+import { Archive, ArrowRight, Bookmark, Check, ClipboardCheck, Folder, FolderInput, GitCommitHorizontal, Layers, Pin, Play, Sparkles, X } from "lucide-react";
 import "./session-library.css";
 import HangarLoading from "./hangar-loading";
 import { ProjectBadge, ProjectList } from "./project-identity";
@@ -17,6 +17,8 @@ export type LibrarySession = {
   archivePending?: boolean;
   /** The Claude app's own id for it, when the app holds it. */
   appId?: string | null;
+  /** Hangar's check-in on it (and Claude's, when asked), while nothing has happened in it since. */
+  checkin?: Checkin | null;
   /** The Claude app's one-line status of the last turn (completed, blocked on you, or ready for review), when it is current. */
   status?: { category: string; detail: string; needsAction: string } | null;
   /** A Hangar job is running in it, or its app shows a turn that has not ended and is still writing. */
@@ -34,7 +36,18 @@ export type LibrarySession = {
   helpers?: number;
 };
 type Group = { id: string; name: string; source: string; nativeId?: string };
-export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; claudeApp?: boolean; truncated: boolean; observedAt: string };
+type Verdict = "done" | "left" | "elsewhere" | "unclear" | "working";
+type Checkin = {
+  verdict: Verdict; headline: string; reasons: string[]; asked: string; answer: string; commits: number; pushed: number; unpushed: string[]; leftovers: string[];
+  later: { sha: string; subject: string; at: string; project: string; session: string | null; sessionTitle: string }[]; checkedAt: string;
+  claude?: { state: "running" | "done" | "failed"; verdict?: Verdict; summary?: string; left?: string[]; where?: string; message?: string };
+};
+const VERDICT: Record<Verdict, string> = { done: "Done", left: "Work left", elsewhere: "Done elsewhere", unclear: "Unclear", working: "Working" };
+/** Finished, one way or another: safe to archive after a look. */
+const finished = (s: LibrarySession) => s.checkin?.verdict === "done" || s.checkin?.verdict === "elsewhere";
+export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; claudeApp?: boolean; truncated: boolean; observedAt: string;
+  /** A background check-in run over many sessions. */
+  checking?: { running: boolean; done: number; total: number; error: string | null } };
 type Props = { machine: string; data: SessionLibraryData | null; error: string; onUpdate: (data: SessionLibraryData) => void; onContinue: (session: LibrarySession) => void; onOpen?: (session: LibrarySession) => void };
 type Mode = "active" | "projects" | "review" | "groups" | "archived";
 type Agent = "all" | "claude" | "codex";
@@ -156,6 +169,13 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     return () => { controller.abort(); clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, [endpoint]);
 
+  const reading = everything.some(s => s.checkin?.claude?.state === "running") || !!data?.checking?.running;
+  useEffect(() => {
+    if (!reading) return;
+    const timer = setInterval(() => { request<SessionLibraryData>(endpoint).then(next => updateRef.current(next)).catch(() => {}); }, 4000);
+    return () => clearInterval(timer);
+  }, [reading, endpoint]);
+
   useEffect(() => {
     let live = true;
     fetch(`/api/world/${machine}/proxy/reviews`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).then((data: { reviews: Review[] } | null) => {
@@ -191,16 +211,23 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     return () => { el?.removeEventListener("keydown", key); previous?.focus(); };
   }, [target, bulk]);
 
-  async function act(body: Record<string, unknown>, message: string | ((result: Record<string, number>) => string)) {
+  async function act(body: Record<string, unknown>, message: string | ((result: Record<string, number>) => string), url = endpoint) {
     if (busyRef.current) return false;
     busyRef.current = true; setBusy(true); setError(""); setNotice("");
     try {
-      const result = await request<Record<string, number>>(endpoint, body);
+      const result = await request<Record<string, number>>(url, body);
       const next = await request<SessionLibraryData>(endpoint);
       onUpdate(next); setNotice(typeof message === "function" ? message(result) : message); return true;
     } catch (e) { setError((e as Error).message); return false; }
     finally { setBusy(false); busyRef.current = false; }
   }
+  const checkUrl = `/api/world/${machine}/proxy/sessions/checkin`;
+  // A few sessions are checked while you wait; more run in the background and land a batch at a time.
+  const checkIn = (rows: LibrarySession[]) => rows.length > 12
+    ? act({ keys: rows.map(s => s.key), background: true }, `Checking ${rows.length} sessions. Their verdicts appear as each batch lands.`, checkUrl)
+    : act({ keys: rows.map(s => s.key) }, "Checked in. It shows what was asked, how it ended and what is left.", checkUrl);
+  const checking = !!data?.checking?.running;
+  const askClaude = (row: LibrarySession) => act({ ask: row.key }, "Claude is reading the conversation, read-only. Its verdict appears here in a minute or two.", checkUrl);
   const archived = (r: Record<string, number>) => [
     r.codexArchived && `${r.codexArchived} archived in Codex`,
     r.claudeQueued && `${r.claudeQueued} queued for the Claude app (ask a Claude session to apply Hangar’s clean-up)`,
@@ -275,16 +302,24 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
           {(latestReview.size > 0 || reviewedOnly) && <button className="sl-toggle" aria-pressed={reviewedOnly} title="Sessions whose work the other agent has reviewed" onClick={() => { setReviewedOnly(v => !v); setLimit(40); }}>Reviewed <small>{latestReview.size}</small></button>}
           {project && <button className="sl-chip" onClick={() => setProject("")} title="Show every project"><ProjectBadge id={project} name={laneOf.get(project)?.name || project} size="xs" /><X size={13} /></button>}
           <span>{visible.length} sessions</span>{probes > 0 && <button className="sl-toggle" aria-pressed={showProbes} title="Scripted runs in a temp folder that edited no project" onClick={() => setShowProbes(v => !v)}>{showProbes ? "Hide" : "Show"} {probes} test {probes === 1 ? "run" : "runs"}</button>}{filter && <button onClick={() => setFilter("")}>Clear group filter <X size={14} /></button>}</div>
+        {data.checking?.running ? <div className="sl-progress" role="status"><span>Checking sessions… {data.checking.done} of {data.checking.total}</span><i style={{ width: `${Math.round(data.checking.done / Math.max(1, data.checking.total) * 100)}%` }} /></div>
+          : data.checking?.error ? <p className="cw-error" role="alert">The check-in run stopped: {data.checking.error}</p> : null}
+        {mode === "review" && !checking && visible.some(s => !s.checkin) && <button className="sl-check-every" disabled={busy} onClick={() => checkIn(visible.filter(s => !s.checkin).slice(0, 600))}><ClipboardCheck size={15} aria-hidden="true" />Check in on all {visible.filter(s => !s.checkin).length}<small>Hangar reads each one’s ask, its ending and the project, in seconds</small></button>}
         {mode === "review" && <p className="sl-help">Sessions untouched for {data.idleDays}+ days, oldest first. Archive a whole age group at once, or open one to decide. Unread sessions and ones waiting on you are listed last and never archived in bulk; pinned sessions and projects with a running job are left alone.</p>}
         {!!visible.length && <div className="sl-inbox" ref={setInbox}>
           <div className="sl-list" aria-label="Sessions">
             {sections.map(section => <div className="sl-section" key={section.id}>
-              {section.name && <h4><span>{section.name}</span><small>{section.all.length}</small>{section.bulk && <button className="sl-bulk" disabled={busy} title={`Archive the ${section.all.length} sessions in this group`} onClick={() => setBulk({ name: section.name, rows: section.all })}><Archive size={12} aria-hidden="true" />Archive all</button>}</h4>}
+              {section.name && <h4><span>{section.name}</span><small>{section.all.length}</small>{section.bulk && (() => {
+                const checked = section.all.filter(s => s.checkin).length, done = section.all.filter(finished);
+                return <>{checked < section.all.length && <button className="sl-bulk is-quiet" disabled={busy || checking} title="Hangar checks each one: what was asked, how it ended, and whether anything is left" onClick={() => checkIn(section.all)}><ClipboardCheck size={12} aria-hidden="true" />Check all</button>}
+                  {done.length > 0 && done.length < section.all.length && <button className="sl-bulk" disabled={busy} title="Archive the sessions the check-in found finished" onClick={() => setBulk({ name: `${section.name}, finished`, rows: done })}><Archive size={12} aria-hidden="true" />Archive {done.length} done</button>}
+                  <button className="sl-bulk" disabled={busy} title={`Archive the ${section.all.length} sessions in this group`} onClick={() => setBulk({ name: section.name, rows: section.all })}><Archive size={12} aria-hidden="true" />Archive all</button></>;
+              })()}</h4>}
               {section.rows.map(row => <div className="sl-row-line" key={row.key}><button type="button" aria-pressed={selected?.key === row.key} className={`sl-row ${row.unread ? "sl-unread" : ""}`} onClick={() => pick(row.key)}>
                 <span className={`cw-session-provider is-${agentOf(row)}`}><AgentMark agent={agentOf(row)} /></span>
                 <span className="sl-row-text"><b>{row.title}</b>{row.status?.detail ? <em className={`sl-changed sl-row-status is-${row.status.category}`} title={STATUS[row.status.category] || "Last turn"}><span className="sl-status-dot" aria-hidden="true" />{row.status.detail}</em> : !!row.changed?.length && <em className="sl-changed"><GitCommitHorizontal size={12} aria-hidden="true" />{row.changed[0].subject}{(row.changedCount || 0) > 1 && <i>+{(row.changedCount || 0) - 1}</i>}</em>}<small className="sl-row-meta"><ProjectList projects={row.projects} />{[row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).map(part => <span key={part}>{part}</span>)}</small></span>
                 {(() => { const r = latestReview.get(row.key); return r && <span className={`sl-review is-${r.state === "done" ? r.verdict : r.state}`} title={`${NAME[r.reviewer]} reviewed this session’s work: ${reviewLabel(r)}`}><AgentMark agent={r.reviewer} />{reviewLabel(r)}</span>; })()}
-                {row.working ? <span className="sl-flag is-live">Working</span> : row.status?.category === "blocked" && <span className="sl-flag is-wait">Needs you</span>}
+                {row.working ? <span className="sl-flag is-live">Working</span> : row.checkin && row.checkin.verdict !== "working" ? <span className={`sl-verdict is-${row.checkin.claude?.verdict || row.checkin.verdict}`} title={row.checkin.headline}>{VERDICT[row.checkin.claude?.verdict || row.checkin.verdict]}</span> : row.status?.category === "blocked" && <span className="sl-flag is-wait">Needs you</span>}
                 {row.unread === true && <i className="sl-dot" aria-label={`Unread in ${appOf(row)}`} />}
                 {row.pinned && <Pin size={13} aria-label="Pinned in Codex" />}
               </button>{mode === "review" && !row.archived && <button type="button" className="sl-row-archive" disabled={busy || row.protected || row.pinned} title={`Archive in ${homeOf(row)}`} aria-label={`Archive “${row.title}” in ${homeOf(row)}`} onClick={() => act({ action: "archive", keys: [row.key], activityAt: row.activityAt }, archived)}><Archive size={14} aria-hidden="true" /></button>}</div>)}
@@ -305,12 +340,13 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
               {selected.archivePending && <p className="sl-actions-help">Hangar can’t change the Claude app, so a Claude session archives it there. Ask any Claude session to apply Hangar’s clean-up.</p>}
             </> : <>
               {onOpen && <button className="sl-open" disabled={busy} title={selected.opensIn === "app" ? `Opens in the ${selected.provider === "codex" ? "Codex" : "Claude"} app` : `The ${selected.provider === "codex" ? "Codex" : "Claude"} app does not have this conversation (it was started outside the app), so it resumes in a terminal`} onClick={() => onOpen(selected)}>{selected.opensIn === "app" ? `Open in ${selected.provider === "codex" ? "Codex" : "Claude"}` : "Resume in a terminal"} <ArrowRight size={14} /></button>}
-              <button disabled={busy || !selected.canResume || !selected.projects.length} title="Hangar sends this conversation a new instruction and runs it in the background, with its history" onClick={async () => { if (await act({ action: "opened", keys: [selected.key] }, "Session opened in Hangar.")) onContinue(selected); }}>Give it a task</button>
-              <button disabled={busy} title="Hangar groups sort Claude and Codex sessions together" onClick={() => { setChosenGroup(selected.group || ""); setTarget({ key: selected.key, purpose: "group" }); }}>Move to group</button>
-              <button disabled={busy || selected.protected || selected.pinned} onClick={() => setTarget({ key: selected.key, purpose: "archive" })}>Archive</button>
-              {selected.reviewDue && <button disabled={busy} title="Leaves it out of Clean up for seven days" onClick={() => act({ action: "snooze", keys: [selected.key] }, "Kept. It won’t be suggested for clean-up for seven days.")}>Keep it</button>}
-              <p className="sl-actions-help">Archive archives it in {homeOf(selected)}. Groups are Hangar’s own.</p>
+              <button className="sl-action" disabled={busy} title="Was it finished, is something left, or did later work finish it?" onClick={() => checkIn([selected])}><ClipboardCheck size={14} aria-hidden="true" />{selected.checkin ? "Check again" : "Check in"}</button>
+              <button className="sl-action" disabled={busy || !selected.canResume || !selected.projects.length} title="Hangar sends this conversation a new instruction and runs it in the background, with its history" onClick={async () => { if (await act({ action: "opened", keys: [selected.key] }, "Session opened in Hangar.")) onContinue(selected); }}><Play size={14} aria-hidden="true" />Give it a task</button>
+              <button className="sl-action" disabled={busy} title="Hangar groups sort Claude and Codex sessions together" onClick={() => { setChosenGroup(selected.group || ""); setTarget({ key: selected.key, purpose: "group" }); }}><FolderInput size={14} aria-hidden="true" />Move to group</button>
+              {selected.reviewDue && <button className="sl-action" disabled={busy} title="Leaves it out of Clean up for seven days" onClick={() => act({ action: "snooze", keys: [selected.key] }, "Kept. It won’t be suggested for clean-up for seven days.")}><Bookmark size={14} aria-hidden="true" />Keep it</button>}
+              <button className="sl-action is-archive" disabled={busy || selected.protected || selected.pinned} title={`Archive in ${homeOf(selected)}`} onClick={() => setTarget({ key: selected.key, purpose: "archive" })}><Archive size={14} aria-hidden="true" />Archive</button>
             </>}</div>
+            {selected.checkin && <CheckinCard checkin={selected.checkin} busy={busy} rows={rows} onPick={key => pick(key)} onAsk={() => askClaude(selected)} onArchive={() => setTarget({ key: selected.key, purpose: "archive" })} onOpen={onOpen ? () => onOpen(selected) : undefined} archivable={!selected.archived && !selected.protected && !selected.pinned} />}
             <p>{selected.summary}</p>
             {!!selected.changed?.length && <div className="sl-commits" aria-label="What this session committed"><h4>What it changed<small>{selected.changedCount} {selected.changedCount === 1 ? "commit" : "commits"}</small></h4><ol>{selected.changed.map(c => <li key={`${c.repo}-${c.sha}`}><GitCommitHorizontal size={14} aria-hidden="true" /><span><b>{c.subject}</b><small>{c.repo} · {new Date(c.at).toLocaleDateString(undefined, { day: "numeric", month: "short" })} {new Date(c.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })} · <code>{c.sha}</code></small></span></li>)}</ol>{(selected.changedCount || 0) > selected.changed.length && <small>{(selected.changedCount || 0) - selected.changed.length} more in the last 30 days</small>}</div>}
             <SessionReviews key={selected.key} machine={machine} session={selected} onReviews={onReviews} />
@@ -408,4 +444,30 @@ function ProjectLanes({ lanes, onOpen }: { lanes: ReturnType<typeof projectLanes
     })}</div>
     {!shown.length && <p className="cw-muted">No projects in this view.</p>}
   </>;
+}
+
+/** What the check-in found: the verdict in one line, what was asked and how it ended, the evidence, and the next step. */
+function CheckinCard({ checkin: c, busy, rows, onPick, onAsk, onArchive, onOpen, archivable }: {
+  checkin: Checkin; busy: boolean; rows: LibrarySession[]; onPick: (key: string) => void; onAsk: () => void; onArchive: () => void; onOpen?: () => void; archivable: boolean;
+}) {
+  const verdict = c.claude?.state === "done" && c.claude.verdict ? c.claude.verdict : c.verdict;
+  const later = [...new Map(c.later.filter(l => l.session).map(l => [l.session!, l])).values()];
+  return <section className={`sl-checkin is-${verdict}`} aria-label="Check-in">
+    <header><span className={`sl-verdict is-${verdict}`}>{VERDICT[verdict]}</span><b>{c.claude?.state === "done" && c.claude.summary ? c.claude.summary : c.headline}</b></header>
+    <dl>
+      {c.asked && <><dt>Asked</dt><dd>{c.asked}</dd></>}
+      {c.answer && <><dt>Last reply</dt><dd>{c.answer}</dd></>}
+    </dl>
+    {c.reasons.length > 0 && <ul className="sl-reasons">{c.reasons.map(r => <li key={r}>{r}</li>)}</ul>}
+    {c.claude?.state === "done" && (c.claude.left?.length || c.claude.where) && <div className="sl-claude-says"><Sparkles size={13} aria-hidden="true" /><span>{c.claude.where && <>Finished in: {c.claude.where}. </>}{!!c.claude.left?.length && <>Left: {c.claude.left.join("; ")}</>}</span></div>}
+    {c.leftovers.length > 0 && <details><summary>{c.leftovers.length} uncommitted {c.leftovers.length === 1 ? "file" : "files"}</summary><ul>{c.leftovers.map(f => <li key={f}><code>{f}</code></li>)}</ul></details>}
+    {later.length > 0 && <div className="sl-later"><span>Later work on its files</span>{later.map(l => rows.some(r => r.key === l.session) ? <button key={l.session} onClick={() => onPick(l.session!)}>{l.sessionTitle || l.subject}<ArrowRight size={12} aria-hidden="true" /></button> : <em key={l.session}>{l.sessionTitle || l.subject}</em>)}</div>}
+    {c.claude?.state === "running" && <p className="sl-claude-reading"><Sparkles size={13} aria-hidden="true" />Claude is reading the conversation…</p>}
+    {c.claude?.state === "failed" && <p className="sl-claude-reading is-failed">{c.claude.message || "Claude could not finish the check-in."}</p>}
+    <footer>
+      {(verdict === "done" || verdict === "elsewhere") && archivable && <button className="sl-action is-archive" disabled={busy} onClick={onArchive}><Archive size={14} aria-hidden="true" />Archive it</button>}
+      {verdict === "left" && onOpen && <button className="sl-action" disabled={busy} onClick={onOpen}><ArrowRight size={14} aria-hidden="true" />Pick it up</button>}
+      {c.claude?.state !== "running" && <button className="sl-action is-quiet" disabled={busy} title="A read-only Claude Code job reads the whole conversation and the project, then gives its own verdict" onClick={onAsk}><Sparkles size={14} aria-hidden="true" />{c.claude?.state === "done" ? "Ask Claude again" : "Ask Claude to check"}</button>}
+    </footer>
+  </section>;
 }

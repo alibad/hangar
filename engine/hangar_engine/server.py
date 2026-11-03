@@ -211,8 +211,11 @@ def make_handler(state, port):
                 from . import checkin
                 try:
                     doc = state.doc or state.load()
-                    return self._send(200, checkin.ask(doc, scanner.overlay(), body) if body.get("ask") or body.get("session") and not body.get("keys")
-                                      else checkin.run(doc, scanner.overlay(), body.get("keys")))
+                    if body.get("ask"):
+                        return self._send(200, checkin.ask(doc, scanner.overlay(), body))
+                    if body.get("background"):
+                        return self._send(200, checkin.start(doc, scanner.overlay(), body.get("keys")))
+                    return self._send(200, checkin.run(doc, scanner.overlay(), body.get("keys")))
                 except ValueError as error:
                     return self._send(400, {"error": str(error)})
             if path == "/api/sessions/library":
