@@ -123,3 +123,4 @@
 .sl-bulk-list li span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sl-bulk-list li small{flex-shrink:0;color:var(--cw-muted)}.sl-bulk-list .is-more{color:var(--cw-muted)}
 .sl-check{display:flex;align-items:center;gap:10px;margin:16px 0 0;font-size:13px;cursor:pointer}.sl-check input{accent-color:var(--cw-accent);width:17px;height:17px}
 @media(max-width:550px){.connected-workspace .sl-connect button{grid-template-columns:minmax(0,1fr) auto auto}.sl-connect button>svg{display:none}}
+.sl-bulk-where{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:8px;font-size:13px;line-height:1.5}.sl-bulk-where b{font-weight:600;margin-inline-end:4px}

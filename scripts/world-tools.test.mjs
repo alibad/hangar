@@ -26,7 +26,7 @@ const DOC = {
     { id: "R5", name: "RTSAI-Mod", fullName: "alibad/RTSAI-Mod", kind: "mine", family: "ailab", hidden: false, openPRs: 0, onMachine: true, risks: [], meaning: {}, sites: [{ root: "CODE", rel: "hq/games/RTSAI-Mod", role: "canonical", branch: "main", dirty: 0 }] },
   ],
 };
-const LIBRARY = { idleDays: 7, groups: [], sessions: [
+const LIBRARY = { idleDays: 7, groups: [], claudeQueue: [{ key: "claude:s-old", appId: "local_0ld", title: "Archived one" }], sessions: [
   { id: "s-claude", key: "claude:s-claude", provider: "claude", title: "Fix video analysis", projects: [{ id: "R1", name: "football-ai-lab", files: ["a.ts"], evidence: "edit-tool" }], activityAt: at(60 * 26), updatedAt: at(60 * 26), idleDays: 1, unread: null, archived: false, opensIn: "app",
     changed: [{ sha: "9f1c2d3", subject: "Keep the upload progress on screen", repo: "football-ai-lab", at: at(60 * 27), evidence: "printed" }], changedCount: 1 },
   { id: "s-probe", key: "codex:s-probe", provider: "codex", title: "This is a sandbox test I am running on my own temp folders.", projects: [], activityAt: at(60 * 24 * 6), updatedAt: at(60 * 24 * 6), idleDays: 6, unread: true, archived: false, probe: true },
@@ -107,7 +107,7 @@ async function engine(t) {
 
 test("every world tool has a schema, a description and no engine secrets in its description", async (t) => {
   const { tools } = await engine(t);
-  assert.equal(tools.length, 11);
+  assert.equal(tools.length, 12);
   for (const tool of tools) {
     assert.match(tool.name, /^hangar_/);
     assert.ok(tool.description.length > 40);
@@ -158,6 +158,13 @@ test("find matches by name and shows what is waiting", async (t) => {
   assert.match(text, /18 uncommitted, to push/);
   assert.match(text, /folder: .*football-ai-lab \(canonical, main\)/);
   assert.equal((await call("hangar_find", { query: "zzz" })).text, "No project matches zzz.");
+});
+
+test("cleanup lists the Claude app sessions waiting to be archived there, by the app's own id", async (t) => {
+  const { call } = await engine(t);
+  const text = (await call("hangar_cleanup", {})).text;
+  assert.match(text, /^1 Claude app session the user archived/);
+  assert.match(text, /- local_0ld · Archived one/);
 });
 
 test("sessions filter by project, agent and age, and never list archived ones", async (t) => {

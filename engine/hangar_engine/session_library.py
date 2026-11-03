@@ -4,6 +4,14 @@ Only Hangar metadata is written here. Codex-native actions go through its API;
 Claude transcripts and Codex databases are never rewritten or moved by Hangar.
 The Claude app's own session records are read for its titles, archive flags,
 unread replies and status lines, never written.
+
+Archive means archived in the app that holds the session. A Codex thread is
+archived through Codex's API. The Claude app can only be changed from inside
+it, so a Claude app session is queued here and a Claude session in the app
+archives it (hangar_cleanup lists the queue); it counts as archived once the
+app's record says so. Only a session no app shows (a terminal session, an old
+Codex rollout) is archived in Hangar itself, since Hangar is the one list it
+is in.
 """
 import threading
 import time
@@ -78,6 +86,8 @@ def snapshot(doc, overlay, now=None, changes=False):
         used = max(activity, stamp(meta.get("reviewedAt")), stamp(meta.get("openedAt")))
         archived = bool(thread["archived"]) if thread else bool(session.get("nativeArchived") or record and record["archived"])
         hangar_archive = stamp(meta.get("archivedAt")) >= activity if meta.get("archivedAt") else False
+        # Asked to archive in the Claude app and not yet done there; new activity since then cancels the request.
+        app_pending = bool(record and not record["archived"] and meta.get("appArchiveAt") and stamp(meta["appArchiveAt"]) >= activity)
         busy = any(j.get("state") in {"running", "stopping", "unobserved"} and (
             j.get("session") == sid and j.get("provider") == provider or any(p["id"] == j.get("repo") for p in session["projects"])) for j in live)
         # Working now: a Hangar job is running in this conversation, or its transcript shows a turn that has not ended. A
@@ -95,10 +105,11 @@ def snapshot(doc, overlay, now=None, changes=False):
             "updatedAt": iso(activity), "activityAt": iso(activity), "idleDays": age, "unread": unread,
             "reviewed": stamp(meta.get("reviewedAt")) >= activity if meta.get("reviewedAt") else False,
             "group": group, "nativeGroup": native_group, "nativeKnown": bool(thread), "pinned": pinned,
-            "archived": archived or hangar_archive, "archiveScope": provider if archived else "hangar" if hangar_archive else None,
+            "archived": archived or hangar_archive or app_pending, "archiveScope": provider if archived or app_pending else "hangar" if hangar_archive else None,
+            "archivePending": app_pending, "appId": record["own"] if record else None,
             "status": record["status"] if record and not archived else None, "working": bool(job_here or open_turn),
             "protected": busy, "snoozedUntil": meta.get("snoozedUntil"), "suggestion": None, "opensIn": desktop_sessions.opens_in(provider, sid),
-            "reviewDue": bool(used and now - used >= saved["idleDays"] * DAY and not archived and not hangar_archive and not busy and not pinned
+            "reviewDue": bool(used and now - used >= saved["idleDays"] * DAY and not archived and not hangar_archive and not app_pending and not busy and not pinned
                               and not session.get("probe") and stamp(meta.get("snoozedUntil")) <= now)}
         rows.append(row)
     # Purpose is suggested from native titles across repositories/providers.
@@ -136,7 +147,7 @@ def snapshot(doc, overlay, now=None, changes=False):
     rows.sort(key=lambda s: s["updatedAt"], reverse=True)
     return {"sessions": rows, "groups": list(groups.values()), "idleDays": saved["idleDays"], "nativeAvailable": native["available"],
             "reviewCount": sum(s["reviewDue"] for s in rows), "unreadReviewCount": sum(s["reviewDue"] and s["unread"] is True for s in rows),
-            "claudeApp": bool(app),
+            "claudeApp": bool(app), "claudeQueue": [{"key": r["key"], "appId": r["appId"], "title": r["title"]} for r in rows if r["archivePending"]],
             "truncated": history["truncated"] or native["truncated"], "observedAt": iso(now)}
 
 
@@ -188,17 +199,13 @@ def update(doc, overlay, body):
                 elif action == "snooze":
                     meta["snoozedUntil"] = iso(time.time() + 7 * DAY)
                 elif action == "restore":
-                    scope = body.get("scope")
-                    if scope not in {"hangar", "codex"}:
-                        raise ValueError("Sessions archived in the Claude app are restored there.")
-                    if row["protected"]:
-                        raise ValueError("Pinned sessions and projects with active or unobserved jobs are protected.")
-                    if scope == "codex":
-                        if row["provider"] != "codex" or not row["nativeKnown"]:
-                            raise ValueError("Codex-native state is unavailable for this session.")
+                    if row["archiveScope"] == "claude" and not row["archivePending"]:
+                        raise ValueError("It is archived in the Claude app. Restore it there, from the app's archived sessions.")
+                    if row["archiveScope"] == "codex":
                         codex_library.call("thread/unarchive", {"threadId": row["id"]})
                         session_index.invalidate()
                     meta.pop("archivedAt", None)
+                    meta.pop("appArchiveAt", None)
                     meta["snoozedUntil"] = iso(time.time() + 7 * DAY)
                 elif action == "moveCodex":
                     gid = body.get("group")
@@ -214,11 +221,9 @@ def update(doc, overlay, body):
 
 
 def _archive(saved, rows, keys, body):
-    """Archive in Hangar; with scope "codex", Codex sessions are archived in Codex too. One session or a whole age
-    group: every session is checked before anything changes, and unread ones are never archived in bulk."""
-    scope = body.get("scope")
-    if scope not in {"hangar", "codex"}:
-        raise ValueError("Choose where to archive this session.")
+    """Archive in the app that holds each session: Codex through its API, the Claude app through the queue a Claude
+    session there applies, Hangar only for sessions no app shows. One session or a whole age group: every session is
+    checked before anything changes, and unread ones are never archived in bulk."""
     expected = body.get("activity") if isinstance(body.get("activity"), dict) else {keys[0]: body.get("activityAt")} if len(keys) == 1 else {}
     for key in keys:
         row = rows[key]
@@ -228,18 +233,22 @@ def _archive(saved, rows, keys, body):
             raise ValueError(f"“{row['title'][:60]}” is unread. Unread sessions are never archived in bulk; open it first.")
         if expected.get(key) != row["activityAt"]:
             raise ValueError(f"“{row['title'][:60]}” changed since this list was shown. Refresh and look again.")
-        if scope == "codex" and len(keys) == 1 and (row["provider"] != "codex" or not row["nativeKnown"]):
-            raise ValueError("Codex-native state is unavailable for this session.")
-    native = [rows[k] for k in keys if scope == "codex" and rows[k]["provider"] == "codex" and rows[k]["nativeKnown"] and not rows[k]["archived"]]
-    failed = 0
-    if native:
-        results = codex_library.call_many("thread/archive", [{"threadId": r["id"]} for r in native])
-        failed = sum(isinstance(r, Exception) for r in results)
+    live = [rows[k] for k in keys if not rows[k]["archived"]]
+    codex = [r for r in live if r["provider"] == "codex" and r["nativeKnown"]]
+    claude = [r for r in live if r["provider"] == "claude" and r["appId"]]
+    failed = []
+    if codex:
+        results = codex_library.call_many("thread/archive", [{"threadId": r["id"]} for r in codex])
+        failed = [r for r, result in zip(codex, results) if isinstance(result, Exception)]
         if len(keys) == 1 and failed:
-            raise next(r for r in results if isinstance(r, Exception))
+            raise next(result for result in results if isinstance(result, Exception))
         session_index.invalidate()
     now = iso(time.time())
-    for key in keys:
-        saved["sessions"].setdefault(key, {})["archivedAt"] = now
+    for row in claude:
+        saved["sessions"].setdefault(row["key"], {})["appArchiveAt"] = now
+    elsewhere = [r for r in live if r not in codex and r not in claude]
+    for row in elsewhere:
+        saved["sessions"].setdefault(row["key"], {})["archivedAt"] = now
     config.write_json(config.LOCAL / "session-library.json", saved)
-    return {"saved": True, "archived": len(keys), "codexArchived": len(native) - failed, "codexFailed": failed}
+    return {"saved": True, "archived": len(live) - len(failed), "codexArchived": len(codex) - len(failed), "codexFailed": len(failed),
+            "claudeQueued": len(claude), "hangarOnly": len(elsewhere)}

@@ -132,7 +132,7 @@ class SessionCleanup(unittest.TestCase):
         from unittest import mock
         from hangar_engine import session_library
         row = lambda key, **kw: {"key": key, "title": key, "provider": "claude", "id": key, "activityAt": "2026-08-01T00:00:00+00:00",
-                                 "protected": False, "pinned": False, "unread": None, "nativeKnown": False, "archived": False, **kw}
+                                 "protected": False, "pinned": False, "unread": None, "nativeKnown": False, "archived": False, "appId": None, **kw}
         rows = {"a": row("a"), "b": row("b"), "c": row("c", unread=True)}
         activity = {k: r["activityAt"] for k, r in rows.items()}
         with tempfile.TemporaryDirectory() as d, mock.patch.object(session_library.config, "LOCAL", Path(d)):
@@ -145,6 +145,24 @@ class SessionCleanup(unittest.TestCase):
             done = session_library._archive(saved, rows, ["a", "b"], {"scope": "hangar", "activity": activity})
             self.assertEqual(done["archived"], 2)
             self.assertEqual(set(session_library.read()["sessions"]), {"a", "b"})
+
+    def test_archive_happens_in_the_app_that_holds_the_session(self):
+        from unittest import mock
+        from hangar_engine import session_library
+        row = lambda key, **kw: {"key": key, "title": key, "provider": "claude", "id": key, "activityAt": "2026-08-01T00:00:00+00:00",
+                                 "protected": False, "pinned": False, "unread": None, "nativeKnown": False, "archived": False, "appId": None, **kw}
+        rows = {"app": row("app", appId="local_app"), "codex": row("codex", provider="codex", nativeKnown=True), "terminal": row("terminal")}
+        activity = {k: r["activityAt"] for k, r in rows.items()}
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(session_library.config, "LOCAL", Path(d)), \
+                mock.patch.object(session_library.codex_library, "call_many", return_value=[{}]) as codex, mock.patch.object(session_library.session_index, "invalidate"):
+            done = session_library._archive(session_library.read(), rows, list(rows), {"activity": activity})
+            codex.assert_called_once_with("thread/archive", [{"threadId": "codex"}])   # archived in Codex itself
+            saved = session_library.read()["sessions"]
+            self.assertIn("appArchiveAt", saved["app"])                                    # queued for a Claude session in the app
+            self.assertNotIn("archivedAt", saved["app"])
+            self.assertIn("archivedAt", saved["terminal"])                                 # no app shows it, so Hangar is its only list
+            self.assertNotIn("codex", saved)
+            self.assertEqual((done["codexArchived"], done["claudeQueued"], done["hangarOnly"]), (1, 1, 1))
 
 
 class OpenWith(unittest.TestCase):

@@ -358,6 +358,13 @@ export function worldTools({
     return `${label(r)}: ${did}. Saved in Hangar only; the repo is untouched.`;
   }
 
+  async function cleanupTool() {
+    const queue = (await api("/api/sessions/library")).claudeQueue || [];
+    if (!queue.length) return "Nothing is waiting to be archived in the Claude app.";
+    return [`${queue.length} Claude app session${queue.length === 1 ? "" : "s"} the user archived in Hangar's Clean up, still open in the Claude app. Archive each with the app's session archive tool, using the id below. Hangar counts it as archived once the app does.`,
+      ...queue.map((q) => `- ${q.appId} · ${q.title}`)].join("\n");
+  }
+
   async function rescan({ github = false } = {}) {
     const out = await api("/api/rescan", { github: !!github });
     return out.started ? `Rescan started (this machine${github ? " and GitHub" : ""}); the map updates when it finishes.` : "A scan is already running.";
@@ -398,6 +405,7 @@ export function worldTools({
     { name: "hangar_open", description: "Open a project's main folder on this machine in claude (a new Claude Code session), codex (a new Codex thread), code (VS Code), cursor, or folder (the file manager). intent gives the new session a starting question about what is waiting: commit, push, pull, prs, or issues (resolve the open GitHub issues one by one, without pushing). Ask the user before opening apps for them.", inputSchema: { type: "object", properties: { repo: REPO, app: { type: "string", enum: APPS }, intent: { type: "string", enum: INTENTS } }, required: ["repo", "app"] }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }, run: guard(open) },
     { name: "hangar_note", description: "Remember something about a project in Hangar: state focus (centre of the map), parked (the edge), hidden (off the map and out of every count) or none (back on its island); next, the next step in the user's words; purpose, one line on what it is. Written to Hangar's own notes, never into the repo.", inputSchema: { type: "object", properties: { repo: REPO, state: { type: "string", enum: STATES }, next: { type: "string", maxLength: 400 }, purpose: { type: "string", maxLength: 400 } }, required: ["repo"] }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }, run: guard(note) },
     { name: "hangar_apps", description: "Which projects have an app running on this machine and on which ports, so you do not clash with them; for one project, what kind of app it is and which targets this machine can run.", inputSchema: { type: "object", properties: { repo: REPO } }, annotations: read, run: guard(appsTool) },
+    { name: "hangar_cleanup", description: "Claude app sessions the user archived in Hangar's Clean up that are still open in the Claude app, with the app's own session ids. Hangar cannot change the Claude app, so a Claude session running in the desktop app archives each one with its session archive tool; Hangar then counts it as archived.", inputSchema: { type: "object", properties: {} }, annotations: read, run: guard(cleanupTool) },
     { name: "hangar_rescan", description: "Rescan this machine's folders now (under a minute), and GitHub too when github is true (a minute or two). The map refreshes itself every 15 minutes while someone is using it, so this is for right after a commit or clone.", inputSchema: { type: "object", properties: { github: { type: "boolean" } } }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true }, run: guard(rescan) },
   ];
 }

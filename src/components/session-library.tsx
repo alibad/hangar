@@ -13,6 +13,10 @@ export type LibrarySession = {
   state: string; summary: string; canResume: boolean; idleDays: number | null; unread: boolean | null;
   reviewed: boolean; group: string | null; nativeGroup: string | null; nativeKnown: boolean; pinned: boolean;
   archived: boolean; archiveScope: "hangar" | "codex" | "claude" | null; protected: boolean; reviewDue: boolean; snoozedUntil: string | null;
+  /** Archived from Hangar and waiting for a Claude session to archive it in the Claude app. */
+  archivePending?: boolean;
+  /** The Claude app's own id for it, when the app holds it. */
+  appId?: string | null;
   /** The Claude app's one-line status of the last turn (completed, blocked on you, or ready for review), when it is current. */
   status?: { category: string; detail: string; needsAction: string } | null;
   /** A Hangar job is running in it, or its app shows a turn that has not ended and is still writing. */
@@ -37,6 +41,8 @@ type Agent = "all" | "claude" | "codex";
 const DAY = 86400000;
 const agentOf = (s: LibrarySession) => s.provider === "codex" ? "codex" : "claude";
 const appOf = (s: LibrarySession) => s.provider === "codex" ? "Codex" : "Claude";
+/** Where Archive takes a session: the app that holds it, or Hangar for a session no app shows. */
+const homeOf = (s: LibrarySession) => s.provider === "codex" && s.nativeKnown ? "Codex" : s.provider !== "codex" && s.appId ? "the Claude app" : "Hangar";
 /** Clean-up groups by how long a session has sat untouched, oldest first. */
 const AGES = [{ id: "90", name: "Over 3 months", min: 90 }, { id: "60", name: "2–3 months", min: 60 }, { id: "30", name: "1–2 months", min: 30 }, { id: "14", name: "2–4 weeks", min: 14 }, { id: "7", name: "1–2 weeks", min: 0 }];
 const STATUS: Record<string, string> = { completed: "Done", blocked: "Waiting on you", review_ready: "Ready for your review" };
@@ -96,7 +102,6 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const [showProbes, setShowProbes] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
   const [bulk, setBulk] = useState<{ name: string; rows: LibrarySession[] } | null>(null);
-  const [alsoCodex, setAlsoCodex] = useState(true);
   const dialog = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
   const [inbox, setInbox] = useState<HTMLDivElement | null>(null);
@@ -195,6 +200,12 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     } catch (e) { setError((e as Error).message); return false; }
     finally { setBusy(false); busyRef.current = false; }
   }
+  const archived = (r: Record<string, number>) => [
+    r.codexArchived && `${r.codexArchived} archived in Codex`,
+    r.claudeQueued && `${r.claudeQueued} queued for the Claude app (ask a Claude session to apply Hangar’s clean-up)`,
+    r.hangarOnly && `${r.hangarOnly} archived in Hangar, the only list ${r.hangarOnly === 1 ? "it is" : "they are"} in`,
+    r.codexFailed && `Codex refused ${r.codexFailed}, which stay open`,
+  ].filter(Boolean).join("; ") + ".";
   function chooseMode(next: Mode, group = "") { setMode(next); setFilter(group); setLimit(40); }
   const lanes = useMemo(() => projectLanes(rows), [rows]);
   const laneOf = useMemo(() => new Map(lanes.map(l => [l.id, l])), [lanes]);
@@ -267,7 +278,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
         {!!visible.length && <div className="sl-inbox" ref={setInbox}>
           <div className="sl-list" aria-label="Sessions">
             {sections.map(section => <div className="sl-section" key={section.id}>
-              {section.name && <h4><span>{section.name}</span><small>{section.all.length}</small>{section.bulk && <button className="sl-bulk" disabled={busy} title={`Archive the ${section.all.length} sessions in this group`} onClick={() => { setAlsoCodex(true); setBulk({ name: section.name, rows: section.all }); }}><Archive size={12} aria-hidden="true" />Archive all</button>}</h4>}
+              {section.name && <h4><span>{section.name}</span><small>{section.all.length}</small>{section.bulk && <button className="sl-bulk" disabled={busy} title={`Archive the ${section.all.length} sessions in this group`} onClick={() => setBulk({ name: section.name, rows: section.all })}><Archive size={12} aria-hidden="true" />Archive all</button>}</h4>}
               {section.rows.map(row => <button type="button" key={row.key} aria-pressed={selected?.key === row.key} className={`sl-row ${row.unread ? "sl-unread" : ""}`} onClick={() => pick(row.key)}>
                 <span className={`cw-session-provider is-${agentOf(row)}`}><AgentMark agent={agentOf(row)} /></span>
                 <span className="sl-row-text"><b>{row.title}</b>{row.status?.detail ? <em className={`sl-changed sl-row-status is-${row.status.category}`} title={STATUS[row.status.category] || "Last turn"}><span className="sl-status-dot" aria-hidden="true" />{row.status.detail}</em> : !!row.changed?.length && <em className="sl-changed"><GitCommitHorizontal size={12} aria-hidden="true" />{row.changed[0].subject}{(row.changedCount || 0) > 1 && <i>+{(row.changedCount || 0) - 1}</i>}</em>}<small className="sl-row-meta"><ProjectList projects={row.projects} />{[row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).map(part => <span key={part}>{part}</span>)}</small></span>
@@ -282,7 +293,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
           </div>
           {selected && <article ref={detail} className={`sl-detail sl-session ${selected.unread ? "sl-unread" : ""}`} aria-label={`Session: ${selected.title}`}>
             <div className="sl-session-body"><div className="sl-session-title"><h3>{selected.title}</h3>{selected.pinned && <Pin size={14} aria-label="Pinned in Codex" />}</div>
-            <div className="sl-tags">{selected.working && <span className="is-live">Working now</span>}{selected.unread === true && <span className="is-unread">{selected.provider === "codex" ? "Unread in Codex" : "New reply you haven’t opened"}</span>}{selected.unread === false && <span>Read</span>}{selected.reviewed && <span>Kept after archive check</span>}<span>{selected.idleDays === null ? "Activity unknown" : selected.idleDays === 0 ? "Active today" : `${selected.idleDays}d idle`}</span>{selected.group && <span>{data.groups.find(g => g.id === selected.group)?.name}</span>}{selected.protected && <span>Active project · protected</span>}{selected.archived && <span>Archived in {selected.archiveScope === "codex" ? "Codex" : selected.archiveScope === "claude" ? "the Claude app" : "Hangar"}</span>}</div>
+            <div className="sl-tags">{selected.working && <span className="is-live">Working now</span>}{selected.unread === true && <span className="is-unread">{selected.provider === "codex" ? "Unread in Codex" : "New reply you haven’t opened"}</span>}{selected.unread === false && <span>Read</span>}{selected.reviewed && <span>Kept after archive check</span>}<span>{selected.idleDays === null ? "Activity unknown" : selected.idleDays === 0 ? "Active today" : `${selected.idleDays}d idle`}</span>{selected.group && <span>{data.groups.find(g => g.id === selected.group)?.name}</span>}{selected.protected && <span>Active project · protected</span>}{selected.archived && <span>{selected.archivePending ? "Waiting to be archived in the Claude app" : `Archived in ${selected.archiveScope === "codex" ? "Codex" : selected.archiveScope === "claude" ? "the Claude app" : "Hangar"}`}</span>}</div>
             {selected.status && (selected.status.detail || selected.status.needsAction) && <div className={`sl-status is-${selected.status.category}`} aria-label="Where the session stands">
               <span className="sl-status-label"><span className="sl-status-dot" aria-hidden="true" />{STATUS[selected.status.category] || "Last turn"}</span>
               {selected.status.detail && <p>{selected.status.detail}</p>}
@@ -298,13 +309,16 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
               return <div key={p.id}><b>{p.name}</b>{p.evidence === "working-directory" ? <p>Working directory match; no confirmed edit evidence.</p> : <ul>{files.slice(0, 30).map(f => <li key={f}>{f}</li>)}{files.length > 30 && <li>{files.length - 30} more files</li>}</ul>}</div>;
             })}</details>
             {selected.suggestion && <div className="sl-inline-suggestion"><span><b>Belongs with {selected.suggestion.name}?</b><small>{selected.suggestion.reason}{selected.suggestion.confidence === "tentative" ? " · a guess" : ""}</small></span><button disabled={busy} title="Files it under that group in Hangar. Claude and Codex are not changed." onClick={() => act({ action: "acceptSuggestion", keys: [selected.key] }, `Filed under ${selected.suggestion?.name} in Hangar.`)}>File under {selected.suggestion.name} <Check size={14} /></button></div>}
-            <div className="sl-session-actions">{selected.archived ? selected.archiveScope === "claude" ? <p className="sl-actions-help">Archived in the Claude app. Restore it there; Hangar follows.</p> : <button disabled={busy || selected.protected || (selected.archiveScope === "codex" && !selected.nativeKnown)} onClick={() => act({ action: "restore", keys: [selected.key], scope: selected.archiveScope }, "Session restored; it won’t be suggested for clean-up for seven days.")}>Restore in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</button> : <>
+            <div className="sl-session-actions">{selected.archived ? selected.archiveScope === "claude" && !selected.archivePending ? <p className="sl-actions-help">Archived in the Claude app. Restore it there; Hangar follows.</p> : <>
+              <button disabled={busy || selected.protected} onClick={() => act({ action: "restore", keys: [selected.key] }, "Restored. It won’t be suggested for clean-up for seven days.")}>{selected.archivePending ? "Keep it open" : selected.archiveScope === "codex" ? "Restore in Codex" : "Restore"}</button>
+              {selected.archivePending && <p className="sl-actions-help">Hangar can’t change the Claude app, so a Claude session archives it there. Ask any Claude session to apply Hangar’s clean-up.</p>}
+            </> : <>
               {onOpen && <button className="sl-open" disabled={busy} title={selected.opensIn === "app" ? `Opens in the ${selected.provider === "codex" ? "Codex" : "Claude"} app` : `The ${selected.provider === "codex" ? "Codex" : "Claude"} app does not have this conversation (it was started outside the app), so it resumes in a terminal`} onClick={() => onOpen(selected)}>{selected.opensIn === "app" ? `Open in ${selected.provider === "codex" ? "Codex" : "Claude"}` : "Resume in a terminal"} <ArrowRight size={14} /></button>}
               <button disabled={busy || !selected.canResume || !selected.projects.length} title="Hangar sends this conversation a new instruction and runs it in the background, with its history" onClick={async () => { if (await act({ action: "opened", keys: [selected.key] }, "Session opened in Hangar.")) onContinue(selected); }}>Give it a task</button>
               <button disabled={busy} title="Hangar groups sort Claude and Codex sessions together" onClick={() => { setChosenGroup(selected.group || ""); setTarget({ key: selected.key, purpose: "group" }); }}>Move to group</button>
               <button disabled={busy || selected.protected || selected.pinned} onClick={() => setTarget({ key: selected.key, purpose: "archive" })}>Archive</button>
               {selected.reviewDue && <button disabled={busy} title="Leaves it out of Clean up for seven days" onClick={() => act({ action: "snooze", keys: [selected.key] }, "Kept. It won’t be suggested for clean-up for seven days.")}>Keep it</button>}
-              <p className="sl-actions-help">Groups and archive here are Hangar’s. A Codex session can be archived in Codex too; the Claude app’s sidebar changes only in the app.</p>
+              <p className="sl-actions-help">Archive archives it in {homeOf(selected)}. Groups are Hangar’s own.</p>
             </>}</div>
           </div>
           </article>}
@@ -314,29 +328,31 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
       </div>
     </>}
     {bulk && (() => {
-      const n = bulk.rows.length, codex = bulk.rows.filter(s => s.provider === "codex"), native = codex.filter(s => s.nativeKnown).length;
-      const inApp = bulk.rows.filter(s => s.provider !== "codex" && s.opensIn === "app").length;
+      const n = bulk.rows.length, codex = bulk.rows.filter(s => s.provider === "codex").length;
+      const home = (where: string) => bulk.rows.filter(s => homeOf(s) === where).length;
+      const inCodex = home("Codex"), inApp = home("the Claude app"), inHangar = home("Hangar");
       return <div className="cw-dialog-backdrop"><section ref={dialog} className="cw-dialog sl-dialog" role="dialog" aria-modal="true" aria-labelledby="sl-dialog-title"><button className="cw-dialog-close" aria-label="Close" disabled={busy} onClick={() => setBulk(null)}><X size={20} /></button>
         <span className="cw-eyebrow">Clean up · untouched {bulk.name.toLowerCase()}</span><h2 id="sl-dialog-title">Archive {n} {n === 1 ? "session" : "sessions"}?</h2>
-        <div className="sl-bulk-split"><span><i className="sl-swatch is-claude" aria-hidden="true" />{n - codex.length} Claude</span><span><i className="sl-swatch is-codex" aria-hidden="true" />{codex.length} Codex</span></div>
+        <div className="sl-bulk-split"><span><i className="sl-swatch is-claude" aria-hidden="true" />{n - codex} Claude</span><span><i className="sl-swatch is-codex" aria-hidden="true" />{codex} Codex</span></div>
         <ul className="sl-bulk-list">{bulk.rows.slice(0, 6).map(s => <li key={s.key}><span>{s.title}</span><small>{s.idleDays}d</small></li>)}{n > 6 && <li className="is-more">and {n - 6} more</li>}</ul>
-        {native > 0 && <label className="sl-check"><input type="checkbox" checked={alsoCodex} disabled={busy} onChange={e => setAlsoCodex(e.target.checked)} />Archive the {native} Codex {native === 1 ? "session" : "sessions"} in the Codex app too</label>}
-        {inApp > 0 && <p className="sl-help">{inApp} of them are in the Claude app’s sidebar. Hangar can’t press the app’s Archive, so they stay there until they are archived in the app.</p>}
+        <ul className="sl-bulk-where">
+          {inCodex > 0 && <li><b>{inCodex}</b> archived in Codex right away</li>}
+          {inApp > 0 && <li><b>{inApp}</b> archived in the Claude app by a Claude session. Hangar can’t change that app, so it queues them; ask any Claude session to apply Hangar’s clean-up.</li>}
+          {inHangar > 0 && <li><b>{inHangar}</b> started outside both apps, so Hangar is the only list they are in</li>}
+        </ul>
         <div className="sl-dialog-actions"><button className="cw-primary" disabled={busy} onClick={async () => {
-          if (await act({ action: "archive", keys: bulk.rows.map(s => s.key), scope: alsoCodex && native ? "codex" : "hangar", activity: Object.fromEntries(bulk.rows.map(s => [s.key, s.activityAt])) },
-            r => `Archived ${r.archived} in Hangar${r.codexArchived ? `, ${r.codexArchived} in Codex too` : ""}${r.codexFailed ? `; Codex refused ${r.codexFailed}, which stay archived in Hangar only` : ""}. Restore any from Archived.`)) setBulk(null);
+          if (await act({ action: "archive", keys: bulk.rows.map(s => s.key), activity: Object.fromEntries(bulk.rows.map(s => [s.key, s.activityAt])) }, archived)) setBulk(null);
         }}>Archive {n} <Archive size={16} /></button><button disabled={busy} onClick={() => setBulk(null)}>Cancel</button></div>
-        <p className="sl-help">Unread sessions and ones waiting on you are not in this list. Restore any of these from Archived.</p>
+        <p className="sl-help">Unread sessions and ones waiting on you are not in this list. Each stays restorable in its app.</p>
         {error && <p className="cw-error" role="alert">{error}</p>}</section></div>;
     })()}
     {target && targetRow && <div className="cw-dialog-backdrop"><section ref={dialog} className="cw-dialog sl-dialog" role="dialog" aria-modal="true" aria-labelledby="sl-dialog-title"><button className="cw-dialog-close" aria-label="Close session review" disabled={busy} onClick={() => setTarget(null)}><X size={20} /></button><span className="cw-eyebrow">{targetRow.provider} · {targetRow.idleDays ?? "?"} DAYS IDLE</span><h2 id="sl-dialog-title">{target.purpose === "archive" ? "Keep it, or clear the space?" : "Give this work a home."}</h2><h3>{targetRow.title}</h3>
       {target.purpose === "archive" ? <>
-        <p className="sl-help">{targetRow.unread === true ? `${appOf(targetRow)} shows a reply you haven’t opened. Look at it before deciding.` : targetRow.status?.category === "blocked" ? "Its last turn stopped to ask you something. Look at it before deciding." : targetRow.unread === null ? "Hangar can’t tell whether you have read its last reply." : `You have read its last reply in ${appOf(targetRow)}.`} Archiving keeps the whole conversation; restore it from Archived.</p>
+        <p className="sl-help">{targetRow.unread === true ? `${appOf(targetRow)} shows a reply you haven’t opened. Look at it before deciding.` : targetRow.status?.category === "blocked" ? "Its last turn stopped to ask you something. Look at it before deciding." : targetRow.unread === null ? "Hangar can’t tell whether you have read its last reply." : `You have read its last reply in ${appOf(targetRow)}.`} Archiving keeps the whole conversation, and you can restore it.</p>
         {machine === "local" && targetRow.provider === "codex" && targetRow.nativeKnown && <a className="sl-native-link" href={`codex://threads/${encodeURIComponent(targetRow.id)}`}>Read this session in Codex <ArrowRight size={15} /></a>}
-        <div className="sl-dialog-actions"><button className="cw-primary" disabled={busy || targetRow.protected || targetRow.pinned} onClick={async () => { if (await act({ action: "archive", keys: [targetRow.key], scope: "hangar", activityAt: targetRow.activityAt }, "Archived in Hangar. Restore it from Archived at any time.")) setTarget(null); }}>Archive in Hangar <Archive size={16} /></button>
-          {targetRow.provider === "codex" && <button disabled={busy || !targetRow.nativeKnown || targetRow.protected || targetRow.pinned} onClick={async () => { if (await act({ action: "archive", keys: [targetRow.key], scope: "codex", activityAt: targetRow.activityAt }, "Codex confirmed the archive.")) setTarget(null); }}>Archive in Codex too</button>}
-          <button disabled={busy} onClick={async () => { if (await act({ action: "reviewed", keys: [targetRow.key] }, "Reviewed in Hangar. Codex’s own unread state is unchanged.")) setTarget(null); }}>I reviewed it · keep active</button>
-        </div><p className="sl-help">Archive in Hangar hides it from Hangar’s lists. Archive in Codex also archives it in the Codex app. The Claude app’s sidebar changes only in the app.</p>
+        <div className="sl-dialog-actions"><button className="cw-primary" disabled={busy || targetRow.protected || targetRow.pinned} onClick={async () => { if (await act({ action: "archive", keys: [targetRow.key], activityAt: targetRow.activityAt }, archived)) setTarget(null); }}>Archive in {homeOf(targetRow)} <Archive size={16} /></button>
+          <button disabled={busy} onClick={async () => { if (await act({ action: "reviewed", keys: [targetRow.key] }, "Kept. It won’t be suggested for clean-up again until it goes idle.")) setTarget(null); }}>Keep it</button>
+        </div><p className="sl-help">{homeOf(targetRow) === "the Claude app" ? "Hangar can’t change the Claude app, so it queues this for a Claude session to archive there." : homeOf(targetRow) === "Hangar" ? "It was started outside both apps, so Hangar is the only list it is in." : "Codex archives it now; restore it from Codex or from Archived here."}</p>
       </> : <>
         <fieldset className="sl-group-picker"><legend>Hangar group</legend><label><input type="radio" name="session-group" value="" checked={!chosenGroup} onChange={() => setChosenGroup("")} />Ungrouped</label>{data?.groups.map(g => <label key={g.id}><input type="radio" name="session-group" value={g.id} checked={chosenGroup === g.id} onChange={() => setChosenGroup(g.id)} /><span>{g.name}<small>{g.source === "codex" ? "Codex section" : "Hangar group"}</small></span></label>)}</fieldset>
         <div className="sl-dialog-actions"><button className="cw-primary" disabled={busy} onClick={async () => { if (await act({ action: "assign", keys: [targetRow.key], group: chosenGroup || null }, "Group saved in Hangar.")) setTarget(null); }}>Save Hangar group</button>
