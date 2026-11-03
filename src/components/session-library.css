@@ -24,6 +24,14 @@
 .sl-row-text small{display:block;font-size:10px;color:var(--cw-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .sl-row>svg{flex-shrink:0;color:var(--cw-muted)}
 .sl-dot{width:7px;height:7px;border-radius:50%;background:var(--cw-accent);flex-shrink:0}
+/* A session the other agent reviewed: its verdict, beside the row like the unread dot. */
+.sl-review{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;align-self:center;padding:3px 9px 3px 6px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+.sl-review .agent-mark{width:12px;height:12px}
+.sl-review.is-ship{background:color-mix(in oklab,var(--ok-500,#2fbf71) 16%,transparent);color:var(--ok-500,#2fbf71)}
+.sl-review.is-fix{background:color-mix(in oklab,var(--warn-400,#f5a524) 18%,transparent);color:var(--warn-500,#c77d00)}
+.sl-review.is-rethink,.sl-review.is-failed{background:color-mix(in oklab,var(--err-400,#e5484d) 14%,transparent);color:var(--err-400,#e5484d)}
+.sl-review.is-running{background:var(--hangar-primary-soft);color:var(--hangar-primary)}
+.connected-workspace .sl-toggle small{font-size:11px;opacity:.8}
 .sl-detail{position:sticky;top:76px;max-height:calc(100dvh - 92px);overflow-y:auto;scrollbar-width:thin;border:1px solid var(--cw-line);border-radius:14px;padding:18px 20px;background:var(--cw-panel);min-width:0}
 .sl-detail .sl-session-title h3{font-size:17px}
 @media(max-width:1000px){.sl-inbox{grid-template-columns:1fr}.sl-list{max-height:none}.sl-detail{position:static}}

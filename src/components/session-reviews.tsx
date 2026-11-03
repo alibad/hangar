@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Copy, Wrench } from "lucide-react";
 import AgentMark from "./agent-mark";
 import type { LibrarySession } from "./session-library";
@@ -13,8 +13,10 @@ export type Review = {
   job: string | null; message?: string; verdict?: "ship" | "fix" | "rethink"; summary?: string; findings?: Finding[]; checked?: string[]; notChecked?: string;
 };
 
-const NAME: Record<string, string> = { claude: "Claude", codex: "Codex" };
-const VERDICT: Record<string, string> = { ship: "Good to ship", fix: "Fix first", rethink: "Rethink" };
+export const NAME: Record<string, string> = { claude: "Claude", codex: "Codex" };
+export const VERDICT: Record<string, string> = { ship: "Good to ship", fix: "Fix first", rethink: "Rethink" };
+/** The short word a review shows in the session list. */
+export const reviewLabel = (r: Review) => r.state === "running" ? "Reviewing…" : r.state === "failed" ? "Review failed" : VERDICT[r.verdict || "fix"];
 const other = (provider: string) => provider === "codex" ? "claude" : "codex";
 /** A conversation touched this recently may still be open in its app: continuing it from Hangar would fork it. */
 const ACTIVE_MS = 15 * 60_000;
@@ -29,14 +31,18 @@ async function call<T>(url: string, body?: unknown): Promise<T> {
 }
 
 /** Reviews of one session by the other agent: one click sends it, and each review's verdict and findings show here. */
-export default function SessionReviews({ machine, session }: { machine: string; session: LibrarySession }) {
+export default function SessionReviews({ machine, session, onReviews }: { machine: string; session: LibrarySession; onReviews?: (key: string, reviews: Review[]) => void }) {
   const base = `/api/world/${machine}/proxy`;
   const [reviews, setReviews] = useState<Review[] | null>(null), [skill, setSkill] = useState(true);
   const [error, setError] = useState(""), [busy, setBusy] = useState(false);
+  const told = useRef(onReviews); told.current = onReviews;
   const load = useCallback(async () => {
     // Filtered here too: a server that ignores the filter must not show one session's review on every session.
-    try { const data = await call<{ reviews: Review[]; skill: boolean }>(`${base}/reviews?session=${encodeURIComponent(session.key)}`); setReviews(data.reviews.filter(r => r.session === session.key)); setSkill(data.skill); }
-    catch (e) { setError((e as Error).message); }
+    try {
+      const data = await call<{ reviews: Review[]; skill: boolean }>(`${base}/reviews?session=${encodeURIComponent(session.key)}`);
+      const mine = data.reviews.filter(r => r.session === session.key);
+      setReviews(mine); setSkill(data.skill); told.current?.(session.key, mine);
+    } catch (e) { setError((e as Error).message); }
   }, [base, session.key]);
   useEffect(() => { setReviews(null); setError(""); void load(); }, [load]);
   const running = !!reviews?.some(r => r.state === "running");
