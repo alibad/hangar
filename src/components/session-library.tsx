@@ -99,6 +99,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const [alsoCodex, setAlsoCodex] = useState(true);
   const dialog = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
+  const [inbox, setInbox] = useState<HTMLDivElement | null>(null);
   const updateRef = useRef(onUpdate); updateRef.current = onUpdate;
   const busyRef = useRef(false);
   const endpoint = `/api/world/${machine}/proxy/sessions/library`;
@@ -106,6 +107,27 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const probes = everything.filter(s => s.probe).length;
   const rows = useMemo(() => showProbes ? everything : everything.filter(s => !s.probe), [everything, showProbes]);
   const targetRow = rows.find(s => s.key === target?.key);
+
+  // On a wide screen the list and the open session each scroll on their own and reach the window's bottom edge, so the
+  // page itself does not scroll. What sits above the list varies, so the height left for it is measured.
+  useEffect(() => {
+    if (!inbox) return;
+    const wide = window.matchMedia("(min-width: 1001px)");
+    const fit = () => {
+      if (!wide.matches) { inbox.style.removeProperty("height"); return; }
+      const top = inbox.getBoundingClientRect().top + window.scrollY;
+      const below = document.documentElement.scrollHeight - top - inbox.offsetHeight;  // footer and page padding
+      // One pixel spare: layout sizes are fractional and the page's height rounds up. A very short window scrolls the page.
+      const height = Math.max(300, Math.floor(document.documentElement.clientHeight - top - below) - 1);
+      if (Math.abs(inbox.offsetHeight - height) > 1) inbox.style.height = `${height}px`;
+    };
+    fit();
+    const watch = new ResizeObserver(fit);
+    watch.observe(document.body);
+    wide.addEventListener("change", fit);
+    window.addEventListener("resize", fit);
+    return () => { watch.disconnect(); wide.removeEventListener("change", fit); window.removeEventListener("resize", fit); };
+  }, [inbox]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -237,7 +259,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
           {project && <button className="sl-chip" onClick={() => setProject("")} title="Show every project"><ProjectBadge id={project} name={laneOf.get(project)?.name || project} size="xs" /><X size={13} /></button>}
           <span>{visible.length} sessions</span>{probes > 0 && <button className="sl-toggle" aria-pressed={showProbes} title="Scripted runs in a temp folder that edited no project" onClick={() => setShowProbes(v => !v)}>{showProbes ? "Hide" : "Show"} {probes} test {probes === 1 ? "run" : "runs"}</button>}{filter && <button onClick={() => setFilter("")}>Clear group filter <X size={14} /></button>}</div>
         {mode === "review" && <p className="sl-help">Sessions untouched for {data.idleDays}+ days, oldest first. Archive a whole age group at once, or open one to decide. Unread sessions and ones waiting on you stay at the top and are never archived in bulk; pinned sessions and projects with a running job are left alone.</p>}
-        {!!visible.length && <div className="sl-inbox">
+        {!!visible.length && <div className="sl-inbox" ref={setInbox}>
           <div className="sl-list" aria-label="Sessions">
             {sections.map(section => <div className="sl-section" key={section.id}>
               {section.name && <h4><span>{section.name}</span><small>{section.all.length}</small>{section.bulk && <button className="sl-bulk" disabled={busy} title={`Archive the ${section.all.length} sessions in this group`} onClick={() => { setAlsoCodex(true); setBulk({ name: section.name, rows: section.all }); }}><Archive size={12} aria-hidden="true" />Archive all</button>}</h4>}

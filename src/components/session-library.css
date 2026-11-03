@@ -35,6 +35,8 @@
 .sl-detail{position:sticky;top:76px;max-height:calc(100dvh - 92px);overflow-y:auto;scrollbar-width:thin;border:1px solid var(--cw-line);border-radius:14px;padding:18px 20px;background:var(--cw-panel);min-width:0}
 .sl-detail .sl-session-title h3{font-size:17px}
 @media(max-width:1000px){.sl-inbox{grid-template-columns:1fr}.sl-list{max-height:none}.sl-detail{position:static}}
+/* Wide screens: the page sets .sl-inbox to the window height left below it, and the list and the session scroll inside it. */
+@media(min-width:1001px){.sl-inbox{grid-template-rows:minmax(0,1fr);align-items:stretch}.sl-inbox>.sl-list{min-height:0;overflow-y:auto;scrollbar-width:thin;padding-bottom:12px}.sl-inbox>.sl-detail{position:static;max-height:none;min-height:0}}
 .sl-detail>p{font-size:13px;line-height:1.65;margin-top:12px;color:var(--cw-ink)}.sl-detail details{margin-top:10px}.sl-detail details summary{font-size:12px;color:var(--cw-muted);cursor:pointer}.sl-detail details li,.sl-detail details p{font-size:11px;line-height:1.6}.sl-detail code{font-size:10px;overflow-wrap:anywhere}
 
 /* The two agents, side by side: one colour each, used in badges, counts, the 14-day bars and the project lanes. */
