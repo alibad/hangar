@@ -2,6 +2,8 @@
 
 Only Hangar metadata is written here. Codex-native actions go through its API;
 Claude transcripts and Codex databases are never rewritten or moved by Hangar.
+The Claude app's own session records are read for its titles, archive flags,
+unread replies and status lines, never written.
 """
 import threading
 import time
@@ -61,31 +63,35 @@ def snapshot(doc, overlay, now=None, changes=False):
     groups = {"codex:" + s["id"]: {"id": "codex:" + s["id"], "name": s["name"], "source": "codex", "nativeId": s["id"]} for s in native["sections"]}
     groups.update({gid: {"id": gid, "name": g["name"], "source": "hangar"} for gid, g in saved["groups"].items()})
     live = work.snapshot()["jobs"]
+    app = desktop_sessions.claude_app_records()
     rows = []
     for (provider, sid), session in entries.items():
         key = provider + ":" + sid
         meta = saved["sessions"].get(key, {})
         thread = native["threads"].get(sid) if provider == "codex" else None
+        record = app.get(sid) if provider == "claude" else None
         native_group = "codex:" + thread["thread_section_id"] if thread and thread.get("thread_section_id") else None
         # Transcript event timestamps survive file copies. Native metadata covers
         # database-backed Codex threads with no JSONL rollout on disk.
         activity = max(stamp(session.get("lastEventAt") or session["updatedAt"]), stamp(thread["updated_at"]) if thread else 0)
         used = max(activity, stamp(meta.get("reviewedAt")), stamp(meta.get("openedAt")))
-        archived = bool(thread["archived"]) if thread else bool(session.get("nativeArchived"))
+        archived = bool(thread["archived"]) if thread else bool(session.get("nativeArchived") or record and record["archived"])
         hangar_archive = stamp(meta.get("archivedAt")) >= activity if meta.get("archivedAt") else False
         busy = any(j.get("state") in {"running", "stopping", "unobserved"} and (
             j.get("session") == sid and j.get("provider") == provider or any(p["id"] == j.get("repo") for p in session["projects"])) for j in live)
         pinned = bool(thread and thread["is_pinned"])
         age = max(0, int((now - used) // DAY)) if used else None
-        unread = thread.get("unread") if thread else None
+        unread = thread.get("unread") if thread else record["unread"] if record else None
         group = meta.get("group", native_group)
         if group not in groups:
             group = None
-        row = {**session, "key": key, "title": (thread["title"][:240] if thread and thread["title"] else session.get("title") or " · ".join(p["name"] for p in session["projects"]) or "Unmatched session"),
+        title = thread["title"] if thread and thread["title"] else record["title"] if record and record["title"] else session.get("title")
+        row = {**session, "key": key, "title": (title or " · ".join(p["name"] for p in session["projects"]) or "Unmatched session")[:240],
             "updatedAt": iso(activity), "activityAt": iso(activity), "idleDays": age, "unread": unread,
             "reviewed": stamp(meta.get("reviewedAt")) >= activity if meta.get("reviewedAt") else False,
             "group": group, "nativeGroup": native_group, "nativeKnown": bool(thread), "pinned": pinned,
-            "archived": archived or hangar_archive, "archiveScope": "codex" if archived else "hangar" if hangar_archive else None,
+            "archived": archived or hangar_archive, "archiveScope": provider if archived else "hangar" if hangar_archive else None,
+            "status": record["status"] if record and not archived else None,
             "protected": busy, "snoozedUntil": meta.get("snoozedUntil"), "suggestion": None, "opensIn": desktop_sessions.opens_in(provider, sid),
             "reviewDue": bool(used and now - used >= saved["idleDays"] * DAY and not archived and not hangar_archive and not busy and not pinned
                               and not session.get("probe") and stamp(meta.get("snoozedUntil")) <= now)}
@@ -125,6 +131,7 @@ def snapshot(doc, overlay, now=None, changes=False):
     rows.sort(key=lambda s: s["updatedAt"], reverse=True)
     return {"sessions": rows, "groups": list(groups.values()), "idleDays": saved["idleDays"], "nativeAvailable": native["available"],
             "reviewCount": sum(s["reviewDue"] for s in rows), "unreadReviewCount": sum(s["reviewDue"] and s["unread"] is True for s in rows),
+            "claudeApp": bool(app),
             "truncated": history["truncated"] or native["truncated"], "observedAt": iso(now)}
 
 
@@ -146,10 +153,12 @@ def update(doc, overlay, body):
             current = snapshot(doc, overlay)
             rows = {s["key"]: s for s in current["sessions"]}
             keys = body.get("keys")
-            if not isinstance(keys, list) or not 1 <= len(keys) <= 100 or any(not isinstance(k, str) or k not in rows for k in keys) or len(set(keys)) != len(keys):
-                raise ValueError("Choose 1–100 known sessions on this machine.")
-            if action in {"archive", "restore", "moveCodex"} and len(keys) != 1:
+            if not isinstance(keys, list) or not 1 <= len(keys) <= 500 or any(not isinstance(k, str) or k not in rows for k in keys) or len(set(keys)) != len(keys):
+                raise ValueError("Choose 1–500 known sessions on this machine.")
+            if action in {"restore", "moveCodex"} and len(keys) != 1:
                 raise ValueError("Review this action one session at a time.")
+            if action == "archive":
+                return _archive(saved, rows, keys, body)
             known_groups = {g["id"]: g for g in current["groups"]}
             now = iso(time.time())
             for key in keys:
@@ -173,24 +182,19 @@ def update(doc, overlay, body):
                     meta.pop("snoozedUntil", None)
                 elif action == "snooze":
                     meta["snoozedUntil"] = iso(time.time() + 7 * DAY)
-                elif action in {"archive", "restore"}:
+                elif action == "restore":
                     scope = body.get("scope")
                     if scope not in {"hangar", "codex"}:
-                        raise ValueError("Choose where to archive this session.")
-                    if row["protected"] or (action == "archive" and row["pinned"]):
+                        raise ValueError("Sessions archived in the Claude app are restored there.")
+                    if row["protected"]:
                         raise ValueError("Pinned sessions and projects with active or unobserved jobs are protected.")
-                    if action == "archive" and body.get("activityAt") != row["activityAt"]:
-                        raise ValueError("This session changed. Review the latest activity before archiving.")
                     if scope == "codex":
                         if row["provider"] != "codex" or not row["nativeKnown"]:
                             raise ValueError("Codex-native state is unavailable for this session.")
-                        codex_library.call("thread/archive" if action == "archive" else "thread/unarchive", {"threadId": row["id"]})
+                        codex_library.call("thread/unarchive", {"threadId": row["id"]})
                         session_index.invalidate()
-                    if action == "archive" and scope == "hangar":
-                        meta["archivedAt"] = now
-                    if action == "restore":
-                        meta.pop("archivedAt", None)
-                        meta["snoozedUntil"] = iso(time.time() + 7 * DAY)
+                    meta.pop("archivedAt", None)
+                    meta["snoozedUntil"] = iso(time.time() + 7 * DAY)
                 elif action == "moveCodex":
                     gid = body.get("group")
                     group = known_groups.get(gid) if isinstance(gid, str) else None
@@ -202,3 +206,35 @@ def update(doc, overlay, body):
                     raise ValueError("Unknown session organization action.")
         config.write_json(config.LOCAL / "session-library.json", saved)
     return {"saved": True}
+
+
+def _archive(saved, rows, keys, body):
+    """Archive in Hangar; with scope "codex", Codex sessions are archived in Codex too. One session or a whole age
+    group: every session is checked before anything changes, and unread ones are never archived in bulk."""
+    scope = body.get("scope")
+    if scope not in {"hangar", "codex"}:
+        raise ValueError("Choose where to archive this session.")
+    expected = body.get("activity") if isinstance(body.get("activity"), dict) else {keys[0]: body.get("activityAt")} if len(keys) == 1 else {}
+    for key in keys:
+        row = rows[key]
+        if row["protected"] or row["pinned"]:
+            raise ValueError(f"“{row['title'][:60]}” is pinned or its project has a running job, so it stays.")
+        if len(keys) > 1 and row["unread"] is True:
+            raise ValueError(f"“{row['title'][:60]}” is unread. Unread sessions are never archived in bulk; open it first.")
+        if expected.get(key) != row["activityAt"]:
+            raise ValueError(f"“{row['title'][:60]}” changed since this list was shown. Refresh and look again.")
+        if scope == "codex" and len(keys) == 1 and (row["provider"] != "codex" or not row["nativeKnown"]):
+            raise ValueError("Codex-native state is unavailable for this session.")
+    native = [rows[k] for k in keys if scope == "codex" and rows[k]["provider"] == "codex" and rows[k]["nativeKnown"] and not rows[k]["archived"]]
+    failed = 0
+    if native:
+        results = codex_library.call_many("thread/archive", [{"threadId": r["id"]} for r in native])
+        failed = sum(isinstance(r, Exception) for r in results)
+        if len(keys) == 1 and failed:
+            raise next(r for r in results if isinstance(r, Exception))
+        session_index.invalidate()
+    now = iso(time.time())
+    for key in keys:
+        saved["sessions"].setdefault(key, {})["archivedAt"] = now
+    config.write_json(config.LOCAL / "session-library.json", saved)
+    return {"saved": True, "archived": len(keys), "codexArchived": len(native) - failed, "codexFailed": failed}

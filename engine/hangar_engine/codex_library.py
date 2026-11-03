@@ -56,6 +56,14 @@ def snapshot():
 
 def call(method, params, timeout=20):
     """One bounded stdio client. Never starts a turn or alters agent permissions."""
+    result = call_many(method, [params], timeout)[0]
+    if isinstance(result, Exception):
+        raise result
+    return result
+
+
+def call_many(method, batch, timeout=20):
+    """Several requests of one kind over one connection. Each answer is Codex's result, or the ValueError it gave."""
     if method not in {"threadSection/list", "thread/archive", "thread/unarchive", "thread/section/move"}:
         raise ValueError("Unsupported Codex organization operation.")
     exe = launch.bundled_cli("codex") or launch.cli("codex")
@@ -64,33 +72,34 @@ def call(method, params, timeout=20):
     process = subprocess.Popen([exe, "app-server"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.DEVNULL, text=True, encoding="utf-8",
                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    replies = queue.Queue(maxsize=100)
+    replies = queue.Queue(maxsize=len(batch) + 100)
 
     def receive():
         try:
             for line in process.stdout:
                 try:
                     reply = json.loads(line)
-                    if isinstance(reply, dict) and reply.get("id") in (1, 2):
+                    if isinstance(reply, dict) and isinstance(reply.get("id"), int):
                         replies.put_nowait(reply)
                 except (ValueError, queue.Full):
                     continue
         finally:
             try:
-                replies.put_nowait({"error": {"message": "Codex organization connection closed."}})
+                replies.put_nowait({"id": None, "error": {"message": "Codex organization connection closed."}})
             except queue.Full:
                 pass
 
     reader = threading.Thread(target=receive, daemon=True)
     reader.start()
-    deadline = time.monotonic() + timeout
+    deadline = time.monotonic() + timeout + len(batch)
+    answers = {}
 
     def send(message):
         process.stdin.write(json.dumps(message) + "\n")
         process.stdin.flush()
 
     def response(rid):
-        while True:
+        while rid not in answers:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise ValueError("Codex did not confirm the action. Refresh its state before retrying.")
@@ -98,17 +107,29 @@ def call(method, params, timeout=20):
                 reply = replies.get(timeout=remaining)
             except queue.Empty:
                 raise ValueError("Codex did not confirm the action. Refresh its state before retrying.") from None
-            if "error" in reply:
+            if reply["id"] is None:
                 raise ValueError(str(reply["error"].get("message", "Codex rejected the action."))[:300])
-            if reply.get("id") == rid:
-                return reply.get("result", {})
+            answers[reply["id"]] = reply
+        reply = answers.pop(rid)
+        if "error" in reply:
+            return ValueError(str((reply["error"] or {}).get("message", "Codex rejected the action."))[:300])
+        return reply.get("result", {})
 
     try:
         send({"id": 1, "method": "initialize", "params": {"clientInfo": {"name": "hangar_organizer", "version": "1.0"}, "capabilities": {"experimentalApi": True}}})
-        response(1)
+        if isinstance(started := response(1), Exception):
+            raise started
         send({"method": "initialized", "params": {}})
-        send({"id": 2, "method": method, "params": params})
-        return response(2)
+        for i, params in enumerate(batch):
+            send({"id": i + 2, "method": method, "params": params})
+        results = []
+        for i in range(len(batch)):
+            try:
+                results.append(response(i + 2))
+            except ValueError as e:  # no answer for this one or any after it
+                results.extend([e] * (len(batch) - i))
+                break
+        return results
     finally:
         process.stdin.close()
         try:

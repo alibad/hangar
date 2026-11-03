@@ -98,6 +98,55 @@ class AgentSignIn(unittest.TestCase):
             desktop_sessions._cache["at"] = 0
 
 
+class SessionCleanup(unittest.TestCase):
+    def test_the_claude_app_record_gives_title_unread_reply_and_status(self):
+        from unittest import mock
+        from hangar_engine import desktop_sessions
+        summary = lambda turn: {"status_category": "blocked", "status_detail": "Fix ready, not pushed", "needs_action": "Approve the push", "summarizes_uuid": turn}
+        with tempfile.TemporaryDirectory() as d:
+            folder = Path(d) / "org" / "account"
+            folder.mkdir(parents=True)
+            records = {
+                "local_new": {"sessionId": "local_new", "cliSessionId": "cli-new", "lastFocusedAt": 100, "title": "Fix the \"login\" bug", "lastTurnEdgeAt": 200, "isArchived": False,
+                              "tools": "x" * 20000, "postTurnSummary": summary("u1"), "postTurnSummaryFor": "u1", "lastAssistantUuid": "u1"},
+                "local_seen": {"sessionId": "local_seen", "cliSessionId": "cli-seen", "lastFocusedAt": 300, "lastTurnEdgeAt": 200, "isArchived": False,
+                               "postTurnSummary": summary("u1"), "lastAssistantUuid": "u2"},
+                "local_old": {"sessionId": "local_old", "cliSessionId": "cli-old", "isArchived": True},
+            }
+            for name, record in records.items():
+                (folder / f"{name}.json").write_text(json.dumps(record), encoding="utf-8")
+            desktop_sessions._cache["at"] = 0
+            with mock.patch.object(desktop_sessions, "_roots", return_value=[Path(d)]):
+                found = desktop_sessions.claude_app_records()
+                self.assertEqual(found["cli-new"]["title"], 'Fix the "login" bug')
+                self.assertTrue(found["cli-new"]["unread"])                     # its last turn ended after you last opened it
+                self.assertEqual(found["cli-new"]["status"], {"category": "blocked", "detail": "Fix ready, not pushed", "needsAction": "Approve the push"})
+                self.assertFalse(found["cli-seen"]["unread"])
+                self.assertIsNone(found["cli-seen"]["status"])                  # it summarizes an earlier turn
+                self.assertIsNone(found["cli-old"]["unread"])                   # an old record: unknown, not read
+                self.assertTrue(found["cli-old"]["archived"])
+                self.assertEqual(desktop_sessions.claude_app_ids(), {"cli-new": "local_new", "cli-seen": "local_seen"})
+            desktop_sessions._cache["at"] = 0
+
+    def test_a_whole_age_group_archives_at_once_but_never_an_unread_session(self):
+        from unittest import mock
+        from hangar_engine import session_library
+        row = lambda key, **kw: {"key": key, "title": key, "provider": "claude", "id": key, "activityAt": "2026-08-01T00:00:00+00:00",
+                                 "protected": False, "pinned": False, "unread": None, "nativeKnown": False, "archived": False, **kw}
+        rows = {"a": row("a"), "b": row("b"), "c": row("c", unread=True)}
+        activity = {k: r["activityAt"] for k, r in rows.items()}
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(session_library.config, "LOCAL", Path(d)):
+            saved = session_library.read()
+            with self.assertRaisesRegex(ValueError, "unread"):
+                session_library._archive(saved, rows, ["a", "b", "c"], {"scope": "hangar", "activity": activity})
+            self.assertEqual(saved["sessions"], {})                             # nothing changed before the refusal
+            with self.assertRaisesRegex(ValueError, "changed since"):
+                session_library._archive(saved, rows, ["a"], {"scope": "hangar", "activity": {"a": "2026-09-01T00:00:00+00:00"}})
+            done = session_library._archive(saved, rows, ["a", "b"], {"scope": "hangar", "activity": activity})
+            self.assertEqual(done["archived"], 2)
+            self.assertEqual(set(session_library.read()["sessions"]), {"a", "b"})
+
+
 class OpenWith(unittest.TestCase):
     def test_github_desktop_opens_the_folder_as_a_repository(self):
         from unittest import mock
