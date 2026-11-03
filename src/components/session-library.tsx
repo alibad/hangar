@@ -115,15 +115,20 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     const wide = window.matchMedia("(min-width: 1001px)");
     const fit = () => {
       if (!wide.matches) { inbox.style.removeProperty("height"); return; }
-      const top = inbox.getBoundingClientRect().top + window.scrollY;
-      const below = document.documentElement.scrollHeight - top - inbox.offsetHeight;  // footer and page padding
+      const box = inbox.getBoundingClientRect(), top = box.top + window.scrollY;
+      // What follows the list down to the page's end (the footer and the page padding), measured from the layout: the
+      // page's scroll height cannot be used, since it never drops below the window and would count empty space too.
+      const page = inbox.closest("main"), last = page?.lastElementChild;
+      const below = page && last ? last.getBoundingClientRect().bottom - box.bottom
+        + parseFloat(getComputedStyle(last).marginBottom) + parseFloat(getComputedStyle(page).paddingBottom) : 0;
       // One pixel spare: layout sizes are fractional and the page's height rounds up. A very short window scrolls the page.
       const height = Math.max(300, Math.floor(document.documentElement.clientHeight - top - below) - 1);
       if (Math.abs(inbox.offsetHeight - height) > 1) inbox.style.height = `${height}px`;
     };
     fit();
+    // The body keeps its size when what sits above the list shrinks (switching views), so the section is watched too.
     const watch = new ResizeObserver(fit);
-    watch.observe(document.body);
+    for (const el of [document.body, inbox.closest("main"), inbox.closest(".sl-library")]) if (el) watch.observe(el);
     wide.addEventListener("change", fit);
     window.addEventListener("resize", fit);
     return () => { watch.disconnect(); wide.removeEventListener("change", fit); window.removeEventListener("resize", fit); };
