@@ -16,6 +16,7 @@ from .activity import claimed
 
 _lock = threading.RLock()
 DAY = 86400
+LIVE = 30 * 60  # an open turn that has written nothing for this long is a crashed app, not work
 
 
 def stamp(value):
@@ -79,6 +80,10 @@ def snapshot(doc, overlay, now=None, changes=False):
         hangar_archive = stamp(meta.get("archivedAt")) >= activity if meta.get("archivedAt") else False
         busy = any(j.get("state") in {"running", "stopping", "unobserved"} and (
             j.get("session") == sid and j.get("provider") == provider or any(p["id"] == j.get("repo") for p in session["projects"])) for j in live)
+        # Working now: a Hangar job is running in this conversation, or its transcript shows a turn that has not ended. A
+        # crashed app leaves a turn open forever, so an open turn counts only while the conversation is still writing.
+        job_here = any(j.get("state") in {"running", "stopping"} and j.get("session") == sid and j.get("provider") == provider for j in live)
+        open_turn = session.get("state") == "working" and now - activity < LIVE
         pinned = bool(thread and thread["is_pinned"])
         age = max(0, int((now - used) // DAY)) if used else None
         unread = thread.get("unread") if thread else record["unread"] if record else None
@@ -91,7 +96,7 @@ def snapshot(doc, overlay, now=None, changes=False):
             "reviewed": stamp(meta.get("reviewedAt")) >= activity if meta.get("reviewedAt") else False,
             "group": group, "nativeGroup": native_group, "nativeKnown": bool(thread), "pinned": pinned,
             "archived": archived or hangar_archive, "archiveScope": provider if archived else "hangar" if hangar_archive else None,
-            "status": record["status"] if record and not archived else None,
+            "status": record["status"] if record and not archived else None, "working": bool(job_here or open_turn),
             "protected": busy, "snoozedUntil": meta.get("snoozedUntil"), "suggestion": None, "opensIn": desktop_sessions.opens_in(provider, sid),
             "reviewDue": bool(used and now - used >= saved["idleDays"] * DAY and not archived and not hangar_archive and not busy and not pinned
                               and not session.get("probe") and stamp(meta.get("snoozedUntil")) <= now)}

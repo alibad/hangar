@@ -172,6 +172,18 @@ def ingest(state, record):
     msg = record.get("message") or {}
     if isinstance(msg, dict) and isinstance(msg.get("model"), str):
         state["model"] = msg["model"]
+    # Where a Claude turn stands: it is working until the agent's final reply (end_turn) is written, whatever started
+    # it (a message, another session's note, a finished background task). Helpers' sidechains are not the main turn.
+    if state["provider"] == "claude" and record.get("type") in ("user", "assistant") and isinstance(msg, dict) \
+            and not record.get("isMeta") and not record.get("isSidechain"):
+        content = msg.get("content")
+        blocks = content if isinstance(content, list) else [{"type": "text", "text": content}] if isinstance(content, str) else []
+        if record["type"] == "assistant":
+            state["state"] = "completed" if msg.get("stop_reason") in ("end_turn", "stop_sequence") else "working"
+        elif any(isinstance(b, dict) and str(b.get("text", "")).startswith("[Request interrupted") for b in blocks):
+            state["state"] = "interrupted"
+        elif blocks:
+            state["state"] = "working"
 
     def call(key, name, args):
         paths = edit_paths(name, args)
@@ -212,7 +224,7 @@ def ingest(state, record):
         result(p.get("call_id"), success)
         note_hashes(state, output_text(output), at())
     if p.get("type") in ("task_complete", "turn_aborted", "task_started"):
-        state["state"] = {"task_complete": "completed", "turn_aborted": "interrupted", "task_started": "unknown"}[p["type"]]
+        state["state"] = {"task_complete": "completed", "turn_aborted": "interrupted", "task_started": "working"}[p["type"]]
 
 
 def update_file(path, provider, previous=None):
