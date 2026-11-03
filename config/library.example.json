@@ -1,6 +1,6 @@
 {
   "$comment": "Copy to config/library.local.json (ignored by git) and list this machine's media folders. Each root sits on one shelf: videos, generated or datasets. A root's first folder level becomes its project unless the root names one; 'group' names a root that is part of a project. ${NAME} reads an environment variable. Hangar's own studio outputs (QWEN_OUTPUT_DIR, QWEN_ARCHIVE_DIR, MUSIC_OUTPUT_DIR, AUDIO_LAB_DIR) are always on the Generated shelf as project Hangar, so they need no entry. Previews are cached in cacheDir. rtsaiArt and rtsaiMod are optional: they supply Faction Studio's draft or approved status and each unit's faction.",
-  "cacheDir": "D:\\Cache\\hangar-library",
+  "cacheDir": "F:\\Cache\\hangar-library",
   "rtsaiArt": "C:\\Code\\RTSAI-Art",
   "rtsaiMod": "C:\\Code\\RTSAI-Mod",
   "rtsaiDrafts": "D:\\Generated\\RTSAI",
