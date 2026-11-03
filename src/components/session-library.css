@@ -124,3 +124,9 @@
 .sl-check{display:flex;align-items:center;gap:10px;margin:16px 0 0;font-size:13px;cursor:pointer}.sl-check input{accent-color:var(--cw-accent);width:17px;height:17px}
 @media(max-width:550px){.connected-workspace .sl-connect button{grid-template-columns:minmax(0,1fr) auto auto}.sl-connect button>svg{display:none}}
 .sl-bulk-where{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:8px;font-size:13px;line-height:1.5}.sl-bulk-where b{font-weight:600;margin-inline-end:4px}
+.sl-row-line{display:flex;align-items:center;gap:2px}.connected-workspace .sl-row-line>.sl-row{flex:1;min-width:0}
+.connected-workspace .sl-row-archive{flex-shrink:0;display:grid;place-items:center;width:30px;height:30px;padding:0;border-radius:8px;color:var(--cw-muted);opacity:.55}
+.connected-workspace .sl-row-line:hover .sl-row-archive,.connected-workspace .sl-row-archive:focus-visible{opacity:1}
+.connected-workspace .sl-row-archive:hover:not(:disabled){color:var(--cw-accent);background:color-mix(in srgb,var(--cw-accent) 10%,transparent)}
+.connected-workspace .sl-row-archive:disabled{opacity:.2}
+.sl-detail .sl-session-actions{margin:12px 0 4px}
