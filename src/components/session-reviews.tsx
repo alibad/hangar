@@ -34,7 +34,8 @@ export default function SessionReviews({ machine, session }: { machine: string; 
   const [reviews, setReviews] = useState<Review[] | null>(null), [skill, setSkill] = useState(true);
   const [error, setError] = useState(""), [busy, setBusy] = useState(false);
   const load = useCallback(async () => {
-    try { const data = await call<{ reviews: Review[]; skill: boolean }>(`${base}/reviews?session=${encodeURIComponent(session.key)}`); setReviews(data.reviews); setSkill(data.skill); }
+    // Filtered here too: a server that ignores the filter must not show one session's review on every session.
+    try { const data = await call<{ reviews: Review[]; skill: boolean }>(`${base}/reviews?session=${encodeURIComponent(session.key)}`); setReviews(data.reviews.filter(r => r.session === session.key)); setSkill(data.skill); }
     catch (e) { setError((e as Error).message); }
   }, [base, session.key]);
   useEffect(() => { setReviews(null); setError(""); void load(); }, [load]);
@@ -51,8 +52,8 @@ export default function SessionReviews({ machine, session }: { machine: string; 
     <div className="sr-head">
       <h4>Reviews{!!reviews?.length && <small>{reviews.length}</small>}</h4>
       <button className="sr-send" disabled={busy || running || !skill || !session.projects.length} onClick={() => void send()}
-        title={`${NAME[to]} reads what this session committed and reports what could break. It changes nothing.`}>
-        <span className={`sr-agent is-${to}`}><AgentMark agent={to} /></span>{busy ? "Sending…" : running ? `${NAME[to]} is reviewing…` : `Review with ${NAME[to]}`}
+        title={`${NAME[to]} reads what this session committed and reports what could break. It changes nothing, and it runs only when you click.`}>
+        <span className={`sr-agent is-${to}`}><AgentMark agent={to} /></span>{busy ? "Sending…" : running ? `${NAME[to]} is reviewing…` : reviews?.length ? `Review again with ${NAME[to]}` : `Review with ${NAME[to]}`}
       </button>
     </div>
     {!skill && <p className="sr-note">Install the cross-review skill (claude-config) to send reviews.</p>}
@@ -71,8 +72,9 @@ export function JobReview({ machine, id }: { machine: string; id: string }) {
       try {
         const data = await call<{ reviews: Review[] }>(`/api/world/${machine}/proxy/reviews?id=${encodeURIComponent(id)}`);
         if (!live) return;
-        setReview(data.reviews[0] || null);
-        if (data.reviews[0]?.state === "running") timer = setTimeout(load, 4000);
+        const found = data.reviews.find(r => r.id === id) || null;
+        setReview(found);
+        if (found?.state === "running") timer = setTimeout(load, 4000);
       } catch { /* the job's own log still shows */ }
     };
     void load();
@@ -123,6 +125,7 @@ export function ReviewCard({ review: r, machine, canFix, active, showSession }: 
         title={active ? "This conversation was active in the last 15 minutes and may still be open. Copy the findings into it instead." : `Starts a Hangar job that continues ${NAME[r.author]}’s conversation with these findings`}><Wrench size={14} />Ask {NAME[r.author]} to fix these</button>}
       <button onClick={() => void copy()} title={`The findings as a message for ${NAME[r.author]}`}><Copy size={14} />Copy findings</button>
     </div>}
+    {canFix && active && r.state === "done" && !!r.findings?.length && !message && <p className="sr-note">{NAME[r.author]}’s conversation was used in the last 15 minutes, so it may still be open in the app. Copy the findings into it there, or ask from here once it has been quiet for 15 minutes.</p>}
     {message && <p role="status" className="sr-note">{message}</p>}
   </article>;
 }
