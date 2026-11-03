@@ -54,9 +54,10 @@ function cleanupSections(list: LibrarySession[], expanded: string[]): Section[] 
   const add = (id: string, name: string, all: LibrarySession[], bulk: boolean) => {
     if (all.length) out.push({ id, name, all, bulk, rows: expanded.includes(id) ? all : all.slice(0, 5) });
   };
-  add("held", "Unread or waiting on you · look first", list.filter(held), false);
   const rest = list.filter(s => !held(s)).sort((a, b) => (b.idleDays || 0) - (a.idleDays || 0));
   AGES.forEach((age, i) => add(age.id, age.name, rest.filter(s => (s.idleDays || 0) >= age.min && (i === 0 || (s.idleDays || 0) < AGES[i - 1].min)), true));
+  // Last, and never in an Archive all: open these one by one when there is time.
+  add("held", "Unread or waiting on you · open before archiving", list.filter(held).sort((a, b) => (b.idleDays || 0) - (a.idleDays || 0)), false);
   return out;
 }
 const lastSeen = (s: LibrarySession) => Date.parse(s.activityAt || s.updatedAt) || 0;
@@ -274,7 +275,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
           {(latestReview.size > 0 || reviewedOnly) && <button className="sl-toggle" aria-pressed={reviewedOnly} title="Sessions whose work the other agent has reviewed" onClick={() => { setReviewedOnly(v => !v); setLimit(40); }}>Reviewed <small>{latestReview.size}</small></button>}
           {project && <button className="sl-chip" onClick={() => setProject("")} title="Show every project"><ProjectBadge id={project} name={laneOf.get(project)?.name || project} size="xs" /><X size={13} /></button>}
           <span>{visible.length} sessions</span>{probes > 0 && <button className="sl-toggle" aria-pressed={showProbes} title="Scripted runs in a temp folder that edited no project" onClick={() => setShowProbes(v => !v)}>{showProbes ? "Hide" : "Show"} {probes} test {probes === 1 ? "run" : "runs"}</button>}{filter && <button onClick={() => setFilter("")}>Clear group filter <X size={14} /></button>}</div>
-        {mode === "review" && <p className="sl-help">Sessions untouched for {data.idleDays}+ days, oldest first. Archive a whole age group at once, or open one to decide. Unread sessions and ones waiting on you stay at the top and are never archived in bulk; pinned sessions and projects with a running job are left alone.</p>}
+        {mode === "review" && <p className="sl-help">Sessions untouched for {data.idleDays}+ days, oldest first. Archive a whole age group at once, or open one to decide. Unread sessions and ones waiting on you are listed last and never archived in bulk; pinned sessions and projects with a running job are left alone.</p>}
         {!!visible.length && <div className="sl-inbox" ref={setInbox}>
           <div className="sl-list" aria-label="Sessions">
             {sections.map(section => <div className="sl-section" key={section.id}>
