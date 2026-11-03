@@ -73,6 +73,7 @@ def snapshot(doc, overlay, now=None, changes=False):
     groups.update({gid: {"id": gid, "name": g["name"], "source": "hangar"} for gid, g in saved["groups"].items()})
     live = work.snapshot()["jobs"]
     app = desktop_sessions.claude_app_records()
+    checkins = config.read_json(config.LOCAL / "checkins.json", {}) or {}  # checkin.py writes these
     rows = []
     for (provider, sid), session in entries.items():
         key = provider + ":" + sid
@@ -107,6 +108,7 @@ def snapshot(doc, overlay, now=None, changes=False):
             "group": group, "nativeGroup": native_group, "nativeKnown": bool(thread), "pinned": pinned,
             "archived": archived or hangar_archive or app_pending, "archiveScope": provider if archived or app_pending else "hangar" if hangar_archive else None,
             "archivePending": app_pending, "appId": record["own"] if record else None,
+            "checkin": found if (found := checkins.get(key)) and found.get("activityAt") == iso(activity) else None,
             "status": record["status"] if record and not archived else None, "working": bool(job_here or open_turn),
             "protected": busy, "snoozedUntil": meta.get("snoozedUntil"), "suggestion": None, "opensIn": desktop_sessions.opens_in(provider, sid),
             "reviewDue": bool(used and now - used >= saved["idleDays"] * DAY and not archived and not hangar_archive and not app_pending and not busy and not pinned

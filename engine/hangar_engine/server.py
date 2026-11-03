@@ -207,6 +207,14 @@ def make_handler(state, port):
                     return self._send(200, result)
                 except (ValueError, OSError) as e:
                     return self._send(400, {"error": str(e)})
+            if path == "/api/sessions/checkin":
+                from . import checkin
+                try:
+                    doc = state.doc or state.load()
+                    return self._send(200, checkin.ask(doc, scanner.overlay(), body) if body.get("ask") or body.get("session") and not body.get("keys")
+                                      else checkin.run(doc, scanner.overlay(), body.get("keys")))
+                except ValueError as error:
+                    return self._send(400, {"error": str(error)})
             if path == "/api/sessions/library":
                 from . import session_library
                 try:

@@ -146,6 +146,36 @@ class SessionCleanup(unittest.TestCase):
             self.assertEqual(done["archived"], 2)
             self.assertEqual(set(session_library.read()["sessions"]), {"a", "b"})
 
+    def test_a_check_in_reads_the_first_request_and_the_last_reply(self):
+        from hangar_engine import checkin
+        lines = [{"type": "user", "message": {"role": "user", "content": "<system-reminder>ignore me</system-reminder>Add Clean up by age"}},
+                 {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Working on it."}]}},
+                 {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "content": "ok"}]}},
+                 {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Done and pushed."}, {"type": "tool_use", "name": "Bash"}]}},
+                 {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "name": "Read"}]}}]
+        with tempfile.TemporaryDirectory() as d:
+            file = Path(d) / "s.jsonl"
+            file.write_text("\n".join(json.dumps(l) for l in lines), encoding="utf-8")
+            self.assertEqual(checkin.conversation(file), {"asked": "Add Clean up by age", "answer": "Done and pushed."})
+
+    def test_a_check_in_says_done_left_or_finished_elsewhere(self):
+        from hangar_engine import checkin
+        row = lambda **kw: {"key": "claude:s", "provider": "claude", "activityAt": "2026-10-01T00:00:00+00:00", "state": "completed", "working": False, "status": None,
+                            "projects": [{"id": "R", "name": "app", "evidence": "edit-tool", "files": ["src/a.ts"]}], **kw}
+        talk = {"asked": "Fix it", "answer": "Fixed."}
+        mine = [{"sha": "abc1234", "repoId": "R"}]
+        state = lambda **kw: {"R": {"dirty": set(), "unpushed": set(), "tracked": {"src/a.ts"}, **kw}}
+        later = {"R": {"commits": [{"sha": "f" * 40, "short": "fffffff", "at": 1791500000, "subject": "Finish a.ts", "files": ["src/a.ts"]}]}}
+        none = {"R": {"commits": []}}
+        check = lambda r, own, st, hist: checkin.verdict(r, None, talk, own, {"R": "x"}, st, hist, {"R": {}}, {"R": []}, {})["verdict"]
+        self.assertEqual(check(row(), mine, state(), none), "done")
+        self.assertEqual(check(row(), mine, state(unpushed={"abc1234" + "0" * 33}), none), "left")          # a commit never pushed
+        self.assertEqual(check(row(), mine, state(dirty={"src/a.ts"}), none), "left")                       # its edits still uncommitted
+        self.assertEqual(check(row(status={"category": "blocked", "needsAction": "Pick one"}), mine, state(), later), "left")  # waiting on you
+        self.assertEqual(check(row(state="interrupted"), [], state(), later), "elsewhere")                  # stopped, finished by later work
+        self.assertEqual(check(row(state="interrupted"), [], state(), none), "unclear")
+        self.assertEqual(check(row(projects=[]), [], state(), none), "done")                                 # answered, edited nothing
+
     def test_archive_happens_in_the_app_that_holds_the_session(self):
         from unittest import mock
         from hangar_engine import session_library

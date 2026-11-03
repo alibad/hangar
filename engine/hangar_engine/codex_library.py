@@ -42,7 +42,8 @@ def snapshot():
             except sqlite3.Error:
                 pass
             display_name = "name" if "name" in cols else "null as name"
-            rows = db.execute(f"select id,title,{display_name},cwd,updated_at,archived,is_pinned,thread_section_id from threads order by updated_at desc limit 5001").fetchall()
+            first = "first_user_message" if "first_user_message" in cols else "null as first_user_message"
+            rows = db.execute(f"select id,title,{display_name},{first},cwd,updated_at,archived,is_pinned,thread_section_id from threads order by updated_at desc limit 5001").fetchall()
             for row in rows[:5000]:
                 thread = dict(row)
                 thread["title"] = row["name"] or row["title"]
