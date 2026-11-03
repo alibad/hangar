@@ -12,7 +12,11 @@ export type LibrarySession = {
   id: string; key: string; provider: string; model: string; title: string; updatedAt: string; activityAt: string;
   state: string; summary: string; canResume: boolean; idleDays: number | null; unread: boolean | null;
   reviewed: boolean; group: string | null; nativeGroup: string | null; nativeKnown: boolean; pinned: boolean;
-  archived: boolean; archiveScope: "hangar" | "codex" | null; protected: boolean; reviewDue: boolean; snoozedUntil: string | null;
+  archived: boolean; archiveScope: "hangar" | "codex" | "claude" | null; protected: boolean; reviewDue: boolean; snoozedUntil: string | null;
+  /** The Claude app's one-line status of the last turn (completed, blocked on you, or ready for review), when it is current. */
+  status?: { category: string; detail: string; needsAction: string } | null;
+  /** A Hangar job is running in it, or its app shows a turn that has not ended and is still writing. */
+  working?: boolean;
   projects: { id: string; name: string; evidence: string; files: string[] }[];
   suggestion: { id: string; name: string; reason: string; confidence: string } | null;
   /** Where Open takes it: its desktop app when the app can show it, otherwise a terminal. */
@@ -26,12 +30,29 @@ export type LibrarySession = {
   helpers?: number;
 };
 type Group = { id: string; name: string; source: string; nativeId?: string };
-export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; truncated: boolean; observedAt: string };
+export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; claudeApp?: boolean; truncated: boolean; observedAt: string };
 type Props = { machine: string; data: SessionLibraryData | null; error: string; onUpdate: (data: SessionLibraryData) => void; onContinue: (session: LibrarySession) => void; onOpen?: (session: LibrarySession) => void };
 type Mode = "active" | "projects" | "review" | "groups" | "archived";
 type Agent = "all" | "claude" | "codex";
 const DAY = 86400000;
 const agentOf = (s: LibrarySession) => s.provider === "codex" ? "codex" : "claude";
+const appOf = (s: LibrarySession) => s.provider === "codex" ? "Codex" : "Claude";
+/** Clean-up groups by how long a session has sat untouched, oldest first. */
+const AGES = [{ id: "90", name: "Over 3 months", min: 90 }, { id: "60", name: "2–3 months", min: 60 }, { id: "30", name: "1–2 months", min: 30 }, { id: "14", name: "2–4 weeks", min: 14 }, { id: "7", name: "1–2 weeks", min: 0 }];
+const STATUS: Record<string, string> = { completed: "Done", blocked: "Waiting on you", review_ready: "Ready for your review" };
+/** Sessions to look at before any clean-up: a reply you have not opened, or a turn that stopped to ask you something. */
+const held = (s: LibrarySession) => s.unread === true || s.status?.category === "blocked";
+type Section = { id: string; name: string; rows: LibrarySession[]; all: LibrarySession[]; bulk?: boolean };
+function cleanupSections(list: LibrarySession[], expanded: string[]): Section[] {
+  const out: Section[] = [];
+  const add = (id: string, name: string, all: LibrarySession[], bulk: boolean) => {
+    if (all.length) out.push({ id, name, all, bulk, rows: expanded.includes(id) ? all : all.slice(0, 5) });
+  };
+  add("held", "Unread or waiting on you · look first", list.filter(held), false);
+  const rest = list.filter(s => !held(s)).sort((a, b) => (b.idleDays || 0) - (a.idleDays || 0));
+  AGES.forEach((age, i) => add(age.id, age.name, rest.filter(s => (s.idleDays || 0) >= age.min && (i === 0 || (s.idleDays || 0) < AGES[i - 1].min)), true));
+  return out;
+}
 const lastSeen = (s: LibrarySession) => Date.parse(s.activityAt || s.updatedAt) || 0;
 const ago = (t: number) => { const d = Math.floor((Date.now() - t) / DAY); return !t ? "unknown" : d <= 0 ? "today" : d === 1 ? "yesterday" : `${d}d ago`; };
 /** Each project with its Claude and Codex sessions, most recently active first: where the two agents' work meets. */
@@ -73,6 +94,9 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   /** Each session's latest code review, so the list shows which sessions the other agent has checked. */
   const [latestReview, setLatestReview] = useState<Map<string, Review>>(new Map());
   const [showProbes, setShowProbes] = useState(false);
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const [bulk, setBulk] = useState<{ name: string; rows: LibrarySession[] } | null>(null);
+  const [alsoCodex, setAlsoCodex] = useState(true);
   const dialog = useRef<HTMLElement>(null);
   const detail = useRef<HTMLElement>(null);
   const updateRef = useRef(onUpdate); updateRef.current = onUpdate;
@@ -117,13 +141,13 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   });
 
   useEffect(() => {
-    if (!target) return;
+    if (!target && !bulk) return;
     const previous = document.activeElement as HTMLElement | null;
     const el = dialog.current;
     const controls = () => [...el?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),a[href]') || []];
     controls()[0]?.focus();
     const key = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busyRef.current) setTarget(null);
+      if (event.key === "Escape" && !busyRef.current) { setTarget(null); setBulk(null); }
       if (event.key === "Tab") {
         const list = controls(), first = list[0], last = list.at(-1);
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
@@ -132,15 +156,15 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     };
     el?.addEventListener("keydown", key);
     return () => { el?.removeEventListener("keydown", key); previous?.focus(); };
-  }, [target]);
+  }, [target, bulk]);
 
-  async function act(body: Record<string, unknown>, message: string) {
+  async function act(body: Record<string, unknown>, message: string | ((result: Record<string, number>) => string)) {
     if (busyRef.current) return false;
     busyRef.current = true; setBusy(true); setError(""); setNotice("");
     try {
-      await request(endpoint, body);
+      const result = await request<Record<string, number>>(endpoint, body);
       const next = await request<SessionLibraryData>(endpoint);
-      onUpdate(next); setNotice(message); return true;
+      onUpdate(next); setNotice(typeof message === "function" ? message(result) : message); return true;
     } catch (e) { setError((e as Error).message); return false; }
     finally { setBusy(false); busyRef.current = false; }
   }
@@ -156,23 +180,23 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     if (project) list = [...list.filter(s => s.projects.some(p => p.id === project))].sort((a, b) => lastSeen(b) - lastSeen(a));
     if (unreadOnly) list = list.filter(s => s.unread === true);
     if (reviewedOnly) list = list.filter(s => latestReview.has(s.key));
-    if (mode === "review") list = [...list].sort((a, b) => Number(b.unread === true) - Number(a.unread === true) || (b.idleDays || 0) - (a.idleDays || 0));
     return list;
   }, [rows, mode, filter, query, agent, project, unreadOnly, reviewedOnly, latestReview]);
-  // Active work reads by topic; archive review and the archive stay one queue in their own order.
-  const sections = useMemo(() => {
+  // Active work reads by topic; clean-up reads by age, oldest first; the archive stays one queue.
+  const sections = useMemo<Section[]>(() => {
+    if (mode === "review") return cleanupSections(visible, expanded);
     const shown = visible.slice(0, limit);
-    if (mode !== "active" || filter || project) return [{ id: "all", name: "", rows: shown }];
-    const topics = new Map<string, { id: string; name: string; rows: LibrarySession[] }>();
+    if (mode !== "active" || filter || project) return [{ id: "all", name: "", rows: shown, all: shown }];
+    const topics = new Map<string, Section>();
     for (const row of shown) {
       const id = row.group ? `group:${row.group}` : row.suggestion ? `suggestion:${row.suggestion.id}` : "other";
       const name = row.group ? data?.groups.find(g => g.id === row.group)?.name || "Group"
         : row.suggestion ? `${row.suggestion.name} · suggested` : "Other sessions";
-      if (!topics.has(id)) topics.set(id, { id, name, rows: [] });
+      if (!topics.has(id)) { const list: LibrarySession[] = []; topics.set(id, { id, name, rows: list, all: list }); }
       topics.get(id)!.rows.push(row);
     }
     return [...topics.values()].sort((a, b) => Number(a.id === "other") - Number(b.id === "other"));
-  }, [visible, limit, mode, filter, data]);
+  }, [visible, limit, mode, filter, project, data, expanded]);
   const selected = visible.find(row => row.key === selectedKey) ?? sections[0]?.rows[0] ?? null;
   const pick = (key: string) => {
     setSelectedKey(key);
@@ -190,7 +214,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
 
   return <section className="sl-library" aria-label="Session organization">
     <div className="cw-section-title"><h2>Session history</h2><span>Claude + Codex</span></div>
-    <div className="sl-toolbar"><div className="cw-family-tabs" aria-label="Session view">{([['active', 'Active'], ['projects', 'By project'], ['review', 'Archive review'], ['groups', 'Groups & sections'], ['archived', 'Archived']] as const).map(([id, label]) => <button key={id} aria-pressed={mode === id} onClick={() => chooseMode(id)}>{label}{id === "review" && !!data?.reviewCount && <small>{data.reviewCount}</small>}</button>)}</div><div className="sl-threshold" aria-label="Idle threshold"><span>Idle after</span>{[7, 14, 30].map(days => <button key={days} aria-pressed={data?.idleDays === days} disabled={busy || !data} onClick={() => act({ action: "settings", idleDays: days }, `Review threshold set to ${days} days.`)}>{days}d</button>)}</div></div>
+    <div className="sl-toolbar"><div className="cw-family-tabs" aria-label="Session view">{([['active', 'Active'], ['projects', 'By project'], ['review', 'Clean up'], ['groups', 'Groups & sections'], ['archived', 'Archived']] as const).map(([id, label]) => <button key={id} aria-pressed={mode === id} onClick={() => chooseMode(id)}>{label}{id === "review" && !!data?.reviewCount && <small>{data.reviewCount}</small>}</button>)}</div></div>
     {(loadError || error) && <p className="cw-error" role="alert">{error || loadError}</p>}
     {notice && <p className="sl-notice" role="status"><Check size={15} />{notice}</p>}
     {!data ? <HangarLoading label="Reading session history" steps={["Indexing Claude Code sessions", "Indexing Codex sessions", "Grouping them by project"]} shape="rows" /> : <>
@@ -212,57 +236,80 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
           {(latestReview.size > 0 || reviewedOnly) && <button className="sl-toggle" aria-pressed={reviewedOnly} title="Sessions whose work the other agent has reviewed" onClick={() => { setReviewedOnly(v => !v); setLimit(40); }}>Reviewed <small>{latestReview.size}</small></button>}
           {project && <button className="sl-chip" onClick={() => setProject("")} title="Show every project"><ProjectBadge id={project} name={laneOf.get(project)?.name || project} size="xs" /><X size={13} /></button>}
           <span>{visible.length} sessions</span>{probes > 0 && <button className="sl-toggle" aria-pressed={showProbes} title="Scripted runs in a temp folder that edited no project" onClick={() => setShowProbes(v => !v)}>{showProbes ? "Hide" : "Show"} {probes} test {probes === 1 ? "run" : "runs"}</button>}{filter && <button onClick={() => setFilter("")}>Clear group filter <X size={14} /></button>}</div>
-        {mode === "review" && <p className="sl-help">{data.reviewCount ? `${data.reviewCount} sessions have had no observed activity for ${data.idleDays}+ days${data.unreadReviewCount ? `, ${data.unreadReviewCount} unread in Codex` : ""}. Nothing is archived without your choice. ` : ""}Unread sessions come first so useful results are not buried. Pinned sessions and projects with active or unobserved jobs are protected.</p>}
+        {mode === "review" && <p className="sl-help">Sessions untouched for {data.idleDays}+ days, oldest first. Archive a whole age group at once, or open one to decide. Unread sessions and ones waiting on you stay at the top and are never archived in bulk; pinned sessions and projects with a running job are left alone.</p>}
         {!!visible.length && <div className="sl-inbox">
           <div className="sl-list" aria-label="Sessions">
             {sections.map(section => <div className="sl-section" key={section.id}>
-              {section.name && <h4>{section.name}<small>{section.rows.length}</small></h4>}
+              {section.name && <h4><span>{section.name}</span><small>{section.all.length}</small>{section.bulk && <button className="sl-bulk" disabled={busy} title={`Archive the ${section.all.length} sessions in this group`} onClick={() => { setAlsoCodex(true); setBulk({ name: section.name, rows: section.all }); }}><Archive size={12} aria-hidden="true" />Archive all</button>}</h4>}
               {section.rows.map(row => <button type="button" key={row.key} aria-pressed={selected?.key === row.key} className={`sl-row ${row.unread ? "sl-unread" : ""}`} onClick={() => pick(row.key)}>
                 <span className={`cw-session-provider is-${agentOf(row)}`}><AgentMark agent={agentOf(row)} /></span>
-                <span className="sl-row-text"><b>{row.title}</b>{!!row.changed?.length && <em className="sl-changed"><GitCommitHorizontal size={12} aria-hidden="true" />{row.changed[0].subject}{(row.changedCount || 0) > 1 && <i>+{(row.changedCount || 0) - 1}</i>}</em>}<small className="sl-row-meta"><ProjectList projects={row.projects} />{[row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).map(part => <span key={part}>{part}</span>)}</small></span>
+                <span className="sl-row-text"><b>{row.title}</b>{row.status?.detail ? <em className={`sl-changed sl-row-status is-${row.status.category}`} title={STATUS[row.status.category] || "Last turn"}><span className="sl-status-dot" aria-hidden="true" />{row.status.detail}</em> : !!row.changed?.length && <em className="sl-changed"><GitCommitHorizontal size={12} aria-hidden="true" />{row.changed[0].subject}{(row.changedCount || 0) > 1 && <i>+{(row.changedCount || 0) - 1}</i>}</em>}<small className="sl-row-meta"><ProjectList projects={row.projects} />{[row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).map(part => <span key={part}>{part}</span>)}</small></span>
                 {(() => { const r = latestReview.get(row.key); return r && <span className={`sl-review is-${r.state === "done" ? r.verdict : r.state}`} title={`${NAME[r.reviewer]} reviewed this session’s work: ${reviewLabel(r)}`}><AgentMark agent={r.reviewer} />{reviewLabel(r)}</span>; })()}
-                {row.unread === true && <i className="sl-dot" aria-label="Unread in Codex" />}
+                {row.working ? <span className="sl-flag is-live">Working</span> : row.status?.category === "blocked" && <span className="sl-flag is-wait">Needs you</span>}
+                {row.unread === true && <i className="sl-dot" aria-label={`Unread in ${appOf(row)}`} />}
                 {row.pinned && <Pin size={13} aria-label="Pinned in Codex" />}
               </button>)}
+              {section.all.length > section.rows.length && <button className="sl-more sl-more-inline" onClick={() => setExpanded(list => [...list, section.id])}>Show all {section.all.length}</button>}
             </div>)}
-            {visible.length > limit && <button className="sl-more" onClick={() => setLimit(n => n + 40)}>Show 40 more sessions</button>}
+            {mode !== "review" && visible.length > limit && <button className="sl-more" onClick={() => setLimit(n => n + 40)}>Show 40 more sessions</button>}
           </div>
           {selected && <article ref={detail} className={`sl-detail sl-session ${selected.unread ? "sl-unread" : ""}`} aria-label={`Session: ${selected.title}`}>
             <div className="sl-session-body"><div className="sl-session-title"><h3>{selected.title}</h3>{selected.pinned && <Pin size={14} aria-label="Pinned in Codex" />}</div>
-            <div className="sl-tags"><span>{selected.unread === true ? "Unread in Codex" : selected.unread === false ? "Read in Codex" : "Read state unknown"}</span>{selected.reviewed && <span>Kept after archive check</span>}<span>{selected.idleDays === null ? "Activity unknown" : `${selected.idleDays}d idle`}</span>{selected.group && <span>{data.groups.find(g => g.id === selected.group)?.name}</span>}{selected.protected && <span>Active project · protected</span>}{selected.archived && <span>Archived in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</span>}</div>
+            <div className="sl-tags">{selected.working && <span className="is-live">Working now</span>}{selected.unread === true && <span className="is-unread">{selected.provider === "codex" ? "Unread in Codex" : "New reply you haven’t opened"}</span>}{selected.unread === false && <span>Read</span>}{selected.reviewed && <span>Kept after archive check</span>}<span>{selected.idleDays === null ? "Activity unknown" : selected.idleDays === 0 ? "Active today" : `${selected.idleDays}d idle`}</span>{selected.group && <span>{data.groups.find(g => g.id === selected.group)?.name}</span>}{selected.protected && <span>Active project · protected</span>}{selected.archived && <span>Archived in {selected.archiveScope === "codex" ? "Codex" : selected.archiveScope === "claude" ? "the Claude app" : "Hangar"}</span>}</div>
+            {selected.status && (selected.status.detail || selected.status.needsAction) && <div className={`sl-status is-${selected.status.category}`} aria-label="Where the session stands">
+              <span className="sl-status-label"><span className="sl-status-dot" aria-hidden="true" />{STATUS[selected.status.category] || "Last turn"}</span>
+              {selected.status.detail && <p>{selected.status.detail}</p>}
+              {selected.status.needsAction && selected.status.needsAction !== selected.status.detail && <p className="sl-needs"><b>Needs you:</b> {selected.status.needsAction}</p>}
+            </div>}
             <p>{selected.summary}</p>
             {!!selected.changed?.length && <div className="sl-commits" aria-label="What this session committed"><h4>What it changed<small>{selected.changedCount} {selected.changedCount === 1 ? "commit" : "commits"}</small></h4><ol>{selected.changed.map(c => <li key={`${c.repo}-${c.sha}`}><GitCommitHorizontal size={14} aria-hidden="true" /><span><b>{c.subject}</b><small>{c.repo} · {new Date(c.at).toLocaleDateString(undefined, { day: "numeric", month: "short" })} {new Date(c.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })} · <code>{c.sha}</code></small></span></li>)}</ol>{(selected.changedCount || 0) > selected.changed.length && <small>{(selected.changedCount || 0) - selected.changed.length} more in the last 30 days</small>}</div>}
             <SessionReviews key={selected.key} machine={machine} session={selected} onReviews={onReviews} />
             {selected.projects.length > 0 && <div className="sl-connect" aria-label="This session's projects">{selected.projects.map(p => { const lane = laneOf.get(p.id); return <button key={p.id} onClick={() => openProject(p.id)} aria-pressed={project === p.id} title={`Every session in ${p.name}`}>
-              <ProjectBadge id={p.id} name={p.name} detail /><span><i className="sl-swatch is-claude" aria-hidden="true" />{lane?.claude || 0} Claude</span><span><i className="sl-swatch is-codex" aria-hidden="true" />{lane?.codex || 0} Codex</span><ArrowRight size={13} /></button>; })}</div>}
+              <ProjectBadge id={p.id} name={p.name} detail /><span className="sl-count"><i className="sl-swatch is-claude" aria-hidden="true" />{lane?.claude || 0}<small>Claude</small></span><span className="sl-count"><i className="sl-swatch is-codex" aria-hidden="true" />{lane?.codex || 0}<small>Codex</small></span><ArrowRight size={13} /></button>; })}</div>}
             <details><summary>File evidence & session ID</summary><code>{selected.id}</code>{selected.projects.map(p => {
               const files = [...new Set(p.files)];
               return <div key={p.id}><b>{p.name}</b>{p.evidence === "working-directory" ? <p>Working directory match; no confirmed edit evidence.</p> : <ul>{files.slice(0, 30).map(f => <li key={f}>{f}</li>)}{files.length > 30 && <li>{files.length - 30} more files</li>}</ul>}</div>;
             })}</details>
-            {selected.suggestion && <div className="sl-inline-suggestion"><span><b>Suggested: {selected.suggestion.name}</b><small>{selected.suggestion.reason}{selected.suggestion.confidence === "tentative" ? " · tentative" : ""}</small></span><button disabled={busy} title="Put this session in that Hangar group. Claude and Codex are not changed." onClick={() => act({ action: "acceptSuggestion", keys: [selected.key] }, "Grouped in Hangar. Native Codex sections are unchanged.")}>Add to this group <Check size={14} /></button></div>}
-            <div className="sl-session-actions">{selected.archived ? <button disabled={busy || selected.protected || (selected.archiveScope === "codex" && !selected.nativeKnown)} onClick={() => act({ action: "restore", keys: [selected.key], scope: selected.archiveScope }, "Session restored; archive suggestions snoozed for seven days.")}>Restore in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</button> : <>
+            {selected.suggestion && <div className="sl-inline-suggestion"><span><b>Belongs with {selected.suggestion.name}?</b><small>{selected.suggestion.reason}{selected.suggestion.confidence === "tentative" ? " · a guess" : ""}</small></span><button disabled={busy} title="Files it under that group in Hangar. Claude and Codex are not changed." onClick={() => act({ action: "acceptSuggestion", keys: [selected.key] }, `Filed under ${selected.suggestion?.name} in Hangar.`)}>File under {selected.suggestion.name} <Check size={14} /></button></div>}
+            <div className="sl-session-actions">{selected.archived ? selected.archiveScope === "claude" ? <p className="sl-actions-help">Archived in the Claude app. Restore it there; Hangar follows.</p> : <button disabled={busy || selected.protected || (selected.archiveScope === "codex" && !selected.nativeKnown)} onClick={() => act({ action: "restore", keys: [selected.key], scope: selected.archiveScope }, "Session restored; it won’t be suggested for clean-up for seven days.")}>Restore in {selected.archiveScope === "codex" ? "Codex" : "Hangar"}</button> : <>
               {onOpen && <button className="sl-open" disabled={busy} title={selected.opensIn === "app" ? `Opens in the ${selected.provider === "codex" ? "Codex" : "Claude"} app` : `The ${selected.provider === "codex" ? "Codex" : "Claude"} app does not have this conversation (it was started outside the app), so it resumes in a terminal`} onClick={() => onOpen(selected)}>{selected.opensIn === "app" ? `Open in ${selected.provider === "codex" ? "Codex" : "Claude"}` : "Resume in a terminal"} <ArrowRight size={14} /></button>}
-              <button disabled={busy || !selected.canResume || !selected.projects.length} title="Give it a new task from Hangar, with its history" onClick={async () => { if (await act({ action: "opened", keys: [selected.key] }, "Session opened in Hangar.")) onContinue(selected); }}>Continue from Hangar</button>
-              <button disabled={busy} title="Hangar groups sort sessions from both agents together" onClick={() => { setChosenGroup(selected.group || ""); setTarget({ key: selected.key, purpose: "group" }); }}>Group…</button>
-              <button disabled={busy || selected.protected || selected.pinned} onClick={() => setTarget({ key: selected.key, purpose: "archive" })}>{selected.reviewDue ? "Review archive" : "Archive…"}</button>
-              {selected.reviewDue && <button disabled={busy} onClick={() => act({ action: "snooze", keys: [selected.key] }, "Kept active. Ask again in seven days.")}>Keep for 7 days</button>}
-              <p className="sl-actions-help">Groups and archive are Hangar’s own tidy-up and change nothing in Claude Code. For a Codex session, archiving can also archive it in Codex; you choose that in the next step.</p>
+              <button disabled={busy || !selected.canResume || !selected.projects.length} title="Hangar sends this conversation a new instruction and runs it in the background, with its history" onClick={async () => { if (await act({ action: "opened", keys: [selected.key] }, "Session opened in Hangar.")) onContinue(selected); }}>Give it a task</button>
+              <button disabled={busy} title="Hangar groups sort Claude and Codex sessions together" onClick={() => { setChosenGroup(selected.group || ""); setTarget({ key: selected.key, purpose: "group" }); }}>Move to group</button>
+              <button disabled={busy || selected.protected || selected.pinned} onClick={() => setTarget({ key: selected.key, purpose: "archive" })}>Archive</button>
+              {selected.reviewDue && <button disabled={busy} title="Leaves it out of Clean up for seven days" onClick={() => act({ action: "snooze", keys: [selected.key] }, "Kept. It won’t be suggested for clean-up for seven days.")}>Keep it</button>}
+              <p className="sl-actions-help">Groups and archive here are Hangar’s. A Codex session can be archived in Codex too; the Claude app’s sidebar changes only in the app.</p>
             </>}</div>
           </div>
           </article>}
         </div>}
-        {!visible.length && <div className="sl-empty"><Check size={24} /><h3>{mode === "review" ? "Nothing needs an archive decision." : "No sessions in this view."}</h3></div>}
+        {!visible.length && <div className="sl-empty"><Check size={24} /><h3>{mode === "review" ? "Nothing to clean up." : "No sessions in this view."}</h3></div>}
       </>}
       </div>
     </>}
+    {bulk && (() => {
+      const n = bulk.rows.length, codex = bulk.rows.filter(s => s.provider === "codex"), native = codex.filter(s => s.nativeKnown).length;
+      const inApp = bulk.rows.filter(s => s.provider !== "codex" && s.opensIn === "app").length;
+      return <div className="cw-dialog-backdrop"><section ref={dialog} className="cw-dialog sl-dialog" role="dialog" aria-modal="true" aria-labelledby="sl-dialog-title"><button className="cw-dialog-close" aria-label="Close" disabled={busy} onClick={() => setBulk(null)}><X size={20} /></button>
+        <span className="cw-eyebrow">Clean up · untouched {bulk.name.toLowerCase()}</span><h2 id="sl-dialog-title">Archive {n} {n === 1 ? "session" : "sessions"}?</h2>
+        <div className="sl-bulk-split"><span><i className="sl-swatch is-claude" aria-hidden="true" />{n - codex.length} Claude</span><span><i className="sl-swatch is-codex" aria-hidden="true" />{codex.length} Codex</span></div>
+        <ul className="sl-bulk-list">{bulk.rows.slice(0, 6).map(s => <li key={s.key}><span>{s.title}</span><small>{s.idleDays}d</small></li>)}{n > 6 && <li className="is-more">and {n - 6} more</li>}</ul>
+        {native > 0 && <label className="sl-check"><input type="checkbox" checked={alsoCodex} disabled={busy} onChange={e => setAlsoCodex(e.target.checked)} />Archive the {native} Codex {native === 1 ? "session" : "sessions"} in the Codex app too</label>}
+        {inApp > 0 && <p className="sl-help">{inApp} of them are in the Claude app’s sidebar. Hangar can’t press the app’s Archive, so they stay there until they are archived in the app.</p>}
+        <div className="sl-dialog-actions"><button className="cw-primary" disabled={busy} onClick={async () => {
+          if (await act({ action: "archive", keys: bulk.rows.map(s => s.key), scope: alsoCodex && native ? "codex" : "hangar", activity: Object.fromEntries(bulk.rows.map(s => [s.key, s.activityAt])) },
+            r => `Archived ${r.archived} in Hangar${r.codexArchived ? `, ${r.codexArchived} in Codex too` : ""}${r.codexFailed ? `; Codex refused ${r.codexFailed}, which stay archived in Hangar only` : ""}. Restore any from Archived.`)) setBulk(null);
+        }}>Archive {n} <Archive size={16} /></button><button disabled={busy} onClick={() => setBulk(null)}>Cancel</button></div>
+        <p className="sl-help">Unread sessions and ones waiting on you are not in this list. Restore any of these from Archived.</p>
+        {error && <p className="cw-error" role="alert">{error}</p>}</section></div>;
+    })()}
     {target && targetRow && <div className="cw-dialog-backdrop"><section ref={dialog} className="cw-dialog sl-dialog" role="dialog" aria-modal="true" aria-labelledby="sl-dialog-title"><button className="cw-dialog-close" aria-label="Close session review" disabled={busy} onClick={() => setTarget(null)}><X size={20} /></button><span className="cw-eyebrow">{targetRow.provider} · {targetRow.idleDays ?? "?"} DAYS IDLE</span><h2 id="sl-dialog-title">{target.purpose === "archive" ? "Keep it, or clear the space?" : "Give this work a home."}</h2><h3>{targetRow.title}</h3>
       {target.purpose === "archive" ? <>
-        <p className="sl-help">{targetRow.unread === true ? "Codex marks this session unread. Review its result before deciding." : targetRow.unread === null ? "The agent’s read state is unknown. Age alone does not mean the result is disposable." : "Codex marks this session read."} Archiving preserves the session.</p>
+        <p className="sl-help">{targetRow.unread === true ? `${appOf(targetRow)} shows a reply you haven’t opened. Look at it before deciding.` : targetRow.status?.category === "blocked" ? "Its last turn stopped to ask you something. Look at it before deciding." : targetRow.unread === null ? "Hangar can’t tell whether you have read its last reply." : `You have read its last reply in ${appOf(targetRow)}.`} Archiving keeps the whole conversation; restore it from Archived.</p>
         {machine === "local" && targetRow.provider === "codex" && targetRow.nativeKnown && <a className="sl-native-link" href={`codex://threads/${encodeURIComponent(targetRow.id)}`}>Read this session in Codex <ArrowRight size={15} /></a>}
         <div className="sl-dialog-actions"><button className="cw-primary" disabled={busy || targetRow.protected || targetRow.pinned} onClick={async () => { if (await act({ action: "archive", keys: [targetRow.key], scope: "hangar", activityAt: targetRow.activityAt }, "Archived in Hangar. Restore it from Archived at any time.")) setTarget(null); }}>Archive in Hangar <Archive size={16} /></button>
           {targetRow.provider === "codex" && <button disabled={busy || !targetRow.nativeKnown || targetRow.protected || targetRow.pinned} onClick={async () => { if (await act({ action: "archive", keys: [targetRow.key], scope: "codex", activityAt: targetRow.activityAt }, "Codex confirmed the archive.")) setTarget(null); }}>Archive in Codex too</button>}
           <button disabled={busy} onClick={async () => { if (await act({ action: "reviewed", keys: [targetRow.key] }, "Reviewed in Hangar. Codex’s own unread state is unchanged.")) setTarget(null); }}>I reviewed it · keep active</button>
-        </div><p className="sl-help">Hangar archive only changes this workspace. Claude’s original history stays intact. Codex archive uses Codex’s own API.</p>
+        </div><p className="sl-help">Archive in Hangar hides it from Hangar’s lists. Archive in Codex also archives it in the Codex app. The Claude app’s sidebar changes only in the app.</p>
       </> : <>
         <fieldset className="sl-group-picker"><legend>Hangar group</legend><label><input type="radio" name="session-group" value="" checked={!chosenGroup} onChange={() => setChosenGroup("")} />Ungrouped</label>{data?.groups.map(g => <label key={g.id}><input type="radio" name="session-group" value={g.id} checked={chosenGroup === g.id} onChange={() => setChosenGroup(g.id)} /><span>{g.name}<small>{g.source === "codex" ? "Codex section" : "Hangar group"}</small></span></label>)}</fieldset>
         <div className="sl-dialog-actions"><button className="cw-primary" disabled={busy} onClick={async () => { if (await act({ action: "assign", keys: [targetRow.key], group: chosenGroup || null }, "Group saved in Hangar.")) setTarget(null); }}>Save Hangar group</button>
