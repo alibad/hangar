@@ -150,7 +150,7 @@ async function readGpu(): Promise<{ name: string; totalGb: number; freeGb: numbe
  * This module used to shell out to Win32_LogicalDisk itself, which answered
  * "how many bytes are free" and nothing else. The console already has a storage
  * index that has walked these drives — it knows that D: holds 189 GB of Hugging
- * Face weights under `D:\AI Models\huggingface`, and which folders they are. A
+ * Face weights under `F:\AI Models\huggingface`, and which folders they are. A
  * "won't fit, no disk" verdict is far more useful when the same surface can say
  * what is already down there taking up the room.
  *

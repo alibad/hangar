@@ -267,7 +267,7 @@ def score(args):
     done = [e for e in manifest.values() if e.get("ok") and not e.get("warmup")]
     print(f"scoring {len(done)} tracks", flush=True)
 
-    os.environ.setdefault("HF_HOME", r"D:\AI Models\huggingface")
+    os.environ.setdefault("HF_HOME", r"F:\AI Models\huggingface")
     os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
     # CPU: a 600 MB model is fast enough there, and the card is shared.
     dev = os.environ.get("SCORE_DEVICE", "cpu")

@@ -135,7 +135,7 @@ print(json.dumps({k: round(float(np.dot(ref, e / np.linalg.norm(e))), 3) for k, 
 
 
 def speaker_sims(paths: dict) -> dict:
-    env = {**os.environ, "HF_HOME": r"D:\AI Models\huggingface", "HF_HUB_OFFLINE": "1"}
+    env = {**os.environ, "HF_HOME": r"F:\AI Models\huggingface", "HF_HUB_OFFLINE": "1"}
     out = subprocess.run([str(CHATTERBOX_PY), "-c", SIM_CODE, json.dumps({"enrolled": str(ENROLLED), **{k: str(v) for k, v in paths.items()}})],
                          capture_output=True, text=True, env=env)
     if out.returncode != 0:

@@ -90,7 +90,7 @@ class Peak:
 
 
 def run_profile(name, env_extra):
-    env = {**os.environ, "ACESTEP_CHECKPOINTS_DIR": r"D:\AI Models\acestep", "HF_HOME": r"D:\AI Models\huggingface",
+    env = {**os.environ, "ACESTEP_CHECKPOINTS_DIR": r"F:\AI Models\acestep", "HF_HOME": r"F:\AI Models\huggingface",
            "HF_HUB_DISABLE_XET": "1", "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1", **env_extra}
     before = card_used_gb()
     if TOTAL_GB - before < NEEDS_FREE_GB[name]:
