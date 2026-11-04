@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArrowRight, Bookmark, Check, ChevronDown, ClipboardCheck, FileText, Folder, FolderInput, GitCommitHorizontal, Layers, Pin, Play, Sparkles, X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import "./session-library.css";
 import HangarLoading from "./hangar-loading";
 import { ProjectBadge, ProjectList } from "./project-identity";
@@ -43,8 +45,12 @@ type Checkin = {
   claude?: { state: "running" | "done" | "failed"; verdict?: Verdict; summary?: string; left?: string[]; where?: string; message?: string };
 };
 const VERDICT: Record<Verdict, string> = { done: "Done", left: "Work left", elsewhere: "Done elsewhere", unclear: "Unclear", working: "Working" };
-/** Finished, one way or another: safe to archive after a look. */
-const finished = (s: LibrarySession) => s.checkin?.verdict === "done" || s.checkin?.verdict === "elsewhere";
+/** The verdict that counts: Claude's, once it has read the session, else Hangar's own. */
+const verdictOf = (s: LibrarySession): Verdict | null => !s.checkin ? null : (s.checkin.claude?.state === "done" && s.checkin.claude.verdict) || s.checkin.verdict;
+/** The Clean up filters, in the order you would clear them. */
+const SHOWS = [["done", "Done"], ["elsewhere", "Done elsewhere"], ["unclear", "Unclear"], ["left", "Work left"], ["unchecked", "Not checked"]] as const;
+type Show = typeof SHOWS[number][0];
+const showOf = (s: LibrarySession): Show | "working" => verdictOf(s) || "unchecked";
 export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; claudeApp?: boolean; truncated: boolean; observedAt: string;
   /** A background check-in run over many sessions. */
   checking?: { running: boolean; done: number; total: number; error: string | null } };
@@ -238,7 +244,8 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const lanes = useMemo(() => projectLanes(rows), [rows]);
   const laneOf = useMemo(() => new Map(lanes.map(l => [l.id, l])), [lanes]);
   const openProject = (id: string) => { setProject(id); setMode("active"); setFilter(""); setLimit(40); setSelectedKey(""); };
-  const visible = useMemo(() => {
+  const [shows, setShows] = useState<Show[]>([]);
+  const pool = useMemo(() => {
     let list = rows.filter(s => mode === "archived" ? s.archived : !s.archived && (mode !== "review" || s.reviewDue));
     if (filter) list = list.filter(s => filter.startsWith("suggestion:") ? s.suggestion?.id === filter.slice(11) : s.group === filter);
     if (query.trim()) { const q = query.toLowerCase(); list = list.filter(s => [s.title, s.provider, s.model, ...s.projects.map(p => p.name)].join(" ").toLowerCase().includes(q)); }
@@ -248,6 +255,11 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     if (reviewedOnly) list = list.filter(s => latestReview.has(s.key));
     return list;
   }, [rows, mode, filter, query, agent, project, unreadOnly, reviewedOnly, latestReview]);
+  const showing = mode === "review" && shows.length > 0;
+  const visible = useMemo(() => showing ? pool.filter(s => shows.includes(showOf(s) as Show)) : pool, [pool, shows, showing]);
+  const shownName = shows.map(id => SHOWS.find(([key]) => key === id)?.[1]).join(" + ");
+  /** Never in a bulk archive: unread or waiting on you, pinned, a running job, or working now. */
+  const bulkable = (list: LibrarySession[]) => list.filter(s => !held(s) && !s.protected && !s.pinned && !s.working && !s.archived);
   // Active work reads by topic; clean-up reads by age, oldest first; the archive stays one queue.
   const sections = useMemo<Section[]>(() => {
     if (mode === "review") return cleanupSections(visible, expanded);
@@ -305,21 +317,25 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
         {data.checking?.running ? <div className="sl-progress" role="status"><span>Checking sessions… {data.checking.done} of {data.checking.total}</span><i style={{ width: `${Math.round(data.checking.done / Math.max(1, data.checking.total) * 100)}%` }} /></div>
           : data.checking?.error ? <p className="cw-error" role="alert">The check-in run stopped: {data.checking.error}</p> : null}
         {mode === "review" && !checking && visible.some(s => !s.checkin) && <button className="sl-check-every" disabled={busy} onClick={() => checkIn(visible.filter(s => !s.checkin).slice(0, 600))}><ClipboardCheck size={15} aria-hidden="true" />Check in on all {visible.filter(s => !s.checkin).length}<small>Hangar reads each one’s ask, its ending and the project, in seconds</small></button>}
-        {mode === "review" && <p className="sl-help">Sessions untouched for {data.idleDays}+ days, oldest first. Archive a whole age group at once, or open one to decide. Unread sessions and ones waiting on you are listed last and never archived in bulk; pinned sessions and projects with a running job are left alone.</p>}
+        {mode === "review" && pool.some(s => s.checkin) && <div className="sl-shows" role="group" aria-label="Show sessions the check-in found">
+          <button aria-pressed={!showing} onClick={() => setShows([])}>All <small>{pool.length}</small></button>
+          {SHOWS.map(([id, label]) => { const n = pool.filter(s => showOf(s) === id).length; return n > 0 && <button key={id} className={`is-${id}`} aria-pressed={shows.includes(id)} onClick={() => setShows(list => list.includes(id) ? list.filter(x => x !== id) : [...list, id])}><i aria-hidden="true" />{label} <small>{n}</small></button>; })}
+          {showing && bulkable(visible).length > 0 && <button className="sl-shows-archive" disabled={busy} title="Every session these filters show, in every age group, except unread ones and ones waiting on you" onClick={() => setBulk({ name: shownName, rows: bulkable(visible).sort((a, b) => (b.idleDays || 0) - (a.idleDays || 0)) })}><Archive size={14} aria-hidden="true" />Archive all {bulkable(visible).length} {shownName.toLowerCase()}</button>}
+        </div>}
+        {mode === "review" && <p className="sl-help">Sessions untouched for {data.idleDays}+ days, oldest first. Pick what the check-in found to see only those, then archive them all, a whole age group, or one at a time. Unread sessions and ones waiting on you are listed last and never archived in bulk; pinned sessions and projects with a running job are left alone.</p>}
         {!!visible.length && <div className="sl-inbox" ref={setInbox}>
           <div className="sl-list" aria-label="Sessions">
             {sections.map(section => <div className="sl-section" key={section.id}>
               {section.name && <h4><span>{section.name}</span><small>{section.all.length}</small>{section.bulk && (() => {
-                const checked = section.all.filter(s => s.checkin).length, done = section.all.filter(finished);
+                const checked = section.all.filter(s => s.checkin).length, these = bulkable(section.all);
                 return <>{checked < section.all.length && <button className="sl-bulk is-quiet" disabled={busy || checking} title="Hangar checks each one: what was asked, how it ended, and whether anything is left" onClick={() => checkIn(section.all)}><ClipboardCheck size={12} aria-hidden="true" />Check all</button>}
-                  {done.length > 0 && done.length < section.all.length && <button className="sl-bulk" disabled={busy} title="Archive the sessions the check-in found finished" onClick={() => setBulk({ name: `${section.name}, finished`, rows: done })}><Archive size={12} aria-hidden="true" />Archive {done.length} done</button>}
-                  <button className="sl-bulk" disabled={busy} title={`Archive the ${section.all.length} sessions in this group`} onClick={() => setBulk({ name: section.name, rows: section.all })}><Archive size={12} aria-hidden="true" />Archive all</button></>;
+                  {these.length > 0 && <button className="sl-bulk" disabled={busy} title={`Archive the ${these.length} ${showing ? shownName.toLowerCase() + " " : ""}sessions shown in this group`} onClick={() => setBulk({ name: showing ? `${section.name} · ${shownName}` : section.name, rows: these })}><Archive size={12} aria-hidden="true" />Archive all {these.length}</button>}</>;
               })()}</h4>}
               {section.rows.map(row => <div className="sl-row-line" key={row.key}><button type="button" aria-pressed={selected?.key === row.key} className={`sl-row ${row.unread ? "sl-unread" : ""}`} onClick={() => pick(row.key)}>
                 <span className={`cw-session-provider is-${agentOf(row)}`}><AgentMark agent={agentOf(row)} /></span>
                 <span className="sl-row-text"><b>{row.title}</b>{row.status?.detail ? <em className={`sl-changed sl-row-status is-${row.status.category}`} title={STATUS[row.status.category] || "Last turn"}><span className="sl-status-dot" aria-hidden="true" />{row.status.detail}</em> : !!row.changed?.length && <em className="sl-changed"><GitCommitHorizontal size={12} aria-hidden="true" />{row.changed[0].subject}{(row.changedCount || 0) > 1 && <i>+{(row.changedCount || 0) - 1}</i>}</em>}<small className="sl-row-meta"><ProjectList projects={row.projects} />{[row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).map(part => <span key={part}>{part}</span>)}</small></span>
                 {(() => { const r = latestReview.get(row.key); return r && <span className={`sl-review is-${r.state === "done" ? r.verdict : r.state}`} title={`${NAME[r.reviewer]} reviewed this session’s work: ${reviewLabel(r)}`}><AgentMark agent={r.reviewer} />{reviewLabel(r)}</span>; })()}
-                {row.working ? <span className="sl-flag is-live">Working</span> : row.checkin && row.checkin.verdict !== "working" ? <span className={`sl-verdict is-${row.checkin.claude?.verdict || row.checkin.verdict}`} title={row.checkin.headline}>{VERDICT[row.checkin.claude?.verdict || row.checkin.verdict]}</span> : row.status?.category === "blocked" && <span className="sl-flag is-wait">Needs you</span>}
+                {row.working ? <span className="sl-flag is-live">Working</span> : row.checkin && verdictOf(row) !== "working" ? <span className={`sl-verdict is-${verdictOf(row)}`} title={row.checkin.headline}>{VERDICT[verdictOf(row)!]}</span> : row.status?.category === "blocked" && <span className="sl-flag is-wait">Needs you</span>}
                 {row.unread === true && <i className="sl-dot" aria-label={`Unread in ${appOf(row)}`} />}
                 {row.pinned && <Pin size={13} aria-label="Pinned in Codex" />}
               </button>{mode === "review" && !row.archived && <button type="button" className="sl-row-archive" disabled={busy || row.protected || row.pinned} title={`Archive in ${homeOf(row)}`} aria-label={`Archive “${row.title}” in ${homeOf(row)}`} onClick={() => act({ action: "archive", keys: [row.key], activityAt: row.activityAt }, archived)}><Archive size={14} aria-hidden="true" /></button>}</div>)}
@@ -346,7 +362,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
               {selected.reviewDue && <button className="sl-action" disabled={busy} title="Leaves it out of Clean up for seven days" onClick={() => act({ action: "snooze", keys: [selected.key] }, "Kept. It won’t be suggested for clean-up for seven days.")}><Bookmark size={14} aria-hidden="true" />Keep it</button>}
               <button className="sl-action is-archive" disabled={busy || selected.protected || selected.pinned} title={`Archive in ${homeOf(selected)}`} onClick={() => setTarget({ key: selected.key, purpose: "archive" })}><Archive size={14} aria-hidden="true" />Archive</button>
             </>}</div>
-            {selected.checkin && <CheckinCard checkin={selected.checkin} busy={busy} rows={rows} onPick={key => pick(key)} onAsk={() => askClaude(selected)} onArchive={() => setTarget({ key: selected.key, purpose: "archive" })} onOpen={onOpen ? () => onOpen(selected) : undefined} archivable={!selected.archived && !selected.protected && !selected.pinned} />}
+            {selected.checkin && <CheckinCard key={`checkin-${selected.key}`} checkin={selected.checkin} busy={busy} rows={rows} onPick={key => pick(key)} onAsk={() => askClaude(selected)} onArchive={() => setTarget({ key: selected.key, purpose: "archive" })} onOpen={onOpen ? () => onOpen(selected) : undefined} archivable={!selected.archived && !selected.protected && !selected.pinned} />}
             <EditedFiles key={`files-${selected.key}`} session={selected} />
             {!!selected.changed?.length && <div className="sl-commits" aria-label="What this session committed"><h4>What it changed<small>{selected.changedCount} {selected.changedCount === 1 ? "commit" : "commits"}</small></h4><ol>{selected.changed.map(c => <li key={`${c.repo}-${c.sha}`}><GitCommitHorizontal size={14} aria-hidden="true" /><span><b>{c.subject}</b><small>{c.repo} · {new Date(c.at).toLocaleDateString(undefined, { day: "numeric", month: "short" })} {new Date(c.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })} · <code>{c.sha}</code></small></span></li>)}</ol>{(selected.changedCount || 0) > selected.changed.length && <small>{(selected.changedCount || 0) - selected.changed.length} more in the last 30 days</small>}</div>}
             <SessionReviews key={selected.key} machine={machine} session={selected} onReviews={onReviews} />
@@ -366,7 +382,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
       const home = (where: string) => bulk.rows.filter(s => homeOf(s) === where).length;
       const inCodex = home("Codex"), inApp = home("the Claude app"), inHangar = home("Hangar");
       return <div className="cw-dialog-backdrop"><section ref={dialog} className="cw-dialog sl-dialog" role="dialog" aria-modal="true" aria-labelledby="sl-dialog-title"><button className="cw-dialog-close" aria-label="Close" disabled={busy} onClick={() => setBulk(null)}><X size={20} /></button>
-        <span className="cw-eyebrow">Clean up · untouched {bulk.name.toLowerCase()}</span><h2 id="sl-dialog-title">Archive {n} {n === 1 ? "session" : "sessions"}?</h2>
+        <span className="cw-eyebrow">Clean up · {bulk.name}</span><h2 id="sl-dialog-title">Archive {n} {n === 1 ? "session" : "sessions"}?</h2>
         <div className="sl-bulk-split"><span><i className="sl-swatch is-claude" aria-hidden="true" />{n - codex} Claude</span><span><i className="sl-swatch is-codex" aria-hidden="true" />{codex} Codex</span></div>
         <ul className="sl-bulk-list">{bulk.rows.slice(0, 6).map(s => <li key={s.key}><span>{s.title}</span><small>{s.idleDays}d</small></li>)}{n > 6 && <li className="is-more">and {n - 6} more</li>}</ul>
         <ul className="sl-bulk-where">
@@ -475,21 +491,46 @@ function EditedFiles({ session }: { session: LibrarySession }) {
   </div>;
 }
 
+/** The session's last reply, rendered as the Markdown it is. Links show as text: they point into the session's own
+ * folder, not anywhere the console can open. A long reply is folded to its start until you ask for the rest. */
+function Reply({ text }: { text: string }) {
+  const [whole, setWhole] = useState(false);
+  const long = text.length > 480;
+  return <>
+    <div className={`sl-md${long && !whole ? " is-folded" : ""}`}><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ children }) => <span className="sl-md-link">{children}</span>, img: () => null }}>{text}</ReactMarkdown></div>
+    {long && <button type="button" className="sl-md-more" onClick={() => setWhole(v => !v)}>{whole ? "Show less" : "Show the whole reply"}</button>}
+  </>;
+}
+
 function CheckinCard({ checkin: c, busy, rows, onPick, onAsk, onArchive, onOpen, archivable }: {
   checkin: Checkin; busy: boolean; rows: LibrarySession[]; onPick: (key: string) => void; onAsk: () => void; onArchive: () => void; onOpen?: () => void; archivable: boolean;
 }) {
   const verdict = c.claude?.state === "done" && c.claude.verdict ? c.claude.verdict : c.verdict;
-  const later = [...new Map(c.later.filter(l => l.session).map(l => [l.session!, l])).values()];
+  // Later commits by the session that made them, latest session first; a commit no session claims stands alone.
+  const later = new Map<string, { key: string | null; title: string; at: string; commits: Checkin["later"] }>();
+  for (const l of c.later) {
+    const id = l.session || `commit:${l.sha}`, group = later.get(id) || { key: l.session, title: l.sessionTitle, at: l.at, commits: [] };
+    group.commits.push(l); group.at = l.at > group.at ? l.at : group.at; later.set(id, group);
+  }
+  const day = (at: string) => new Date(at).toLocaleDateString(undefined, { day: "numeric", month: "short" });
   return <section className={`sl-checkin is-${verdict}`} aria-label="Check-in">
     <header><span className={`sl-verdict is-${verdict}`}>{VERDICT[verdict]}</span><b>{c.claude?.state === "done" && c.claude.summary ? c.claude.summary : c.headline}</b></header>
     <dl>
       {c.asked && <><dt>Asked</dt><dd>{c.asked}</dd></>}
-      {c.answer && <><dt>Last reply</dt><dd>{c.answer}</dd></>}
+      {c.answer && <><dt>Last reply</dt><dd><Reply text={c.answer} /></dd></>}
     </dl>
     {c.reasons.length > 0 && <ul className="sl-reasons">{c.reasons.map(r => <li key={r}>{r}</li>)}</ul>}
     {c.claude?.state === "done" && (c.claude.left?.length || c.claude.where) && <div className="sl-claude-says"><Sparkles size={13} aria-hidden="true" /><span>{c.claude.where && <>Finished in: {c.claude.where}. </>}{!!c.claude.left?.length && <>Left: {c.claude.left.join("; ")}</>}</span></div>}
     {c.leftovers.length > 0 && <details><summary>{c.leftovers.length} uncommitted {c.leftovers.length === 1 ? "file" : "files"}</summary><ul>{c.leftovers.map(f => <li key={f}><code>{f}</code></li>)}</ul></details>}
-    {later.length > 0 && <div className="sl-later"><span>Later work on its files</span>{later.map(l => rows.some(r => r.key === l.session) ? <button key={l.session} onClick={() => onPick(l.session!)}>{l.sessionTitle || l.subject}<ArrowRight size={12} aria-hidden="true" /></button> : <em key={l.session}>{l.sessionTitle || l.subject}</em>)}</div>}
+    {later.size > 0 && <div className="sl-later"><h5>Later work on its files</h5><ul>{[...later.values()].sort((a, b) => b.at.localeCompare(a.at)).map(g => {
+      const agent = g.key?.startsWith("codex") ? "codex" : "claude", open = !!g.key && rows.some(r => r.key === g.key);
+      const head = g.key ? <><span className={`cw-session-provider is-${agent}`}><AgentMark agent={agent} /></span><b>{g.title || "Untitled session"}</b><small>{agent === "codex" ? "Codex" : "Claude"} session · {day(g.at)}</small>{open && <ArrowRight size={13} aria-hidden="true" />}</>
+        : <><GitCommitHorizontal size={14} aria-hidden="true" /><b>A commit no session claims</b><small>{day(g.at)}</small></>;
+      return <li key={g.key || g.commits[0].sha}>
+        {open ? <button type="button" title="Open that session" onClick={() => onPick(g.key!)}>{head}</button> : <span className="sl-later-head">{head}</span>}
+        <ol>{g.commits.slice(-3).reverse().map(x => <li key={x.sha}><code>{x.sha}</code>{x.subject}<small>{x.project}</small></li>)}{g.commits.length > 3 && <li className="is-more">and {g.commits.length - 3} more</li>}</ol>
+      </li>;
+    })}</ul></div>}
     {c.claude?.state === "running" && <p className="sl-claude-reading"><Sparkles size={13} aria-hidden="true" />Claude is reading the conversation…</p>}
     {c.claude?.state === "failed" && <p className="sl-claude-reading is-failed">{c.claude.message || "Claude could not finish the check-in."}</p>}
     <footer>

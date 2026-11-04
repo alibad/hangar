@@ -376,7 +376,7 @@ def timeline(doc, overlay, repo_id=None, limit=300):
                          "title": entry.get("title", ""),
                          "updatedAt": entry["updatedAt"], "state": entry["state"], "projects": projects,
                          "lastEventAt": entry.get("lastEvent"), "nativeArchived": entry.get("nativeArchived", False),
-                         "summary": f"Edited {count} files across {len(projects)} projects" if count else "Session in " + (projects[0]["name"] if projects else "an unindexed folder"),
+                         "summary": f"Edited {count} {'file' if count == 1 else 'files'} " + (f"in {projects[0]['name']}" if len(projects) == 1 else f"across {len(projects)} projects") if count else "Session in " + (projects[0]["name"] if projects else "an unindexed folder"),
                          "origin": entry.get("origin", ""), "probe": not projects and in_temp(entry["cwd"], scratch),
                          "helpers": entry.get("helpers", 0),
                          "canResume": bool(re.fullmatch(r"[a-zA-Z0-9_-]{8,100}", entry["id"]))})

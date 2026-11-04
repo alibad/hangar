@@ -56,14 +56,23 @@ def _text(content):
     return ""
 
 
-def _clean(text, limit):
+def _clean(text, limit, lines=False):
+    """The words of a message without tags, cut to limit. lines keeps its line breaks, for a reply that is Markdown,
+    and cuts at the last line or word that fits rather than mid-word."""
     task = re.match(r'\s*<scheduled-task name="([^"]+)"', text or "")
     if task:
         return f"Scheduled task: {task.group(1)}"
     text = _TAG.sub("", text or "")
     text = re.sub(r"<[a-z_-]+>.*?</[a-z_-]+>", "", text, flags=re.S) if text.lstrip().startswith("<") else text
-    text = re.sub(r"\s+", " ", text).strip()
-    return text[:limit] + ("…" if len(text) > limit else "")
+    if not lines:
+        text = re.sub(r"\s+", " ", text).strip()
+        return text[:limit] + ("…" if len(text) > limit else "")
+    text = re.sub(r"\n{3,}", "\n\n", re.sub(r"[ \t]+\n", "\n", text.replace("\r\n", "\n"))).strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    end = cut.rfind("\n") if cut.rfind("\n") > limit * 0.6 else cut.rfind(" ")
+    return cut[:end if end > 0 else limit].rstrip() + " …"
 
 
 def _lines(file, tail=False, size=262144):
@@ -114,7 +123,7 @@ def conversation(file):
     asked = next((t for line in _lines(file) if (r := _record(line)) and (t := _clean(_said(r, "user"), 400))), "")
     answer = ""
     for size in (262144, 4194304):  # the last reply can sit behind long tool output
-        answer = next((t for line in reversed(_lines(file, tail=True, size=size)) if (r := _record(line)) and (t := _clean(_said(r, "agent"), 600))), "")
+        answer = next((t for line in reversed(_lines(file, tail=True, size=size)) if (r := _record(line)) and (t := _clean(_said(r, "agent"), 1500, lines=True))), "")
         if answer:
             break
     return {"asked": asked, "answer": answer}
@@ -197,7 +206,7 @@ def verdict(row, entry, talk, own, checkouts, states, histories, claims, prefixe
         reasons.append(f"{len(leftovers)} of the files it edited {'is' if len(leftovers) == 1 else 'are'} still uncommitted")
     if later:
         others = sorted({c["sessionTitle"] for c in later if c["sessionTitle"]})
-        reasons.append(f"{len(later)} later {'commit' if len(later) == 1 else 'commits'} changed its files" + (f" (in “{others[0]}”{f' and {len(others) - 1} more' if len(others) > 1 else ''})" if others else ""))
+        reasons.append(f"{len(later)} later {'commit' if len(later) == 1 else 'commits'} changed its files" + (f" (by the session “{others[0]}”{f' and {len(others) - 1} more' if len(others) > 1 else ''})" if others else ""))
     if waiting:
         reasons.append("It ended waiting on you" + (f": {status.get('needsAction') or status.get('detail')}" if status.get("needsAction") or status.get("detail") else ""))
     if stopped:

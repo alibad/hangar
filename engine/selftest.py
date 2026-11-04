@@ -157,6 +157,11 @@ class SessionCleanup(unittest.TestCase):
             file = Path(d) / "s.jsonl"
             file.write_text("\n".join(json.dumps(l) for l in lines), encoding="utf-8")
             self.assertEqual(checkin.conversation(file), {"asked": "Add Clean up by age", "answer": "Done and pushed."})
+        # A reply is Markdown: its lines survive, and a long one is cut at a line, not mid-word.
+        reply = "## Done\n\n- **one**   \n- two\n\n\n\n" + "word " * 400
+        kept = checkin._clean(reply, 300, lines=True)
+        self.assertTrue(kept.startswith("## Done\n\n- **one**\n- two\n\nword"))
+        self.assertTrue(kept.endswith("word …") and len(kept) <= 302)
 
     def test_a_check_in_says_done_left_or_finished_elsewhere(self):
         from hangar_engine import checkin
