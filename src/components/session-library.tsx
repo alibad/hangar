@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Archive, ArrowRight, Bookmark, Check, ClipboardCheck, Folder, FolderInput, GitCommitHorizontal, Layers, Pin, Play, Sparkles, X } from "lucide-react";
+import { Archive, ArrowRight, Bookmark, Check, ChevronDown, ClipboardCheck, FileText, Folder, FolderInput, GitCommitHorizontal, Layers, Pin, Play, Sparkles, X } from "lucide-react";
 import "./session-library.css";
 import HangarLoading from "./hangar-loading";
 import { ProjectBadge, ProjectList } from "./project-identity";
@@ -347,15 +347,12 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
               <button className="sl-action is-archive" disabled={busy || selected.protected || selected.pinned} title={`Archive in ${homeOf(selected)}`} onClick={() => setTarget({ key: selected.key, purpose: "archive" })}><Archive size={14} aria-hidden="true" />Archive</button>
             </>}</div>
             {selected.checkin && <CheckinCard checkin={selected.checkin} busy={busy} rows={rows} onPick={key => pick(key)} onAsk={() => askClaude(selected)} onArchive={() => setTarget({ key: selected.key, purpose: "archive" })} onOpen={onOpen ? () => onOpen(selected) : undefined} archivable={!selected.archived && !selected.protected && !selected.pinned} />}
-            <p>{selected.summary}</p>
+            <EditedFiles key={`files-${selected.key}`} session={selected} />
             {!!selected.changed?.length && <div className="sl-commits" aria-label="What this session committed"><h4>What it changed<small>{selected.changedCount} {selected.changedCount === 1 ? "commit" : "commits"}</small></h4><ol>{selected.changed.map(c => <li key={`${c.repo}-${c.sha}`}><GitCommitHorizontal size={14} aria-hidden="true" /><span><b>{c.subject}</b><small>{c.repo} · {new Date(c.at).toLocaleDateString(undefined, { day: "numeric", month: "short" })} {new Date(c.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })} · <code>{c.sha}</code></small></span></li>)}</ol>{(selected.changedCount || 0) > selected.changed.length && <small>{(selected.changedCount || 0) - selected.changed.length} more in the last 30 days</small>}</div>}
             <SessionReviews key={selected.key} machine={machine} session={selected} onReviews={onReviews} />
             {selected.projects.length > 0 && <div className="sl-connect" aria-label="This session's projects">{selected.projects.map(p => { const lane = laneOf.get(p.id); return <button key={p.id} onClick={() => openProject(p.id)} aria-pressed={project === p.id} title={`Every session in ${p.name}`}>
               <ProjectBadge id={p.id} name={p.name} detail /><span className="sl-count"><i className="sl-swatch is-claude" aria-hidden="true" />{lane?.claude || 0}<small>Claude</small></span><span className="sl-count"><i className="sl-swatch is-codex" aria-hidden="true" />{lane?.codex || 0}<small>Codex</small></span><ArrowRight size={13} /></button>; })}</div>}
-            <details><summary>File evidence & session ID</summary><code>{selected.id}</code>{selected.projects.map(p => {
-              const files = [...new Set(p.files)];
-              return <div key={p.id}><b>{p.name}</b>{p.evidence === "working-directory" ? <p>Working directory match; no confirmed edit evidence.</p> : <ul>{files.slice(0, 30).map(f => <li key={f}>{f}</li>)}{files.length > 30 && <li>{files.length - 30} more files</li>}</ul>}</div>;
-            })}</details>
+            <details><summary>Session ID</summary><code>{selected.id}</code></details>
             {selected.suggestion && <div className="sl-inline-suggestion"><span><b>Belongs with {selected.suggestion.name}?</b><small>{selected.suggestion.reason}{selected.suggestion.confidence === "tentative" ? " · a guess" : ""}</small></span><button disabled={busy} title="Files it under that group in Hangar. Claude and Codex are not changed." onClick={() => act({ action: "acceptSuggestion", keys: [selected.key] }, `Filed under ${selected.suggestion?.name} in Hangar.`)}>File under {selected.suggestion.name} <Check size={14} /></button></div>}
           </div>
           </article>}
@@ -447,6 +444,37 @@ function ProjectLanes({ lanes, onOpen }: { lanes: ReturnType<typeof projectLanes
 }
 
 /** What the check-in found: the verdict in one line, what was asked and how it ended, the evidence, and the next step. */
+/** What the session edited: one line until you open it, then each project's files by folder, with the ones the
+ * last check-in found still uncommitted marked. */
+function EditedFiles({ session }: { session: LibrarySession }) {
+  const [open, setOpen] = useState(false);
+  const [whole, setWhole] = useState<string[]>([]);
+  const projects = session.projects.filter(p => p.evidence !== "working-directory" && p.files.length);
+  const files = new Map(projects.map(p => [p.id, [...new Set(p.files)].sort()]));
+  const count = projects.reduce((n, p) => n + (files.get(p.id)?.length || 0), 0);
+  if (!count) return <p>{session.summary}</p>;
+  const left = new Set(session.checkin?.leftovers || []);
+  const where = projects.length === 1 ? `in ${projects[0].name}` : `across ${projects.length} projects`;
+  return <div className="sl-files">
+    <button type="button" className="sl-files-toggle" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+      <FileText size={14} aria-hidden="true" />Edited {count} {count === 1 ? "file" : "files"} {where}{left.size > 0 && <small>{left.size} still uncommitted</small>}<ChevronDown size={14} className="sl-files-chevron" aria-hidden="true" />
+    </button>
+    {open && projects.map(p => {
+      const all = files.get(p.id) || [], shown = whole.includes(p.id) ? all : all.slice(0, 40);
+      const folders = new Map<string, string[]>();
+      for (const f of shown) { const cut = f.lastIndexOf("/"); folders.set(f.slice(0, cut + 1), [...(folders.get(f.slice(0, cut + 1)) || []), f]); }
+      return <section key={p.id} aria-label={`Files it edited in ${p.name}`}>
+        <h5><ProjectBadge id={p.id} name={p.name} size="xs" /><small>{all.length} {all.length === 1 ? "file" : "files"}</small></h5>
+        {[...folders].sort(([a], [b]) => Number(!!a) - Number(!!b)).map(([dir, names]) => <div className="sl-files-dir" key={dir}>
+          {dir && <span><Folder size={12} aria-hidden="true" />{dir}</span>}
+          <ul>{names.map(f => <li key={f} className={left.has(f) ? "is-left" : ""} title={f}>{f.slice(dir.length)}{left.has(f) && <em>uncommitted</em>}</li>)}</ul>
+        </div>)}
+        {all.length > shown.length && <button type="button" className="sl-more sl-more-inline" onClick={() => setWhole(list => [...list, p.id])}>Show all {all.length}</button>}
+      </section>;
+    })}
+  </div>;
+}
+
 function CheckinCard({ checkin: c, busy, rows, onPick, onAsk, onArchive, onOpen, archivable }: {
   checkin: Checkin; busy: boolean; rows: LibrarySession[]; onPick: (key: string) => void; onAsk: () => void; onArchive: () => void; onOpen?: () => void; archivable: boolean;
 }) {
