@@ -352,6 +352,13 @@ class WhoChangedWhat(unittest.TestCase):
         self.assertFalse(session_index.in_temp(str(Path.home() / "Code" / "game"), folders))
         self.assertFalse(session_index.in_temp("", folders))
 
+    def test_a_long_path_prefix_is_the_same_folder(self):
+        from hangar_engine import session_index
+        folder = str(Path.home() / "Code" / "game")
+        self.assertEqual(session_index.norm("\\\\?\\" + folder), session_index.norm(folder))
+        if sys.platform == "win32":
+            self.assertEqual(session_index.norm("\\\\?\\UNC\\server\\share\\game"), session_index.norm("\\\\server\\share\\game"))
+
 
 class ArchitectureDrawings(unittest.TestCase):
     def test_reply_parsing_keeps_only_an_architecture_candidate(self):

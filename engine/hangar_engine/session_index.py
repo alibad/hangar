@@ -39,6 +39,13 @@ PUSH_LINE = re.compile(r"(?:^|\n|\\n)[ \t]*\+?[ \t]*[0-9a-f]{7,40}\.\.\.?([0-9a-
 
 
 def norm(path):
+    """One spelling per folder. Windows' long-path prefix (\\\\?\\C:\\..., which the Codex app writes) is dropped, or no
+    project folder would ever match it."""
+    path = str(path)
+    if path.startswith("\\\\?\\UNC\\"):
+        path = "\\\\" + path[8:]
+    elif path.startswith("\\\\?\\"):
+        path = path[4:]
     return os.path.normcase(os.path.abspath(path)).replace("\\", "/").rstrip("/")
 
 
@@ -116,7 +123,7 @@ def temp_folders():
 def in_temp(cwd, folders=None):
     if not cwd:
         return False
-    path = norm(cwd.removeprefix("\\\\?\\"))
+    path = norm(cwd)
     return any(path == t or path.startswith(t + "/") for t in (folders or temp_folders()))
 
 
