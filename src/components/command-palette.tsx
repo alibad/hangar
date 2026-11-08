@@ -8,6 +8,7 @@ import {
   Gauge,
   HardDrive,
   Images,
+  Inbox,
   Image,
   Film,
   Mic,
@@ -37,6 +38,7 @@ type Destination = {
 
 const DESTINATIONS: Destination[] = [
   { id: "world", label: "World", hint: "Atlas islands, connected machines and live work", keywords: "atlas world islands home", icon: Server },
+  { id: "products", label: "Products", hint: "Feedback, people and releases for every app", keywords: "feedback issues bugs reports users analytics ga4 visitors releases deployments vercel errors apps sites inbox", icon: Inbox },
   { id: "library", label: "Library", hint: "Every video, AI-made file and dataset on this machine", keywords: "gallery media videos images pictures sounds 3d models datasets generated history prompts", icon: Images },
   { id: "projects", label: "Projects", hint: "Find a project and start work", keywords: "repos repositories code", icon: Brain },
   { id: "sessions", label: "Sessions", hint: "Coding jobs and agent history", keywords: "claude codex continue resume", icon: Activity },

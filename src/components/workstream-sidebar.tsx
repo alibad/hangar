@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Globe2, Image, Images, MessageSquare, Workflow, Server, Network, Gauge, Menu, X, Video, Clapperboard, Flame, Box, Scissors, Terminal, Swords, Scale, GitBranch, PanelLeftClose, PanelLeftOpen, Activity, BarChart3, HardDrive } from "lucide-react";
+import { AudioLines, Mic, Music, ScanLine, Layers, ChevronDown, Globe2, Image, Images, MessageSquare, Workflow, Server, Network, Gauge, Menu, X, Video, Clapperboard, Flame, Box, Scissors, Terminal, Swords, Scale, GitBranch, PanelLeftClose, PanelLeftOpen, Activity, BarChart3, HardDrive, Inbox } from "lucide-react";
 import { ENGINE_ROOM_LINKS, PRIMARY_LINKS, WORKSTREAMS, workstreamFor, type WorkstreamLink } from "@/lib/workstreams";
 import { hostHasTab } from "@/lib/host";
 import type { ConsoleTab } from "@/lib/labs";
@@ -50,6 +50,8 @@ export default function WorkstreamSidebar({ active, onSelect, speechMode, collap
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
         </div>
+        {/* Every app people use: their feedback, how many came and whether the last release worked. */}
+        <button type="button" className="hangar-nav-group" aria-label="Products" title="Products — feedback, people and releases for every app" aria-current={active === "products" ? "page" : undefined} onClick={() => go("products")}><Inbox size={19} /><span>Products</span></button>
         {/* Everything this machine has made or keeps: videos, AI-made files, datasets. */}
         <button type="button" className="hangar-nav-group" aria-label="Library" title="Library — every video, AI-made file and dataset on this machine" aria-current={active === "library" ? "page" : undefined} onClick={() => go("library")}><Images size={19} /><span>Library</span></button>
         <div className="hangar-nav-row">
@@ -57,7 +59,7 @@ export default function WorkstreamSidebar({ active, onSelect, speechMode, collap
           <button type="button" className="hangar-sidebar-toggle" aria-expanded={engineOpen} aria-controls="nav-engine-room" aria-label={engineOpen ? "Hide Engine room pages" : "Show Engine room pages"} title={engineOpen ? "Hide Engine room pages" : "Show Engine room pages"} onClick={() => setEngineOpen(v => !v)}><ChevronDown size={14} className={engineOpen ? "is-open" : ""} /></button>
         </div>
         <div id="nav-engine-room" className={`hangar-nav-children${engineOpen ? " is-group-open" : ""}`}>{ENGINE_ROOM_LINKS.filter(item => item.id !== "stack").map(link)}</div>
-        {PRIMARY_LINKS.filter(item => item.id !== "world" && item.id !== "library").map(({ id, label }) => { const Icon = primaryIcons[id as keyof typeof primaryIcons]; return <button key={id} className="hangar-nav-group" title={label} aria-label={label} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}><Icon size={19} /><span>{label}</span></button>; })}
+        {PRIMARY_LINKS.filter(item => item.id !== "world" && item.id !== "library" && item.id !== "products").map(({ id, label }) => { const Icon = primaryIcons[id as keyof typeof primaryIcons]; return <button key={id} className="hangar-nav-group" title={label} aria-label={label} aria-current={active === id ? "page" : undefined} onClick={() => go(id)}><Icon size={19} /><span>{label}</span></button>; })}
         <span className="hangar-nav-label">STUDIOS</span>
         {WORKSTREAMS.map(group => { const Icon = icons[group.id as keyof typeof icons]; const open = expanded.includes(group.id); return <section className="hangar-nav-section" key={group.id}>
           <button type="button" className={`hangar-nav-group${currentGroup === group.id ? " is-current" : ""}`} aria-label={group.label} title={group.label} aria-expanded={open} aria-controls={`nav-${group.id}`} onClick={() => setExpanded(e => open ? e.filter(id => id !== group.id) : [...e, group.id])}><Icon size={19} /><span>{group.label}</span><ChevronDown size={14} className={open ? "is-open" : ""} /></button>

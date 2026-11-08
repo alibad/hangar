@@ -44,3 +44,5 @@ public/walkthroughs/
 
 # Next 16 regenerates this file for dev and for build; it must not be tracked.
 next-env.d.ts
+# The Products board's list of this machine's apps (see config/products.example.json).
+/config/products.local.json

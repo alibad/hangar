@@ -664,12 +664,79 @@ async function videoJob({ id }) {
   return ok(describeVideoJob(body.job));
 }
 
+// ── products ──────────────────────────────────────────────────────────────────
+
+const ago = (iso) => {
+  const t = Date.parse(iso ?? "");
+  if (!t) return "?";
+  const min = Math.max(1, Math.round((Date.now() - t) / 60_000));
+  return min < 60 ? `${min}m` : min < 1440 ? `${Math.round(min / 60)}h` : `${Math.round(min / 1440)}d`;
+};
+
+function describeProduct(p, full) {
+  const bits = [];
+  if (p.feedback.week) bits.push(`${p.feedback.week} new feedback`);
+  if (p.feedback.open) bits.push(`${p.feedback.open} open`);
+  if (p.usage.week != null) bits.push(`${p.usage.week} people this week (${p.usage.previous ?? "?"} the week before)`);
+  if (p.releases.failed) bits.push(`${p.releases.failed} failed build${p.releases.failed > 1 ? "s" : ""} (last: ${p.releases.lastFailure?.project}, ${ago(p.releases.lastFailure?.at)} ago)`);
+  if (p.releases.last) bits.push(`last release ${ago(p.releases.last.at)} ago (${p.releases.last.state})`);
+  if (p.publicRepos.length) bits.push(`feedback lands in PUBLIC ${p.publicRepos.join(", ")}`);
+  const head = `${p.name}${p.domain ? ` (${p.domain})` : ""}: ${bits.join("; ") || "nothing new"}`;
+  if (!full) return head;
+  const lines = [head];
+  lines.push(`  Sites: ${p.sites.map((s) => `${s.project}${s.domain ? ` = ${s.domain}` : ""}`).join(", ") || "none on Vercel"}`);
+  lines.push(`  Repositories: ${p.repos.join(", ") || "none"}`);
+  lines.push(`  Reports land in: ${p.feedback.where.map((w) => `${w.repo}${w.label ? ` label ${w.label}` : ""} (${w.open} open of ${w.total}${w.public ? ", PUBLIC" : ""})`).join("; ") || "no feedback flow files GitHub issues"}`);
+  for (const i of p.feedback.latest) lines.push(`  - ${ago(i.at)} ago ${i.open ? "open" : "closed"}: ${i.title} ${i.url}`);
+  if (p.releases.last) lines.push(`  Last release: ${p.releases.last.project}, ${ago(p.releases.last.at)} ago, ${p.releases.last.state}${p.releases.last.message ? `: ${p.releases.last.message}` : ""}; ${p.releases.week} this week`);
+  lines.push(`  Analytics: ${p.usage.properties.map((x) => `${x.name} (${x.id})`).join(", ") || "no GA4 property matched"}`);
+  return lines.join("\n");
+}
+
+async function productsTool({ product, refresh } = {}) {
+  const { error, res } = await consoleFetch(`/api/products?wait=1${refresh ? "&refresh=1" : ""}`, {}, 240_000);
+  if (error) return fail(error);
+  const r = await res.json().catch(() => ({}));
+  if (!res.ok) return fail(r.error ?? `The console answered ${res.status}.`);
+  const a = r.sources.analytics;
+  const people = r.totals.usersWeek != null ? `${r.totals.usersWeek} people` : `people unknown (${a.message ?? "Analytics not read"}${a.command ? ` The user can run: ${a.command}` : ""}${a.link ? ` ${a.link}` : ""})`;
+  const broken = ["vercel", "github"].filter((k) => !r.sources[k].ok).map((k) => `${k} failed: ${r.sources[k].message}`);
+  if (product) {
+    const q = String(product).toLowerCase();
+    const p = r.products.find((x) => x.id === q || x.name.toLowerCase() === q || x.domain === q)
+      ?? r.products.find((x) => x.name.toLowerCase().includes(q) || x.repos.some((repo) => repo.toLowerCase().endsWith(`/${q}`)));
+    if (!p) return fail(`No product matches "${product}". Products: ${r.products.map((x) => x.id).join(", ")}`);
+    return ok(`${describeProduct(p, true)}\n(read ${ago(r.generatedAt)} ago${broken.length ? `; ${broken.join("; ")}` : ""})`);
+  }
+  const lines = [
+    `Products, read ${ago(r.generatedAt)} ago from GitHub, Vercel and Google Analytics. This week: ${r.totals.feedbackWeek} new feedback reports (${r.totals.feedbackOpen} open in all), ${r.totals.releasesWeek} releases, ${r.totals.failedWeek} failed builds, ${people}.`,
+    ...broken,
+    "",
+    "Needs attention:",
+    ...r.products.filter((p) => p.attention > 0).map((p) => `- ${describeProduct(p, false)}`),
+    "",
+    `Newest feedback (${r.inbox.length} this week):`,
+    ...r.inbox.slice(0, 12).map((i) => `- ${ago(i.at)} ago, ${r.products.find((p) => p.id === i.product)?.name ?? i.product}: ${i.title} ${i.url}`),
+    "",
+    `Others: ${r.products.filter((p) => !p.attention).map((p) => p.id).join(", ")}. Pass product for one product's detail.`,
+  ];
+  return ok(lines.join("\n"));
+}
+
 // ── tool table ────────────────────────────────────────────────────────────────
 
 const TOOLS = [
   ...worldTools(),
   ...planquestTools(consoleFetch),
   ...videoAnalysisTools(),
+  {
+    name: "hangar_products",
+    description:
+      "Every app the user ships, as people see it: new feedback reports (GitHub issues labelled feedback, from each app's own repository and the shared inbox), people this week (Google Analytics), and releases and failed builds (Vercel). Use it when the user asks what users are saying, what broke, which product needs attention, or where an app's feedback goes. Without product: the week across all products, the ones that need attention and the newest reports. With product (id, name, domain or repository): that product's sites, where its reports land, its latest reports, last release and Analytics properties. Read-only; cached for an hour, refresh reads again (up to a minute).",
+    inputSchema: { type: "object", properties: { product: { type: "string", description: "Optional: a product id, name, domain or repository name." }, refresh: { type: "boolean", description: "Read GitHub, Vercel and Google Analytics again instead of the last hour's report." } } },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+    run: productsTool,
+  },
   {
     name: "list_services",
     description:

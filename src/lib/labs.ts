@@ -164,6 +164,7 @@ export const LABS: LabDefinition[] = [
 export const BUILTIN_TABS = [
   "world",
   "library",
+  "products",
   "projects",
   "sessions",
   "machines",

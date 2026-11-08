@@ -40,6 +40,7 @@ import type { VoiceOption } from "@/app/api/tts/voices/route";
 import ServicesControlCenter from "@/components/services-control-center";
 import StorageManager from "@/components/storage-manager";
 const LibraryView = dynamic(() => import("@/components/library/library-view"), { ssr: false });
+const ProductsView = dynamic(() => import("@/components/products/products-view"), { ssr: false });
 import { SELECT_TAB_EVENT } from "@/lib/library-nav";
 import { ToolPageHeader, ToolSectionHeading } from "@/components/tool-page";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
@@ -878,6 +879,7 @@ export default function Home() {
     { id: "stack" as const, label: "Engine room", count: runningServices + "/" + managedServices.length },
     { id: "services" as const, label: "Services" },
     { id: "storage" as const, label: "Storage" },
+    { id: "products" as const, label: "Products" },
     { id: "library" as const, label: "Library" },
     { id: "llm" as const, label: "LLM" },
     { id: "speech" as const, label: "Speech" },
@@ -986,6 +988,16 @@ export default function Home() {
               available={["Real disk capacity and mounted volumes", "Private SQLite file index and duplicate candidates", "Filesystem watching, Finder or Explorer reveal, and guarded moves"]}
             />
           ) : <StorageManager />}
+        </TabPane>
+
+        <TabPane {...pane("products")}>
+          {HOSTED_RUNTIME ? (
+            <LocalMachineRequired
+              title="Products reads the GitHub, Vercel and Google sign-ins on the machine running Hangar"
+              description="A hosted server has none of them. Run Hangar locally to see every app's feedback, people and releases in one place."
+              available={["New feedback from every app in one list", "People this week from Google Analytics", "Releases and failed builds from Vercel"]}
+            />
+          ) : <ProductsView />}
         </TabPane>
 
         <TabPane {...pane("library")}>

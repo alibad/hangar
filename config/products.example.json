@@ -1,0 +1,20 @@
+{
+  "$comment": "Copy to config/products.local.json (ignored by git: it names every app on the account). Products reads GitHub through the signed-in gh, Vercel through the signed-in vercel CLI, and Google Analytics through gcloud's application-default sign-in. Nothing has to be listed: every Vercel project, and every repository with a 'feedback' label, shows up as a product of its own. List a product here only when it spans several Vercel projects or repositories, needs a nicer name, files its feedback in the shared inbox under an app: label, or has a GA4 property whose web stream does not point at its domain (mobile apps). hide takes Vercel project names or repositories to leave off the board.",
+  "vercelScope": "my-team",
+  "githubOwner": "my-github-login",
+  "sharedInbox": "my-github-login/feedback-inbox",
+  "hide": ["old-experiment"],
+  "products": {
+    "my-game": {
+      "name": "My Game",
+      "vercel": ["my-game-site", "my-game-play"],
+      "repos": ["my-game-site", "my-game-engine", "my-game-mobile"],
+      "ga4": ["123456789"]
+    },
+    "atlas": {
+      "name": "Atlas",
+      "vercel": ["atlas"],
+      "feedbackLabel": "app:atlas"
+    }
+  }
+}
