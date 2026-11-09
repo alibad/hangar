@@ -23,6 +23,10 @@ test("Atlas bridge is an allowlist, not an arbitrary filesystem or URL proxy", (
   assert.equal(atlasPathAllowed("proxy", ["sessions", "library"], "GET"), true);
   assert.equal(atlasPathAllowed("proxy", ["sessions", "library"], "POST"), true);
   assert.equal(atlasPathAllowed("proxy", ["sessions", "delete"], "POST"), false);
+  assert.equal(atlasPathAllowed("proxy", ["stepback"], "GET"), true);
+  assert.equal(atlasPathAllowed("proxy", ["stepback", "facts"], "GET"), true);
+  assert.equal(atlasPathAllowed("proxy", ["stepback"], "POST"), true);
+  assert.equal(atlasPathAllowed("proxy", ["stepback", "facts"], "POST"), false);
   assert.equal(atlasPathAllowed("proxy", ["architecture", "view"], "GET"), true);
   assert.equal(atlasPathAllowed("proxy", ["activity"], "GET"), true);
   assert.equal(atlasPathAllowed("proxy", ["activity"], "POST"), false);

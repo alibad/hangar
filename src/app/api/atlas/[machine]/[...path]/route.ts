@@ -71,7 +71,7 @@ async function proxy(request: Request, context: Context) {
     const response = await fetch(`${base}${target}?${safeQuery}`, {
       method: request.method, body, redirect: "error", cache: "no-store",
       headers: { "Content-Type": "application/json", "X-Atlas": "1", "X-Hangar": "1" },
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(["sessions", "insights", "activity"].includes(parts[0]) ? 90000 : 20000)]),
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(["sessions", "insights", "activity", "stepback"].includes(parts[0]) ? 90000 : 20000)]),
     });
     if (localApi && operation === "atlas" && response.ok) {
       return Response.json(await islandStore.apply(await response.json()), { headers: { "Cache-Control": "no-store" } });

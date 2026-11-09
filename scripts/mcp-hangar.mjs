@@ -1032,6 +1032,7 @@ async function handle(msg) {
           "Hangar runs this machine's local AI services and maps the user's projects. " +
           "When the user asks what needs doing, what is uncommitted or unpushed, or where they left a project, start with hangar_pending or hangar_brief; " +
           "hangar_sessions finds the Claude Code or Codex conversation to continue; hangar_activity says which session made each commit and where two collided. " +
+          "Before sizeable work or a side task, hangar_stepback says what the user is really after across all their sessions; name the goal your work serves, or say it serves none. " +
           "list_services and gpu_status come first before starting or stopping a local model.",
       });
 

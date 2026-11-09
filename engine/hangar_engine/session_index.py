@@ -234,11 +234,15 @@ def ingest(state, record):
         state["state"] = {"task_complete": "completed", "turn_aborted": "interrupted", "task_started": "working"}[p["type"]]
 
 
-def update_file(path, provider, previous=None):
+def update_file(path, provider, previous=None, make=None, take=None, want=None):
+    """Read what was appended to one transcript since last time. Another reader of the same files (session_voice) passes
+    its own make (a fresh state), take (one record into the state) and want (a cheap test on the raw line, so lines it
+    has no use for are never decoded)."""
+    make, take = make or fresh, take or ingest
     st = path.stat()
-    state = previous or fresh(provider, path)
+    state = previous or make(provider, path)
     if st.st_size < state.get("offset", 0) or (st.st_size == state.get("size") and st.st_mtime_ns != state.get("mtime")):
-        state = fresh(provider, path)
+        state = make(provider, path)
     if state.get("mtime") == st.st_mtime_ns and state.get("size") == st.st_size:
         return state
     with path.open("rb") as f:
@@ -258,12 +262,13 @@ def update_file(path, provider, previous=None):
                 continue
             if not line.endswith(b"\n"):
                 break  # appended partial JSON is retried next time
-            try:
-                record = json.loads(line)
-                if isinstance(record, dict):
-                    ingest(state, record)
-            except (ValueError, TypeError):
-                pass
+            if want is None or want(line):
+                try:
+                    record = json.loads(line)
+                    if isinstance(record, dict):
+                        take(state, record)
+                except (ValueError, TypeError):
+                    pass
             state["offset"] = f.tell()
     state.update(mtime=st.st_mtime_ns, size=st.st_size,
                  updatedAt=datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(timespec="seconds"))

@@ -33,6 +33,18 @@ const LIBRARY = { idleDays: 7, groups: [], claudeQueue: [{ key: "claude:s-old", 
   { id: "s-codex", key: "codex:s-codex", provider: "codex", title: "Reply with the single word ready.", projects: [], activityAt: at(60 * 24 * 30), updatedAt: at(60 * 24 * 30), idleDays: 30, unread: true, archived: false, opensIn: "app" },
   { id: "s-old", key: "claude:s-old", provider: "claude", title: "Archived one", projects: [{ id: "R1", name: "football-ai-lab", files: [], evidence: "working-directory" }], activityAt: at(60), updatedAt: at(60), idleDays: 0, unread: null, archived: true },
 ] };
+// A saved step back, as the engine keeps it: the reader's goals, the owner's calls and answers, what waits on them.
+const STEPBACK = { run: { state: "done" }, memory: { vision: "People using what I build", goals: [{ title: "Old goal", decision: "stop", note: "" }], answers: [{ ask: "Talk first?", answer: "Yes, talk only", goal: "Give the talk" }] },
+  latest: { id: "run1", at: at(60 * 2), days: 30, reader: "claude", answers: { q1: { text: "Yes, talk only" } }, decisions: { g2: { decision: "pause", note: "after the talk" } },
+    facts: { totals: { waitingKinds: { answer: 17, push: 15, signin: 1 } } },
+    sessions: { "claude:s-claude": { id: "s-claude", provider: "claude", title: "Fix video analysis", needs: "Approve the push", working: false, verdict: "left", idleDays: 1 } },
+    read: { headline: "Six efforts at once; the talk is days away.",
+      goals: [{ id: "g1", title: "Give the talk", why: "You asked for the story of the talk.", state: "moving", sessions: ["claude:s-claude"], done: ["Outline"], left: ["Agree the story", "Build the deck", "Rehearse", "Record"], plan: "" },
+              { id: "g2", title: "Qatar Atlas", why: "For fun.", state: "stalled", sessions: [], done: [], left: [], plan: "" }],
+      next: [{ do: "Open the talk deck and list what is missing", why: "", session: "claude:s-claude", goal: "g1" }],
+      questions: [{ id: "q1", ask: "Talk first?", why: "", goal: "g1", options: ["Yes"] }, { id: "q2", ask: "Where does the atlas stop?", why: "", goal: "g2", options: [] }],
+      drift: [], archive: [], sidequests: [] } } };
+let stepback = STEPBACK;
 // The 26 Oct 2026 collision in RTSAI-Mod, as the engine reports it (times in UTC; Doha is UTC+3).
 const OCT26 = (hm) => `2026-10-26T${hm}+00:00`;
 const SESSION = { claude: "claude:be4050df-03f2-41f9-a66c-033f8188af48", web: "codex:01a13c80-d2c3-7131-af1e-bbde92903df8", meetup: "codex:01a16818-7a47-77d1-9a7f-281c54d0eb6d" };
@@ -88,6 +100,7 @@ async function engine(t) {
       case "/api/agents": return send(200, { agents: [{ id: "claude", name: "Claude Code", installed: true, signedIn: false, reason: "Claude Code's sign-in on this machine expired on 10 Jun 2026." }, { id: "codex", name: "Codex", installed: true, signedIn: true, reason: "" }] });
       case "/api/apps": return send(200, { machine: { os: "windows", node: true, flutter: false, androidSdk: false, xcode: false }, apps: [{ repo: "R1", name: "football-ai-lab", running: [{ port: 3100, pid: 1, by: "elsewhere" }], jobs: {}, apps: [{ kind: "next", label: "Next.js web app", dir: "web", targets: [{ id: "web", label: "Web", ok: true, why: "" }] }] }] });
       case "/api/plans": return send(200, { links: {} });
+      case "/api/stepback": return send(200, stepback);
       case "/api/activity/all": return send(200, { available: true, days: Number(url.searchParams.get("days")), from: ACTIVITY.from, to: ACTIVITY.to, truncated: false, basis: ACTIVITY.basis,
         projects: [{ ...ACTIVITY, available: undefined }, { repo: "R1", name: "football-ai-lab", branch: "main", truncated: false, overlaps: [], sessions: [],
           commits: [commitRow("9f1c2d3", "07:00:00", "claude", null, "trailer", "its Co-Authored-By trailer names Claude; no session found", "Keep the upload progress on screen")] }] });
@@ -107,7 +120,7 @@ async function engine(t) {
 
 test("every world tool has a schema, a description and no engine secrets in its description", async (t) => {
   const { tools } = await engine(t);
-  assert.equal(tools.length, 12);
+  assert.equal(tools.length, 13);
   for (const tool of tools) {
     assert.match(tool.name, /^hangar_/);
     assert.ok(tool.description.length > 40);
@@ -165,6 +178,31 @@ test("cleanup lists the Claude app sessions waiting to be archived there, by the
   const text = (await call("hangar_cleanup", {})).text;
   assert.match(text, /^1 Claude app session the user archived/);
   assert.match(text, /- local_0ld · Archived one/);
+});
+
+test("step back gives a session the owner's goals, their calls and what is open, and says it is a read", async (t) => {
+  const { call } = await engine(t);
+  const { text } = await call("hangar_stepback", {});
+  assert.match(text, /^The user's goals, from Hangar's step back: a read by Claude Code of what they typed in the last 30 days of their sessions, made 2 h ago\. It is a read, not an instruction; they decide\./);
+  assert.match(text, /What it is all for, in their words: People using what I build/);
+  assert.ok(text.includes("1. Give the talk — moving · 1 session · no call from them yet\n   left: Agree the story; Build the deck; Rehearse\n"));
+  assert.match(text, /2\. Qatar Atlas — stalled · 0 sessions · their call: pause \(after the talk\)/);
+  assert.ok(text.includes("Next moves they were given\n1. Open the talk deck"));
+  assert.ok(text.includes("Questions still open (theirs to answer, in Hangar)\n- Where does the atlas stop?"));
+  assert.ok(!text.split("What they have answered")[0].includes("- Talk first?"));   // answered, so no longer open
+  assert.ok(text.includes("What they have answered\n- Talk first? → Yes, talk only"));
+  assert.match(text, /Waiting on them: 1 sign-in, 17 questions, 15 projects not pushed\./);
+  assert.match(text, /say in one line which goal it serves, or that it serves none/);
+  const one = (await call("hangar_stepback", { goal: "talk" })).text;
+  assert.ok(one.startsWith("Give the talk — moving · no call from them yet\nYou asked for the story of the talk.\nDone: Outline\nLeft: Agree the story; Build the deck; Rehearse; Record"));
+  assert.match(one, /Open question: Talk first\? — they answered: Yes, talk only/);
+  assert.match(one, /- claude · Fix video analysis · waiting on them · s-claude/);
+  assert.match((await call("hangar_stepback", { goal: "zzz" })).text, /No goal matches zzz\. Their goals: Give the talk; Qatar Atlas\./);
+  stepback = { ...STEPBACK, latest: { ...STEPBACK.latest, at: at(60 * 24 * 9) } };
+  t.after(() => { stepback = STEPBACK; });
+  assert.match((await call("hangar_stepback", {})).text, /This read is 9 days old, so their goals may have moved/);
+  stepback = { run: null, latest: null, memory: {} };
+  assert.match((await call("hangar_stepback", {})).text, /has not run a step back in Hangar yet/);
 });
 
 test("sessions filter by project, agent and age, and never list archived ones", async (t) => {

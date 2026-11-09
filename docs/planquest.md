@@ -11,6 +11,12 @@ changes Hangar's local project association; it never changes a plan, completes a
 milestone or infers progress from coding activity. Existing manual links remain
 readable and can be replaced through the picker.
 
+One feature can write, and only after a second approval: Sessions → Step back
+can leave short work records (progress, a decision, an open question) on the
+plan each goal belongs to. **Allow work records** there asks PlanQuest for
+`records:read records:write` as well; plans and milestones stay read-only, and
+nothing is saved until you press Save. See [Step back](step-back.md#plan-quest).
+
 Use **Connection & agent access** in the picker to reconnect, disconnect, or
 unlink a project. Disconnecting keeps existing links. If remote revocation fails,
 Hangar clears its local credentials and asks you to revoke the connection in

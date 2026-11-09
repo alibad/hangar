@@ -11,6 +11,7 @@ import threading
 import time
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 from . import config, launch, local
 
@@ -25,9 +26,11 @@ def now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def command(provider, folder, prompt, session=None, read_dirs=None):
+def command(provider, folder, prompt, session=None, read_dirs=None, sealed=False):
     """read_dirs makes a read-only job: no session is kept, and Claude gets only reading tools.
-    Codex's sandbox is not enforced on every platform, so its read-only job relies on the task wording too."""
+    Codex's sandbox is not enforced on every platform, so its read-only job relies on the task wording too.
+    sealed is for a job that reads your own private notes rather than a project: Claude also runs without your MCP
+    servers and settings, and its file tools stay inside the job's folders."""
     exe = launch.cli(provider)
     if not exe:
         raise ValueError(f"The {provider} CLI is not installed on this machine.")
@@ -38,8 +41,9 @@ def command(provider, folder, prompt, session=None, read_dirs=None):
     if provider == "codex" and read_dirs is not None:
         return [exe, "exec", "--json", "--ephemeral", "--sandbox", "read-only", "--skip-git-repo-check", "--cd", str(folder), "-"]
     if provider == "claude" and read_dirs is not None:
-        return [exe, "--print", "--verbose", "--output-format", "stream-json", "--no-session-persistence",
-                "--tools", "Read", "Grep", "Glob"] + [arg for d in read_dirs for arg in ("--add-dir", str(d))]
+        return [exe, "--print", "--verbose", "--output-format", "stream-json", "--no-session-persistence"] + \
+            (["--restricted", "--strict-mcp-config"] if sealed else []) + \
+            ["--tools", "Read", "Grep", "Glob"] + [arg for d in read_dirs for arg in ("--add-dir", str(d))]
     if provider == "codex":
         return [exe, "--cd", str(folder), "exec", "resume", "--json", session, "-"] if session else [exe, "exec", "--json", "--cd", str(folder), "-"]
     if provider == "claude":
@@ -144,17 +148,24 @@ def start(doc, overlay, body):
     return begin(doc, overlay, repo["id"], provider, prompt.strip(), session)
 
 
-def begin(doc, overlay, rid, provider, prompt, session=None, kind="code", read_dirs=None, on_finish=None, label=None, meta=None):
+def begin(doc, overlay, rid, provider, prompt, session=None, kind="code", read_dirs=None, on_finish=None, label=None, meta=None,
+          folder=None, sealed=False):
     """Start a validated job. on_finish(job, reply) runs after the agent exits, with its final reply. meta adds fields
-    the console reads (a review job names its review and the session it reviews)."""
+    the console reads (a review job names its review and the session it reviews). folder runs a read-only job that
+    belongs to no project (a read across all of them) in a folder of Hangar's own instead of a checkout."""
     snapshot()
-    repo, folder = checkout(doc, overlay, rid)
+    if folder is not None:
+        if read_dirs is None or config.LOCAL not in Path(folder).resolve().parents:
+            raise ValueError("Only a read-only job in Hangar's own storage can run outside a project.")
+        repo = {"id": "", "name": "Every project"}
+    else:
+        repo, folder = checkout(doc, overlay, rid)
     # A job that cannot sign in fails after it starts; say so before, with the way to fix it.
     from . import agents
     sign = next((a for a in agents.status()["agents"] if a["id"] == provider), None)
     if sign and sign.get("signedIn") is False:
         raise ValueError(f"{sign['name']} needs you to sign in on this machine first. Use Sign in in Hangar, then try again.")
-    argv = command(provider, folder, prompt, session, read_dirs)
+    argv = command(provider, folder, prompt, session, read_dirs, sealed)
     with _lock:
         if len(_processes) >= MAX_ACTIVE:
             raise ValueError("Two jobs are already running. Stop or finish one before starting another.")

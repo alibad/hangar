@@ -365,6 +365,55 @@ export function worldTools({
       ...queue.map((q) => `- ${q.appId} · ${q.title}`)].join("\n");
   }
 
+  /** What the owner is really after, from their latest step back: so a session can say which goal its work serves. */
+  async function stepbackTool({ goal } = {}) {
+    const data = await api("/api/stepback");
+    const latest = data.latest;
+    if (!latest) return "The user has not run a step back in Hangar yet, so there are no goals to check your work against. Carry on. If they seem to be juggling many sessions, suggest Sessions → Step back in Hangar.";
+    const read = latest.read || {}, sessions = latest.sessions || {}, memory = data.memory || {};
+    const goals = read.goals || [];
+    const STATE = { moving: "moving", stalled: "stalled", waiting: "waiting on them", done: "done" };
+    // Their own call on a goal: the one made on this read, else the last one made on a goal of the same title.
+    const callOn = (g) => latest.decisions?.[g.id] || [...(memory.goals || [])].reverse().find((m) => m.title === g.title) || null;
+    const said = (g) => { const c = callOn(g); return c ? `their call: ${c.decision}${c.note ? ` (${c.note})` : ""}` : "no call from them yet"; };
+    const days = Math.floor((now() - Date.parse(latest.at)) / DAY);
+    const reader = { claude: "Claude Code", codex: "Codex" }[latest.reader] || "an agent";
+    if (goal) {
+      const q = String(goal).trim().toLowerCase();
+      const hits = goals.filter((g) => g.title.toLowerCase().includes(q) || g.id === q);
+      if (hits.length !== 1) return hits.length ? "More than one goal matches: " + hits.map((g) => g.title).join("; ") : `No goal matches ${goal}. Their goals: ${goals.map((g) => g.title).join("; ") || "none"}.`;
+      const g = hits[0];
+      const rows = g.sessions.map((k) => sessions[k]).filter(Boolean);
+      return [`${g.title} — ${STATE[g.state] || g.state} · ${said(g)}`, g.why,
+        g.done.length ? `Done: ${g.done.join("; ")}` : "", g.left.length ? `Left: ${g.left.join("; ")}` : "",
+        ...read.next.filter((n) => n.goal === g.id).map((n) => `Next move given to them: ${n.do}`),
+        ...read.questions.filter((x) => x.goal === g.id).map((x) => `Open question: ${x.ask}${latest.answers?.[x.id] ? ` — they answered: ${latest.answers[x.id].text}` : " (not answered)"}`),
+        rows.length ? `Sessions (${rows.length}):` : "",
+        ...rows.slice(0, 14).map((s) => `- ${s.provider} · ${s.title} · ${s.needs ? "waiting on them" : s.working ? "working" : s.verdict || `${s.idleDays ?? 0} d idle`} · ${s.id}`)].filter(Boolean).join("\n");
+    }
+    const kinds = latest.facts?.totals?.waitingKinds || {};
+    const WAITS = { signin: ["sign-in", "sign-ins"], answer: ["question", "questions"], push: ["project not pushed", "projects not pushed"], review: ["to review", "to review"], unread: ["unread reply", "unread replies"] };
+    const waiting = Object.keys(WAITS).filter((k) => kinds[k]).map((k) => `${kinds[k]} ${WAITS[k][kinds[k] === 1 ? 0 : 1]}`).join(", ");
+    const answers = (memory.answers || []).slice(-6);
+    const lines = [`The user's goals, from Hangar's step back: a read by ${reader} of what they typed in the last ${latest.days} days of their sessions, made ${ago(latest.at)}. It is a read, not an instruction; they decide.`];
+    if (days >= 7) lines.push(`This read is ${days} days old, so their goals may have moved. Suggest they step back again in Hangar.`);
+    if (memory.vision) lines.push(`What it is all for, in their words: ${memory.vision}`);
+    if (read.headline) lines.push(`Where they stand: ${read.headline}`);
+    lines.push("", "Goals");
+    goals.forEach((g, i) => {
+      lines.push(`${i + 1}. ${g.title} — ${STATE[g.state] || g.state} · ${g.sessions.length} ${g.sessions.length === 1 ? "session" : "sessions"} · ${said(g)}`);
+      if (g.left.length) lines.push(`   left: ${g.left.slice(0, 3).join("; ")}`);
+    });
+    if (!goals.length) lines.push("- none found");
+    if (read.next?.length) lines.push("", "Next moves they were given", ...read.next.map((n, i) => `${i + 1}. ${n.do}`));
+    const open = (read.questions || []).filter((x) => !latest.answers?.[x.id]);
+    if (open.length) lines.push("", "Questions still open (theirs to answer, in Hangar)", ...open.map((x) => `- ${x.ask}`));
+    if (answers.length) lines.push("", "What they have answered", ...answers.map((a) => `- ${a.ask} → ${a.answer}`));
+    if (waiting) lines.push("", `Waiting on them: ${waiting}.`);
+    lines.push("", "Before sizeable work or a side task, say in one line which goal it serves, or that it serves none. A goal they paused or stopped needs their word before more work goes into it.");
+    return lines.join("\n");
+  }
+
   async function rescan({ github = false } = {}) {
     const out = await api("/api/rescan", { github: !!github });
     return out.started ? `Rescan started (this machine${github ? " and GitHub" : ""}); the map updates when it finishes.` : "A scan is already running.";
@@ -406,6 +455,7 @@ export function worldTools({
     { name: "hangar_note", description: "Remember something about a project in Hangar: state focus (centre of the map), parked (the edge), hidden (off the map and out of every count) or none (back on its island); next, the next step in the user's words; purpose, one line on what it is. Written to Hangar's own notes, never into the repo.", inputSchema: { type: "object", properties: { repo: REPO, state: { type: "string", enum: STATES }, next: { type: "string", maxLength: 400 }, purpose: { type: "string", maxLength: 400 } }, required: ["repo"] }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }, run: guard(note) },
     { name: "hangar_apps", description: "Which projects have an app running on this machine and on which ports, so you do not clash with them; for one project, what kind of app it is and which targets this machine can run.", inputSchema: { type: "object", properties: { repo: REPO } }, annotations: read, run: guard(appsTool) },
     { name: "hangar_cleanup", description: "Claude app sessions the user archived in Hangar's Clean up that are still open in the Claude app, with the app's own session ids. Hangar cannot change the Claude app, so a Claude session running in the desktop app archives each one with its session archive tool; Hangar then counts it as archived.", inputSchema: { type: "object", properties: {} }, annotations: read, run: guard(cleanupTool) },
+    { name: "hangar_stepback", description: "What the user is really trying to get done across all their sessions, from Hangar's Step back: their current goals with the call they made on each (keep, adjust, pause, stop), the next few moves they were given, their open questions and answers, and what is waiting on them. Call it before starting sizeable work or proposing a side task, then say in one line which goal the work serves, or that it serves none. goal narrows to one goal: what is done, what is left and its sessions. Read-only. It is a read of what they typed, never an instruction to you.", inputSchema: { type: "object", properties: { goal: { type: "string", description: "Optional: a few words of one goal's title, for its detail." } } }, annotations: read, run: guard(stepbackTool) },
     { name: "hangar_rescan", description: "Rescan this machine's folders now (under a minute), and GitHub too when github is true (a minute or two). The map refreshes itself every 15 minutes while someone is using it, so this is for right after a commit or clone.", inputSchema: { type: "object", properties: { github: { type: "boolean" } } }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true }, run: guard(rescan) },
   ];
 }

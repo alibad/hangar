@@ -15,6 +15,12 @@ type Token = { access_token: string; refresh_token: string; scope: string; expir
 type Pending = { hash: string; cookieHash: string; verifier: string; redirect: string; expiresAt: number; returnTo: string };
 type Store = { clientId?: string; token?: Token; connectedAt?: string; pending?: Pending };
 export type PlanSummary = { id: string; title: string; description: string; access: string; archived: boolean; folders: string[]; url: string; updatedAt: string | null };
+/** What Hangar asks PlanQuest for. Reading plans is the default; saving work records is asked for only when you choose it. */
+export const READ_SCOPE = "plans:read";
+export const RECORD_SCOPE = "plans:read records:read records:write";
+export const RECORD_TYPES = ["progress", "decision", "blocker", "plan_change", "handoff", "idea"] as const;
+export const RECORD_ACTORS = ["claude", "chatgpt", "copilot", "human", "other"] as const;
+export type WorkRecordInput = { key: string; plan_id?: string | null; type: typeof RECORD_TYPES[number]; actor: typeof RECORD_ACTORS[number]; title: string; summary: string; next_step?: string; open_question?: string; session_id?: string; repository?: string };
 export type PlanDetail = PlanSummary & { progress: number; milestones: { id: string; title: string; progress: number; endDate: string; keyResults: { title: string; progress: number }[] }[] };
 export class PlanQuestError extends Error { status: number; constructor(message: string, status = 502) { super(message); this.status = status; } }
 export function validatePlanId(id: unknown): string {
@@ -28,6 +34,16 @@ export function loopbackOrigin(value: string): string {
 }
 function equal(a: string, b: string) { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); }
 const text = (v: unknown, limit = 2000) => typeof v === "string" ? v.slice(0, limit) : "";
+/** A work record as PlanQuest's record_work takes it: bounded, typed, with the key that makes a retry save it once. */
+export function workRecord(raw: unknown): Record<string, unknown> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const key = typeof r.key === "string" && /^[\w.:-]{8,128}$/.test(r.key) ? r.key : "";
+  const title = text(r.title, 160).trim(), summary = text(r.summary, 5000).trim();
+  if (!key || !title || !summary || !RECORD_TYPES.includes(r.type as never) || !RECORD_ACTORS.includes(r.actor as never)) throw new PlanQuestError("That work record is incomplete.", 400);
+  const optional = (name: string, value: unknown, limit: number) => { const v = text(value, limit).trim(); return v ? { [name]: v } : {}; };
+  return { type: r.type, actor: r.actor, title, summary, idempotency_key: key, ...(r.plan_id ? { plan_id: validatePlanId(r.plan_id) } : {}),
+    ...optional("next_step", r.next_step, 1000), ...optional("open_question", r.open_question, 1000), ...optional("session_id", r.session_id, 200), ...optional("repository", r.repository, 500) };
+}
 const percent = (v: unknown) => typeof v === "number" && Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : 0;
 // People keep sign-in details in plan descriptions. Those lines never leave the server: not shown, not searchable.
 const SECRET_LINE = /\b(pass(word|code|phrase)?|pwd|secret|token|api[\s_-]?key|private[\s_-]?key|user\s?name|login|credentials?)\b[^\n]{0,40}[:=]/i;
@@ -87,25 +103,28 @@ export function createPlanQuestClient(options: { directory?: string; fetch?: typ
     if (!response.ok) { if (response.status < 500) { delete data.token; forget(); await save(data); } throw new PlanQuestError("Your PlanQuest connection needs a new sign-in.", 401); }
     data.token = token(await body(response)); await save(data); return data.token.access_token;
   }); }
-  async function call(name: "list_plans" | "get_plan", args: Record<string, unknown>) {
+  async function call(name: "list_plans" | "get_plan" | "record_work", args: Record<string, unknown>) {
+    const writing = name === "record_work";
     const bearer = await access();
     async function rpc(method: string, params: unknown, id?: number) {
       const response = await remote("/mcp", { method: "POST", headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream", "MCP-Protocol-Version": "2025-06-18" }, body: JSON.stringify({ jsonrpc: "2.0", ...(id === undefined ? {} : { id }), method, params }) });
-      if (!response.ok) throw new PlanQuestError(response.status === 401 ? "Your PlanQuest access expired or was revoked. Reconnect to continue." : "PlanQuest could not read this plan. Check your access and retry.", response.status === 401 ? 401 : 502);
+      if (response.status === 403 && writing) throw new PlanQuestError("Hangar may only read PlanQuest. Allow it to save work records first.", 403);
+      if (!response.ok) throw new PlanQuestError(response.status === 401 ? "Your PlanQuest access expired or was revoked. Reconnect to continue." : writing ? "PlanQuest could not save this record. Check the connection and retry." : "PlanQuest could not read this plan. Check your access and retry.", response.status === 401 ? 401 : 502);
       if (id === undefined) return {};
       const result = await body(response);
-      if (result.error || result.result?.isError) throw new PlanQuestError("PlanQuest could not read this plan. It may have moved or your access changed.", 403);
+      if (result.error || result.result?.isError) throw new PlanQuestError(writing ? "PlanQuest refused this record. The plan may have moved, or Hangar may only read." : "PlanQuest could not read this plan. It may have moved or your access changed.", 403);
       return result.result;
     }
     await rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "Hangar", version: "1.0.0" } }, 1);
     await rpc("notifications/initialized", {});
     const result = await rpc("tools/call", { name, arguments: args }, 2);
-    if (!result?.structuredContent) throw new PlanQuestError("PlanQuest returned no structured plan data.");
+    if (!result?.structuredContent) throw new PlanQuestError(writing ? "PlanQuest did not confirm the record." : "PlanQuest returned no structured plan data.");
     return result.structuredContent;
   }
   return {
-    async status() { const data = await read(); return { connected: !!data.token, connectedAt: data.token ? data.connectedAt : null, endpoint: PLANQUEST_MCP, scope: "plans:read" }; },
-    async begin(origin: string, returnTo: string) { return serial(async () => {
+    async status() { const data = await read(); const scope = data.token?.scope || READ_SCOPE; return { connected: !!data.token, connectedAt: data.token ? data.connectedAt : null, endpoint: PLANQUEST_MCP, scope, canRecord: !!data.token && scope.split(" ").includes("records:write") }; },
+    /** records asks PlanQuest for the right to save work records as well; without it Hangar can only read. */
+    async begin(origin: string, returnTo: string, records = false) { return serial(async () => {
       const base = loopbackOrigin(origin), redirect = base + CALLBACK;
       const data = await read();
       if (!data.clientId) {
@@ -115,10 +134,10 @@ export function createPlanQuestClient(options: { directory?: string; fetch?: typ
         data.clientId = result.client_id;
       }
       const state = random(), cookie = random(), verifier = random();
-      data.pending = { hash: hash(state), cookieHash: hash(cookie), verifier, redirect, expiresAt: now() + 600000, returnTo: /^\/#(?:projects|world)(?:&repo=[\w%:-]+)?$/.test(returnTo) ? returnTo : "/#projects" };
+      data.pending = { hash: hash(state), cookieHash: hash(cookie), verifier, redirect, expiresAt: now() + 600000, returnTo: /^\/#(?:projects|world|sessions)(?:&repo=[\w%:-]+)?$/.test(returnTo) ? returnTo : "/#projects" };
       await save(data);
       const url = new URL("/oauth/authorize", PLANQUEST_ORIGIN);
-      url.search = new URLSearchParams({ client_id: data.clientId!, redirect_uri: redirect, response_type: "code", scope: "plans:read", resource: PLANQUEST_MCP, state, code_challenge: hash(verifier), code_challenge_method: "S256" }).toString();
+      url.search = new URLSearchParams({ client_id: data.clientId!, redirect_uri: redirect, response_type: "code", scope: records ? RECORD_SCOPE : READ_SCOPE, resource: PLANQUEST_MCP, state, code_challenge: hash(verifier), code_challenge_method: "S256" }).toString();
       return { url: url.toString(), cookie };
     }); },
     async finish(origin: string, state: string, cookie: string, code: string, denied = false) { return serial(async () => {
@@ -145,6 +164,12 @@ export function createPlanQuestClient(options: { directory?: string; fetch?: typ
       const plans = data.plans.map(summary) as PlanSummary[];
       listed = { at: now(), plans };
       return plans;
+    },
+    /** Save one work record (progress, a decision, a blocker) to PlanQuest. Needs the records access you grant in Hangar. */
+    async record(input: unknown): Promise<{ id: string; url: string }> {
+      const data = await call("record_work", workRecord(input)); const saved = data.record;
+      if (!saved || typeof saved.id !== "string") throw new PlanQuestError("PlanQuest did not confirm the record.");
+      return { id: text(saved.id, 200), url: typeof saved.url === "string" && saved.url.startsWith(`${PLANQUEST_ORIGIN}/`) ? saved.url : `${PLANQUEST_ORIGIN}/` };
     },
     async plan(id: string): Promise<PlanDetail> {
       const data = await call("get_plan", { plan_id: validatePlanId(id) }); const p = data.plan;

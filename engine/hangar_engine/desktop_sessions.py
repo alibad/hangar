@@ -23,6 +23,7 @@ _files = {}  # path -> (modified, record): a record is re-read only when it chan
 _VALUE = r'("(?:[^"\\]|\\.)*"|true|false|null|-?\d+(?:\.\d+)?)'
 _FIELD = {k: re.compile(rf'"{k}"\s*:\s*{_VALUE}') for k in ("sessionId", "cliSessionId", "isArchived", "title", "lastFocusedAt", "lastTurnEdgeAt")}
 _SUMMARY = re.compile(rb'"postTurnSummary"\s*:\s*\{')
+_SPAWNED = re.compile(rb'"spawnedFrom"\s*:\s*\{')
 _LAST = re.compile(rf'"lastAssistantUuid"\s*:\s*{_VALUE}')
 
 
@@ -44,7 +45,15 @@ def _read(path):
               "title": found.get("title") if isinstance(found.get("title"), str) else "",
               # Older records carry neither time, so their read state is unknown rather than read.
               "unread": None if not isinstance(edge, (int, float)) else not isinstance(focused, (int, float)) or edge > focused,
-              "status": None}
+              "status": None, "parent": None}
+    # A session another session started names it (the app's own id of the parent), so a family of sessions can be drawn.
+    if m := _SPAWNED.search(raw):
+        try:
+            spawned, _ = json.JSONDecoder().raw_decode(raw[m.end() - 1:m.end() + 4095].decode("utf-8", errors="replace"))
+            if isinstance(spawned, dict) and isinstance(spawned.get("sessionId"), str):
+                record["parent"] = spawned["sessionId"][:80]
+        except ValueError:
+            pass
     if not record["archived"] and (m := _SUMMARY.search(raw)):
         text = raw[m.end() - 1:m.end() + 8191].decode("utf-8", errors="replace")
         try:

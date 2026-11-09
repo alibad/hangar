@@ -143,6 +143,15 @@ def make_handler(state, port):
             if path == "/api/plans":
                 from . import plan_links
                 return self._send(200, {"links": plan_links.read()})
+            if path in ("/api/stepback", "/api/stepback/facts"):
+                from . import stepback
+                try:
+                    if path == "/api/stepback":
+                        return self._send(200, stepback.view())
+                    days = int((parse_qs(url.query).get("days") or ["30"])[0])
+                    return self._send(200, stepback.facts(state.doc or state.load(), scanner.overlay(), days))
+                except ValueError as error:
+                    return self._send(400, {"error": str(error)})
             if path == "/api/changes":
                 return self._changes((parse_qs(url.query).get("repo") or [""])[0])
             if path == "/api/insights":
@@ -229,6 +238,16 @@ def make_handler(state, port):
                 try:
                     return self._send(200, plan_links.save(state.doc or state.load(), body))
                 except ValueError as e:
+                    return self._send(400, {"error": str(e)})
+            if path == "/api/stepback":
+                from . import stepback
+                try:
+                    if body.get("action") == "run":
+                        return self._send(202, stepback.start(state.doc or state.load(), scanner.overlay(), body))
+                    if body.get("action") == "records":
+                        return self._send(200, stepback.records(body))
+                    return self._send(200, stepback.update(body))
+                except (ValueError, OSError) as e:
                     return self._send(400, {"error": str(e)})
             if path == "/api/agents/login":
                 from . import agents

@@ -65,7 +65,8 @@ coding jobs return their output to the requesting Hangar.
   launching another writer in that checkout.
 - **Plan link:** an explicitly chosen PlanQuest plan. Connect once with OAuth,
   search active plans, preview milestones and link the verified plan to a project.
-  Hangar reads plan content but never writes milestone progress. See
+  Hangar reads plan content but never writes milestone progress (Step back can add
+  work records once you allow it). See
   [PlanQuest connection](planquest.md) for setup and agent tools.
 
 Project Git state shows its scan age; ahead counts refer to the last fetch.
@@ -108,6 +109,11 @@ suggestion changes Hangar only. Explicit “Move in Codex too” and “Archive 
 too” actions use the native Codex app-server protocol. Claude grouping/archiving
 is a Hangar overlay; its original transcripts remain untouched. New activity
 resurfaces a Hangar-archived session. Metadata is private to the selected machine.
+
+Step back (the first tab on Sessions) is the exception to "no transcript bodies":
+it keeps your own messages, cut short and stored apart, and hands them to a reader
+you pick so it can say what you are after and where you drifted. See
+[Step back](step-back.md) for what it keeps and what leaves the machine.
 
 Test runs are left out of the list until you show them: a session that ran in the
 system temp folder and edited no project (a scripted `codex exec` or `claude -p`
@@ -155,6 +161,7 @@ bundled engine on loopback (`HANGAR_ENGINE_URL` overrides `127.0.0.1:7789`):
 | `hangar_find` | Projects by name or description, with folders and what is waiting. |
 | `hangar_sessions` | Recent Claude Code and Codex sessions, by project, agent and age, with where each opens and what each committed. Test runs in a temp folder are left out. |
 | `hangar_activity` | Who changed what across every project (collisions between Claude and Codex first) or, with `repo`, in one project: each main-branch commit with the session that made it and why, and every stretch where two sessions (above all Claude and Codex) worked on it within two hours. |
+| `hangar_stepback` | What you are really after across all your sessions, from the latest [Step back](step-back.md): your goals and the call you made on each, the next moves, the open questions and what waits on you. Read-only; a session calls it before sizeable work and names the goal the work serves. |
 | `hangar_jobs`, `hangar_job` | The jobs Hangar ran and their steps; start, stop or acknowledge one (same limits as the task composer). |
 | `hangar_open`, `hangar_note`, `hangar_apps`, `hangar_rescan` | Open a folder in an agent or editor; focus / park / hide and a next step; running apps and ports; rescan. |
 

@@ -210,6 +210,150 @@ class SessionCleanup(unittest.TestCase):
             self.assertEqual((done["codexArchived"], done["claudeQueued"], done["hangarOnly"]), (1, 1, 1))
 
 
+class StepBack(unittest.TestCase):
+    """What you said in a session and how, and a reader's reply held to its shape. Synthetic transcripts only."""
+
+    def _voice(self, lines):
+        from unittest import mock
+        from hangar_engine import session_voice
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(session_voice.config, "LOCAL", Path(d)):
+            file = Path(d) / "s.jsonl"
+            file.write_text("".join(json.dumps(l, separators=(",", ":")) + "\n" for l in lines), encoding="utf-8")
+            return session_voice.collect({"claude:s": (str(file), "claude")})["claude:s"]
+
+    def test_your_own_words_are_told_from_what_you_accepted(self):
+        from hangar_engine import session_voice
+        human = lambda text, at: {"type": "user", "timestamp": at, "origin": {"kind": "human"}, "message": {"role": "user", "content": text}}
+        tool = lambda name, args: {"type": "assistant", "timestamp": "2026-11-01T10:00:30Z", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t-" + name, "name": name, "input": args}]}}
+        voice = self._voice([
+            human("<system-reminder>Linked sessions now</system-reminder>Fix the Google indexing on my sites", "2026-11-01T10:00:00Z"),
+            tool("mcp__ccd_turn__wrap_up", {"ask": "Push the 3 repos now?", "actions": json.dumps([{"label": "Push all 3"}, {"label": "Not yet"}, {"action": "commit"}])}),
+            human("Push all 3", "2026-11-01T10:05:00Z"),                                          # word for word a reply it offered
+            tool("mcp__ccd_session__start_session", {"initiation": "own_initiative", "title": "Upgrade Next.js everywhere"}),
+            human('<system-reminder>The user started your proposal task_ab12 ("Upgrade Next.js everywhere") in a separate session.</system-reminder>ok', "2026-11-01T10:07:00Z"),
+            tool("mcp__ccd_session__start_session", {"initiation": "offer", "title": "Index the Leela pages"}),
+            {"type": "user", "timestamp": "2026-11-01T10:08:00Z", "message": {"role": "user", "content": "[Request interrupted by user]"}},
+            {"type": "user", "timestamp": "2026-11-01T10:08:30Z", "origin": {"kind": "task-notification"}, "message": {"role": "user", "content": "<task-notification>done</task-notification>"}},
+            {"type": "user", "timestamp": "2026-11-01T10:08:40Z", "isMeta": True, "message": {"role": "user", "content": "Base directory for this skill: x"}},
+            {"type": "user", "timestamp": "2026-11-01T10:08:50Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "x", "content": "secret tool output"}]}},
+            tool("AskUserQuestion", {"questions": [{"question": "Which domain first?"}]}),
+            {"type": "user", "timestamp": "2026-11-01T10:09:00Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t-AskUserQuestion", "content": "globequest.app"}]}},
+            human("Actually stop the upgrades. I only wanted the pages indexed.", "2026-11-01T10:10:00Z"),
+        ])
+        kinds = [(e["k"], e.get("text", "")) for e in voice["events"]]
+        self.assertEqual(kinds, [("typed", "Fix the Google indexing on my sites"), ("button", "Push all 3"), ("proposed", "Upgrade Next.js everywhere"),
+                                 ("started", "Upgrade Next.js everywhere"), ("ack", "ok"), ("proposed", "Index the Leela pages"), ("stopped", ""),
+                                 ("answered", "globequest.app"), ("typed", "Actually stop the upgrades. I only wanted the pages indexed.")])
+        self.assertEqual(voice["events"][1]["ask"], "Push the 3 repos now?")                    # what it had asked when you clicked
+        self.assertEqual([e.get("by") for e in voice["events"] if e["k"] == "proposed"], ["session", "you"])
+        self.assertNotIn("secret tool output", json.dumps(voice))                               # no tool output, no agent reply
+        said = session_voice.summary(voice)
+        self.assertEqual((said["own"], said["accepted"], said["proposedByIt"]), (4, 3, 1))       # typed 2 + stopped + answered; button + ok + started
+
+    def test_a_session_another_session_started_opens_with_a_brief_not_your_words(self):
+        voice = self._voice([
+            {"type": "user", "timestamp": "2026-11-02T08:00:00Z", "promptSource": "sdk", "turnOrigin": "sdk", "message": {"role": "user", "content": "<system-reminder>x</system-reminder>Task: trim the sitemap"}},
+            {"type": "user", "timestamp": "2026-11-02T08:01:00Z", "promptSource": "sdk", "turnOrigin": "sdk", "message": {"role": "user", "content": "<system-reminder>The session ended.</system-reminder>"}},
+            {"type": "user", "timestamp": "2026-11-02T08:02:00Z", "promptSource": "sdk", "message": {"role": "user", "content": "keep the visa pages"}},   # an older app: no origin
+        ])
+        self.assertEqual([(e["k"], e["text"]) for e in voice["events"]], [("brief", "Task: trim the sitemap"), ("typed", "keep the visa pages")])
+
+    def test_only_what_was_appended_is_read_again(self):
+        from unittest import mock
+        from hangar_engine import session_voice
+        line = lambda text: json.dumps({"type": "user", "origin": {"kind": "human"}, "timestamp": "2026-11-02T08:00:00Z", "message": {"role": "user", "content": text}}, separators=(",", ":")) + "\n"
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(session_voice.config, "LOCAL", Path(d)):
+            file = Path(d) / "s.jsonl"
+            file.write_text(line("first"), encoding="utf-8")
+            files = {"claude:s": (str(file), "claude")}
+            self.assertEqual(len(session_voice.collect(files)["claude:s"]["events"]), 1)
+            with file.open("a", encoding="utf-8") as f:
+                f.write(line("second"))
+            self.assertEqual([e["text"] for e in session_voice.collect(files)["claude:s"]["events"]], ["first", "second"])
+
+    def test_a_reply_is_held_to_its_shape_and_becomes_a_trail(self):
+        from hangar_engine import stepback
+        reply = "Here is my read.\n```json\n" + json.dumps({
+            "headline": "You came for indexing and left with nine threads.",
+            "goals": [{"id": "g1", "title": "Get the sites indexed", "why": "You asked for it first.", "quote": "fix the indexing", "sessions": ["S01", "S99"],
+                       "state": "waiting", "done": ["Sitemaps fixed"], "left": ["Push 7 repos"], "plan": "plan-1", "share": 140},
+                      {"id": "g1", "title": "Second goal with a clashing id", "state": "nonsense", "plan": "not-a-plan"}, {"title": ""}],
+            "drift": [{"session": "S01", "started": "Indexing", "wandered": ["Next.js upgrade"], "by": "session", "note": "Its idea; you clicked yes.", "goal": "g1"},
+                      {"session": "S42", "started": "unknown session"}],
+            "next": [{"do": "Push the 7 repos", "why": "Nothing ships until then", "session": "S01", "goal": "g1"}] * 9,
+            "questions": [{"id": "q1", "ask": "Is indexing the goal, or people using the products?", "why": "It decides what is next", "goal": "g1", "options": ["Indexing", "Usage"]}],
+            "archive": [{"session": "S02", "why": "Repeats S01"}], "sidequests": ["S02", "S02", "S77"]}) + "\n```"
+        refs = {"S01": "claude:a", "S02": "claude:b"}
+        plans = [{"id": "plan-1", "title": "Human Quest", "folders": [], "url": "https://my.plans.quest/plans/plan-1"}]
+        read = stepback.tidy(stepback.parse(reply), refs, plans, {"S01": "Google indexing", "S02": "Sitemap"})
+        self.assertEqual([g["id"] for g in read["goals"]], ["g1", "g2"])                          # a clashing id is renamed, an empty goal dropped
+        self.assertEqual(read["goals"][0]["sessions"], ["claude:a"])                              # an unknown ref is dropped
+        self.assertEqual((read["goals"][0]["share"], read["goals"][1]["state"], read["goals"][1]["plan"]), (100, "moving", ""))
+        self.assertEqual(len(read["drift"]), 1)
+        self.assertEqual(len(read["next"]), 5)                                                    # never more than five moves
+        self.assertEqual(read["sidequests"], ["claude:b"])
+        self.assertEqual(read["archive"][0]["why"], "Repeats “Google indexing”")                 # you never see a ref, so it becomes the title
+        self.assertIsNone(stepback.parse("no json here"))
+        sessions = {"claude:a": {"title": "Google indexing"}, "claude:b": {"title": "Sitemap"}}
+        run = {"id": "abc123def456", "days": 30, "reader": "claude", "sessions": sessions, "read": read, "recorded": {},
+               "answers": {"q1": {"text": "Usage", "at": "2026-11-09T00:00:00+00:00"}}, "decisions": {"g1": {"decision": "pause", "note": "", "at": "x"}}}
+        records = stepback.trail(run, {"vision": "People using what I build"})
+        self.assertEqual([(r["type"], r["actor"], r["plan_id"]) for r in records],
+                         [("progress", "claude", "plan-1"), ("progress", "claude", None), ("decision", "human", "plan-1"), ("plan_change", "human", "plan-1"), ("decision", "human", None)])
+        self.assertEqual(records[0]["next_step"], "Push the 7 repos")
+        self.assertEqual(records[0]["open_question"], "")                                         # you answered it, so nothing is open
+        self.assertTrue(all(8 <= len(r["key"]) <= 128 and r["title"] and r["summary"] for r in records))
+        self.assertNotIn("claude:a", json.dumps(records))                                         # session ids stay on this machine
+
+    def test_what_you_say_back_is_kept_for_the_next_read(self):
+        from unittest import mock
+        from hangar_engine import stepback
+        read = {"headline": "", "goals": [{"id": "g1", "title": "Ship the talk", "why": "", "quote": "", "sessions": ["claude:a"], "state": "moving", "done": [], "left": [], "plan": "", "share": 50}],
+                "drift": [], "next": [], "questions": [{"id": "q1", "ask": "Talk first?", "why": "", "goal": "g1", "options": ["Yes", "No"]}], "archive": [], "sidequests": []}
+        run = {"id": "run1", "at": "2026-11-10T00:00:00+00:00", "days": 30, "reader": "claude", "read": read, "sessions": {"claude:a": {"title": "Talk prep"}}, "families": [],
+               "facts": {"totals": {"open": 10, "stale": 6}, "waiting": [], "projects": [], "finished": [{"key": "claude:old", "activityAt": "x", "title": "Old", "idleDays": 40, "verdict": "done"}]},
+               "plans": {}, "answers": {}, "decisions": {}, "recorded": {}}
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(stepback.config, "LOCAL", Path(d)), mock.patch.object(stepback, "view", lambda: stepback.read()):
+            stepback._write({"version": 1, "runs": [run], "run": None, "memory": {}})
+            with self.assertRaisesRegex(ValueError, "answer first"):
+                stepback.update({"action": "answer", "run": "run1", "question": "q1", "text": "  "})
+            stepback.update({"action": "answer", "run": "run1", "question": "q1", "text": "Yes"})
+            stepback.update({"action": "answer", "run": "run1", "question": "q1", "text": "Yes, talk only"})      # changing your mind replaces it
+            with self.assertRaisesRegex(ValueError, "keep, adjust, pause or stop"):
+                stepback.update({"action": "decide", "run": "run1", "goal": "g1", "decision": "delete"})
+            stepback.update({"action": "decide", "run": "run1", "goal": "g1", "decision": "pause", "note": "after the talk"})
+            stepback.update({"action": "plan", "run": "run1", "goal": "g1", "plan": {"id": "plan-9", "title": "Talks", "folders": [], "url": "https://my.plans.quest/plans/plan-9"}})
+            stepback.update({"action": "vision", "text": "People using what I build"})
+            stepback.update({"action": "archived", "run": "run1", "keys": ["claude:old"]})
+            saved = stepback.read()
+            self.assertEqual(saved["memory"]["answers"], [{"ask": "Talk first?", "answer": "Yes, talk only", "goal": "Ship the talk", "at": saved["memory"]["answers"][0]["at"]}])
+            self.assertEqual([(g["title"], g["decision"], g["note"]) for g in saved["memory"]["goals"]], [("Ship the talk", "pause", "after the talk")])
+            self.assertEqual(saved["memory"]["vision"], "People using what I build")
+            latest = saved["runs"][0]
+            self.assertEqual((latest["read"]["goals"][0]["plan"], latest["plans"]["plan-9"]["title"]), ("plan-9", "Talks"))
+            self.assertEqual((latest["facts"]["finished"], latest["facts"]["totals"]), ([], {"open": 9, "stale": 5}))
+            records = stepback.records({"run": "run1"})["records"]
+            self.assertEqual([(r["type"], r["plan_id"]) for r in records], [("progress", "plan-9"), ("decision", "plan-9"), ("plan_change", "plan-9"), ("decision", None)])
+            stepback.update({"action": "recorded", "run": "run1", "records": {records[0]["key"]: "https://my.plans.quest/records/1", "made-up-key": "https://my.plans.quest/x", records[1]["key"]: "http://evil.example"}})
+            self.assertEqual([bool(r["saved"]) for r in stepback.records({"run": "run1"})["records"]], [True, False, False, False])   # only its own records, only https
+            with self.assertRaisesRegex(ValueError, "gone"):
+                stepback.update({"action": "answer", "run": "nope", "question": "q1", "text": "Yes"})
+
+    def test_the_reader_runs_sealed_and_only_in_hangars_own_storage(self):
+        from unittest import mock
+        from hangar_engine import work
+        with mock.patch.object(work.launch, "cli", return_value="/bin/claude"), mock.patch.object(work.os, "name", "posix"):
+            argv = work.command("claude", "/tmp/pack", "task", read_dirs=["/tmp/pack"], sealed=True)
+        self.assertIn("--restricted", argv)
+        self.assertIn("--strict-mcp-config", argv)
+        self.assertEqual(argv[argv.index("--tools") + 1:argv.index("--tools") + 4], ["Read", "Grep", "Glob"])
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(work.config, "LOCAL", Path(d) / "engine"):
+            with self.assertRaisesRegex(ValueError, "own storage"):
+                work.begin({"repos": []}, {}, None, "claude", "task", read_dirs=[d], folder=Path(d) / "elsewhere")
+            with self.assertRaisesRegex(ValueError, "own storage"):
+                work.begin({"repos": []}, {}, None, "claude", "task", folder=Path(d) / "engine" / "stepback" / "x")   # never a writing job
+
+
 class OpenWith(unittest.TestCase):
     def test_github_desktop_opens_the_folder_as_a_repository(self):
         from unittest import mock

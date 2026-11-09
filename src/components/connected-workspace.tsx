@@ -14,7 +14,7 @@ import ProjectReview from "./project-review";
 import ProjectCategory from "./project-category";
 import HangarLoading from "./hangar-loading";
 import { SignInNotice } from "./agent-sign-in";
-import { Activity, AppWindow, ArrowRight, Check, ChevronRight, Cpu, Globe2, Laptop, Layers as LayersIcon, Play, Plus, RefreshCw, Search, Server, Square, TriangleAlert, Terminal, X, Maximize2, Minimize2, Home, MoreHorizontal, SlidersHorizontal, FolderDown, GitCommitHorizontal, History } from "lucide-react";
+import { Activity, AppWindow, ArrowRight, Check, ChevronRight, Cpu, Globe2, Laptop, Layers as LayersIcon, Play, Plus, RefreshCw, Search, Server, Square, TriangleAlert, Terminal, X, Maximize2, Minimize2, Home, MoreHorizontal, SlidersHorizontal, FolderDown, GitCommitHorizontal, History, Undo2 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import type { ConsoleTab } from "@/lib/labs";
 import type { Peer } from "@/lib/fleet-policy";
@@ -28,6 +28,7 @@ import SessionLibrary, { type LibrarySession, type SessionLibraryData } from "./
 import { ProjectDirectoryProvider, ProjectEmblem, type ProjectInfo } from "./project-identity";
 import YourTurn, { IslandSuggestions } from "./your-turn";
 import FocusBoard from "./focus-board";
+import StepBack from "./step-back";
 import { leftOff, suggestIslands, yourTurn, type LeftOff } from "@/lib/project-signals";
 import "./workspace-focus.css";
 
@@ -41,7 +42,7 @@ type Model = { id: string; target: string; provider: string; mode: string; statu
 type Machine = { id: string; name: string; port?: number; sshAlias?: string };
 type MachineStatus = { machine: string; name: string; atlas: boolean; platform: string; observedAt: string; error?: string; memory?: { kind: string; vramTotalGb?: number; ramTotalGb?: number } };
 type View = "world" | "projects" | "sessions" | "machines" | "models";
-type SessionsTab = "activity" | "history" | "jobs";
+type SessionsTab = "stepback" | "activity" | "history" | "jobs";
 export const WORLD_TABS = new Set<string>(["world", "projects", "sessions", "machines", "models"]);
 const running = jobRunning;
 /** The side panel's width as a share of the workspace; the CSS floor keeps it at least as wide as its content needs. */
@@ -127,7 +128,8 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   // list, the quickest to show, while who changed what (seconds to read when cold) loads behind it. Starting a task
   // opens it on Hangar jobs instead (`enterTab`).
   const [sessionsTab, setSessionsTab] = useState<SessionsTab>("history");
-  const enterTab = useRef<SessionsTab>("history");
+  // Back from PlanQuest after allowing work records: Step back asked, so Sessions opens on it.
+  const enterTab = useRef<SessionsTab>(typeof window !== "undefined" && window.location.hash === "#sessions" && new URLSearchParams(window.location.search).has("planquest") ? "stepback" : "history");
   const onSessions = active && view === "sessions";
   useEffect(() => { if (!onSessions) return; setSessionsTab(enterTab.current); enterTab.current = "history"; }, [onSessions]);
   useEffect(() => { if (onSessions) prefetchBoard(machine); }, [onSessions, machine]);
@@ -519,6 +521,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     {view === "world" && <button className="cw-live-chip" onClick={() => onSelect("sessions")} title="Coding jobs Hangar is running"><span className={`cw-led ${!liveError ? (liveJobs.length ? "is-live" : "") : "is-offline"}`} />{liveError ? "Live connection lost" : liveJobs.length ? `${liveJobs.length} coding ${liveJobs.length === 1 ? "job" : "jobs"}` : "No coding jobs"}</button>}
     {view === "world" && turnCount > 0 && <button className="cw-live-chip" onClick={() => onSelect("projects")} title="Questions, reviews, unread replies and commits waiting on you"><span className="cw-led is-wait" />Your turn · {turnCount}</button>}
     {view === "world" && !!library?.reviewCount && <button className="cw-live-chip" onClick={() => onSelect("sessions")} title={`Sessions idle for ${library.idleDays}+ days`}>{library.reviewCount} idle sessions</button>}
+    {(view === "world" || view === "projects") && <button className="cw-live-chip" onClick={() => { enterTab.current = "stepback"; onSelect("sessions"); }} title="What you are really after across your sessions, where you drifted, and what to do next"><Undo2 size={14} />Step back</button>}
     {view === "projects" && toolsMenu}
     <button className="cw-icon" onClick={reload} aria-label="Refresh connected workspace"><RefreshCw size={16} /></button></div>
     {view === "world" && <div className="cw-toolbar cw-world-bar">{actionCounts}</div>}
@@ -555,6 +558,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
       {view === "projects" && <div className={`cw-projects${project || toolsView ? " cw-project-list-layout" : ""}`}><div className="cw-project-browser" ref={el => { if (el && el.scrollTop !== gridScroll.current) el.scrollTop = gridScroll.current; }} onScroll={e => { gridScroll.current = e.currentTarget.scrollTop; }}><div className="cw-toolbar">{filters}{actionCounts}</div>{projectFilter !== "hidden" && <YourTurn turn={turn} onSession={machine === "local" ? s => void openSession(s.provider, s.id) : undefined} onProject={openFromTurn} />}<div className="cw-browser-toolbar"><ProjectSearch query={query} setQuery={setQuery} onPick={() => repos[0] && choose(repos[0])} /><span className="cw-muted">{repos.length} {projectFilter === "hidden" ? "projects off the map" : "projects on this map"}</span></div><div className="cw-family-tabs"><button aria-pressed={!family} onClick={() => setFamily("")}>All islands</button>{listFamilies.map(f => <button key={f.id} aria-pressed={family === f.id} onContextMenu={e => { e.preventDefault(); setOperation({ kind: "islands", island: f.id }); }} onClick={() => setFamily(f.id)}>{f.name}<small>{f.repos}</small>{f.id === "uncategorized" && projectFilter !== "hidden" && placements.length > 0 && <i className="cw-tab-dot" title="Hangar can suggest an island for some of these" />}</button>)}</div>{family === "uncategorized" && projectFilter !== "hidden" && <IslandSuggestions groups={placements} names={projectNames} busy={busy} onMove={(island, ids) => void moveToIsland(island, ids)} />}<ProjectGrid repos={repos} islands={doc?.islands || doc?.families || []} machine={machine} jobs={jobs} apps={apps} sessions={sessions} selected={selected} status={gridStatus} setStatus={setGridStatus} sort={gridSort} setSort={setGridSort} onOpen={repo => choose(repo)} onMenu={(repo, x, y) => setMenu({ project: repo, x, y })} />{doc && !repos.length && <p className="cw-empty">No projects match that search.</p>}</div>{project ? projectPane : toolsPane}</div>}
       {view === "sessions" && <div className="cw-sessions">
         <nav className="cw-family-tabs cw-sessions-tabs" aria-label="Sessions views">
+          <button aria-pressed={sessionsTab === "stepback"} onClick={() => setSessionsTab("stepback")}><Undo2 size={15} />Step back</button>
           <button aria-pressed={sessionsTab === "activity"} onClick={() => setSessionsTab("activity")}><GitCommitHorizontal size={15} />Who changed what</button>
           <button aria-pressed={sessionsTab === "history"} onClick={() => setSessionsTab("history")}><Terminal size={15} />Sessions{library && <small>{library.sessions.filter(s => !s.archived && !s.probe).length}</small>}</button>
           <button aria-pressed={sessionsTab === "jobs"} onClick={() => setSessionsTab("jobs")}><Activity size={15} />Hangar jobs{jobs.some(job => running(job) || job.state === "unobserved") && <small className="is-live">{jobs.filter(job => running(job) || job.state === "unobserved").length} running</small>}</button>
@@ -575,6 +579,8 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
             {jobDetail(pickedJobRow)}
           </SidePane>}
         </div>}
+        {sessionsTab === "stepback" && <StepBack key={`stepback-${machine}`} machine={machine} onOpen={machine === "local" ? s => void openSession(s.provider, s.id) : undefined}
+          onSessionsChanged={() => { json<SessionLibraryData>(`${prefix}/sessions/library`).then(receiveLibrary).catch(() => { /* the list refreshes on its next visit */ }); }} onCleanUp={() => setSessionsTab("history")} />}
         {sessionsTab === "history" && <SessionLibrary key={machine} machine={machine} data={library} error={sessionsError} onUpdate={receiveLibrary} onContinue={continueSession} onOpen={machine === "local" ? s => void openSession(s.provider, s.id) : undefined} />}
       </div>}
     </>
