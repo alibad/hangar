@@ -26,7 +26,9 @@ const CONFIG_FILE = process.env.HANGAR_PRODUCTS_CONFIG || path.join(process.cwd(
 const CACHE_FILE = path.join(DATA_DIR, "products.json");
 const FRESH_MS = 60 * 60_000;
 const ANALYTICS_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
-const SIGN_IN = `gcloud auth application-default login --scopes=openid,https://www.googleapis.com/auth/userinfo.email,https://www.googleapis.com/auth/cloud-platform,${ANALYTICS_SCOPE}`;
+// The scope list is quoted: unquoted, PowerShell reads the commas as a list and hands gcloud the scopes joined by
+// spaces, which gcloud rejects ("cloud-platform scope is required but not requested"). Quoted works in cmd and sh too.
+const SIGN_IN = `gcloud auth application-default login --scopes="openid,https://www.googleapis.com/auth/userinfo.email,https://www.googleapis.com/auth/cloud-platform,${ANALYTICS_SCOPE}"`;
 
 type Json = Record<string, unknown>;
 const isString = (v: unknown): v is string => typeof v === "string" && v.length > 0;
