@@ -48,8 +48,9 @@ async function handle(request: NextRequest, context: Context) {
       try { input = JSON.parse(raw || "{}"); if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error(); }
       catch { return json({ error: "Send a JSON object." }, 400); }
       if (path === "connect") {
-        // records: true also asks for the right to save work records (Step back's trail); the default stays read-only.
-        const result = await planquest.begin(origin, input.returnTo === "/#sessions" ? "/#sessions" : "/#projects", input.records === true);
+        // records: true also asks for the right to save work records (Step back's trail); plans: true for creating a
+        // plan for a goal that has none as well. The default stays read-only.
+        const result = await planquest.begin(origin, input.returnTo === "/#sessions" ? "/#sessions" : "/#projects", input.plans === true ? "plans" : input.records === true);
         const response = json({ url: result.url });
         response.cookies.set(PLANQUEST_COOKIE, result.cookie, { httpOnly: true, sameSite: "lax", path: "/api/planquest/oauth", maxAge: 600 });
         return response;
@@ -76,6 +77,30 @@ async function handle(request: NextRequest, context: Context) {
         }
         if (Object.keys(saved).length) await engine({ action: "recorded", run, records: saved });
         return json({ run, saved, failed });
+      }
+      if (path === "goal-plans") {
+        // A new plan for each goal of a step back that has none (or for one goal). Titles and descriptions come from
+        // the engine's saved read, never from the browser. Each new plan is linked to its goal straight away, so a
+        // second click cannot create it twice. preview lists what would be created without creating anything.
+        const base = await atlasBase();
+        const engine = (body: unknown) => fetch(`${base}/api/stepback`, { method: "POST", headers: { "Content-Type": "application/json", "X-Atlas": "1", "X-Hangar": "1" }, body: JSON.stringify(body), redirect: "error", cache: "no-store", signal: AbortSignal.timeout(20000) });
+        const listed = await engine({ action: "plan-drafts", ...(typeof input.run === "string" ? { run: input.run.slice(0, 40) } : {}), ...(typeof input.goal === "string" ? { goal: input.goal.slice(0, 20) } : {}) });
+        if (!listed.ok) return json({ error: (await listed.json().catch(() => ({}))).error || "There is no step back to make plans from yet." }, 400);
+        const { run, drafts, skipped } = await listed.json() as { run: string; drafts: { goal: string; key: string; title: string; description: string }[]; skipped: { goal: string; title: string; why: string }[] };
+        if (input.preview === true) return json({ run, drafts, skipped });
+        const created: { goal: string; id: string; title: string; url: string }[] = [], failed: { goal: string; title: string; error: string }[] = [];
+        for (const draft of drafts.slice(0, 8)) {
+          try {
+            const plan = await planquest.createPlan(draft);
+            created.push({ goal: draft.goal, id: plan.id, title: plan.title, url: plan.url });
+            await engine({ action: "plan", run, goal: draft.goal, plan });
+          } catch (error) {
+            const known = error instanceof PlanQuestError;
+            failed.push({ goal: draft.goal, title: draft.title, error: known ? error.message : "PlanQuest could not create this plan." });
+            if (known && [401, 403].includes(error.status)) break;  // no access: the rest would fail the same way
+          }
+        }
+        return json({ run, created, failed, skipped });
       }
       if (path === "link") {
         if (typeof input.repo !== "string" || !input.repo || input.repo.length > 200) return json({ error: "Choose an indexed project." }, 400);

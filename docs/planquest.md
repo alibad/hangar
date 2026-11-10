@@ -15,7 +15,10 @@ One feature can write, and only after a second approval: Sessions → Step back
 can leave short work records (progress, a decision, an open question) on the
 plan each goal belongs to. **Allow work records** there asks PlanQuest for
 `records:read records:write` as well; plans and milestones stay read-only, and
-nothing is saved until you press Save. See [Step back](step-back.md#plan-quest).
+nothing is saved until you press Save. A third approval, **Allow creating plans**,
+asks for `plans:write` so Step back can create a plan for a goal that has none;
+Hangar's code creates plans and never edits, moves or completes one. See
+[Step back](step-back.md#plan-quest).
 
 Use **Connection & agent access** in the picker to reconnect, disconnect, or
 unlink a project. Disconnecting keeps existing links. If remote revocation fails,

@@ -75,6 +75,17 @@ one per goal (where it stands, the next step, the open question), one per answer
 you gave, one per decision (keep, adjust, pause, stop). Never a transcript, and
 no session ids.
 
+A goal with no plan can get a new one. **Create plan** on a goal, or **Create N
+plans** under Trail in PlanQuest, makes a top-level plan in PlanQuest: the goal as
+its title; why it matters, what is done and what is left as its description. No
+milestones, because they need dates and Hangar does not make dates up. The new
+plan is linked to its goal at once, and the link is remembered under the goal's
+title, so the next read is told which plan it belongs to. The bulk button leaves
+out goals you paused or stopped. This needs its own approval, **Allow creating
+plans**, which asks for `plans:write`. PlanQuest has no narrower permission, so
+the grant allows more than Hangar does with it: Hangar's code only calls
+`create_plan` and never edits, moves or completes a plan.
+
 Hangar connects to PlanQuest read-only. Saving records needs one more approval,
 **Allow work records**, which asks PlanQuest for `records:read records:write` on
 top of `plans:read`. It does not ask for `plans:write`: Hangar still cannot change
@@ -121,6 +132,7 @@ folder, holds the reply to its shape and prepares the trail.
 | `POST /api/stepback` `{action: "run", days, reader, plans}` | Start a read |
 | `POST /api/stepback` `answer` / `decide` / `plan` / `vision` | What you say back |
 | `POST /api/planquest/trail` (console) | Save the trail; `preview: true` only lists it |
+| `POST /api/planquest/goal-plans` (console) | Create and link a plan for each goal without one (`goal` for one); `preview: true` only lists them |
 
 `python engine/selftest.py StepBack` covers the message kinds, the reply's shape,
 the trail and the sealed reader, with made-up transcripts.

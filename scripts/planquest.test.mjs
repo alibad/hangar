@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { createPlanQuestClient, hideSecrets, HIDDEN_LINE, loopbackOrigin, validatePlanId, workRecord, PLANQUEST_MCP, RECORD_SCOPE } from "../src/lib/planquest.ts";
+import { createPlanQuestClient, hideSecrets, HIDDEN_LINE, loopbackOrigin, validatePlanId, workRecord, planDraft, PLANQUEST_MCP, RECORD_SCOPE, PLAN_SCOPE } from "../src/lib/planquest.ts";
 import { planquestTools } from "./planquest-tools.mjs";
 
 const origin = "http://127.0.0.1:8003";
@@ -35,7 +35,8 @@ async function fixture(t) {
     if (rpc.method === "initialize") return response({ result: { protocolVersion: "2025-06-18" } });
     if (rpc.method === "notifications/initialized") return new Response(null, { status: 202 });
     assert.equal(rpc.method, "tools/call");
-    assert.ok(["list_plans", "get_plan", "record_work"].includes(rpc.params.name));
+    assert.ok(["list_plans", "get_plan", "record_work", "create_plan"].includes(rpc.params.name));
+    if (rpc.params.name === "create_plan") return granted.includes("plans:write") ? response({ result: { structuredContent: { plan: { id: "new-plan-1", title: rpc.params.arguments.title, url: "https://untrusted.example/plan" } } } }) : response({}, 403);
     if (rpc.params.name === "record_work") return granted.includes("records:write") ? response({ result: { structuredContent: { record: { id: "rec-1", url: "https://untrusted.example/record" } } } }) : response({}, 403);
     const plan = { id: "launch", title: "Launch the product", description: "Ship useful work", access: "owner", folder_path: ["Product"], progress: 45, url: "https://untrusted.example/redirect", milestones: [
       { id: "m1", objective: "Ship the beta", progress: 40, key_results: [{ description: "Onboard testers", progress: 30 }, { description: "Removed", scratched: true }] },
@@ -149,7 +150,7 @@ test("saving work records is asked for only when you choose it; a record is boun
   const f = await fixture(t), record = { key: "hangar-stepback-abc-g1", plan_id: "launch", type: "progress", actor: "claude", title: "Get the sites indexed", summary: "Sitemaps fixed; seven repos not pushed.", next_step: "Push the repos", open_question: "" };
   await f.authorize();
   assert.equal((await f.client.status()).canRecord, false);
-  await assert.rejects(f.client.record(record), /only read/);                    // a read-only connection cannot write
+  await assert.rejects(f.client.record(record), /not allowed to save work records/);   // a read-only connection cannot write
   f.grant(RECORD_SCOPE);
   const started = await f.client.begin(origin, "/#sessions", true);
   assert.equal(new URL(started.url).searchParams.get("scope"), RECORD_SCOPE);
@@ -163,6 +164,28 @@ test("saving work records is asked for only when you choose it; a record is boun
   assert.deepEqual(sent, { type: "progress", actor: "claude", title: "Get the sites indexed", summary: "Sitemaps fixed; seven repos not pushed.", idempotency_key: "hangar-stepback-abc-g1", plan_id: "launch", next_step: "Push the repos" });
   for (const bad of [{ ...record, key: "short" }, { ...record, type: "transcript" }, { ...record, actor: "robot" }, { ...record, summary: " " }, { ...record, plan_id: "../x" }, null]) assert.throws(() => workRecord(bad));
   assert.equal(workRecord({ ...record, summary: "x".repeat(9000) }).summary.length, 5000);
+});
+
+test("creating a plan needs its own approval; a new plan is a title and a description, never dates", async t => {
+  const f = await fixture(t), draft = { goal: "g1", key: "hangar-goal-abc-g1", title: "Give the talk", description: "You asked for the story of the talk. Left: build the deck." };
+  f.grant(RECORD_SCOPE); await f.authorize();
+  assert.equal((await f.client.status()).canCreate, false);
+  await assert.rejects(f.client.createPlan(draft), /not allowed to create plans/);   // records access is not enough
+  f.grant(PLAN_SCOPE);
+  const started = await f.client.begin(origin, "/#sessions", "plans");
+  assert.equal(new URL(started.url).searchParams.get("scope"), PLAN_SCOPE);
+  await f.client.finish(origin, new URL(started.url).searchParams.get("state"), started.cookie, "fixture-code");
+  const status = await f.client.status();
+  assert.deepEqual([status.canRecord, status.canCreate], [true, true]);
+  await f.client.plans();
+  assert.deepEqual(await f.client.createPlan(draft), { id: "new-plan-1", title: "Give the talk", folders: [], url: "https://my.plans.quest/plans/new-plan-1" });   // its own URL, not the server's
+  const calls = f.calls.map(c => c.url === PLANQUEST_MCP && JSON.parse(c.init.body)).filter(c => c && c.method === "tools/call").map(c => c.params);
+  assert.deepEqual(calls.at(-1), { name: "create_plan", arguments: { title: "Give the talk", description: draft.description, idempotency_key: "hangar-goal-abc-g1" } });   // no milestones, no dates
+  await f.client.plans();
+  assert.equal(f.calls.map(c => c.url === PLANQUEST_MCP && JSON.parse(c.init.body)).filter(c => c && c.params?.name === "list_plans").length, 2);   // the list is read again once a plan is added
+  for (const bad of [{ ...draft, key: "x" }, { ...draft, title: "  " }, null]) assert.throws(() => planDraft(bad));
+  assert.equal(planDraft({ ...draft, title: "t".repeat(400) }).title.length, 200);
+  assert.equal("description" in planDraft({ ...draft, description: "" }), false);
 });
 
 test("origins and plan IDs cannot escape the intended API", () => {

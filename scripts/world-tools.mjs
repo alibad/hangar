@@ -374,7 +374,7 @@ export function worldTools({
     const goals = read.goals || [];
     const STATE = { moving: "moving", stalled: "stalled", waiting: "waiting on them", done: "done" };
     // Their own call on a goal: the one made on this read, else the last one made on a goal of the same title.
-    const callOn = (g) => latest.decisions?.[g.id] || [...(memory.goals || [])].reverse().find((m) => m.title === g.title) || null;
+    const callOn = (g) => latest.decisions?.[g.id] || [...(memory.goals || [])].reverse().find((m) => m.title === g.title && m.decision) || null;
     const said = (g) => { const c = callOn(g); return c ? `their call: ${c.decision}${c.note ? ` (${c.note})` : ""}` : "no call from them yet"; };
     const days = Math.floor((now() - Date.parse(latest.at)) / DAY);
     const reader = { claude: "Claude Code", codex: "Codex" }[latest.reader] || "an agent";

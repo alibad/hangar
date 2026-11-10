@@ -246,6 +246,8 @@ def make_handler(state, port):
                         return self._send(202, stepback.start(state.doc or state.load(), scanner.overlay(), body))
                     if body.get("action") == "records":
                         return self._send(200, stepback.records(body))
+                    if body.get("action") == "plan-drafts":
+                        return self._send(200, stepback.plan_drafts(body))
                     return self._send(200, stepback.update(body))
                 except (ValueError, OSError) as e:
                     return self._send(400, {"error": str(e)})

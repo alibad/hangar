@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArrowRight, Check, ChevronDown, ExternalLink, HelpCircle, Hourglass, ListChecks, Loader2, MapPin, Route, Target, Undo2 } from "lucide-react";
 import AgentMark from "./agent-mark";
+import { FieldSelect } from "@/components/ui/field-select";
 import type { PlanSummary } from "@/lib/planquest";
 import "./step-back.css";
 
@@ -26,7 +27,7 @@ type Result = { id: string; at: string; days: number; reader: string; job: strin
 type Run = { id: string; state: "reading" | "asking" | "done" | "failed"; startedAt: string; days: number; reader: string; sessions: number; message: string };
 type View = { run: Run | null; latest: Result | null; history: { id: string; at: string }[]; memory: { vision: string }; readers: { id: string; name: string; signedIn: boolean | null }[]; windows: number[] };
 type TrailRecord = { key: string; plan_id: string | null; type: string; title: string; summary: string; saved?: { url: string } | null };
-type PqStatus = { connected: boolean; canRecord?: boolean };
+type PqStatus = { connected: boolean; canRecord?: boolean; canCreate?: boolean };
 
 const WAIT: Record<WaitKind, { label: string; one: string }> = {
   signin: { label: "Sign-ins", one: "Sign in" }, answer: { label: "Questions for you", one: "Answer" }, push: { label: "Not pushed", one: "Push" },
@@ -149,6 +150,9 @@ export default function StepBack({ machine, onOpen, onSessionsChanged, onCleanUp
   const chosen = view?.readers.find(r => r.id === reader);
   const open = (key: string) => { const s = sessions[key]; if (s && onOpen) onOpen({ provider: s.provider, id: s.id }); };
   const goalOf = useMemo(() => new Map((read?.goals ?? []).map(g => [g.id, g])), [read]);
+  // Goals with no plan, and of those the ones a single click would make plans for: not the ones you paused or stopped.
+  const bare = (read?.goals ?? []).filter(g => !g.plan);
+  const creatable = bare.filter(g => !["pause", "stop"].includes(result?.decisions[g.id]?.decision ?? ""));
   const unplaced = useMemo(() => {
     if (!read) return [];
     const placed = new Set([...read.goals.flatMap(g => g.sessions), ...read.sidequests, ...read.archive.map(a => a.session)]);
@@ -168,10 +172,23 @@ export default function StepBack({ machine, onOpen, onSessionsChanged, onCleanUp
     finally { setArchiving(false); }
   };
 
-  const allow = async () => {
+  /** Off to PlanQuest's own approval page: for work records, or for creating plans as well. */
+  const allow = async (plans = false) => {
     setError("");
-    try { window.location.assign((await call<{ url: string }>("/api/planquest/connect", { records: true, returnTo: "/#sessions" })).url); }
+    try { window.location.assign((await call<{ url: string }>("/api/planquest/connect", { ...(plans ? { plans: true } : { records: true }), returnTo: "/#sessions" })).url); }
     catch (e) { setError((e as Error).message); }
+  };
+  /** A new plan in PlanQuest for one goal, or for every goal that has none and that you have not paused or stopped. */
+  const createPlans = async (goal?: string) => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const out = await call<{ created: { title: string }[]; failed: { title: string; error: string }[]; skipped: { title: string }[] }>("/api/planquest/goal-plans", { run: result?.id, ...(goal ? { goal } : {}) });
+      if (out.created.length) setNotice(`Created ${plural(out.created.length, "plan")} in PlanQuest and linked ${out.created.length === 1 ? "it" : "them"}: ${out.created.map(p => p.title).join(", ")}.`);
+      if (out.failed.length) setError(`${out.failed[0].error}${out.failed.length > 1 ? ` (${out.failed.length} plans not created)` : ""}`);
+      await load(); setTrail(null);
+      call<{ plans: PlanSummary[] }>("/api/planquest/plans?fresh=1").then(d => setPlans(d.plans)).catch(() => { /* the picker catches up on the next visit */ });
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy(false); }
   };
   const preview = async () => {
     setError("");
@@ -197,8 +214,8 @@ export default function StepBack({ machine, onOpen, onSessionsChanged, onCleanUp
       <div className="sb-title"><h2>Step back</h2>
         <p>{result ? <>Read by {readerName(result.reader)} · {when(result.at)} · last {result.days} days</> : "One read across your sessions: what you are really after, where you drifted, what to do next."}</p></div>
       <div className="sb-controls">
-        <label><span>Look back</span><select value={days} disabled={running} onChange={e => setDays(Number(e.target.value))}>{view.windows.map(d => <option key={d} value={d}>{d} days</option>)}</select></label>
-        <label><span>Read by</span><select value={reader} disabled={running} onChange={e => setReader(e.target.value)}>{view.readers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
+        <div className="sb-pick"><span id="sb-days">Look back</span><span className="sb-seg" role="group" aria-labelledby="sb-days">{view.windows.map(d => <button key={d} aria-pressed={days === d} disabled={running} onClick={() => setDays(d)}>{d} days</button>)}</span></div>
+        <div className="sb-pick"><span id="sb-reader">Read by</span><span className="sb-seg" role="group" aria-labelledby="sb-reader">{view.readers.map(r => <button key={r.id} aria-pressed={reader === r.id} disabled={running} onClick={() => setReader(r.id)}>{r.name}</button>)}</span></div>
         <button className="sb-go" disabled={running} onClick={begin}>{running ? <Loader2 size={16} className="sb-spin" /> : <Undo2 size={16} />}{running ? (run?.state === "reading" ? "Gathering…" : `Reading ${run?.sessions || ""} sessions…`) : result ? "Step back again" : "Step back"}</button>
       </div>
     </header>
@@ -237,7 +254,7 @@ export default function StepBack({ machine, onOpen, onSessionsChanged, onCleanUp
         <h3><Target size={15} aria-hidden="true" />What you are really after</h3>
         {read.goals.map(goal => <GoalCard key={goal.id} goal={goal} sessions={sessions} plans={plans} linked={result!.plans[goal.plan]} call={result!.decisions[goal.id]?.decision}
           onOpen={onOpen ? open : undefined} onDecide={decision => void act({ action: "decide", run: result!.id, goal: goal.id, decision })}
-          onPlan={plan => void act({ action: "plan", run: result!.id, goal: goal.id, plan })} />)}
+          onPlan={plan => void act({ action: "plan", run: result!.id, goal: goal.id, plan })} onCreate={local && pq?.canCreate && !busy ? () => void createPlans(goal.id) : undefined} />)}
         {!read.goals.length && <p className="sb-quiet">The read found no clear goal. Answer its questions below, then step back again.</p>}
       </section>}
       <div className="sb-side">
@@ -283,6 +300,12 @@ export default function StepBack({ machine, onOpen, onSessionsChanged, onCleanUp
 
     {result && local && <section className="sb-card sb-trail" aria-label="Trail in PlanQuest">
       <h3><MapPin size={15} aria-hidden="true" />Trail in PlanQuest</h3>
+      {pq?.connected && bare.length > 0 && <div className="sb-archive-row sb-trail-plans">
+        {pq.canCreate ? <><p><b>{plural(bare.length, "goal")}</b> {bare.length === 1 ? "has" : "have"} no plan. Hangar can create one for each: the goal as its title, why it matters and what is left as its description, no dates.{creatable.length < bare.length ? ` ${plural(bare.length - creatable.length, "goal")} you paused or stopped ${bare.length - creatable.length === 1 ? "is" : "are"} left out.` : ""}</p>
+          <button className="cw-pill" disabled={busy || !creatable.length} onClick={() => { if (window.confirm(`Create ${plural(creatable.length, "new plan")} in PlanQuest?\n\n${creatable.map(g => g.title).join("\n")}`)) void createPlans(); }}>{busy ? "Creating…" : `Create ${plural(creatable.length, "plan")}`}</button></>
+          : <><p><b>{plural(bare.length, "goal")}</b> {bare.length === 1 ? "has" : "have"} no plan. Allow Hangar to create plans and it makes one for each; the same approval covers work records. PlanQuest has no narrower permission than changing plans, so this allows more than Hangar does with it: Hangar creates plans and never edits, moves or completes one.</p>
+          <button className="cw-pill" onClick={() => void allow(true)}>Allow creating plans<ExternalLink size={13} /></button></>}
+      </div>}
       {!pq?.connected ? <p>Connect PlanQuest (a project → PlanQuest) and this read can leave a record on the plan each goal belongs to.</p>
         : !pq.canRecord ? <div className="sb-archive-row"><p>Hangar can read your plans but not write. Allow it to save work records and each goal, answer and decision here lands on its plan. It still cannot change a plan or tick a milestone.</p><button className="cw-pill" onClick={() => void allow()}>Allow work records<ExternalLink size={13} /></button></div>
         : <>
@@ -296,13 +319,17 @@ export default function StepBack({ machine, onOpen, onSessionsChanged, onCleanUp
   </div>;
 }
 
-function GoalCard({ goal, sessions, plans, linked, call: made, onOpen, onDecide, onPlan }: {
+function GoalCard({ goal, sessions, plans, linked, call: made, onOpen, onDecide, onPlan, onCreate }: {
   goal: Goal; sessions: Record<string, SbSession>; plans: PlanSummary[]; linked?: { title: string; url: string }; call?: Decision;
   onOpen?: (key: string) => void; onDecide: (decision: Decision) => void; onPlan: (plan: { id: string; title: string; folders: string[]; url: string } | null) => void;
+  /** Create a new plan for this goal in PlanQuest; absent until you have allowed Hangar to create plans. */
+  onCreate?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const rows = goal.sessions.map(key => sessions[key]).filter(Boolean);
   const waiting = rows.filter(s => s.status === "blocked" || s.needs).length;
+  // The picker lists plans under the folder each sits in, the way PlanQuest's own sidebar does.
+  const folders = [...new Set(plans.map(p => p.folders.join(" / ")))].sort((a, b) => a.localeCompare(b));
   return <article className={`sb-goal is-${goal.state}`}>
     <header><b>{goal.title}</b><span className="sb-state">{STATE[goal.state]}</span></header>
     <div className="sb-share" role="img" aria-label={`About ${goal.share}% of your recent attention`}><i style={{ width: `${Math.max(3, goal.share)}%` }} /></div>
@@ -310,8 +337,10 @@ function GoalCard({ goal, sessions, plans, linked, call: made, onOpen, onDecide,
     <div className="sb-goal-meta">
       <button className="cw-text-button" aria-expanded={open} onClick={() => setOpen(!open)}>{plural(rows.length, "session")}{waiting ? ` · ${waiting} waiting on you` : ""}<ChevronDown size={13} /></button>
       {linked ? <a className="sb-plan" href={linked.url} target="_blank" rel="noreferrer" title="Open the plan in PlanQuest"><MapPin size={12} />{linked.title}</a>
-        : plans.length > 0 && <select className="sb-plan-pick" aria-label={`Plan for ${goal.title}`} value="" onChange={e => { const p = plans.find(x => x.id === e.target.value); if (p) onPlan({ id: p.id, title: p.title, folders: p.folders, url: p.url }); }}>
-          <option value="">Link a plan…</option>{plans.map(p => <option key={p.id} value={p.id}>{p.folders.length ? `${p.folders.join(" / ")} / ` : ""}{p.title}</option>)}</select>}
+        : plans.length > 0 && <FieldSelect className="sb-plan-pick" popupClassName="sb-plan-popup" aria-label={`Plan for ${goal.title}`} value="" onValueChange={id => { const p = plans.find(x => x.id === id); if (p) onPlan({ id: p.id, title: p.title, folders: p.folders, url: p.url }); }}>
+          <option value="">Link a plan…</option>
+          {folders.map(folder => <optgroup key={folder} label={folder || "No folder"}>{plans.filter(p => p.folders.join(" / ") === folder).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</optgroup>)}</FieldSelect>}
+      {!linked && onCreate && <button className="cw-text-button" onClick={() => { if (window.confirm(`Create a new plan in PlanQuest called “${goal.title}”?`)) onCreate(); }}>Create plan</button>}
       {linked && <button className="cw-text-button" onClick={() => onPlan(null)}>Unlink</button>}
       <span className="sb-calls" role="group" aria-label={`Your call on ${goal.title}`}>{CALLS.map(([id, label]) => <button key={id} aria-pressed={made === id} onClick={() => onDecide(id)}>{label}</button>)}</span>
     </div>

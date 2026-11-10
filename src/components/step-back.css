@@ -5,8 +5,11 @@
 .sb-title h2{margin:0;font-size:20px;font-weight:650;letter-spacing:-.01em}
 .sb-title p{margin:2px 0 0;font-size:12.5px;color:var(--cw-muted)}
 .sb-controls{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
-.sb-controls label{display:grid;gap:3px;font-size:11px;color:var(--cw-muted)}
-.sb select{min-height:34px;padding:4px 10px;border-radius:8px;border:1px solid var(--cw-line);background:var(--cw-panel);color:var(--cw-ink);font:inherit;font-size:12.5px}
+.sb-pick{display:grid;gap:3px;font-size:11px;color:var(--cw-muted)}
+.sb-seg{display:inline-flex;padding:2px;border:1px solid var(--cw-line);border-radius:10px;background:var(--cw-panel)}
+.connected-workspace .sb-seg button{min-height:30px;padding:3px 11px;border:0;border-radius:8px;background:transparent;color:var(--cw-muted);font-size:12.5px;white-space:nowrap}
+.connected-workspace .sb-seg button[aria-pressed=true]{background:var(--hangar-primary-soft);color:var(--hangar-primary);font-weight:600}
+.connected-workspace .sb-seg button:disabled{cursor:default;opacity:.7}
 .connected-workspace .sb-go{min-height:36px;padding:6px 16px;border:1px solid var(--hangar-primary-fill,var(--hangar-primary));border-radius:10px;background:var(--hangar-primary-fill,var(--hangar-primary));color:var(--hangar-on-primary,#fff);font-size:13px;font-weight:600}
 .connected-workspace .sb-go:disabled{opacity:.75;cursor:default}
 .sb-spin{animation:sb-spin 1s linear infinite}
@@ -67,7 +70,9 @@
 .connected-workspace .sb-goal-meta .cw-text-button{min-height:28px;gap:4px;font-size:12px!important}
 .sb-plan{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;border:1px solid var(--cw-line);font-size:11.5px;color:var(--cw-ink);text-decoration:none}
 .sb-plan:hover{border-color:var(--hangar-primary);color:var(--hangar-primary)}
-.sb .sb-plan-pick{min-height:28px;max-width:190px;padding:2px 8px;font-size:11.5px;color:var(--cw-muted)}
+.connected-workspace .sb .sb-plan-pick{min-height:28px;max-width:190px;padding:2px 8px;border:1px solid var(--cw-line);border-radius:999px;background:transparent;font-size:11.5px;font-weight:400;color:var(--cw-muted)}
+/* The open list is drawn outside the page (a popup), wide enough for a plan's title on one line. */
+.sb-plan-popup{min-width:min(300px,calc(100vw - 24px))}
 .sb-calls{display:inline-flex;margin-inline-start:auto;padding:2px;border:1px solid var(--cw-line);border-radius:999px}
 .connected-workspace .sb-calls button{min-height:26px;padding:2px 10px;border:0;border-radius:999px;background:transparent;color:var(--cw-muted);font-size:11.5px}
 .connected-workspace .sb-calls button[aria-pressed=true]{background:var(--hangar-primary-soft);color:var(--hangar-primary);font-weight:600}
@@ -126,6 +131,7 @@
 .sb-answer svg{color:#53cfb5;flex-shrink:0}
 
 .sb-archive-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.sb-trail-plans{margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--cw-line)}
 .sb-archive-row p,.sb-trail>p{margin:0;max-width:72ch;font-size:13px;line-height:1.5;color:var(--cw-muted)}
 .sb-archive-row p b{color:var(--cw-ink)}
 .sb-archive-row>span{display:inline-flex;align-items:center;gap:14px}
@@ -142,5 +148,5 @@
 .sb-type{font-size:11px;color:var(--cw-muted);text-transform:capitalize}
 
 @media(max-width:900px){.sb-grid{grid-template-columns:minmax(0,1fr)}.sb-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.sb-calls{margin-inline-start:0}}
-@media(max-width:550px){.sb-top{align-items:stretch}.sb-controls{display:grid;grid-template-columns:1fr 1fr}.sb-controls .sb-go{grid-column:1/-1;min-height:44px}.sb-vision{grid-template-columns:minmax(0,1fr)}.sb-records li{grid-template-columns:minmax(0,1fr) auto}.sb-records li small,.sb-type{display:none}
+@media(max-width:550px){.sb-top{align-items:stretch}.sb-controls{display:grid;grid-template-columns:minmax(0,1fr)}.sb-seg{display:flex}.connected-workspace .sb-seg button{flex:1;min-height:40px}.sb-controls .sb-go{min-height:44px}.sb-vision{grid-template-columns:minmax(0,1fr)}.sb-records li{grid-template-columns:minmax(0,1fr) auto}.sb-records li small,.sb-type{display:none}
   .connected-workspace .sb-options button,.connected-workspace .sb-calls button,.connected-workspace .sb-kinds button{min-height:40px}}

@@ -339,6 +339,35 @@ class StepBack(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "gone"):
                 stepback.update({"action": "answer", "run": "nope", "question": "q1", "text": "Yes"})
 
+    def test_a_goal_with_no_plan_gets_a_draft_unless_you_paused_or_stopped_it(self):
+        from unittest import mock
+        from hangar_engine import stepback
+        goal = lambda gid, title, plan="": {"id": gid, "title": title, "why": "Because you said so.", "quote": "", "sessions": [], "state": "moving",
+                                             "done": ["Outline"] if gid == "g1" else [], "left": ["Build the deck", "Rehearse"] if gid == "g1" else [], "plan": plan, "share": 10}
+        run = {"id": "run1", "at": "2026-11-10T00:00:00+00:00", "days": 30, "reader": "claude", "sessions": {}, "families": [], "plans": {}, "answers": {}, "recorded": {},
+               "read": {"headline": "", "goals": [goal("g1", "Give the talk"), goal("g2", "Qatar Atlas"), goal("g3", "Football lab"), goal("g4", "Sites", plan="plan-7")],
+                        "drift": [], "next": [], "questions": [], "archive": [], "sidequests": []},
+               "facts": {"totals": {}, "waiting": [], "projects": [], "finished": []}, "decisions": {"g2": {"decision": "pause", "note": "", "at": "x"}, "g3": {"decision": "keep", "note": "", "at": "x"}}}
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(stepback.config, "LOCAL", Path(d)), mock.patch.object(stepback, "view", lambda: stepback.read()):
+            stepback._write({"version": 1, "runs": [run], "run": None, "memory": {}})
+            found = stepback.plan_drafts({})
+            self.assertEqual([x["goal"] for x in found["drafts"]], ["g1", "g3"])                 # not the paused one, not the one with a plan
+            self.assertEqual(found["skipped"], [{"goal": "g2", "title": "Qatar Atlas", "why": "you chose to pause it"}])
+            first = found["drafts"][0]
+            self.assertEqual((first["key"], first["title"]), ("hangar-goal-run1-g1", "Give the talk"))
+            self.assertEqual(first["description"], "Because you said so. Done so far: Outline. Left: Build the deck; Rehearse. "
+                                                   "Created from Hangar's step back on 2026-11-10, a read of your sessions by Claude Code.")
+            self.assertEqual([x["goal"] for x in stepback.plan_drafts({"goal": "g2"})["drafts"]], ["g2"])   # asked for by itself, a paused goal can still get one
+            self.assertEqual(stepback.plan_drafts({"goal": "g4"})["drafts"], [])                # it has a plan already
+            with self.assertRaisesRegex(ValueError, "one of the goals"):
+                stepback.plan_drafts({"goal": "g9"})
+            # Linking the new plan is remembered under the goal's title, beside your call on it, for the next read.
+            stepback.update({"action": "plan", "run": "run1", "goal": "g3", "plan": {"id": "new-1", "title": "Football lab", "folders": [], "url": "https://my.plans.quest/plans/new-1"}})
+            stepback.update({"action": "decide", "run": "run1", "goal": "g3", "decision": "adjust", "note": ""})
+            kept = next(g for g in stepback.read()["memory"]["goals"] if g["title"] == "Football lab")
+            self.assertEqual((kept["plan"], kept["decision"]), ({"id": "new-1", "title": "Football lab"}, "adjust"))
+            self.assertEqual([x["goal"] for x in stepback.plan_drafts({})["drafts"]], ["g1"])     # so a second click cannot make it twice
+
     def test_the_reader_runs_sealed_and_only_in_hangars_own_storage(self):
         from unittest import mock
         from hangar_engine import work

@@ -56,7 +56,8 @@ How to read sessions.md:
 Work out:
 1. goals: the 3 to 6 things this person is really trying to get done, judged from what they typed across sessions, not
    from session titles and not from what agents proposed. Keep a goal from "before" when the new evidence still fits
-   it, and respect a decision they made on it (a paused or stopped goal stays so unless they typed otherwise).
+   it, and respect a decision they made on it (a paused or stopped goal stays so unless they typed otherwise). When a
+   goal in "before" names a plan, give the same goal that plan's id again.
 2. drift: each thread (a session with the sessions it started) that wandered from where it began: where it started,
    where it went, and whose move it was. by is "you" when their own typed words changed direction, "session" when the
    agent proposed it and they clicked or said ok, "both" otherwise. Say it the way a coach would, for example: "You came
@@ -489,6 +490,12 @@ def _finish(rid, facts, plans, job, reply):
 
 # --- what you say back ------------------------------------------------------------------------------------------------------
 
+def _remember(memory, title, **fields):
+    """What you said about a goal, kept under its title for the next read: your call on it, the plan it belongs to."""
+    old = next((g for g in memory["goals"] if g.get("title") == title), {})
+    memory["goals"] = [g for g in memory["goals"] if g.get("title") != title] + [{**old, "title": title, **fields, "at": now()}]
+
+
 def update(body):
     """Your side of it: answer a question, decide on a goal, link a goal to a plan, write what it is all for, or note
     which records the console saved to Plan Quest."""
@@ -518,8 +525,7 @@ def update(body):
             if not goal or decision not in DECISIONS:
                 raise ValueError("Choose keep, adjust, pause or stop for one of the goals shown.")
             run["decisions"][goal["id"]] = {"decision": decision, "note": text(body.get("note"), 400), "at": now()}
-            data["memory"]["goals"] = [g for g in data["memory"]["goals"] if g.get("title") != goal["title"]] + \
-                [{"title": goal["title"], "decision": decision, "note": text(body.get("note"), 400), "at": now()}]
+            _remember(data["memory"], goal["title"], decision=decision, note=text(body.get("note"), 400))
         elif action == "plan":
             goal = goals.get(body.get("goal"))
             plan = clean_plans([body.get("plan")]) if body.get("plan") else []
@@ -528,6 +534,8 @@ def update(body):
             goal["plan"] = plan[0]["id"] if plan else ""
             if plan:
                 run.setdefault("plans", {})[plan[0]["id"]] = {"title": plan[0]["title"], "url": plan[0]["url"]}
+            # The next read is told which plan this goal belongs to, so it links it again instead of leaving it bare.
+            _remember(data["memory"], goal["title"], plan={"id": plan[0]["id"], "title": plan[0]["title"]} if plan else None)
         elif action == "archived":  # the page archived these through the session library; take them off this read's list
             gone = set(body.get("keys") if isinstance(body.get("keys"), list) else [])
             before = len(run["facts"]["finished"])
@@ -598,10 +606,40 @@ def trail(run, memory):
     return records
 
 
+def _run(data, body):
+    return next((r for r in data["runs"] if r.get("id") == body.get("run")), data["runs"][0] if data["runs"] and not body.get("run") else None)
+
+
 def records(body):
     """The trail of one step back, for the console to write."""
     data = read()
-    run = next((r for r in data["runs"] if r.get("id") == body.get("run")), data["runs"][0] if data["runs"] and not body.get("run") else None)
+    run = _run(data, body)
     if not run:
         raise ValueError("There is no step back to save yet.")
     return {"run": run["id"], "records": trail(run, data["memory"])}
+
+
+def plan_drafts(body):
+    """A plan for each goal that has none, for the console to create in Plan Quest: the goal's title, and a description
+    of why it matters, what is done and what is left. A goal you paused or stopped gets none unless you ask for that
+    goal by itself. No milestones: they need dates, and Hangar does not make dates up."""
+    data = read()
+    run = _run(data, body)
+    if not run:
+        raise ValueError("There is no step back to make plans from yet.")
+    only = body.get("goal")
+    if only and not any(g["id"] == only for g in run["read"]["goals"]):
+        raise ValueError("Choose one of the goals shown.")
+    drafts, skipped = [], []
+    for goal in run["read"]["goals"]:
+        if goal["plan"] or (only and goal["id"] != only):
+            continue
+        call = (run["decisions"].get(goal["id"]) or {}).get("decision")
+        if call in ("pause", "stop") and not only:
+            skipped.append({"goal": goal["id"], "title": goal["title"], "why": f"you chose to {call} it"})
+            continue
+        lines = [goal["why"], "Done so far: " + "; ".join(goal["done"]) + "." if goal["done"] else "", "Left: " + "; ".join(goal["left"]) + "." if goal["left"] else "",
+                 f"Created from Hangar's step back on {run['at'][:10]}, a read of your sessions by {READERS.get(run.get('reader'), 'an agent')}."]
+        drafts.append({"goal": goal["id"], "key": f"hangar-goal-{run['id']}-{goal['id']}", "title": text(goal["title"], 190),
+                       "description": text(" ".join(x for x in lines if x), 4800)})
+    return {"run": run["id"], "drafts": drafts, "skipped": skipped}
