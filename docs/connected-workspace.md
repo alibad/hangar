@@ -31,24 +31,67 @@ The source remains untouched; it is not used at runtime.
 
 ## A second machine
 
-Install this Hangar version on that machine. Authenticate
-the desired coding agents there. With an already configured SSH host alias, run:
+Install this Hangar version on that machine and authenticate the coding agents
+you want there. Then connect the two in Machines. Once connected, select the
+other machine in the machine rail. Its bundled engine supplies its own map,
+checkouts, apps, history and managed jobs; its Hangar supplies its model
+catalogue and inference. Models are selected per request without changing
+either host's global routing. Desktop-window actions are refused from another
+machine; managed coding jobs return their output to the requesting Hangar.
+
+### With Tailscale (the easy way)
+
+[Tailscale](https://tailscale.com) is a private network between your own
+devices. Machines walks through it and ticks each step off by itself:
+
+1. **Tailscale on this computer.** Hangar reads `tailscale status`. If Tailscale
+   is missing it links to the download (and gives the `winget` command on
+   Windows); if you are signed out it says so. Hangar never installs it, signs
+   in for you or changes its settings.
+2. **Let my other computers see this one.** Off until you turn it on.
+3. **Your other computers.** The computers signed in to the same Tailscale
+   account are listed, with whether a Hangar answers on each. **Connect** adds
+   that computer here and asks it to add this one, so each sees the other.
+
+The page also gives the steps for the other computer, to copy or to email to
+yourself.
+
+What "let my other computers see this one" does: Hangar itself keeps listening
+on loopback only. A second, small listener (the gate, port 8033) binds to this
+machine's Tailscale address and nothing else. For every request it asks
+Tailscale who owns the calling address and refuses anyone who is not a computer
+signed in to **your own account**: no shared-in devices, no tagged servers, no
+other member of the network. It passes on only what a paired Hangar asks for
+(machine status, the model list, a prompt to a model, and the project and
+session operations listed in `src/lib/fleet-policy.ts`), never the rest of
+Hangar's API, and it forwards none of the caller's headers. Hangar connects out
+to a Tailscale address only while Tailscale is up and still lists that address
+as one of your computers. Tailscale encrypts the traffic between the two.
+
+Windows may ask once whether Node.js may accept connections; allow it for
+private networks. If the other computer says "Hangar did not answer", check
+that Hangar runs there, that step 2 is on there, and that "Allow incoming
+connections" is on in Tailscale's preferences.
+
+`node --test scripts/tailnet.test.mjs` covers the rules and the gate with a
+made-up Tailscale. It cannot prove two real computers reach each other.
+
+### With an SSH tunnel
+
+For a machine that cannot run Tailscale. With an already configured SSH host
+alias, run:
 
 ```sh
 ssh -o ExitOnForwardFailure=yes -N -L 127.0.0.1:18003:127.0.0.1:8003 your-host
 ```
 
-In Machines, enter its name, SSH alias and forwarded local port. Hangar verifies
-that a different machine answers before saving the entry. Select that machine
-in the persistent machine rail. Its bundled engine supplies its own map, checkouts, apps,
-history and managed jobs; its Hangar supplies its model catalogue and inference.
-Models are selected per request without changing either host's global routing.
-
-SSH owns authentication and host-key verification. This feature does not install
-SSH/Tailscale, edit firewall rules, copy keys or expose an unauthenticated LAN
-listener. Both services remain on loopback. Closing the SSH tunnel makes the
-machine visibly unavailable. Remote desktop-window actions are refused; managed
-coding jobs return their output to the requesting Hangar.
+In Machines, open **Use an SSH tunnel instead** and enter its name, SSH alias
+and forwarded local port. Hangar verifies that a different machine answers
+before saving the entry. SSH owns authentication and host-key verification; this
+path does not install SSH, edit firewall rules or copy keys, and both services
+remain on loopback. Closing the SSH tunnel makes the machine visibly
+unavailable. A tunnel connects one direction: run it on each machine to see
+both ways.
 
 ## What the states mean
 

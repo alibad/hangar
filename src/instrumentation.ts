@@ -12,5 +12,8 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("./lib/forge/forge");
+    // If the owner let their other computers in over Tailscale, that door opens again with the console, not only
+    // when someone next looks at Machines. It must never stop the console from starting.
+    await import("./lib/tailnet").then(tailnet => tailnet.ensureGate()).catch(() => { /* Machines shows why. */ });
   }
 }

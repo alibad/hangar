@@ -90,7 +90,7 @@ async function proxy(request: Request, context: Context) {
   } catch (error) {
     if (error instanceof IslandInputError) return Response.json({ error: error.message }, { status: 400 });
     if (error instanceof IslandStorageError) return Response.json({ error: error.message }, { status: 500 });
-    return Response.json({ error: machine === "local" ? "Hangar’s project engine is not responding. Check Python 3.10+ and the engine log in local storage." : "The SSH connection is unavailable. Reconnect the tunnel in Machines." }, { status: 503 });
+    return Response.json({ error: machine === "local" ? "Hangar’s project engine is not responding. Check Python 3.10+ and the engine log in local storage." : "That machine is not reachable. Check its connection in Machines." }, { status: 503 });
   }
 }
 export const GET = proxy;

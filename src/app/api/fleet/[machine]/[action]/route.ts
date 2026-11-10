@@ -23,7 +23,7 @@ export async function GET(request: Request, context: Context) {
     const host = getHost();
     return Response.json({ protocol: "hangar-fleet-v1", machine: hostname(), name: host.name, profile: host.id,
       platform: host.platform, memory: host.memory, atlas, observedAt: new Date().toISOString() });
-  } catch { return Response.json({ error: "Machine unavailable. Check its SSH tunnel." }, { status: 503 }); }
+  } catch { return Response.json({ error: "Machine unavailable. Check its connection in Machines." }, { status: 503 }); }
 }
 
 export const POST = withTraffic(async (request: NextRequest, context: Context) => {

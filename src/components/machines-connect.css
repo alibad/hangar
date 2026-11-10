@@ -1,0 +1,57 @@
+/* Machines: the guide that brings another of your computers in over Tailscale. */
+.mc{padding:40px 20px 8px;max-width:980px}
+.mc-intro h2{font-size:29px;font-weight:550;letter-spacing:-.045em;margin:12px 0}
+.mc-intro p{font-size:13px;line-height:1.8;color:var(--cw-muted);max-width:640px;margin:0}
+
+.mc-steps{list-style:none;margin:28px 0 0;padding:0;border-top:1px solid var(--cw-line)}
+.mc-steps>li{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:6px 16px;align-items:start;padding:20px 0;border-bottom:1px solid var(--cw-line)}
+.mc-mark{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--cw-line);font-size:12px;font-weight:600;color:var(--cw-muted)}
+.mc-steps>li.is-done .mc-mark{border-color:transparent;background:color-mix(in srgb,#36ab91 22%,transparent);color:#36ab91}
+.mc-body{min-width:0}
+.mc-body h3{font-size:15px;font-weight:550;letter-spacing:-.01em;margin:3px 0 0;color:var(--cw-ink)}
+.mc-body p{font-size:13px;line-height:1.65;color:var(--cw-muted);margin:6px 0 0}
+.mc-body p b{color:var(--cw-ink);font-weight:500}
+.mc-action{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+
+.connected-workspace .mc .mc-go,.connected-workspace .mc .mc-ghost{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:38px;padding:9px 16px;border-radius:9px;font-size:12.5px;font-weight:650;white-space:nowrap;text-decoration:none;cursor:pointer}
+.connected-workspace .mc .mc-go{background:var(--cw-accent);color:var(--color-gray-950)}
+.connected-workspace .mc .mc-go:hover:not(:disabled){color:var(--color-gray-950);filter:brightness(1.08)}
+.connected-workspace .mc .mc-ghost{border:1px solid var(--cw-line);background:transparent;color:var(--cw-ink);font-weight:500}
+.connected-workspace .mc .mc-ghost:hover:not(:disabled){color:var(--cw-accent);border-color:color-mix(in srgb,var(--cw-accent) 55%,transparent)}
+.connected-workspace .mc a:focus-visible,.connected-workspace .mc button:focus-visible{outline:2px solid var(--cw-accent);outline-offset:2px}
+
+.mc-devices{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mc-devices>li{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--cw-line);border-radius:11px;background:var(--cw-panel)}
+.mc-devices>li>svg{color:var(--cw-muted)}
+.mc-devices span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mc-devices b{font-size:13.5px;font-weight:550;color:var(--cw-ink);overflow-wrap:anywhere}
+.mc-devices small{font-size:11.5px;line-height:1.5;color:var(--cw-muted)}
+.mc-ok{display:inline-flex;align-items:center;gap:6px;font-style:normal;font-size:12px;font-weight:550;color:#36ab91}
+
+.mc-notice{display:flex;align-items:center;gap:9px;margin:16px 0 0;padding:11px 14px;border:1px solid color-mix(in srgb,#36ab91 40%,transparent);border-radius:10px;font-size:12.5px;color:var(--cw-ink)}
+.mc-notice>svg{color:#36ab91;flex:none}
+.mc>.cw-error{margin-top:16px}
+
+.mc-other{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 28px;align-items:start;margin:26px 0 0;padding:20px 22px;border:1px solid var(--cw-line);border-radius:14px;background:var(--cw-panel)}
+.mc-other h3{font-size:14px;font-weight:550;margin:0 0 8px;color:var(--cw-ink)}
+.mc-other ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:7px;list-style:decimal}
+.mc-other ol li{font-size:12.5px;line-height:1.65;color:var(--cw-muted)}
+.mc-other ol a{color:var(--cw-accent);text-decoration:underline;text-underline-offset:2px}
+.mc-other-actions{display:flex;flex-direction:column;gap:8px}
+
+/* The older way stays for a machine that cannot run Tailscale. */
+.mc-ssh{margin:18px 20px 0;border-top:1px solid var(--cw-line)}
+.mc-ssh>summary{padding:16px 0;font-size:12.5px;color:var(--cw-muted);cursor:pointer;width:max-content}
+.mc-ssh>summary:hover{color:var(--cw-accent)}
+.mc-ssh>.cw-connect-form{padding-top:8px}
+
+@media(max-width:760px){
+  .mc{padding:28px 4px 8px}
+  .mc-steps>li{grid-template-columns:34px minmax(0,1fr)}
+  .mc-action{grid-column:2;align-items:flex-start}
+  .mc-devices>li{grid-template-columns:22px minmax(0,1fr)}
+  .mc-devices>li>button,.mc-devices>li>.mc-ok{grid-column:2;justify-self:start}
+  .mc-other{grid-template-columns:minmax(0,1fr)}
+  .mc-other-actions{flex-direction:row;flex-wrap:wrap}
+  .mc-ssh{margin-inline:4px}
+}

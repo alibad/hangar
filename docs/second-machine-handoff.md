@@ -32,9 +32,13 @@ repository. Keep receipts under ignored `var/`.
 > Requests, Usage and Storage as tabs. Test hiding
 > and restoring only with disposable data; never delete a real checkout for QA.
 >
-> Locate an existing trusted SSH alias for the first machine. Ask the owner only
-> if none exists or if SSH installation/admin access is needed. Keep SSH host-key
-> checks enabled. Open a loopback-bound tunnel:
+> Connect the two machines in Machines. If Tailscale is installed and signed in
+> to the owner's account on both, turn on "Let my other computers see this one"
+> on each and press Connect on the machine it lists; do not install Tailscale or
+> sign in on the owner's behalf. Otherwise locate an existing trusted SSH alias
+> for the first machine. Ask the owner only if none exists or if SSH
+> installation/admin access is needed. Keep SSH host-key checks enabled. Open a
+> loopback-bound tunnel:
 > `ssh -o ExitOnForwardFailure=yes -N -L 127.0.0.1:18003:127.0.0.1:8003 your-host`.
 > Add that forwarded port in Machines and verify the returned machine identity.
 >

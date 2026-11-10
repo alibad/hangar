@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { isHostedRuntime } from "./runtime";
 import { localRequestAllowed, validatePeer, type Peer } from "./fleet-policy";
 import { ensureProjectEngine } from "./project-engine";
+import { tailnetReachable } from "./tailnet-cli";
 
 const CONFIG = join(process.cwd(), "var", "fleet.json");
 export function fleetGuard(request: Request): Response | null {
@@ -31,8 +32,11 @@ export function changePeer(peer: Peer | null, removeId?: string): Promise<void> 
 }
 export async function peerBase(id: string): Promise<string> {
   const peer = (await peers()).find(p => p.id === id);
-  if (!peer) throw new Error("Machine is not connected. Add its SSH-forwarded port in Machines.");
-  return `http://127.0.0.1:${peer.port}`;
+  if (!peer) throw new Error("Machine is not connected. Add it in Machines.");
+  if (!peer.tailnet) return `http://127.0.0.1:${peer.port}`;
+  // Over Tailscale: only while it is up and the address is still one of the owner's own computers.
+  if (!(await tailnetReachable(peer.tailnet))) throw new Error("Machine unavailable. Check that Tailscale is connected on both computers.");
+  return `http://${peer.tailnet}:${peer.port}`;
 }
 // Compatibility name for older API callers; always resolves the bundled engine.
 export const atlasBase = ensureProjectEngine;
