@@ -123,13 +123,28 @@ button.pr-tile:active { transform: scale(.98); }
 .pr-release.is-ready i { background: var(--pr-ok); } .pr-release.is-error i { background: var(--pr-fail); } .pr-release.is-building i { background: var(--pr-new); }
 .pr-release.is-error { color: var(--pr-fail); }
 .pr-sites { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.pr-sites a, .pr-sites span, .pr-repos a { display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--workspace-line); font-size: 12px; color: var(--workspace-ink); text-decoration: none; transition: border-color .15s, color .15s; }
-.pr-sites a:hover, .pr-repos a:hover { border-color: var(--hangar-primary); color: var(--hangar-primary); }
+.pr-sites a, .pr-sites span { display: inline-flex; align-items: center; gap: 3px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--workspace-line); font-size: 12px; color: var(--workspace-ink); text-decoration: none; transition: border-color .15s, color .15s; }
+.pr-sites a:hover { border-color: var(--hangar-primary); color: var(--hangar-primary); }
 .pr-usage { margin: 0; font-size: 12.5px; color: var(--workspace-muted); }
 .pr-usage b { font-size: 20px; color: var(--workspace-ink); font-variant-numeric: tabular-nums; }
-.pr-repos { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
-.pr-repos a { color: var(--workspace-muted); }
 .pr-note { margin: 4px 0 0; font-size: 12px; color: var(--workspace-muted); }
+/* A product's projects: each opens in Hangar's Projects view; the arrow beside it is GitHub. */
+.pr-projects { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.pr-projects-label { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; font-size: 12px; font-weight: 600; color: var(--workspace-muted); }
+.pr-project { display: inline-flex; align-items: stretch; border-radius: 999px; border: 1px solid var(--workspace-line); overflow: hidden; transition: border-color .15s; }
+.pr-project:hover { border-color: var(--hangar-primary); }
+.pr-project button, .pr-project a { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 4px; background: transparent; border: 0; color: var(--workspace-ink); font: inherit; font-size: 12.5px; text-decoration: none; cursor: pointer; }
+.pr-project button:hover { background: color-mix(in oklab, var(--hangar-primary) 12%, transparent); color: var(--hangar-primary); }
+.pr-project button b, .pr-project a b { font-weight: 600; }
+.pr-project button small { font-size: 11px; color: var(--workspace-muted); }
+.pr-project button > svg { color: var(--workspace-muted); }
+.pr-project button:hover > svg { color: var(--hangar-primary); }
+.pr-project .pr-emblem { border-radius: 50%; }
+.pr-project .pr-emblem b { font-size: 10px; }
+.pr-project > a { padding: 3px 8px; border-left: 1px solid var(--workspace-line); color: var(--workspace-muted); }
+.pr-project > a:hover { color: var(--hangar-primary); }
+.pr-project.is-away > a { border-left: 0; padding: 3px 10px; color: var(--workspace-muted); }
+.pr-project:focus-within { outline: 2px solid var(--ring, var(--hangar-primary)); outline-offset: 1px; }
 
 @media (max-width: 1000px) { .pr-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pr-detail { grid-template-columns: 1fr 1fr; } .pr-detail section:first-child { grid-column: 1 / -1; } }
 @media (max-width: 640px) {

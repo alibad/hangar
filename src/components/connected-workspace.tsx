@@ -30,6 +30,7 @@ import SessionLibrary, { type LibrarySession, type SessionLibraryData } from "./
 import { ProjectDirectoryProvider, ProjectEmblem, type ProjectInfo } from "./project-identity";
 import YourTurn, { IslandSuggestions } from "./your-turn";
 import FocusBoard from "./focus-board";
+import { OPEN_PROJECT_EVENT, OPEN_PROJECT_KEY } from "@/lib/project-nav";
 import StepBack from "./step-back";
 import { leftOff, suggestIslands, yourTurn, type LeftOff } from "@/lib/project-signals";
 import "./workspace-focus.css";
@@ -344,18 +345,28 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   useEffect(() => {
     if (ready) send("filter", { repos: query || family || projectFilter !== "visible" ? repos.map(r => r.id) : null });
   }, [ready, query, family, projectFilter, repos, send]);
+  // Another page asked for a project (back from PlanQuest, or a product's project in Products): open its pane.
+  const [openAsked, setOpenAsked] = useState(0);
+  useEffect(() => {
+    const ask = () => setOpenAsked(n => n + 1);
+    window.addEventListener(OPEN_PROJECT_EVENT, ask);
+    return () => window.removeEventListener(OPEN_PROJECT_EVENT, ask);
+  }, []);
   useEffect(() => {
     if (!machines.length || !doc || docMachine !== machine) return;
-    try {
-      const saved = sessionStorage.getItem("hangar-planquest-return");
-      if (!saved) return;
-      const target = JSON.parse(saved);
-      if (!machines.some(m => m.id === target.machine)) { sessionStorage.removeItem("hangar-planquest-return"); return; }
-      if (machine !== target.machine) { setMachine(target.machine); return; }
-      if (doc.repos.some(r => r.id === target.repo)) setSelected(target.repo);
-      sessionStorage.removeItem("hangar-planquest-return");
-    } catch { sessionStorage.removeItem("hangar-planquest-return"); }
-  }, [doc, docMachine, machine, machines]);
+    for (const key of ["hangar-planquest-return", OPEN_PROJECT_KEY]) {
+      try {
+        const saved = sessionStorage.getItem(key);
+        if (!saved) continue;
+        const target = JSON.parse(saved);
+        if (!machines.some(m => m.id === target.machine)) { sessionStorage.removeItem(key); continue; }
+        if (machine !== target.machine) { setMachine(target.machine); return; }
+        const repo = doc.repos.find(r => r.id === target.repo);
+        if (repo) { setSelected(repo.id); setProjectTab("work"); setComposer(false); setResume(null); setActivityFocus(null); }
+        sessionStorage.removeItem(key);
+      } catch { sessionStorage.removeItem(key); }
+    }
+  }, [doc, docMachine, machine, machines, openAsked]);
 
   const home = () => { setSelected(null); setFamily(""); setQuery(""); send("district", { family: null }); };
   const choose = (repo: Repo, tab: "work" | "repository" = "work") => { setSelected(repo.id); setProjectTab(tab); setComposer(false); setResume(null); setActivityFocus(null); if (!repo.hidden) send("select", { repo: repo.id }); };

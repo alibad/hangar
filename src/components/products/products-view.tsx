@@ -1,17 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, ArrowUpRight, Check, Copy, Globe, Lock, MessageSquare, RefreshCw, Rocket, Users, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpRight, Check, Copy, FolderGit2, Globe, Lock, MessageSquare, RefreshCw, Rocket, Users, X } from "lucide-react";
 import { age, placeUrl, type FeedbackIssue, type Product, type ProductsResponse } from "@/lib/products-shared";
+import { openProject } from "@/lib/project-nav";
 import "./products.css";
 
 type Filter = "attention" | "all" | "quiet";
 const FILTER_KEY = "hangar-products-filter";
 const INBOX_SHOWN = 6;
 
-type Logo = { id: string; hash: string };
+/** A repository as Hangar's World knows it: its project id, name, logo and whether it is checked out here. */
+type Logo = { id: string; name: string; hash?: string; here: boolean };
 
-/** The repositories' logos as Hangar's World knows them, by owner/name. */
+/** The World's projects by owner/name, so a product can show its repositories' logos and open them as projects. */
 function useRepoLogos() {
   const [logos, setLogos] = useState<Map<string, Logo>>(new Map());
   useEffect(() => {
@@ -19,16 +21,34 @@ function useRepoLogos() {
     fetch("/api/world/local/proxy/atlas").then((r) => (r.ok ? r.json() : null)).then((atlas) => {
       if (!live || !atlas?.repos) return;
       const next = new Map<string, Logo>();
-      for (const r of atlas.repos as { id: string; fullName?: string | null; sites?: { logo?: { hash: string } }[] }[]) {
-        const logo = r.sites?.find((s) => s.logo)?.logo;
+      for (const r of atlas.repos as { id: string; name: string; fullName?: string | null; onMachine?: boolean; sites?: { logo?: { hash: string } }[] }[]) {
         // A folder with no GitHub remote has no fullName; it can't be any product's repository.
-        if (logo && r.fullName) next.set(r.fullName.toLowerCase(), { id: r.id, hash: logo.hash });
+        if (r.fullName) next.set(r.fullName.toLowerCase(), { id: r.id, name: r.name, hash: r.sites?.find((s) => s.logo)?.logo?.hash, here: !!r.onMachine });
       }
       setLogos(next);
     }).catch(() => { /* initials instead */ });
     return () => { live = false; };
   }, []);
   return logos;
+}
+const logoUrl = (l: Logo) => `/api/world/local/proxy/logo?repo=${encodeURIComponent(l.id)}&v=${encodeURIComponent(l.hash ?? "")}`;
+
+/** A product's repositories, each opening its project in Hangar (or GitHub, when Hangar's map doesn't have it). */
+function ProductProjects({ product: p, logos }: { product: Product; logos: Map<string, Logo> }) {
+  const repos = [...new Set([...p.repos, ...p.sites.map((s) => s.repo).filter(Boolean) as string[]].map((r) => r.toLowerCase()))];
+  if (!repos.length) return null;
+  return <div className="pr-projects"><span className="pr-projects-label"><FolderGit2 size={14} aria-hidden="true" />{repos.length === 1 ? "Project" : `Projects · ${repos.length}`}</span>
+    {repos.map((full) => {
+      const known = logos.get(full), name = full.split("/")[1] ?? full;
+      return known ? <span key={full} className="pr-project">
+        <button type="button" onClick={() => openProject(known.id)} title={`Open ${known.name} in Hangar: its work, sessions, changes and apps`}>
+          <span className="pr-emblem" style={{ width: 20, height: 20 }} aria-hidden="true">{known.hash ? <img src={logoUrl(known)} alt="" width={20} height={20} loading="lazy" /> : <b>{known.name.slice(0, 1).toUpperCase()}</b>}</span>
+          <b>{known.name}</b>{!known.here && <small>GitHub only</small>}<ArrowRight size={13} aria-hidden="true" />
+        </button>
+        <a href={`https://github.com/${full}`} target="_blank" rel="noreferrer" aria-label={`${known.name} on GitHub`} title="On GitHub"><ArrowUpRight size={13} /></a>
+      </span> : <span key={full} className="pr-project is-away"><a href={`https://github.com/${full}`} target="_blank" rel="noreferrer" title="Not on Hangar's map: open it on GitHub"><b>{name}</b><ArrowUpRight size={13} aria-hidden="true" /></a></span>;
+    })}
+  </div>;
 }
 
 function Emblem({ product, logos, size = 40 }: { product: Product; logos: Map<string, Logo>; size?: number }) {
@@ -38,7 +58,7 @@ function Emblem({ product, logos, size = 40 }: { product: Product; logos: Map<st
     const repos = [...product.sites.map((s) => s.repo).filter(Boolean) as string[], ...product.repos];
     for (const r of repos) {
       const l = logos.get(r.toLowerCase());
-      if (l) { out.push(`/api/world/local/proxy/logo?repo=${encodeURIComponent(l.id)}&v=${encodeURIComponent(l.hash)}`); break; }
+      if (l?.hash) { out.push(logoUrl(l)); break; }
     }
     if (product.domain && !product.domain.endsWith(".vercel.app")) out.push(`https://${product.domain}/favicon.ico`);
     return out;
@@ -105,6 +125,7 @@ function ProductCard({ product: p, logos, open, onToggle }: { product: Product; 
       </span>
     </button>
     {open && <div className="pr-detail">
+      <ProductProjects product={p} logos={logos} />
       <section>
         <h4><MessageSquare size={14} />Feedback{p.feedback.total > 0 && <small>{p.feedback.open} open · {p.feedback.total} ever</small>}</h4>
         {p.feedback.latest.length ? <ul className="pr-issues">{p.feedback.latest.map((i) => <IssueRow key={i.url} issue={i} logos={logos} />)}</ul>
@@ -124,7 +145,6 @@ function ProductCard({ product: p, logos, open, onToggle }: { product: Product; 
         <h4><Users size={14} />People</h4>
         {p.usage.week != null ? <p className="pr-usage"><b>{p.usage.week.toLocaleString()}</b> this week{p.usage.previous != null && <span> · {p.usage.previous.toLocaleString()} the week before</span>}</p>
           : <p className="pr-none">{p.usage.properties.length ? "Not read yet." : "No Analytics property found."}</p>}
-        {p.repos.length > 0 && <p className="pr-repos">{p.repos.map((r) => <a key={r} href={`https://github.com/${r}`} target="_blank" rel="noreferrer">{r.split("/")[1]}</a>)}</p>}
       </section>
     </div>}
   </article>;
