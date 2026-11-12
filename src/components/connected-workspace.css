@@ -378,3 +378,7 @@
 .jv-pane .jv-log{max-height:none;min-height:0;margin-top:8px}
 /* The pane is narrow: each step's time sits over its text, so the text gets the width. */
 .jv-pane .jv-say,.jv-pane .jv-step{flex-direction:column;gap:2px}.jv-pane .jv-log time{flex:none}
+
+/* The world chooser joins size and map controls; narrow maps use a second row. */
+.cw-map-left{max-width:calc(100% - 420px)}
+@container cwmap (max-width:790px){.cw-world-tools{top:60px}.cw-map-left{max-width:calc(100% - 28px)}}

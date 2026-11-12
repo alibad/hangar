@@ -13,6 +13,8 @@ import { clamp, easeInOut, lerp } from "./util.js";
 import { api, embedded, tellHost, listenHost, applyPalette } from "./host.js";
 import { createHarbors } from "./harbors.js";
 import { homeView } from "./camera-view.js";
+import { dressIsland } from "./environments.js";
+import { WORLD_STYLES, worldStyleById } from "./world-styles.js";
 
 const params = new URLSearchParams(location.search);
 document.body.classList.toggle("hangar-embedded", embedded);
@@ -52,7 +54,9 @@ function start(doc, local, quality) {
   document.body.classList.toggle("lite", quality.tier === "low");
 
   // ---------- build ----------
-  try { setModelStyle(new URLSearchParams(location.search).get("style") || localStorage.getItem("bt-world-style")); } catch { /* storage may be unavailable */ }
+  let savedStyle;
+  try { savedStyle = localStorage.getItem("bt-world-style"); } catch { /* storage may be unavailable */ }
+  setModelStyle(params.get("style") || savedStyle);
   const plan = layout(doc);
   const shared = createShared();
   const islands = [], buildings = [], byRepo = new Map();
@@ -75,6 +79,14 @@ function start(doc, local, quality) {
   }
   world.frame(plan.extent);
   const life = createLife(world, islands, quality);
+  function dressWorld() {
+    const style = currentModelStyle();
+    for (const island of islands) dressIsland(island, style);
+    life.setVisible(["buildings", "airplanes"].includes(style));
+    world.setStyle(style);
+    canvas.setAttribute("aria-label", `A 3D ${worldStyleById(style).name.toLowerCase()} of your projects. Use search or the project list to reach any project.`);
+  }
+  dressWorld();
   const harbors = embedded ? createHarbors(islands) : null;
   const pickables = buildings.flatMap((b) => b.pickables);
   const pennants = buildings.filter((b) => b.pennant).map((b) => b.pennant);
@@ -235,6 +247,7 @@ function start(doc, local, quality) {
   const app = {
     doc, local, world, islands, buildings, quality,
     setLens, select, deselect, setTime, toggleNight, open, changes, sync, appAction, apps: null, rescan, copy, saveNotes, setAttention, sound,
+    setStyle, get style() { return currentModelStyle(); },
     focusIsland: (id) => { const isl = islands.find((i) => i.spot.id === id); if (isl) focusIsland(isl); },
     step: (d) => {
       const b = state.selected;
@@ -307,6 +320,8 @@ function start(doc, local, quality) {
           for (const material of old.facades) { material.map?.dispose(); material.emissiveMap?.dispose(); material.dispose(); }
           for (const material of old.solids) material.dispose();
           old.beam?.material.dispose();
+          for (const { material } of old.visualMaterials || []) material.dispose();
+          for (const geometry of old.formGeometries || []) geometry.dispose();
           old.group.traverse(mesh => { if (mesh.isLineSegments) mesh.geometry.dispose(); });
         }
         if (!b) {
@@ -315,7 +330,9 @@ function start(doc, local, quality) {
           pickables.push(...b.pickables);
           if (b.pennant) pennants.push(b.pennant);
         }
+        const movedFamily = b.island !== isl;
         b.repo = cell.repo; b.cell = cell; b.island = isl;
+        if (movedFamily) isl.environmentKey = null;
         b.onMap = !cell.repo.hidden;
         if (b.group.parent !== isl.group) isl.group.add(b.group);
         b.group.position.set(cell.x, 0.6, cell.z);
@@ -365,8 +382,25 @@ function start(doc, local, quality) {
     workSignature = ""; showWork(lastJobs);
     setLens(state.lens); setTime(state.time);
     if (local) refreshApps();
+    dressWorld();
     cullLabels(); wake();
   }
+
+  function setStyle(id) {
+    if (!setModelStyle(id)) return;
+    try { localStorage.setItem("bt-world-style", id); } catch { /* this visit only */ }
+    updateCatalog(doc);
+    document.getElementById("world-style").value = id;
+    tellHost("style", { style: id });
+    wake();
+  }
+  // The standalone world has the same choices; the embedded host supplies its own chooser.
+  const styleSelect = document.getElementById("world-style");
+  for (const style of WORLD_STYLES) {
+    const option = document.createElement("option"); option.value = style.id; option.textContent = style.name; styleSelect.append(option);
+  }
+  styleSelect.value = currentModelStyle();
+  styleSelect.addEventListener("change", () => setStyle(styleSelect.value));
 
   // ---------- camera ----------
   // Far enough that every island fits, seen from a little above so near and far districts overlap less.
@@ -462,7 +496,7 @@ function start(doc, local, quality) {
     }
     ui.showLens(lens.id === "default" ? "map" : lens.id);
     syncMarkers();
-    if (lens.id === "where" || lens.id === "map" || lens.id === "default") for (const i of islands) i.sheds && (i.sheds.visible = true);
+    if (["buildings", "airplanes"].includes(currentModelStyle()) && ["where", "map", "default"].includes(lens.id)) for (const i of islands) i.sheds && (i.sheds.visible = true);
     wake();
   }
   function setTime(t, user) {
@@ -472,7 +506,7 @@ function start(doc, local, quality) {
       b.setTarget({ born: t == null ? 1 : Number.isFinite(born) && born <= t ? 1 : 0 });
       state.moving.add(b);
     }
-    for (const i of islands) if (i.sheds) i.sheds.visible = t == null;
+    for (const i of islands) if (i.sheds) i.sheds.visible = t == null && ["buildings", "airplanes"].includes(currentModelStyle());
     if (user) state.autoRotate = false;
     wake();
   }
@@ -921,7 +955,7 @@ function start(doc, local, quality) {
       if (/^#[0-9a-f]{6}$/i.test(palette.door || "")) selRing.material.color.set(palette.door);
       wake();
     }
-    if (message.type === "style" && setModelStyle(message.style)) updateCatalog(doc);
+    if (message.type === "style") setStyle(message.style);
     if (message.type === "size" && setSizeBy(message.by)) updateCatalog(doc);
     if (message.type === "map-controls") document.body.classList.toggle("show-map-controls", !!message.visible);
     if (message.type === "work") showWork(message.jobs);

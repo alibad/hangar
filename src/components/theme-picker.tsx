@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useTheme, WORLD_STYLES } from "@/components/theme-provider";
+import { useTheme, WORLD_STYLES, type WorldStyle } from "@/components/theme-provider";
 import { THEMES } from "@/lib/themes";
 import { Check } from "lucide-react";
 
@@ -44,15 +44,12 @@ export function ThemePicker() {
       {open && (
         <div className="absolute right-0 mt-2 w-64 rounded-xl border border-gray-700 bg-gray-900 p-1.5 z-50 shadow-xl">
           <p className="px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500">World style</p>
-          <div className="mb-1.5 grid grid-cols-2 gap-1 px-1" role="group" aria-label="World style">
-            {WORLD_STYLES.map(s => (
-              <button key={s.id} type="button" title={s.hint} aria-pressed={worldStyle === s.id} onClick={() => setWorldStyle(s.id)}
-                className={`rounded-lg border px-2 py-1.5 text-left text-xs transition ${worldStyle === s.id ? "border-indigo-500 bg-indigo-500/10 text-indigo-300" : "border-gray-700 text-gray-300 hover:bg-gray-800/60"}`}>
-                <span className="block font-medium">{s.name}</span>
-                <span className="block truncate text-[10px] text-gray-500">{s.hint}</span>
-              </button>
-            ))}
-          </div>
+          <label className="block px-2 pb-3">
+            <span className="sr-only">World style</span>
+            <select value={worldStyle} onChange={event => setWorldStyle(event.target.value as WorldStyle)} className="w-full rounded-lg border border-gray-700 bg-gray-900 px-2 py-2 text-xs text-gray-100">
+              {WORLD_STYLES.map(style => <option key={style.id} value={style.id}>{style.name}</option>)}
+            </select>
+          </label>
           <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500">Colour theme</p>
           {THEMES.map(t => (
             <button

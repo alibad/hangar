@@ -109,7 +109,13 @@ export function createLife(world, islands, quality) {
   }
 
   return {
+    setVisible(visible) {
+      this.visible = visible;
+      for (const f of falls) f.puff.parent.visible = visible;
+      for (const b of birds) b.visible = visible;
+    },
     update(t) {
+      if (this.visible === false) return;
       for (const f of falls) {
         f.tex.offset.y = -t * 0.9;
         f.puff.material.opacity = 0.42 + Math.sin(t * 1.4 + f.phase) * 0.12;

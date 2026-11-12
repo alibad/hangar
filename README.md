@@ -1,7 +1,7 @@
 # Hangar
 
 **Your projects, live work, models and machines in one workspace.** Explore
-projects as buildings on floating islands, continue Claude and Codex work,
+projects in twelve selectable worlds, continue Claude and Codex work,
 review idle sessions, and use models on a connected machine through SSH. Hangar
 also starts and stops local AI services, keeps them inside a memory budget, and
 shows the requests that pass through its gateway.
@@ -24,6 +24,12 @@ can reach explicitly configured remote services, but any surface that requires
 local drives, logs, developer history, model files, or persistent local output
 shows a **Local machine required** placeholder instead of fabricated empty data.
 See [Hosted mode](docs/hosted-mode.md).
+
+In **World**, open the world-style button beside Size to compare galaxy, forest,
+reef, mountains, space fleet, garden, constellation, mechanical, neural network
+and museum views, as well as the original city and aircraft. Your project
+positions, camera and filters stay in place. See [World styles](docs/world-styles.md)
+for the visual guide and local checks.
 
 ![The console's Home page, running on a Windows box with an RTX 5090](docs/images/console/betenshi/home/desktop/step-01-arrive.png)
 

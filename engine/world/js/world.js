@@ -8,7 +8,21 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { clamp, lerp, rng } from "./util.js";
 
-/** Software WebGL (Chrome with hardware acceleration off draws on the CPU) gets the light tier. */
+// Distinct atmospheres still follow the user's day/night choice.
+const ATMOSPHERES = {
+  galaxy: ["#25213e", "#343752", "#080d23", "#171c35"],
+  fleet: ["#1e354d", "#3d566b", "#071421", "#172d43"],
+  constellation: ["#343452", "#59607d", "#0c1027", "#202442"],
+  neural: ["#214443", "#487673", "#071d25", "#153b41"],
+  reef: ["#387e9a", "#83bbc5", "#092b47", "#20596b"],
+  forest: ["#9bb8ae", "#e0e6c8", "#10292a", "#34534a"],
+  garden: ["#afbdac", "#f2e9ce", "#29283f", "#55506a"],
+  mountains: ["#849da9", "#e3e4d6", "#1b2a42", "#4b5b74"],
+  mechanical: ["#797a7f", "#bbb6a6", "#151e2c", "#39404c"],
+  museum: ["#b9b5aa", "#f0e9db", "#27283a", "#585467"],
+};
+
+/** Software WebGL gets the light tier. */
 export function detectQuality(forced) {
   if (forced === "low" || forced === "medium" || forced === "high") return { tier: forced, renderer: "forced", software: false };
   const c = document.createElement("canvas");
@@ -124,7 +138,12 @@ export function createWorld(canvas, labelsEl, quality) {
 
   const world = {
     THREE, renderer, scene, camera, controls, labels, sun, hemi, sky, stars, clouds, composer, bloom, tier, night: 0,
-    extent: 300, isLite: tier === "low",
+    extent: 300, isLite: tier === "low", style: "buildings",
+    setStyle(style) {
+      world.style = style;
+      clouds.visible = ["buildings", "airplanes", "forest", "garden", "mountains"].includes(style);
+      world.setNight(world.night);
+    },
     /** One way: no shadows and no bloom from now on. */
     lite() {
       world.isLite = true;
@@ -154,18 +173,19 @@ export function createWorld(canvas, labelsEl, quality) {
     /** 0 = day, 1 = night; everything that depends on the hour follows this one number. */
     setNight(n) {
       world.night = n = clamp(n, 0, 1);
-      skyU.top.value.lerpColors(DAY.top, NIGHT.top, n);
-      skyU.horizon.value.lerpColors(DAY.horizon, NIGHT.horizon, n);
-      skyU.bottom.value.lerpColors(DAY.bottom, NIGHT.bottom, n);
+      const atmosphere = ATMOSPHERES[world.style];
+      skyU.top.value.lerpColors(atmosphere ? new THREE.Color(atmosphere[0]) : DAY.top, atmosphere ? new THREE.Color(atmosphere[2]) : NIGHT.top, n);
+      skyU.horizon.value.lerpColors(atmosphere ? new THREE.Color(atmosphere[1]) : DAY.horizon, atmosphere ? new THREE.Color(atmosphere[3]) : NIGHT.horizon, n);
+      skyU.bottom.value.lerpColors(atmosphere ? new THREE.Color(atmosphere[0]) : DAY.bottom, atmosphere ? new THREE.Color(atmosphere[2]) : NIGHT.bottom, n);
       skyU.glow.value = lerp(1, 0.35, n);
-      scene.fog.color.lerpColors(DAY.fog, NIGHT.fog, n);
+      scene.fog.color.copy(atmosphere ? skyU.horizon.value : new THREE.Color().lerpColors(DAY.fog, NIGHT.fog, n));
       sun.color.lerpColors(DAY.sun, NIGHT.sun, n);
       sun.intensity = lerp(DAY.sunI, NIGHT.sunI, n);
       hemi.color.lerpColors(DAY.hemiSky, NIGHT.hemiSky, n);
       hemi.groundColor.lerpColors(DAY.hemiGround, NIGHT.hemiGround, n);
       hemi.intensity = lerp(DAY.hemiI, NIGHT.hemiI, n);
       renderer.toneMappingExposure = lerp(DAY.exposure, NIGHT.exposure, n);
-      stars.material.opacity = clamp((n - 0.35) / 0.5, 0, 1);
+      stars.material.opacity = Math.max(["galaxy", "fleet", "constellation", "neural"].includes(world.style) ? 0.65 : 0, clamp((n - 0.35) / 0.5, 0, 1));
       for (const c of clouds.children) {
         c.material.opacity = c.userData.alpha * lerp(1, c.userData.high ? 0.1 : 0.2, n);
         c.material.color.setScalar(lerp(1, 0.22, n));

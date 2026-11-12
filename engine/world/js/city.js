@@ -6,6 +6,8 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { clamp, hash, lerp, rng } from "./util.js";
 import { PLOT } from "./layout.js";
+import { WORLD_STYLES } from "./world-styles.js";
+import { buildProjectForm, createFormGeometry } from "./project-forms.js";
 
 const GROUND = {
   reading: "#a596cc", workshop: "#8fbf7a",
@@ -29,9 +31,9 @@ const STUFF = {
 };
 const pickOf = (list, rand) => list[Math.floor(rand() * list.length) % list.length];
 // ---------- model styles ----------
-// The same project facts can be drawn as buildings (the default) or as aircraft in a hangar. For aircraft the
-// stage sets the class, size the scale, the island colour the livery and recent work the lit cabin windows.
-export const MODEL_STYLES = ["buildings", "airplanes"];
+// One persisted style applies to every project. Buildings and aircraft keep their original shapes;
+// the ten other worlds use shared procedural geometry from project-forms.js.
+export const MODEL_STYLES = WORLD_STYLES.map(style => style.id);
 let modelStyle = "buildings";
 export function setModelStyle(next) {
   if (!MODEL_STYLES.includes(next) || next === modelStyle) return false;
@@ -117,6 +119,7 @@ function windowTextures() {
 export function createShared() {
   return {
     windows: windowTextures(),
+    forms: createFormGeometry(),
     ghost: new THREE.MeshBasicMaterial({ color: "#78c4ff", transparent: true, opacity: 0.24, depthWrite: false }),
     ghostEdge: new THREE.LineBasicMaterial({ color: "#4fb0ff", transparent: true, opacity: 0.95 }),
     beacon: new THREE.MeshBasicMaterial({ color: "#ffe9a8" }),
@@ -352,7 +355,8 @@ export class Building {
       return y + h;
     };
     let top = 0;
-    if (this.style === "airplanes") top = this.aircraft(rand, shadows);
+    if (!["buildings", "airplanes"].includes(this.style)) top = buildProjectForm(this, shadows);
+    else if (this.style === "airplanes") top = this.aircraft(rand, shadows);
     else switch (this.stage) {
       case "lot": {
         for (let i = 0; i < 3; i++) this.add(g.mound, this.shared.dirt, (rand() - 0.5) * 3, 0, (rand() - 0.5) * 3, 0.7 + rand() * 0.6, 0.4 + rand() * 0.4, 0.7 + rand() * 0.6, shadows);
@@ -531,6 +535,14 @@ export class Building {
       m.emissiveIntensity = windows + s.hover * 0.35;
     }
     for (const m of this.solids) m.color.copy(this.roofColor).lerp(grey, s.dim * 0.7);
+    for (const { material, color: original, glow } of this.visualMaterials || []) {
+      material.color.copy(original);
+      // Preserve each world's palette until a data lens supplies a different tint.
+      if (!s.tint.equals(this.base)) material.color.lerp(s.tint, 0.8);
+      material.color.lerp(grey, s.dim * 0.75).multiplyScalar(1 - s.dim * 0.35);
+      material.emissive.copy(material.color);
+      material.emissiveIntensity = (glow + this.lit * 0.025 + s.glow * 0.15 + s.hover * 0.1) * (1 - s.dim);
+    }
     const born = Math.max(0.001, s.born);
     this.group.scale.set(1, born * (1 + s.hover * 0.05), 1);
     this.group.visible = this.onMap !== false && s.born > 0.02;

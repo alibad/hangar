@@ -4,12 +4,9 @@ import { DEFAULT_THEME, isThemeId, type ThemeId } from "@/lib/themes";
 
 type Mode = "dark" | "light";
 /** How projects are drawn in the world. Kept per browser; the map reads the same key when it boots. */
-export type WorldStyle = "buildings" | "airplanes";
-export const WORLD_STYLES: { id: WorldStyle; name: string; hint: string }[] = [
-  { id: "buildings", name: "Buildings", hint: "A city: lots, houses, towers" },
-  { id: "airplanes", name: "Airplanes", hint: "A hangar: gliders up to jumbos" },
-];
-const isWorldStyle = (v: unknown): v is WorldStyle => WORLD_STYLES.some(s => s.id === v);
+export { WORLD_STYLES } from "../../engine/world/js/world-styles.js";
+import { WORLD_STYLES, isWorldStyle } from "../../engine/world/js/world-styles.js";
+export type WorldStyle = typeof WORLD_STYLES[number]["id"];
 
 const Ctx = createContext<{
   theme: Mode;
@@ -37,7 +34,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(savedTheme === "light" ? "light" : "dark");
     setPaletteState(isThemeId(savedPalette) ? savedPalette : DEFAULT_THEME);
     const savedStyle = localStorage.getItem("bt-world-style");
-    setWorldStyleState(isWorldStyle(savedStyle) ? savedStyle : "buildings");
+    setWorldStyleState(isWorldStyle(savedStyle) ? savedStyle as WorldStyle : "buildings");
     setHydrated(true);
   }, []);
 
