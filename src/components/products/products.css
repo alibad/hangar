@@ -128,6 +128,73 @@ button.pr-tile:active { transform: scale(.98); }
 .pr-usage { margin: 0; font-size: 12.5px; color: var(--workspace-muted); }
 .pr-usage b { font-size: 20px; color: var(--workspace-ink); font-variant-numeric: tabular-nums; }
 .pr-note { margin: 4px 0 0; font-size: 12px; color: var(--workspace-muted); }
+/* ── Focus: the products you starred ─────────────────────────────────── */
+.pr-card { position: relative; }
+.pr-card .pr-card-head { padding-right: 30px; }
+.pr-star { position: absolute; top: 12px; right: 12px; z-index: 1; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; color: var(--workspace-muted); opacity: .55; transition: opacity .15s, color .15s, background .15s, transform .15s; }
+.pr-card:hover .pr-star, .pr-star:focus-visible, .pr-star.is-on { opacity: 1; }
+.pr-star:hover { background: color-mix(in oklab, var(--pr-new) 14%, transparent); color: var(--pr-new); }
+.pr-star:active { transform: scale(.9); }
+.pr-star.is-on { color: var(--pr-new); }
+.pr-card.is-starred { border-color: color-mix(in oklab, var(--pr-new) 40%, var(--workspace-line)); }
+.pr-filters button.is-focus svg { color: var(--pr-new); }
+.pf-head .pr-star { position: static; opacity: 1; }
+
+.pf-when { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0; font-size: 12.5px; color: var(--workspace-muted); font-variant-numeric: tabular-nums; }
+.pf-when b { color: var(--workspace-ink); font-weight: 650; }
+.pf-legend { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 11.5px; }
+.pf-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-left: 6px; }
+.pf-legend .is-known { background: var(--workspace-inset); border: 1px solid var(--workspace-line); }
+.pf-legend .is-typed { border: 1px dashed var(--workspace-muted); }
+.pf-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr)); gap: 12px; align-items: start; }
+.pf-card { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid color-mix(in oklab, var(--pr-new) 35%, var(--workspace-line)); background: var(--workspace-panel); box-shadow: inset 3px 0 0 var(--pr-new); animation: pr-in .2s ease-out; }
+.pf-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pf-head .pr-icon { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; }
+
+.pf-goals ul { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 4px; }
+.pf-goals li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 34px; padding: 2px 4px 2px 8px; border-radius: 10px; background: var(--workspace-inset); }
+.pf-goals li span { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.pf-goals li.is-done span { color: var(--workspace-muted); text-decoration: line-through; }
+.pf-check { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 6px; border: 1.5px solid var(--workspace-muted); color: #fff; transition: background .15s, border-color .15s, transform .15s; }
+.pf-check:hover { border-color: var(--pr-ok); }
+.pf-check:active { transform: scale(.88); }
+.pf-check[aria-pressed=true] { background: var(--pr-ok); border-color: var(--pr-ok); }
+.pf-x { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; color: var(--workspace-muted); opacity: 0; transition: opacity .15s, color .15s; }
+.pf-goals li:hover .pf-x, .pf-x:focus-visible { opacity: 1; }
+.pf-x:hover { color: var(--pr-fail); }
+.pf-add { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 10px; border-radius: 10px; border: 1px dashed var(--workspace-line); color: var(--workspace-muted); transition: border-color .15s; }
+.pf-add:focus-within { border-style: solid; border-color: var(--hangar-primary); }
+.pf-add input { flex: 1; min-width: 0; height: 34px; border: 0; background: transparent; color: var(--workspace-ink); font: inherit; font-size: 13px; outline: none; }
+.pf-add input[aria-invalid=true]::placeholder { color: var(--pr-fail); }
+.pf-add button { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; color: var(--hangar-primary); }
+.pf-add button:hover { background: var(--hangar-primary-soft); }
+.pf-error { margin: 4px 0 0; font-size: 12px; color: var(--pr-fail); }
+
+.pf-row { display: grid; grid-template-columns: 92px repeat(2, minmax(0, 1fr)); gap: 6px; align-items: stretch; }
+.pf-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--workspace-muted); }
+.pf-tile { position: relative; display: grid; align-content: center; gap: 1px; min-width: 0; padding: 7px 10px; border-radius: 10px; background: var(--workspace-inset); }
+.pf-tile b, .pf-tile input { font-size: 19px; font-weight: 650; line-height: 1.15; color: var(--workspace-ink); font-variant-numeric: tabular-nums; }
+.pf-tile small { font-size: 11px; line-height: 1.3; color: var(--workspace-muted); }
+.pf-tile em { font-style: normal; font-size: 11px; color: var(--workspace-muted); font-variant-numeric: tabular-nums; }
+.pf-tile.is-warn b { color: var(--pr-new); }
+.pf-tile.is-new { background: color-mix(in oklab, var(--pr-new) 12%, var(--workspace-inset)); }
+.pf-tile.is-typed { background: transparent; border: 1px dashed color-mix(in oklab, var(--workspace-muted) 60%, transparent); cursor: text; transition: border-color .15s, background .15s; }
+.pf-tile.is-typed:hover { border-color: var(--hangar-primary); }
+.pf-tile.is-typed:focus-within { border-style: solid; border-color: var(--hangar-primary); background: var(--hangar-primary-soft); }
+.pf-tile.is-bad, .pf-tile.is-bad:focus-within { border-color: var(--pr-fail); }
+.pf-tile.is-bad small { color: var(--pr-fail); }
+.pf-tile input { width: 100%; min-width: 0; padding: 0; border: 0; background: transparent; outline: none; font-family: inherit; }
+.pf-tile input::placeholder { color: var(--workspace-muted); opacity: .6; }
+.pf-card .pr-projects { margin-top: 2px; padding-top: 10px; border-top: 1px solid var(--workspace-line); }
+
+.pf-empty { display: grid; justify-items: center; gap: 6px; padding: 32px 16px; border-radius: 16px; border: 1px dashed color-mix(in oklab, var(--pr-new) 50%, var(--workspace-line)); background: color-mix(in oklab, var(--pr-new) 5%, transparent); text-align: center; }
+.pf-empty > svg { color: var(--pr-new); }
+.pf-empty b { font-size: 15px; }
+.pf-empty p { margin: 0; max-width: 46ch; font-size: 13px; color: var(--workspace-muted); }
+.pf-empty button { margin-top: 6px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--workspace-line); font-size: 12.5px; color: var(--hangar-primary); }
+.pf-empty button:hover { border-color: var(--hangar-primary); }
+@media (max-width: 520px) { .pf-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pf-label { grid-column: 1 / -1; } .pf-legend { margin-left: 0; } }
+
 /* A product's projects: each opens in Hangar's Projects view; the arrow beside it is GitHub. */
 .pr-projects { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .pr-projects-label { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; font-size: 12px; font-weight: 600; color: var(--workspace-muted); }

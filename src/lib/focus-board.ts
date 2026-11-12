@@ -1,29 +1,33 @@
-// The Focus board: the few projects that matter now, the quarter's goals, and the weekly numbers Hangar can't read
-// from git (people using a product, posts about it). Pure rules here; the file lives in var/focus.json (focus-store.ts).
+// Focus: the few products that matter now, each with its own goals, and the weekly numbers Hangar can't read on its own
+// (posts about a product and the visits they brought). Pure rules here; the file lives in var/focus.json (focus-store.ts).
+// People, feedback and releases come from the Products report, commits and unsaved work from each product's repositories.
 
-export const METRICS = ["users", "signups", "posts", "visits"] as const;
+export const METRICS = ["posts", "visits"] as const;
 export type Metric = typeof METRICS[number];
-export type FocusGoal = { id: string; text: string; done: boolean };
+export type FocusGoal = { id: string; product: string; text: string; done: boolean };
 export type WeekNumbers = Partial<Record<Metric, number>>;
-/** weeks[repo][isoWeek] holds that week's numbers for one project. */
-export type FocusData = { goals: FocusGoal[]; weeks: Record<string, Record<string, WeekNumbers>> };
+/** starred: product ids, in the order you starred them. weeks[product][isoWeek]: that week's typed numbers. */
+export type FocusData = { starred: string[]; goals: FocusGoal[]; weeks: Record<string, Record<string, WeekNumbers>> };
 export type FocusAction =
-  | { action: "add-goal"; text: string }
+  | { action: "star"; product: string; on: boolean }
+  | { action: "add-goal"; product: string; text: string }
   | { action: "update-goal"; id: string; text?: string; done?: boolean }
   | { action: "remove-goal"; id: string }
-  | { action: "set-number"; repo: string; week: string; metric: Metric; value: number | null };
+  | { action: "set-number"; product: string; week: string; metric: Metric; value: number | null };
 
 /** More than this and it stops being a focus. */
 export const MAX_FOCUS = 5;
-export const MAX_GOALS = 7;
+/** Goals per product. */
+export const MAX_GOALS = 5;
 const MAX_TEXT = 140;
 const MAX_VALUE = 1_000_000_000;
-// Catalog ids: GitHub node ids (R_kg…, MDEw…==), local:<hash>, vendor:<owner>/<name>.
-const REPO_ID = /^(?!.*\.\.)[A-Za-z0-9_][A-Za-z0-9_.:@=+/-]{0,199}$/;
+// Product ids from the Products report: a Vercel project, a repository name, a feedback label, or one from products.local.json.
+const PRODUCT_ID = /^(?!.*\.\.)[A-Za-z0-9_][A-Za-z0-9_.:@=+/-]{0,119}$/;
+const GOAL_ID = /^[a-z0-9-]{1,40}$/;
 const WEEK = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
 
 export class FocusInputError extends Error {}
-export const emptyFocus = (): FocusData => ({ goals: [], weeks: {} });
+export const emptyFocus = (): FocusData => ({ starred: [], goals: [], weeks: {} });
 
 /** The ISO week a date falls in, Monday to Sunday, as "2026-W45". */
 export function isoWeek(date = new Date()): string {
@@ -58,19 +62,28 @@ const text = (value: unknown) => {
   if (clean.length > MAX_TEXT) throw new FocusInputError(`Keep a goal under ${MAX_TEXT} characters.`);
   return clean;
 };
+const product = (value: unknown) => {
+  if (typeof value !== "string" || !PRODUCT_ID.test(value)) throw new FocusInputError("Choose a product from the board.");
+  return value;
+};
 
 /** A stored file read back: anything malformed is dropped, so a hand edit can't break the board. */
 export function normalizeFocus(raw: unknown): FocusData {
   const data = emptyFocus();
   if (!raw || typeof raw !== "object") return data;
-  const { goals, weeks } = raw as { goals?: unknown; weeks?: unknown };
-  if (Array.isArray(goals)) for (const g of goals.slice(0, MAX_GOALS)) {
-    if (!g || typeof g !== "object") continue;
-    const { id, text: words, done } = g as Record<string, unknown>;
-    if (typeof id === "string" && /^[a-z0-9-]{1,40}$/.test(id) && typeof words === "string" && words.trim()) data.goals.push({ id, text: words.trim().slice(0, MAX_TEXT), done: done === true });
+  const { starred, goals, weeks } = raw as { starred?: unknown; goals?: unknown; weeks?: unknown };
+  if (Array.isArray(starred)) for (const id of starred) {
+    if (typeof id === "string" && PRODUCT_ID.test(id) && !data.starred.includes(id) && data.starred.length < MAX_FOCUS) data.starred.push(id);
   }
-  if (weeks && typeof weeks === "object") for (const [repo, byWeek] of Object.entries(weeks)) {
-    if (!REPO_ID.test(repo) || !byWeek || typeof byWeek !== "object") continue;
+  if (Array.isArray(goals)) for (const g of goals) {
+    if (!g || typeof g !== "object") continue;
+    const { id, product: of, text: words, done } = g as Record<string, unknown>;
+    if (typeof id !== "string" || !GOAL_ID.test(id) || typeof of !== "string" || !PRODUCT_ID.test(of) || typeof words !== "string" || !words.trim()) continue;
+    if (data.goals.filter(x => x.product === of).length >= MAX_GOALS) continue;
+    data.goals.push({ id, product: of, text: words.trim().slice(0, MAX_TEXT), done: done === true });
+  }
+  if (weeks && typeof weeks === "object") for (const [of, byWeek] of Object.entries(weeks)) {
+    if (!PRODUCT_ID.test(of) || !byWeek || typeof byWeek !== "object") continue;
     for (const [week, numbers] of Object.entries(byWeek)) {
       if (!WEEK.test(week) || !numbers || typeof numbers !== "object") continue;
       const kept: WeekNumbers = {};
@@ -78,7 +91,7 @@ export function normalizeFocus(raw: unknown): FocusData {
         const value = (numbers as Record<string, unknown>)[metric];
         if (Number.isInteger(value) && (value as number) >= 0 && (value as number) <= MAX_VALUE) kept[metric] = value as number;
       }
-      if (Object.keys(kept).length) (data.weeks[repo] ??= {})[week] = kept;
+      if (Object.keys(kept).length) (data.weeks[of] ??= {})[week] = kept;
     }
   }
   return data;
@@ -88,17 +101,28 @@ export function normalizeFocus(raw: unknown): FocusData {
 export function applyFocus(current: FocusData, input: unknown, newId: () => string): FocusData {
   if (!input || typeof input !== "object") throw new FocusInputError("Send a Focus action.");
   const body = input as Record<string, unknown>;
-  const next: FocusData = { goals: current.goals.map(g => ({ ...g })), weeks: structuredClone(current.weeks) };
+  const next: FocusData = { starred: [...current.starred], goals: current.goals.map(g => ({ ...g })), weeks: structuredClone(current.weeks) };
   const goal = () => {
     const found = next.goals.find(g => g.id === body.id);
     if (!found) throw new FocusInputError("That goal is gone. Refresh and try again.");
     return found;
   };
   switch (body.action) {
-    case "add-goal":
-      if (next.goals.length >= MAX_GOALS) throw new FocusInputError(`${MAX_GOALS} goals is the most that stays a focus. Tick one off or remove one first.`);
-      next.goals.push({ id: newId(), text: text(body.text), done: false });
+    case "star": {
+      const id = product(body.product);
+      if (typeof body.on !== "boolean") throw new FocusInputError("Star is on or off.");
+      if (!body.on) { next.starred = next.starred.filter(x => x !== id); return next; }
+      if (next.starred.includes(id)) return next;
+      if (next.starred.length >= MAX_FOCUS) throw new FocusInputError(`${MAX_FOCUS} products is the most that stays a focus. Unstar one first.`);
+      next.starred.push(id);
       return next;
+    }
+    case "add-goal": {
+      const id = product(body.product);
+      if (next.goals.filter(g => g.product === id).length >= MAX_GOALS) throw new FocusInputError(`${MAX_GOALS} goals is the most for one product. Tick one off or remove one first.`);
+      next.goals.push({ id: newId(), product: id, text: text(body.text), done: false });
+      return next;
+    }
     case "update-goal": {
       const found = goal();
       if (body.text !== undefined) found.text = text(body.text);
@@ -113,16 +137,16 @@ export function applyFocus(current: FocusData, input: unknown, newId: () => stri
       next.goals = next.goals.filter(g => g.id !== body.id);
       return next;
     case "set-number": {
-      const { repo, week, metric, value } = body;
-      if (typeof repo !== "string" || !REPO_ID.test(repo)) throw new FocusInputError("Choose a project from the map.");
+      const id = product(body.product);
+      const { week, metric, value } = body;
       if (typeof week !== "string" || !WEEK.test(week)) throw new FocusInputError("Choose a week like 2026-W45.");
-      if (!METRICS.includes(metric as Metric)) throw new FocusInputError("Choose users, signups, posts or visits.");
+      if (!METRICS.includes(metric as Metric)) throw new FocusInputError("Choose posts or visits.");
       if (value !== null && !(Number.isInteger(value) && (value as number) >= 0 && (value as number) <= MAX_VALUE)) throw new FocusInputError("Use a whole number, 0 or more.");
-      const byWeek = next.weeks[repo] ??= {};
+      const byWeek = next.weeks[id] ??= {};
       const numbers = byWeek[week] ??= {};
       if (value === null) delete numbers[metric as Metric]; else numbers[metric as Metric] = value as number;
       if (!Object.keys(numbers).length) delete byWeek[week];
-      if (!Object.keys(byWeek).length) delete next.weeks[repo];
+      if (!Object.keys(byWeek).length) delete next.weeks[id];
       return next;
     }
     default:

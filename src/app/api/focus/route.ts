@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const headers = { "Cache-Control": "no-store" };
 
-/** GET the Focus board's goals and weekly numbers; POST one change ({ action, ... } from focus-board.ts). */
+/** GET Focus: the starred products, their goals and typed weekly numbers; POST one change ({ action, ... } from focus-board.ts). */
 export async function GET(request: Request) {
   const denied = fleetGuard(request);
   if (denied) return denied;
