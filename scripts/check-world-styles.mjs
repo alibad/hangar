@@ -23,28 +23,36 @@ try {
   console.log("Viewer ready");
   await frame.evaluate(() => atlas.select(atlas.doc.repos[0]));
   await page.waitForTimeout(800);
-  const snapshot = () => frame.evaluate(() => ({ camera: atlas.world.camera.position.toArray().map(n => +n.toFixed(6)), target: atlas.world.controls.target.toArray().map(n => +n.toFixed(6)), cells: atlas.buildings.map(b => [b.repo.id, b.cell.x, b.cell.z]), anchors: atlas.islands.map(i => i.group.position.toArray()) }));
-  const before = await snapshot();
+  const canonical = () => frame.evaluate(() => atlas.buildings.map(b => [b.repo.id, b.cell.x, b.cell.z]));
+  const before = await canonical();
   const trigger = page.getByRole("button", { name: /^World style:/ });
-  await trigger.click();
-  const dialog = page.getByRole("dialog", { name: "Choose your world" });
-  await dialog.waitFor();
-  assert.ok(await dialog.locator(".world-style-card").first().evaluate(card => card.querySelector(".world-style-card-text").getBoundingClientRect().bottom <= card.getBoundingClientRect().bottom + 1), "preview labels must stay visible below images");
-  assert.equal(await dialog.getByRole("button", { pressed: false }).count() >= 11, true);
+  const dialog = page.getByRole("dialog", { name: "View as" });
+  const layouts = new Set();
   for (const style of WORLD_STYLES) {
+    await trigger.click(); await dialog.waitFor();
+    assert.equal(await dialog.getByRole("button", { name: /^Explore / }).count(), 0);
     await dialog.getByRole("button", { name: new RegExp(`^${style.name} `) }).click();
+    await dialog.waitFor({ state: "hidden" });
     await frame.waitForFunction(id => atlas.style === id && atlas.buildings.every(b => b.style === id), style.id);
-    assert.deepEqual(await snapshot(), before, `${style.id}: switching worlds must retain camera and project positions`);
-    assert.ok(await dialog.getByRole("button", { name: new RegExp(`^${style.name} `), pressed: true }).count());
+    assert.deepEqual(await canonical(), before, `${style.id}: visualization must not reorganize projects`);
     assert.equal(await frame.locator(".selected-tag").textContent(), "Aurora");
-    // Selection resolves to the replacement form and its marker stays above the actual geometry.
-    const info = await frame.evaluate(() => atlas.buildings.map(b => ({ height: b.height, marker: b.marker?.position.y, finite: b.pickables.every(m => m.matrixWorld.elements.every(Number.isFinite)) })));
-    assert.ok(info.every(b => b.finite && b.height > 0 && (!b.marker || b.marker > b.height)));
-    console.log(`PASS chooser: ${style.id}`);
+    const info = await frame.evaluate(() => ({
+      positions: atlas.buildings.map(b => [b.repo.id, ...b.group.position.toArray()]),
+      valid: atlas.buildings.every(b => b.pickables.every(m => m.matrixWorld.elements.every(Number.isFinite)) && (!b.marker || b.marker.position.y > b.height)),
+      terrain: atlas.islands.some(i => i.rock.visible || i.plots.visible),
+      environment: atlas.environment.name,
+      orbit: atlas.world.controls.mouseButtons.LEFT === atlas.world.THREE.MOUSE.ROTATE,
+      touchOrbit: atlas.world.controls.touches.ONE === atlas.world.THREE.TOUCH.ROTATE,
+    }));
+    assert.ok(info.valid); assert.equal(info.terrain, style.id === "buildings");
+    const spatial = ["galaxy", "fleet", "constellation", "neural"].includes(style.id);
+    assert.equal(info.orbit, spatial); assert.equal(info.touchOrbit, spatial);
+    assert.equal(info.environment, `environment:${style.id}`);
+    layouts.add(JSON.stringify(info.positions));
+    assert.ok(await trigger.evaluate(el => el === document.activeElement), "one-click choice returns focus to the view button");
+    console.log(`PASS one-click view: ${style.id}`);
   }
-  await dialog.getByRole("button", { name: "Explore museum" }).click();
-  await page.getByRole("button", { name: "World style: Museum" }).waitFor();
-  assert.ok(await trigger.evaluate(el => el === document.activeElement), "native dialog restores focus to its trigger");
+  assert.equal(layouts.size, 12, "worlds must have distinct spatial arrangements");
   // A filter, arrival replay, and active work survive a form change.
   const send = data => page.evaluate(data => document.querySelector('iframe[title^="Hangar project world"]').contentWindow.postMessage({ source: "hangar", ...data }, location.origin), data);
   await send({ type: "filter", repos: ["aurora"] });
@@ -89,7 +97,7 @@ try {
     await trigger.click();
     await dialog.waitFor();
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-    assert.ok(await dialog.locator(".world-style-compare>span").evaluate(el => el.getBoundingClientRect().width >= 80), "comparison text must remain readable on phones");
+    assert.equal(await dialog.locator("footer").count(), 0, "choosing a world should not require a second action");
     const bounds = await dialog.boundingBox();
     assert.ok(bounds.x >= 0 && bounds.y >= 0 && bounds.width <= width && bounds.y + bounds.height <= (width === 1440 ? 1000 : 844));
     await dialog.getByRole("button", { name: /^Museum / }).scrollIntoViewIfNeeded();
@@ -100,10 +108,13 @@ try {
     await page.screenshot({ path: `var/world-style-qa/world-${width}.png` });
   }
   // Persist the selected style across a fresh viewer and host load.
+  assert.equal(await frame.evaluate(() => atlas.style), "museum");
+  assert.equal(await page.evaluate(() => localStorage.getItem("bt-world-style")), "museum");
   await page.reload({ waitUntil: "domcontentloaded" });
   const restored = await (await element.elementHandle()).contentFrame();
   await restored.waitForFunction(() => window.atlas?.style === "museum", null, { timeout: 60000 });
   await page.getByRole("button", { name: "World style: Museum" }).waitFor();
+  assert.ok(await restored.evaluate(() => atlas.world.scene.fog.far > atlas.world.camera.position.distanceTo(atlas.world.controls.target) + atlas.composition.extent), "mobile whole-view framing must remain inside the visible fog range");
   const standalone = await browser.newPage({ viewport: { width: 1000, height: 700 }, reducedMotion: "reduce" });
   await interceptWorld(standalone, doc);
   await standalone.goto(`${url}/api/world/local/view/index.html?style=forest&quality=low&night=0`);
@@ -112,11 +123,11 @@ try {
   await standalone.waitForFunction(() => atlas.style === "reef");
   await standalone.close();
   assert.deepEqual(errors, []);
-  console.log("PASS: 12 worlds, selection and real pointer picking, filters, live jobs, replay, catalog updates, persistence, focus restore, desktop/phone dialog. No service writes.");
+  console.log("PASS: 12 distinct layouts, one-click chooser, real pointer picking, filters, jobs, replay, catalog updates, persistence, focus and phone layouts. No service writes.");
 } catch (error) {
   await mkdir("var/world-style-qa", { recursive: true });
   await page.screenshot({ path: "var/world-style-qa/failure.png" });
   console.error("Browser errors:", errors);
-  for (const frame of page.frames()) console.error("Frame state:", await frame.evaluate(() => ({ url: location.href, atlas: !!window.atlas, loading: document.getElementById("loading")?.textContent, error: document.querySelector(".cw-world-status")?.textContent })).catch(() => "detached"));
+  for (const frame of page.frames()) console.error("Frame state:", await frame.evaluate(() => ({ url: location.href, atlas: !!window.atlas, style: window.atlas?.style, saved: localStorage.getItem("bt-world-style"), loading: document.getElementById("loading")?.textContent, error: document.querySelector(".cw-world-status")?.textContent })).catch(() => "detached"));
   throw error;
 } finally { await browser.close(); }

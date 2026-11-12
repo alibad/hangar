@@ -116,10 +116,20 @@ function windowTextures() {
   });
 }
 
+function starlightTexture() {
+  const canvas = document.createElement("canvas"); canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext("2d"), gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gradient.addColorStop(0, "rgba(255,255,255,1)"); gradient.addColorStop(0.08, "rgba(255,255,255,0.9)");
+  gradient.addColorStop(0.25, "rgba(255,255,255,0.22)"); gradient.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = gradient; ctx.fillRect(0, 0, 128, 128);
+  const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; return texture;
+}
+
 export function createShared() {
   return {
     windows: windowTextures(),
     forms: createFormGeometry(),
+    starlight: starlightTexture(),
     ghost: new THREE.MeshBasicMaterial({ color: "#78c4ff", transparent: true, opacity: 0.24, depthWrite: false }),
     ghostEdge: new THREE.LineBasicMaterial({ color: "#4fb0ff", transparent: true, opacity: 0.95 }),
     beacon: new THREE.MeshBasicMaterial({ color: "#ffe9a8" }),
@@ -424,7 +434,7 @@ export class Building {
       this.beam.scale.set(1, 42, 1);
       this.beam.visible = false;
     }
-    if (r.openPRs) {
+    if (r.openPRs && this.style === "buildings") {
       // An orange pennant on the roof: pull requests waiting on you. Bigger when more are waiting.
       const k = 1.5 + Math.min(r.openPRs, 10) * 0.1, x = this.mount?.x ?? (this.stage === "tent" ? 0.6 : 1.1), z = this.mount?.z ?? x * 0.3;
       this.add(g.pole, this.shared.pole, x, top - 0.1, z, 1, 2.4 * k, 1, shadows, false);
@@ -543,11 +553,15 @@ export class Building {
       material.emissive.copy(material.color);
       material.emissiveIntensity = (glow + this.lit * 0.025 + s.glow * 0.15 + s.hover * 0.1) * (1 - s.dim);
     }
+    if (this.halo) {
+      this.halo.material.color.copy(s.tint);
+      this.halo.material.opacity = (0.55 + s.glow * 0.25 + s.hover * 0.15) * (1 - s.dim) * (s.ghost ? 0.3 : 1);
+    }
     const born = Math.max(0.001, s.born);
     this.group.scale.set(1, born * (1 + s.hover * 0.05), 1);
     this.group.visible = this.onMap !== false && s.born > 0.02;
     if (this.beacon) {
-      this.beacon.visible = s.dim < 0.6;
+      this.beacon.visible = s.dim < 0.6 && (this.style === "buildings" || s.glow > 0.02);
       this.beam.visible = s.glow > 0.02;
       // A night sky takes the beam as added light; on a pale day sky added light turns white, so by day it is painted amber and shorter.
       const day = this.night < 0.5;

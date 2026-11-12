@@ -5,26 +5,29 @@ import sharp from "sharp";
 import { WORLD_STYLES } from "../engine/world/js/world-styles.js";
 import { styleFixture, interceptWorld } from "./world-style-fixture.mjs";
 const { chromium } = await import(process.env.PLAYWRIGHT_CORE ? pathToFileURL(process.env.PLAYWRIGHT_CORE).href : "playwright-core");
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM, headless: true, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM, headless: true, args: process.env.HANGAR_CAPTURE_HARDWARE ? [] : ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 const page = await browser.newPage({ viewport: { width: 960, height: 600 }, deviceScaleFactor: 1, reducedMotion: "reduce" });
 const errors = []; page.on("pageerror", error => errors.push(error.message));
 await interceptWorld(page, styleFixture());
 try {
-  await page.goto(`${process.env.HANGAR_URL || "http://127.0.0.1:8003"}/api/world/local/view/index.html?embed=hangar&quality=medium&night=0&lens=map`);
+  await page.goto(`${process.env.HANGAR_URL || "http://127.0.0.1:8003"}/api/world/local/view/index.html?embed=hangar&quality=${process.env.HANGAR_CAPTURE_QUALITY || "medium"}&night=0&lens=map`);
   await page.waitForFunction(() => !!window.atlas, null, { timeout: 60000 });
   await page.addStyleTag({ content: "#labels,.pad,.dock,.hint,.notice{display:none!important}" });
   await mkdir("public/world-styles", { recursive: true });
   await mkdir("var/world-style-qa/previews", { recursive: true });
   for (const style of WORLD_STYLES) {
+    await page.evaluate(id => atlas.setStyle(id), style.id);
+    await page.waitForTimeout(100);
     await page.evaluate(style => {
       const a = window.atlas;
       a.setStyle(style.id);
-      const island = a.islands[0], r = island.spot.radius;
-      a.world.controls.target.set(island.spot.x, island.spot.y + 1, island.spot.z);
-      a.world.camera.position.set(island.spot.x + r * 1.2, island.spot.y + r * 1.15, island.spot.z + r * 1.5);
+      const v = a.composition, r = v.extent;
+      a.world.controls.target.set(v.center.x, v.center.y, v.center.z);
+      const sphere = new a.world.THREE.Spherical(r * 2.15, v.phi, v.theta);
+      a.world.camera.position.copy(a.world.controls.target).add(new a.world.THREE.Vector3().setFromSpherical(sphere));
       if (style.id === "buildings") {
-        a.world.controls.target.y = island.spot.y + 7;
-        a.world.camera.position.set(island.spot.x + r * 1.8, island.spot.y + r * 1.8, island.spot.z + r * 2.2);
+        a.world.controls.target.set(0, 7, 0);
+        a.world.camera.position.set(r * 1.8, r * 1.8, r * 2.2);
       }
       a.world.controls.update();
       a.setLens("map");

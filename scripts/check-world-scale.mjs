@@ -16,7 +16,11 @@ try {
   const styles = WORLD_STYLES.slice(2).map(style => style.id), first = new Map();
   for (let cycle = 0; cycle < 3; cycle++) for (const style of styles) {
     const stats = await page.evaluate(style => {
-      const start = performance.now(); atlas.setStyle(style); atlas.world.render(false);
+      const start = performance.now(); atlas.setStyle(style);
+      const v = atlas.composition, T = atlas.world.THREE;
+      atlas.world.controls.target.set(0, 0, 0);
+      atlas.world.camera.position.setFromSpherical(new T.Spherical(v.extent * 2.8, v.phi, v.theta)); atlas.world.controls.update();
+      atlas.world.render(false);
       return { ms: Math.round(performance.now() - start), calls: atlas.world.renderer.info.render.calls, geometries: atlas.world.renderer.info.memory.geometries, textures: atlas.world.renderer.info.memory.textures };
     }, style);
     if (cycle === 1) first.set(style, stats);

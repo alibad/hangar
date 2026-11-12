@@ -10,6 +10,7 @@ import { clamp, lerp, rng } from "./util.js";
 
 // Distinct atmospheres still follow the user's day/night choice.
 const ATMOSPHERES = {
+  airplanes: ["#6c8193", "#aebec9", "#101d2e", "#294259"],
   galaxy: ["#25213e", "#343752", "#080d23", "#171c35"],
   fleet: ["#1e354d", "#3d566b", "#071421", "#172d43"],
   constellation: ["#343452", "#59607d", "#0c1027", "#202442"],
@@ -142,6 +143,16 @@ export function createWorld(canvas, labelsEl, quality) {
     setStyle(style) {
       world.style = style;
       clouds.visible = ["buildings", "airplanes", "forest", "garden", "mountains"].includes(style);
+      const spatial = ["galaxy", "fleet", "constellation", "neural"].includes(style);
+      controls.mouseButtons.LEFT = spatial ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
+      controls.mouseButtons.RIGHT = spatial ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
+      controls.screenSpacePanning = spatial;
+      controls.minPolarAngle = spatial ? 0.05 : 0.18;
+      controls.maxPolarAngle = spatial ? Math.PI - 0.05 : 1.32;
+      controls.touches.ONE = spatial ? THREE.TOUCH.ROTATE : THREE.TOUCH.PAN;
+      controls.touches.TWO = spatial ? THREE.TOUCH.DOLLY_PAN : THREE.TOUCH.DOLLY_ROTATE;
+      scene.fog.near = world.extent * (style === "buildings" || spatial ? 1.7 : 1.2);
+      scene.fog.far = world.extent * (style === "buildings" || spatial ? 5.5 : 4.3);
       world.setNight(world.night);
     },
     /** One way: no shadows and no bloom from now on. */
@@ -205,6 +216,11 @@ export function createWorld(canvas, labelsEl, quality) {
     /** withLabels false: the 3D scene only. Floating labels are HTML, and moving dozens of them costs the browser a
      *  layout and a repaint every frame, so callers skip them when the camera has not moved. */
     render(withLabels = true) {
+      // Framing on a narrow viewport can put the camera several extents away.
+      // Haze must follow the camera, otherwise fitting the whole view fogs out every project.
+      const distance = camera.position.distanceTo(controls.target), spatial = ["galaxy", "fleet", "constellation", "neural"].includes(world.style);
+      scene.fog.near = Math.max(world.extent * (world.style === "buildings" || spatial ? 1.7 : 1.2), distance - world.extent * 0.7);
+      scene.fog.far = Math.max(world.extent * (world.style === "buildings" || spatial ? 5.5 : 4.3), distance + world.extent * 3);
       if (composer && bloom?.enabled && !world.isLite) composer.render();
       else renderer.render(scene, camera);
       if (withLabels) labels.render(scene, camera);

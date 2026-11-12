@@ -92,3 +92,8 @@ body.atlas-pane .card .head[data-compact] { padding-top: 8px; padding-bottom: 10
 body.atlas-pane .card .head[data-compact] h2 { font-size: 19px; }
 body.atlas-pane .card .body > .intro { padding: 4px 0 14px; border-bottom: 1px solid var(--panel-line); }
 body.atlas-pane .card .body > .intro > :first-child { margin-top: 6px; }
+
+/* Spatial views name groups without drawing little islands around them. */
+body.world-space .district-label { background:transparent; border-color:transparent; box-shadow:none; color:#dce6f4; text-shadow:0 1px 5px #000; padding:4px 7px; font-size:11px; letter-spacing:.04em; }
+body.world-space .district-label:hover { background:#152232a8; border-color:#aabbd633; }
+body.world-space .district-label i { opacity:.6; }

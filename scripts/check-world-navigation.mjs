@@ -10,15 +10,15 @@ try {
   await element.waitFor({ timeout: 60000 });
   const frame = await (await element.elementHandle()).contentFrame();
   await frame.waitForFunction(() => !!window.atlas, { timeout: 60000 });
-  await page.getByRole("button", { name: "Show all islands", exact: true }).click();
+  await page.getByRole("button", { name: "Show whole world", exact: true }).click();
   const first = await frame.evaluate(() => ({ id: window.atlas.buildings[0].repo.id, name: window.atlas.buildings[0].repo.name, family: window.atlas.buildings[0].repo.family }));
   await page.locator('.cw-map-left input[type="search"]').fill(first.name);
   await frame.waitForFunction(id => window.atlas.buildings.some(b => b.repo.id !== id && b.target.dim >= 0.9), first.id);
   assert.equal(await page.locator('.cw-map-left input[type="search"]').inputValue(), first.name, "Home must not erase a newer search");
-  await page.getByRole("button", { name: "Show all islands", exact: true }).click();
+  await page.getByRole("button", { name: "Show whole world", exact: true }).click();
   await page.locator('.cw-island-picker button').nth(1).click();
   assert.ok(await page.locator('.cw-island-picker button[aria-pressed="true"]').count() === 1);
-  await page.getByRole("button", { name: "Show all islands", exact: true }).click();
+  await page.getByRole("button", { name: "Show whole world", exact: true }).click();
   // Presentation-only synthetic work; no API call, real agent or session mutation.
   await page.evaluate(id => document.querySelector('iframe[title^="Hangar project world"]').contentWindow.postMessage({ source: "hangar", type: "work", jobs: [{ id: "visual-fixture", repo: id, provider: "codex", state: "running" }] }, location.origin), first.id);
   await frame.waitForFunction(id => window.atlas.buildings.find(b => b.repo.id === id).target.glow === 1, first.id);
@@ -31,7 +31,7 @@ try {
   await page.locator('.cw-island-picker button').nth(1).click();
   await page.waitForTimeout(1800);
   await page.screenshot({ path: 'var/fleet-qa/final-focused-world.png', fullPage: true });
-  await page.getByRole("button", { name: "Show all islands", exact: true }).click();
+  await page.getByRole("button", { name: "Show whole world", exact: true }).click();
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.waitForTimeout(1200);

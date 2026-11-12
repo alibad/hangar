@@ -31,6 +31,7 @@ export function createHarbors(islands) {
   const hex = (value) => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
   return {
     add,
+    setVisible(visible) { for (const dock of docks) dock.group.visible = visible; },
     setColors({ door, glow: core, beam } = {}) {
       if (hex(door)) cobalt.color.set(door);
       if (hex(core)) glow.color.set(core);

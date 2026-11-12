@@ -28,8 +28,8 @@ See [Hosted mode](docs/hosted-mode.md).
 In **World**, open the world-style button beside Size to compare galaxy, forest,
 reef, mountains, space fleet, garden, constellation, mechanical, neural network
 and museum views, as well as the original city and aircraft. Your project
-positions, camera and filters stay in place. See [World styles](docs/world-styles.md)
-for the visual guide and local checks.
+selection and filters stay in place while each view uses its own layout.
+See [World styles](docs/world-styles.md) for the visual guide and local checks.
 
 ![The console's Home page, running on a Windows box with an RTX 5090](docs/images/console/betenshi/home/desktop/step-01-arrive.png)
 

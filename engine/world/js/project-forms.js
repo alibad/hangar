@@ -147,18 +147,10 @@ export function buildProjectForm(b, shadows) {
       break;
     }
     case "constellation": {
-      const y = 3 + level * 0.35, r = 0.7 + level * 0.1;
-      orb(light, 0, y, 0, r);
-      for (let i = 0; i < 6; i++) {
-        const a = i / 6 * Math.PI * 2, reach = 1.8 + level * 0.18;
-        rod([Math.cos(a) * r, y + Math.sin(a) * r, 0], [Math.cos(a) * reach, y + Math.sin(a) * reach, 0], 0.065, gold);
-      }
-      ring(main, 0, y, 0, 2.6 + level * 0.15, 0.3);
-      for (let i = 0; i < 2 + Math.floor(level / 2); i++) {
-        const a = i * 2.4;
-        orb(main, Math.cos(a) * 3, y + Math.sin(a) * 2, Math.sin(a) * 1.3, 0.22);
-      }
-      top = y + 3;
+      const r = 0.4 + level * 0.075;
+      b.visualMaterials.find(row => row.material === light).glow = 1.2;
+      orb(light, 0, 1, 0, r);
+      top = 1 + r;
       break;
     }
     case "mechanical": {
@@ -175,15 +167,15 @@ export function buildProjectForm(b, shadows) {
       break;
     }
     case "neural": {
-      const y = 3.3 + level * 0.3;
-      orb(mint, 0, y, 0, 0.85 + level * 0.07);
-      for (let i = 0; i < 4 + Math.floor(level); i++) {
-        const a = i * 2.4, reach = 2 + rand() * 1.6;
-        const p = [Math.cos(a) * reach, 1.5 + rand() * (y + 1.5), Math.sin(a) * reach];
-        rod([0, y, 0], p, 0.055, main); orb(i % 2 ? main : light, ...p, 0.25 + rand() * 0.2);
-        if (i > 2) { const q = [p[0] * 1.2, p[1] + 0.8, p[2] * 1.2]; rod(p, q, 0.035, mint); orb(mint, ...q, 0.14); }
+      const r = 0.65 + level * 0.1;
+      orb(main, 0, 1, 0, r);
+      orb(light, 0, 1.1, r * 0.65, r * 0.35);
+      for (let i = 0; i < 3; i++) {
+        const a = i * 2.4, p = [Math.cos(a) * 2, 1 + Math.sin(a) * 0.6, Math.sin(a) * 2];
+        rod([0, 1, 0], p, 0.035, main);
+        orb(main, ...p, 0.13);
       }
-      top = y + 3;
+      top = 2.3;
       break;
     }
     case "museum": {
@@ -225,6 +217,12 @@ export function buildProjectForm(b, shadows) {
     parts.forEach(part => part.dispose());
     b.formGeometries.push(geometry);
     b.add(geometry, mat, 0, 0, 0, 1, 1, 1, shadows);
+  }
+  if (["constellation", "neural"].includes(b.style) && b.shared.starlight) {
+    const material = new THREE.SpriteMaterial({ map: b.shared.starlight, color: b.style === "constellation" ? "#ffe1a0" : b.base, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false });
+    b.halo = new THREE.Sprite(material);
+    b.halo.position.set(0, 1, 0); b.halo.scale.setScalar(b.style === "constellation" ? 5 + level * 0.6 : 5);
+    b.group.add(b.halo);
   }
   b.formHeight = top;
   return top;

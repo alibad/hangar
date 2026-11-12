@@ -13,7 +13,8 @@ import { clamp, easeInOut, lerp } from "./util.js";
 import { api, embedded, tellHost, listenHost, applyPalette } from "./host.js";
 import { createHarbors } from "./harbors.js";
 import { homeView } from "./camera-view.js";
-import { dressIsland } from "./environments.js";
+import { dressIsland, createEnvironment, disposeEnvironment } from "./environments.js";
+import { composeWorld } from "./composition.js";
 import { WORLD_STYLES, worldStyleById } from "./world-styles.js";
 
 const params = new URLSearchParams(location.search);
@@ -77,17 +78,45 @@ function start(doc, local, quality) {
     isl.buildings = here;
     isl.label.addEventListener("click", (e) => { e.stopPropagation(); focusIsland(isl); });
   }
-  world.frame(plan.extent);
+  let viewPlan = composeWorld(plan, currentModelStyle()), environment = null, environmentSignature = "";
+  const islandMeshes = [];
+  world.frame(viewPlan.extent);
   const life = createLife(world, islands, quality);
   function dressWorld() {
     const style = currentModelStyle();
-    for (const island of islands) dressIsland(island, style);
-    life.setVisible(["buildings", "airplanes"].includes(style));
+    viewPlan = composeWorld(plan, style);
+    if (Math.abs(world.extent - viewPlan.extent) > 0.01) world.frame(viewPlan.extent);
+    for (const island of islands) {
+      const g = viewPlan.groups.get(island.spot.id);
+      island.presentation = g;
+      island.group.position.set(g.x, g.y, g.z);
+      island.tag.position.set(g.label.x, g.label.y, g.label.z);
+      for (const b of island.buildings) {
+        const p = viewPlan.projects.get(b.repo.id);
+        if (!p) continue;
+        b.group.position.set(p.x, p.y, p.z);
+        if (p.heading !== null) b.group.rotation.y = p.heading;
+        if (["constellation", "neural", "airplanes"].includes(style) && !b.nameTag) {
+          const tag = document.createElement("button"); tag.className = "project-name"; tag.textContent = b.repo.name;
+          tag.addEventListener("click", event => { event.stopPropagation(); select(b.repo, { fly: true }); });
+          b.nameTag = new CSS2DObject(tag); b.nameTag.position.y = b.height + 1.3; b.nameTag.visible = false; b.group.add(b.nameTag);
+        }
+      }
+      dressIsland(island, style);
+    }
+    const signature = JSON.stringify([style, [...viewPlan.groups], [...viewPlan.projects], doc.repos.map(r => [r.id, !!r.hidden, r.topics])]);
+    if (signature !== environmentSignature) {
+      disposeEnvironment(environment); environment = createEnvironment(world, plan, viewPlan); environmentSignature = signature;
+    }
+    islandMeshes.splice(0, islandMeshes.length, ...(style === "buildings" ? islands.flatMap(i => [i.rock, i.plots]) : environment.children.filter(o => o.userData.ground)));
+    life.setVisible(style === "buildings");
+    harbors?.setVisible(style === "buildings");
+    document.body.classList.toggle("world-space", ["galaxy", "constellation", "neural", "fleet"].includes(style));
     world.setStyle(style);
-    canvas.setAttribute("aria-label", `A 3D ${worldStyleById(style).name.toLowerCase()} of your projects. Use search or the project list to reach any project.`);
+    canvas.setAttribute("aria-label", `${worldStyleById(style).name}: a spatial view of your projects. Use search or the project list to reach any project.`);
   }
-  dressWorld();
   const harbors = embedded ? createHarbors(islands) : null;
+  dressWorld();
   const pickables = buildings.flatMap((b) => b.pickables);
   const pennants = buildings.filter((b) => b.pennant).map((b) => b.pennant);
 
@@ -130,7 +159,7 @@ function start(doc, local, quality) {
     let appLabels = 0;
     for (const [repo, mk] of runMarks) {
       const match = !state.filter || state.filter.has(repo);
-      const close = camera.position.distanceTo(controls.target) < plan.extent;
+      const close = camera.position.distanceTo(controls.target) < viewPlan.extent;
       mk.visible = markersShown && mk.userData.live && match && layer("apps") && (!embedded || innerWidth >= 600 || close || appLabels++ < 2);
     }
     for (const mk of workMarks.values()) mk.visible = markersShown && mk.userData.live && layer("work");
@@ -225,7 +254,7 @@ function start(doc, local, quality) {
       return res;
     } catch (e) { ui.toast(e.message, true); }
   }
-  const islandMeshes = islands.flatMap((i) => [i.rock, i.plots]);
+
 
   const ringGeo = new THREE.RingGeometry(3.6, 4.3, 48).rotateX(-Math.PI / 2);
   const selRing = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: "#ff8a3d", transparent: true, opacity: 0.95, depthWrite: false }));
@@ -247,7 +276,7 @@ function start(doc, local, quality) {
   const app = {
     doc, local, world, islands, buildings, quality,
     setLens, select, deselect, setTime, toggleNight, open, changes, sync, appAction, apps: null, rescan, copy, saveNotes, setAttention, sound,
-    setStyle, get style() { return currentModelStyle(); },
+    setStyle, get style() { return currentModelStyle(); }, get composition() { return viewPlan; }, get environment() { return environment; }, home: () => goHome(),
     focusIsland: (id) => { const isl = islands.find((i) => i.spot.id === id); if (isl) focusIsland(isl); },
     step: (d) => {
       const b = state.selected;
@@ -283,9 +312,7 @@ function start(doc, local, quality) {
   function updateCatalog(fresh) {
     if (!Array.isArray(fresh?.repos) || !Array.isArray(fresh?.families)) return;
     Object.assign(doc, fresh);
-    const previousExtent = plan.extent;
     reconcileLayout(plan, doc);
-    if (plan.extent > previousExtent) world.frame(plan.extent);
     for (const b of buildings) b.onMap = false;
     for (const spot of plan.islands) {
       let isl = islands.find(i => i.spot.id === spot.id);
@@ -320,6 +347,8 @@ function start(doc, local, quality) {
           for (const material of old.facades) { material.map?.dispose(); material.emissiveMap?.dispose(); material.dispose(); }
           for (const material of old.solids) material.dispose();
           old.beam?.material.dispose();
+          old.halo?.material.dispose();
+          if (old.nameTag) { old.nameTag.element.remove(); old.nameTag.removeFromParent(); }
           for (const { material } of old.visualMaterials || []) material.dispose();
           for (const geometry of old.formGeometries || []) geometry.dispose();
           old.group.traverse(mesh => { if (mesh.isLineSegments) mesh.geometry.dispose(); });
@@ -370,19 +399,21 @@ function start(doc, local, quality) {
       }
     }
     for (const b of buildings) if (!b.onMap) b.apply();
-    islandMeshes.splice(0, islandMeshes.length, ...islands.flatMap(i => [i.rock, i.plots]));
     rank.clear();
     [...islands].filter(i => i.group.visible).sort((a, b) => b.buildings.filter(x => x.onMap).length - a.buildings.filter(x => x.onMap).length).forEach((isl, i) => rank.set(isl, i));
     if (state.selected?.onMap === false) { state.fly = null; controls.enabled = true; deselect(); }
     else if (state.selected) {
       const b = state.selected;
-      b.island.group.add(selRing); selRing.position.set(b.cell.x, 0.68, b.cell.z);
+      b.island.group.add(selRing); selRing.position.copy(b.group.position); selRing.position.y += 0.08;
     }
     setHover(null);
     workSignature = ""; showWork(lastJobs);
     setLens(state.lens); setTime(state.time);
     if (local) refreshApps();
     dressWorld();
+    if (state.selected) { selRing.position.copy(state.selected.group.position); selRing.position.y += 0.08; }
+    highlightRelations(state.selected?.repo.id);
+    selRing.visible = !!state.selected && !["constellation", "neural"].includes(currentModelStyle());
     cullLabels(); wake();
   }
 
@@ -392,6 +423,7 @@ function start(doc, local, quality) {
     updateCatalog(doc);
     document.getElementById("world-style").value = id;
     tellHost("style", { style: id });
+    const view = home(); flyTo(view.target, view.radius, view.phi, 900, view.theta);
     wake();
   }
   // The standalone world has the same choices; the embedded host supplies its own chooser.
@@ -405,7 +437,11 @@ function start(doc, local, quality) {
   // ---------- camera ----------
   // Far enough that every island fits, seen from a little above so near and far districts overlap less.
   const home = () => {
-    const view = homeView(plan.extent, embedded, innerWidth, innerHeight);
+    const view = homeView(viewPlan.extent, embedded, innerWidth, innerHeight);
+    if (currentModelStyle() !== "buildings") {
+      view.target = viewPlan.center; view.phi = viewPlan.phi; view.theta = viewPlan.theta;
+      view.radius *= 1.15;
+    }
     return { ...view, target: new THREE.Vector3(view.target.x, view.target.y, view.target.z) };
   };
   const sphericalOf = (pos, target) => new THREE.Spherical().setFromVector3(pos.clone().sub(target));
@@ -474,8 +510,10 @@ function start(doc, local, quality) {
     deselect(false);
     ui.showDistrict(isl.spot);
     if (notify) tellHost("district", { family: isl.spot.id });
-    const radius = isl.spot.radius * 2.7 + 46;
-    flyTo(besideCard(isl.group.position.clone(), radius, 0.9), radius, 0.9);
+    const radius = (isl.presentation?.radius || isl.spot.radius) * 2.7 + (currentModelStyle() === "buildings" ? 46 : 20);
+    const focus = isl.presentation?.focus;
+    const target = focus ? isl.group.localToWorld(new THREE.Vector3(focus.x, focus.y, focus.z)) : isl.group.position.clone();
+    flyTo(besideCard(target, radius, 0.9), radius, 0.9);
   }
 
   // ---------- lenses, time, night ----------
@@ -496,7 +534,7 @@ function start(doc, local, quality) {
     }
     ui.showLens(lens.id === "default" ? "map" : lens.id);
     syncMarkers();
-    if (["buildings", "airplanes"].includes(currentModelStyle()) && ["where", "map", "default"].includes(lens.id)) for (const i of islands) i.sheds && (i.sheds.visible = true);
+    if (currentModelStyle() === "buildings" && ["where", "map", "default"].includes(lens.id)) for (const i of islands) i.sheds && (i.sheds.visible = true);
     wake();
   }
   function setTime(t, user) {
@@ -506,7 +544,7 @@ function start(doc, local, quality) {
       b.setTarget({ born: t == null ? 1 : Number.isFinite(born) && born <= t ? 1 : 0 });
       state.moving.add(b);
     }
-    for (const i of islands) if (i.sheds) i.sheds.visible = t == null && ["buildings", "airplanes"].includes(currentModelStyle());
+    for (const i of islands) if (i.sheds) i.sheds.visible = t == null && currentModelStyle() === "buildings";
     if (user) state.autoRotate = false;
     wake();
   }
@@ -524,8 +562,8 @@ function start(doc, local, quality) {
     if (!b || b.onMap === false) return;
     state.selected = b;
     b.island.group.add(selRing);
-    selRing.position.set(b.cell.x, 0.68, b.cell.z);
-    selRing.visible = true;
+    selRing.position.copy(b.group.position); selRing.position.y += 0.08;
+    selRing.visible = !["constellation", "neural"].includes(currentModelStyle());
     selTagEl.textContent = repo.name;
     b.group.add(selTag);
     selTag.position.set(0, Math.max(b.height, b.flagTop || 0) + 2.4, 0);
@@ -535,6 +573,7 @@ function start(doc, local, quality) {
     if (!reducedMotion) { b.state.hover = 2.4; b.setTarget({ hover: state.hover === b ? 1 : 0 }); state.moving.add(b); }
     ui.showRepo(repo);
     tellHost("select", { repo: repo.id });
+    highlightRelations(repo.id);
     ui.toggleList(false);
     history.replaceState(null, "", `#repo=${encodeURIComponent(repo.id)}`);
     if (fly) focusBuilding(b);
@@ -548,6 +587,7 @@ function start(doc, local, quality) {
     syncMarkers();
     ui.hideCard();
     tellHost("select", { repo: null });
+    highlightRelations(null);
     if (clearHash) history.replaceState(null, "", location.pathname + location.search);
     wake();
   }
@@ -561,9 +601,11 @@ function start(doc, local, quality) {
     ray.setFromCamera(ndc, camera);
     const hit = ray.intersectObjects(pickables, false).find((h) => h.object.userData.building?.group.visible);
     if (hit) return { building: hit.object.userData.building };
-    const land = ray.intersectObjects(islandMeshes, false).find(h => h.object.parent.visible);
+    const land = ray.intersectObjects(islandMeshes, false).find(h => h.object.visible && h.object.parent.visible);
     return land ? { island: islands.find((i) => i.spot === land.object.userData.island) } : {};
   };
+  let relatedProjects = new Set();
+  function highlightRelations(id) { relatedProjects = environment?.userData.focus?.(id) || new Set(); cullLabels(); wake(); }
   function setHover(b) {
     if (state.hover === b) return;
     if (state.hover) { state.hover.setTarget({ hover: 0 }); state.moving.add(state.hover); }
@@ -572,9 +614,10 @@ function start(doc, local, quality) {
       b.setTarget({ hover: 1 });
       state.moving.add(b);
       b.island.group.add(hoverRing);
-      hoverRing.position.set(b.cell.x, 0.66, b.cell.z);
+      hoverRing.position.copy(b.group.position); hoverRing.position.y += 0.06;
     }
-    hoverRing.visible = !!b && b !== state.selected;
+    hoverRing.visible = !!b && b !== state.selected && !["constellation", "neural"].includes(currentModelStyle());
+    highlightRelations(b?.repo.id || state.selected?.repo.id);
     document.body.classList.toggle("hovering", !!b);
     wake();
   }
@@ -596,7 +639,7 @@ function start(doc, local, quality) {
   canvas.addEventListener("dblclick", (e) => {
     const p = pick(e.clientX, e.clientY);
     if (p.building) return;
-    const hit = ray.intersectObjects(islandMeshes, false).find(h => h.object.parent.visible);
+    const hit = ray.intersectObjects(islandMeshes, false).find(h => h.object.visible && h.object.parent.visible);
     if (hit) flyTo(hit.point, Math.max(controls.minDistance * 1.6, camera.position.distanceTo(controls.target) * 0.5));
   });
   // A right click opens actions; a right drag still rotates the world.
@@ -770,7 +813,7 @@ function start(doc, local, quality) {
     lastTarget.copy(controls.target);
     if (moved) lastMove = now;
     const resting = now - lastMove > 160;
-    if (resting !== markersShown) { markersShown = resting; syncMarkers(); changed = true; ambientOnly = false; }
+    if (resting !== markersShown) { markersShown = resting; cullLabels(); changed = true; ambientOnly = false; }
     if (Math.abs(state.nightTarget - state.night) > 0.001) {
       state.night = lerp(state.night, state.nightTarget, 1 - Math.exp(-dt * 3.2));
       if (Math.abs(state.nightTarget - state.night) < 0.003) state.night = state.nightTarget;
@@ -789,7 +832,7 @@ function start(doc, local, quality) {
       const t = now / 1000;
       world.drift(t);
       life.update(t);
-      for (const i of islands) i.group.position.y = i.spot.y + Math.sin(t * 0.35 + i.bob) * 0.5;
+      if (currentModelStyle() === "buildings") for (const i of islands) i.group.position.y = i.spot.y + Math.sin(t * 0.35 + i.bob) * 0.5;
       const pulse = 0.75 + Math.sin(t * 2.4) * 0.25;
       shared.beacon.color.setRGB(1, 0.91 * pulse + 0.09, 0.66 * pulse + 0.1);
       shared.red.color.setRGB(Math.sin(t * 3) > 0 ? 1 : 0.35, 0.22, 0.2);
@@ -830,11 +873,25 @@ function start(doc, local, quality) {
   const rank = new Map(bySize.map((isl, i) => [isl, i]));
   function cullLabels() {
     const d = camera.position.distanceTo(controls.target);
-    const keep = d > plan.extent * 1.5 ? (embedded && innerWidth < 600 ? 3 : 9) : d > plan.extent * 1.05 ? 14 : islands.length;
+    const keep = d > viewPlan.extent * 1.5 ? (embedded && innerWidth < 600 ? 3 : 9) : d > viewPlan.extent * 1.05 ? 14 : islands.length;
     for (const i of islands) {
       const far = camera.position.distanceTo(i.group.position) > d * 1.9 + 160 || rank.get(i) >= keep;
       i.label.classList.toggle("far", far);
       i.label.inert = far;
+    }
+    // Show readable names near the camera; keep the overview uncluttered.
+    const named = buildings.filter(b => b.nameTag);
+    for (const b of named) b.nameTag.visible = false;
+    const candidates = named.filter(b => b.group.visible && b !== state.selected && (!state.filter || state.filter.has(b.repo.id)))
+      .sort((a, b) => Number(relatedProjects.has(b.repo.id)) - Number(relatedProjects.has(a.repo.id)) || camera.position.distanceTo(a.group.getWorldPosition(new THREE.Vector3())) - camera.position.distanceTo(b.group.getWorldPosition(new THREE.Vector3())));
+    const occupied = [], limit = d < viewPlan.extent * 1.7 || buildings.length < 25 || relatedProjects.size ? 16 : 0;
+    for (const b of candidates) {
+      if (!markersShown || occupied.length >= limit) break;
+      const p = b.nameTag.getWorldPosition(new THREE.Vector3()).project(camera);
+      if (p.z < -1 || p.z > 1 || Math.abs(p.x) > 0.92 || Math.abs(p.y) > 0.88) continue;
+      const x = (p.x + 1) * innerWidth / 2, y = (1 - p.y) * innerHeight / 2;
+      if (occupied.some(q => Math.abs(q.x - x) < 100 && Math.abs(q.y - y) < 28)) continue;
+      b.nameTag.visible = true; b.nameTag.element.classList.toggle("is-related", relatedProjects.has(b.repo.id)); occupied.push({ x, y });
     }
     syncMarkers();
   }
