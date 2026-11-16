@@ -35,6 +35,8 @@
     }
   },
   "workloads": {
+    "football-video-tapnextpp": {"service": "football-video-tapnextpp", "model": "local-football-tapnextpp", "slot": "gpu-heavy", "ttlMs": 120000},
+    "football-video-training": {"service": "football-video-training", "model": "local-football-rfdetr-training", "slot": "gpu-heavy", "ttlMs": 120000},
     "football-video-sam31": { "service": "football-video-sam31", "model": "local-football-sam31-video", "slot": "gpu-heavy", "ttlMs": 120000 },
     "football-video-rfdetr": { "service": "football-video-rfdetr", "model": "local-football-rfdetr-video", "slot": "gpu-heavy", "ttlMs": 120000 },
     "football-video-observe": { "service": "football-video-existing", "slot": "gpu-heavy", "ttlMs": 120000 },

@@ -1,4 +1,34 @@
 {
+  "local-football-tapnextpp": {
+    "checkpoint": "google-deepmind/tapnet TAPNext++ VOTSp2026 tapnextpp_512.ckpt",
+    "service": "football-video-tapnextpp",
+    "vision": true,
+    "license": "Apache-2.0",
+    "docs": "https://github.com/google-deepmind/tapnet/blob/main/tapnet/tapnextpp/votsp2026/README.md",
+    "footprint": {
+      "ramGb": 8,
+      "vramGb": 20,
+      "idleRamGb": 0,
+      "idleVramGb": 0,
+      "kind": "peak",
+      "basis": "Conservative20GiB VRAM/8GiB RAM allowance, 512px online TAPNext++, <=1560 queries, no compile, fp16 autocast. Caller caps CUDA allocation18GiB, peak RSS7.5GiB; smoke precedes full clip.80query pilot measured2.71GiB CUDA reserved/3.97GiB process RSS. Bound increased for official64local supports per real query, without reducing resource allowance."
+    }
+  },
+  "local-football-rfdetr-training": {
+    "checkpoint": "RF-DETR Large2026 local supervised person+ball fine-tuning",
+    "service": "football-video-training",
+    "vision": true,
+    "license": "Apache-2.0 RF-DETR; SoccerNet research data terms remain applicable",
+    "docs": "https://rfdetr.roboflow.com/latest/learn/train/training-parameters/",
+    "footprint": {
+      "vramGb": 20,
+      "ramGb": 16,
+      "idleVramGb": 0,
+      "idleRamGb": 0,
+      "kind": "peak",
+      "basis": "Conservative unmeasured training admission allowance. Bounded batch2, gradient accumulation4,704px native resolution, BF16, gradient checkpointing, no workers, CUDA allocator18GiB cap,14GiB peak RSS guard. Separate from inference2GiB profile, no reduction of existing budgets. Measure before promotion."
+    }
+  },
   "local-draw-things-flux2-klein": {
     "checkpoint": "black-forest-labs/FLUX.2-klein-4B",
     "service": "qwen",
