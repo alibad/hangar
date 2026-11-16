@@ -18,6 +18,7 @@ import { SignInNotice } from "./agent-sign-in";
 import { Activity, AppWindow, ArrowRight, Check, ChevronRight, Cpu, Globe2, Laptop, Layers as LayersIcon, Play, Plus, RefreshCw, Search, Server, Square, TriangleAlert, Terminal, X, Maximize2, Minimize2, Home, MoreHorizontal, SlidersHorizontal, FolderDown, GitCommitHorizontal, History, Undo2 } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import WorldStylePicker from "./world-style-picker";
+import { bindWorldPinch } from "../../engine/world/js/world-pinch.js";
 import type { ConsoleTab } from "@/lib/labs";
 import type { Peer } from "@/lib/fleet-policy";
 import "./connected-workspace.css";
@@ -165,8 +166,23 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   const project = doc?.repos.find(r => r.id === selected);
   const projectSessions = sessions.filter(s => !s.archived && s.projects.some(p => p.id === selected));
   const liveJobs = jobs.filter(running);
+  const worldSurface = useRef<HTMLDivElement>(null);
   const send = useCallback((type: string, data: Record<string, unknown> = {}) => iframe.current?.contentWindow?.postMessage({ source: "hangar", type, ...data }, window.location.origin), []);
   const reload = () => setRevision(v => v + 1);
+  useEffect(() => {
+    const surface = worldSurface.current;
+    if (!active || view !== "world" || !surface) return;
+    // Wheel events inside the iframe are handled by its viewer. Claim pinches
+    // over Hangar's map overlays too, which live in the parent document.
+    return bindWorldPinch(surface, pinch => {
+      const rect = iframe.current?.getBoundingClientRect();
+      if (!rect) return;
+      send("pinch", { ...pinch,
+        clientX: Number.isFinite(pinch.clientX) ? pinch.clientX! - rect.left : rect.width / 2,
+        clientY: Number.isFinite(pinch.clientY) ? pinch.clientY! - rect.top : rect.height / 2,
+      });
+    });
+  }, [active, view, send]);
 
   useEffect(() => { if (inspector.current) inspector.current.scrollTop = 0; }, [selected, machine, view]);
 
@@ -545,7 +561,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
       {error && !["models", "machines"].includes(view) && <div className="cw-empty" role="alert"><Globe2 size={34} /><img src="/brand/foundry.png" alt="" width="160" height="130" /><h2>Bring your projects into Hangar.</h2><p>{error}</p><p>The bundled engine scans your configured project folders. Refresh when the scan finishes.</p><button onClick={() => onSelect("services")}>Open service controls</button><button className="cw-primary" onClick={() => onSelect("machines")}>Open Machines <ArrowRight size={16} /></button></div>}
       <div className="cw-world-layout" hidden={view !== "world" || !!error}>
         <div className="cw-focus-bar"><span><img src="/brand/foundry.png" alt="" width="28" height="24" />World <span className="cw-muted">/ {machineName}</span></span>{actionCounts}<button ref={exitWorld} onClick={() => setExpanded(false)} aria-label="Exit expanded world"><Minimize2 size={16} />Exit expanded view</button></div>
-        <div className="cw-world">
+        <div ref={worldSurface} className="cw-world">
           <div className="cw-map-left"><button className="cw-map-home" aria-label="Show whole world" title="Show whole world" onClick={home}><Home size={16} /></button><ProjectSearch query={query} setQuery={setQuery} results={searchResults} onChoose={repo => { setQuery(""); choose(repo); }} onPick={() => repos[0] && choose(repos[0])} shortcut /></div>
           <div className="cw-world-tools"><WorldStylePicker /><div className="cw-size-switch" role="group" aria-label="Project size"><span>Size</span>{([["commits", "Commits", "Project size follows how many commits the project has"], ["megabytes", "MB", "Project size follows the repository's size on GitHub"]] as const).map(([id, label, title]) => <button key={id} aria-pressed={sizeBy === id} title={title} onClick={() => setSizeBy(id)}>{label}</button>)}</div><MapMenu layers={layers} setLayers={setLayers} history={mapControls} setHistory={setMapControls} island={family ? doc?.families.find(f => f.id === family)?.name || "" : ""} onIslands={() => setOperation(family ? { kind: "islands", island: family } : { kind: "islands" })} /><button aria-label={expanded ? "Restore world layout" : "Expand world"} onClick={() => setExpanded(v => !v)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
           {doc && <iframe key={`${machine}-${worldRevision}`} ref={iframe} title={`Hangar project world on ${machineName}`} src={`/api/world/${machine}/view/index.html?embed=hangar&lens=default`} onLoad={() => send("status")} allow="clipboard-write" />}

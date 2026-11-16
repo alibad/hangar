@@ -13,6 +13,7 @@ import { clamp, easeInOut, lerp } from "./util.js";
 import { api, embedded, tellHost, listenHost, applyPalette } from "./host.js";
 import { createHarbors } from "./harbors.js";
 import { homeView } from "./camera-view.js";
+import { bindWorldPinch } from "./world-pinch.js";
 import { dressIsland, createEnvironment, disposeEnvironment } from "./environments.js";
 import { composeWorld } from "./composition.js";
 import { WORLD_STYLES, worldStyleById } from "./world-styles.js";
@@ -657,6 +658,25 @@ function start(doc, local, quality) {
     const island = islands.find(i => i.label === label);
     if (island) { e.preventDefault(); tellHost("island-context", { family: island.spot.id }); }
   });
+  function pinchZoom(pinch) {
+    let deltaY = pinch.deltaY;
+    if (Number.isFinite(pinch.scaleRatio) && pinch.scaleRatio > 0) {
+      // Convert Safari's magnification to wheel pixels for our vendored controls,
+      // retaining their cursor anchor and min/max distance limits.
+      deltaY = Math.log(pinch.scaleRatio) / (Math.log(0.95) * controls.zoomSpeed * 0.01);
+    }
+    if (!Number.isFinite(deltaY) || deltaY === 0) return;
+    state.fly = null; controls.enabled = true; interacted();
+    const rect = canvas.getBoundingClientRect();
+    canvas.dispatchEvent(new WheelEvent("wheel", {
+      deltaY, deltaMode: 0, cancelable: true,
+      clientX: Number.isFinite(pinch.clientX) ? pinch.clientX : rect.left + rect.width / 2,
+      clientY: Number.isFinite(pinch.clientY) ? pinch.clientY : rect.top + rect.height / 2,
+    }));
+    wake();
+  }
+  bindWorldPinch(document, pinchZoom, event => !!event.target?.closest?.("#scene, #labels"));
+
   controls.addEventListener("start", () => { interacted(); ui.tip(null); });
   controls.addEventListener("change", () => (state.dirty = true));
 
@@ -1012,6 +1032,7 @@ function start(doc, local, quality) {
       if (/^#[0-9a-f]{6}$/i.test(palette.door || "")) selRing.material.color.set(palette.door);
       wake();
     }
+    if (message.type === "pinch") pinchZoom(message);
     if (message.type === "style") setStyle(message.style);
     if (message.type === "size" && setSizeBy(message.by)) updateCatalog(doc);
     if (message.type === "map-controls") document.body.classList.toggle("show-map-controls", !!message.visible);

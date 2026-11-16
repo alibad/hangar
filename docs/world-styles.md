@@ -28,6 +28,11 @@ or open-space composition, camera framing, and navigation. Space views use drag
 to orbit; ground views use drag to pan. Scrolling zooms in both. Category labels
 remain useful grouping cues without fencing each group into an island.
 
+On a Mac trackpad, pinch over the world to zoom its camera, including over
+project labels and the map toolbar. Pinching outside the world and keyboard
+page-zoom shortcuts retain their browser behavior. A pinch can interrupt a
+camera flight, and zoom still follows the pointer and respects distance limits.
+
 The underlying catalog and organization never change when switching views.
 Selection, search, filters, activity layers and arrival replay carry over. Each
 view has deterministic positions, including seats for hidden projects, so hiding
@@ -76,6 +81,7 @@ export PLAYWRIGHT_CORE=/absolute/path/to/playwright-core/index.mjs
 export CHROMIUM=/absolute/path/to/chrome
 HANGAR_URL=http://127.0.0.1:8017 npm run check:world
 HANGAR_URL=http://127.0.0.1:8017 node scripts/check-world-scale.mjs
+HANGAR_URL=http://127.0.0.1:8017 node scripts/check-world-pinch.mjs
 ```
 
 The main browser check intercepts data with fictional projects and rejects service
@@ -84,6 +90,11 @@ filters, job markers, replay, catalog refresh, persistence, focus return, and
 1440/390/320-pixel layouts. The scale check exercises 210 projects in seven groups
 through 30 changes, checking geometry and texture counts after warm-up. QA
 screenshots remain in ignored `var/world-style-qa/`.
+The pinch check uses trusted Chromium wheel input plus Safari's cumulative
+`GestureEvent.scale` contract dispatched through the DOM. It checks camera
+zoom, page-scale preservation, overlays, duplicate event suppression, cleanup,
+and interruption of a camera flight. Physical Safari trackpad acceptance is a
+separate check.
 
 `HANGAR_URL=http://127.0.0.1:8017 npm run capture:world` regenerates previews from
 the real renderer with fictional projects. Captures use each view's composition
