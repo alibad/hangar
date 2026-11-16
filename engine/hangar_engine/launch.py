@@ -2,7 +2,8 @@
 
 Agents open through their desktop apps' own links, so a new session starts in that folder:
 claude://code/new?folder=... and codex://threads/new?path=... . A command-line install is the fallback.
-The folder always comes from this machine's overlay and the starting prompt from INTENTS, never from a request.
+The folder always comes from this machine's overlay and the starting prompt from INTENTS or APPLY_CLEANUP, both
+written here, never from a request.
 """
 import os
 import re
@@ -25,6 +26,12 @@ INTENTS = {
                "which you can resolve. Then resolve them one at a time, smallest first, with a commit per issue that mentions it "
                "(Fixes #N). Don't push, comment on or close issues until I say so."),
 }
+# What a Claude session in the app is asked after Clean up queued sessions for it: the one starting prompt that
+# changes something. You chose the sessions in Hangar; the app still decides whether each archive needs your approval.
+APPLY_CLEANUP = ("Apply Hangar's clean-up. Call Hangar's hangar_cleanup tool for the sessions I archived in Hangar's Clean up, "
+                 "then archive each one in this app with your session archive tool, several at a time. I already chose them in "
+                 "Hangar, so don't ask me about each one. Skip any the app won't archive (pinned, open on screen or still "
+                 "working), then tell me how many were archived and which stayed.")
 NAMES = {"claude": "Claude Code", "codex": "Codex", "code": "VS Code", "cursor": "Cursor", "github": "GitHub Desktop",
          "folder": {"win32": "Explorer", "darwin": "Finder"}.get(sys.platform, "Files")}
 
@@ -98,9 +105,10 @@ def available():
     return apps
 
 
-def link(app_id, folder, intent=None):
-    """The desktop-app link that starts a new session in this folder, with a starting prompt from INTENTS."""
-    prompt = INTENTS.get(intent or "")
+def link(app_id, folder, intent=None, prompt=None):
+    """The desktop-app link that starts a new session in this folder, with a starting prompt from INTENTS, or the
+    prompt a caller in this engine wrote."""
+    prompt = prompt or INTENTS.get(intent or "")
     if app_id == "claude":
         return "claude://code/new?" + urlencode([("folder", str(folder))] + ([("q", prompt)] if prompt else []))
     if app_id == "codex":
@@ -132,8 +140,9 @@ def _terminal(folder, cmd):
         subprocess.Popen([term, "--", *cmd] if term.endswith("gnome-terminal") else [term, "-e", shlex.join(cmd)], cwd=folder, env=config.child_env(agent=True), **QUIET)
 
 
-def open_in(app_id, folder, intent=None):
-    """Open folder with app_id (claude, codex, code, cursor, folder). Raises LaunchError when that is not possible."""
+def open_in(app_id, folder, intent=None, prompt=None):
+    """Open folder with app_id (claude, codex, code, cursor, folder). Raises LaunchError when that is not possible.
+    prompt is a starting prompt written in this engine, for an agent; it wins over intent."""
     folder = str(folder)
     if not Path(folder).is_dir():
         raise LaunchError("That folder is not on this machine any more.")
@@ -142,9 +151,9 @@ def open_in(app_id, folder, intent=None):
         raise LaunchError(f"{NAMES.get(app_id, app_id)} is not installed on this machine.")
     try:
         if app["kind"] == "agent" and app["how"] == "app":
-            _open_os(link(app_id, folder, intent))
+            _open_os(link(app_id, folder, intent, prompt))
         elif app["kind"] == "agent":
-            prompt = INTENTS.get(intent or "")
+            prompt = prompt or INTENTS.get(intent or "")
             _terminal(folder, [cli(app_id) or app_id] + ([prompt] if prompt else []))
         elif app_id == "cursor" and _mac_app("Cursor") and not shutil.which("cursor"):
             subprocess.Popen(["open", "-a", "Cursor", folder], **QUIET)

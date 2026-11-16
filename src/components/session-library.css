@@ -35,8 +35,21 @@
 .sl-detail{position:sticky;top:76px;max-height:calc(100dvh - 92px);overflow-y:auto;scrollbar-width:thin;border:1px solid var(--cw-line);border-radius:14px;padding:18px 20px;background:var(--cw-panel);min-width:0}
 .sl-detail .sl-session-title h3{font-size:17px}
 @media(max-width:1000px){.sl-inbox{grid-template-columns:1fr}.sl-list{max-height:none}.sl-detail{position:static}}
-/* Wide screens: the page sets .sl-inbox to the window height left below it, and the list and the session scroll inside it. */
-@media(min-width:1001px){.sl-inbox{grid-template-rows:minmax(0,1fr);align-items:stretch}.sl-inbox>.sl-list{min-height:0;overflow-y:auto;scrollbar-width:thin;padding-bottom:12px}.sl-inbox>.sl-detail{position:static;max-height:none;min-height:0}}
+/* Wide screens: .sl-inbox is as tall as the window with only the app bar and the find row above it (session-library.tsx
+   sets the height), and the list and the session scroll inside it. Until the page has scrolled that far they end at the
+   window's bottom edge (--sl-cut). The find row sticks under the app bar. The page's own scrollbar is hidden, since the
+   two panes have theirs, and nothing sits under them: no footer, no page padding. */
+@media(min-width:1001px){
+  .sl-inbox{grid-template-rows:minmax(0,1fr);align-items:start}
+  .sl-inbox>.sl-list,.sl-inbox>.sl-detail{height:calc(100% - var(--sl-cut,0px));min-height:0}
+  .sl-inbox>.sl-list{overflow-y:auto;scrollbar-width:thin;padding-bottom:12px}
+  .sl-inbox>.sl-detail{position:static;max-height:none}
+  .sl-main:has(>.sl-inbox)>.sl-list-heading{position:sticky;top:var(--sl-bar,61px);z-index:4;margin:0;padding:8px 0 12px;background:var(--workspace-canvas)}
+  html:has(.connected-workspace:not([hidden]) .sl-inbox){scrollbar-width:none}
+  main:has(.connected-workspace:not([hidden]) .sl-inbox){padding-bottom:12px}
+  main:has(.connected-workspace:not([hidden]) .sl-inbox)>footer{display:none}
+  main:has(.sl-inbox)>.connected-workspace:not([hidden]){margin-bottom:0}
+}
 .sl-detail>p{font-size:13px;line-height:1.65;margin-top:12px;color:var(--cw-ink)}.sl-detail details{margin-top:10px}.sl-detail details summary{font-size:12px;color:var(--cw-muted);cursor:pointer}.sl-detail details li,.sl-detail details p{font-size:11px;line-height:1.6}.sl-detail code{font-size:10px;overflow-wrap:anywhere}
 
 /* The two agents, side by side: one colour each, used in badges, counts, the 14-day bars and the project lanes. */
@@ -194,3 +207,10 @@
 .sl-shows .is-done{--v:#16a34a}.sl-shows .is-elsewhere{--v:#3b82f6}.sl-shows .is-unclear{--v:var(--cw-muted)}.sl-shows .is-left{--v:var(--cw-accent)}.sl-shows .is-unchecked{--v:var(--cw-line)}
 .connected-workspace .sl-shows .sl-shows-archive{margin-left:auto;border-color:color-mix(in srgb,var(--cw-accent) 45%,transparent);color:var(--cw-accent);font-weight:550}
 .connected-workspace .sl-shows .sl-shows-archive:hover{background:color-mix(in srgb,var(--cw-accent) 10%,transparent)}
+/* The one-click clean-up, and what it left waiting on the Claude app. */
+.sl-finish{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px 18px;margin:4px 0 10px;padding:12px 16px;border:1px solid color-mix(in srgb,var(--cw-accent) 45%,transparent);border-radius:12px;background:color-mix(in srgb,var(--cw-accent) 7%,transparent)}
+.sl-finish>span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.sl-finish b{font-size:14px;color:var(--cw-ink)}
+.sl-finish small{font-size:12px;line-height:1.5;color:var(--cw-muted)}
+.connected-workspace .sl-finish .sl-finish-go{display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border-radius:9px;background:var(--cw-accent);color:var(--color-gray-950);font-size:12.5px;font-weight:650;white-space:nowrap;cursor:pointer}
+.connected-workspace .sl-finish .sl-finish-go:disabled{opacity:.55;cursor:default}

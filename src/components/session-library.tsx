@@ -52,6 +52,8 @@ const SHOWS = [["done", "Done"], ["elsewhere", "Done elsewhere"], ["unclear", "U
 type Show = typeof SHOWS[number][0];
 const showOf = (s: LibrarySession): Show | "working" => verdictOf(s) || "unchecked";
 export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; idleDays: number; nativeAvailable: boolean; reviewCount: number; unreadReviewCount: number; claudeApp?: boolean; truncated: boolean; observedAt: string;
+  /** Archived here and still open in the Claude app: a Claude session there archives them. */
+  claudeQueue?: { key: string; appId: string | null; title: string }[];
   /** A background check-in run over many sessions. */
   checking?: { running: boolean; done: number; total: number; error: string | null } };
 type Props = { machine: string; data: SessionLibraryData | null; error: string; onUpdate: (data: SessionLibraryData) => void; onContinue: (session: LibrarySession) => void; onOpen?: (session: LibrarySession) => void };
@@ -67,6 +69,8 @@ const AGES = [{ id: "90", name: "Over 3 months", min: 90 }, { id: "60", name: "2
 const STATUS: Record<string, string> = { completed: "Done", blocked: "Waiting on you", review_ready: "Ready for your review" };
 /** Sessions to look at before any clean-up: a reply you have not opened, or a turn that stopped to ask you something. */
 const held = (s: LibrarySession) => s.unread === true || s.status?.category === "blocked";
+/** Never in a bulk archive: unread or waiting on you, pinned, a running job, or working now. */
+const bulkable = (list: LibrarySession[]) => list.filter(s => !held(s) && !s.protected && !s.pinned && !s.working && !s.archived);
 type Section = { id: string; name: string; rows: LibrarySession[]; all: LibrarySession[]; bulk?: boolean };
 function cleanupSections(list: LibrarySession[], expanded: string[]): Section[] {
   const out: Section[] = [];
@@ -133,30 +137,95 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const rows = useMemo(() => showProbes ? everything : everything.filter(s => !s.probe), [everything, showProbes]);
   const targetRow = rows.find(s => s.key === target?.key);
 
-  // On a wide screen the list and the open session each scroll on their own and reach the window's bottom edge, so the
-  // page itself does not scroll. What sits above the list varies, so the height left for it is measured.
+  // On a wide screen the list and the open session each scroll on their own and reach the window's bottom edge. The
+  // space for them (.sl-inbox) is as tall as the window with only the app bar and the find row above it, so the page can
+  // scroll exactly far enough to put them there, and the first scroll inside either one takes it there: the tabs and
+  // counts give way to the sessions. Before that the two end at the window's bottom edge (--sl-cut is what is held back).
   useEffect(() => {
     if (!inbox) return;
-    const wide = window.matchMedia("(min-width: 1001px)");
+    const wide = window.matchMedia("(min-width: 1001px)"), calm = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const page = document.scrollingElement || document.documentElement;
+    const main = inbox.closest("main"), frame = inbox.parentElement;
+    const GAP = 12, LEAST = 300;
+    let moving = false, filled = false, timer = 0, touched = 0;
+    const room = () => page.scrollHeight - page.clientHeight - page.scrollTop;
+    /** Hold back what would hang below the window, so the list and the session end at its bottom edge. */
+    const trim = () => {
+      if (!wide.matches || moving) return;
+      const over = inbox.getBoundingClientRect().top + inbox.offsetHeight + GAP - page.clientHeight;
+      inbox.style.setProperty("--sl-cut", `${Math.max(0, Math.min(Math.round(over), inbox.offsetHeight - LEAST))}px`);
+      filled = page.scrollTop > 0 && room() <= 1;
+    };
     const fit = () => {
-      if (!wide.matches) { inbox.style.removeProperty("height"); return; }
-      const box = inbox.getBoundingClientRect(), top = box.top + window.scrollY;
-      // What follows the list down to the page's end (the footer and the page padding), measured from the layout: the
-      // page's scroll height cannot be used, since it never drops below the window and would count empty space too.
-      const page = inbox.closest("main"), last = page?.lastElementChild;
-      const below = page && last ? last.getBoundingClientRect().bottom - box.bottom
-        + parseFloat(getComputedStyle(last).marginBottom) + parseFloat(getComputedStyle(page).paddingBottom) : 0;
-      // One pixel spare: layout sizes are fractional and the page's height rounds up. A very short window scrolls the page.
-      const height = Math.max(300, Math.floor(document.documentElement.clientHeight - top - below) - 1);
+      if (!wide.matches) { inbox.style.removeProperty("height"); inbox.style.removeProperty("--sl-cut"); return; }
+      // The app bar that stays at the window's top (the page holds a second, empty one).
+      const top = Math.max(0, ...[...document.querySelectorAll<HTMLElement>(".console-header")]
+        .filter(bar => getComputedStyle(bar).position === "sticky").map(bar => bar.offsetHeight));
+      frame?.style.setProperty("--sl-bar", `${top}px`);
+      // What stays above the two once the page has scrolled: the app bar and the find row, which sticks under it.
+      const find = frame?.querySelector<HTMLElement>(":scope > .sl-list-heading");
+      const kept = top + (find ? find.offsetHeight : 0) + parseFloat(getComputedStyle(inbox).marginTop);
+      // What follows them down to the page's end, measured from the layout.
+      const below = main ? main.getBoundingClientRect().bottom - inbox.getBoundingClientRect().bottom : 0;
+      // One pixel spare: layout sizes are fractional and the page's height rounds up.
+      const height = Math.max(LEAST, Math.floor(page.clientHeight - kept - below) - 1);
       if (Math.abs(inbox.offsetHeight - height) > 1) inbox.style.height = `${height}px`;
+      // The sessions filled the window and something above them changed size (a notice, another view): keep them there.
+      if (filled && !moving && room() > 1) window.scrollTo(0, page.scrollHeight);
+      trim();
+    };
+    const settle = () => { window.clearTimeout(timer); moving = false; trim(); };
+    /** Take the page to its end (the sessions fill the window) or back to its start (everything above them shows). */
+    const send = (down: boolean) => {
+      if (down) inbox.style.setProperty("--sl-cut", "0px");
+      moving = true;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(settle, 700);
+      window.scrollTo({ top: down ? page.scrollHeight : 0, behavior: calm.matches ? "auto" : "smooth" });
+    };
+    const wheel = (e: WheelEvent) => {
+      if (!wide.matches || e.ctrlKey || e.shiftKey || !e.deltaY || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      if (e.deltaY > 0) {
+        if (room() <= 1) return; // The sessions already fill the window: whatever is under the pointer scrolls.
+        e.preventDefault();
+        if (!moving) send(true);
+      } else if (page.scrollTop > 0) {
+        for (let el = e.target as Element | null; el && el !== frame; el = el.parentElement) if (el.scrollTop > 0) return;
+        e.preventDefault();
+        if (!moving) send(false);
+      }
+    };
+    // Scrolling the list by keyboard, by its scrollbar or by touch gets the same room as the wheel does.
+    const touch = () => { touched = Date.now(); };
+    const follow = (e: Event) => {
+      const pane = e.target as HTMLElement;
+      if (wide.matches && !moving && Date.now() - touched < 1500 && pane.parentElement === inbox && pane.scrollTop > 0 && room() > 1) send(true);
     };
     fit();
     // The body keeps its size when what sits above the list shrinks (switching views), so the section is watched too.
     const watch = new ResizeObserver(fit);
-    for (const el of [document.body, inbox.closest("main"), inbox.closest(".sl-library")]) if (el) watch.observe(el);
+    for (const el of [document.body, main, inbox.closest(".sl-library")]) if (el) watch.observe(el);
     wide.addEventListener("change", fit);
     window.addEventListener("resize", fit);
-    return () => { watch.disconnect(); wide.removeEventListener("change", fit); window.removeEventListener("resize", fit); };
+    window.addEventListener("scroll", trim, { passive: true });
+    window.addEventListener("scrollend", settle);
+    inbox.addEventListener("wheel", wheel, { passive: false });
+    inbox.addEventListener("scroll", follow, true);
+    inbox.addEventListener("pointerdown", touch);
+    inbox.addEventListener("keydown", touch);
+    inbox.addEventListener("touchmove", touch, { passive: true });
+    return () => {
+      watch.disconnect(); window.clearTimeout(timer);
+      wide.removeEventListener("change", fit);
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("scroll", trim);
+      window.removeEventListener("scrollend", settle);
+      inbox.removeEventListener("wheel", wheel);
+      inbox.removeEventListener("scroll", follow, true);
+      inbox.removeEventListener("pointerdown", touch);
+      inbox.removeEventListener("keydown", touch);
+      inbox.removeEventListener("touchmove", touch);
+    };
   }, [inbox]);
 
   useEffect(() => {
@@ -236,7 +305,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const askClaude = (row: LibrarySession) => act({ ask: row.key }, "Claude is reading the conversation, read-only. Its verdict appears here in a minute or two.", checkUrl);
   const archived = (r: Record<string, number>) => [
     r.codexArchived && `${r.codexArchived} archived in Codex`,
-    r.claudeQueued && `${r.claudeQueued} queued for the Claude app (ask a Claude session to apply Hangar’s clean-up)`,
+    r.claudeQueued && `${r.claudeQueued} queued for the Claude app`,
     r.hangarOnly && `${r.hangarOnly} archived in Hangar, the only list ${r.hangarOnly === 1 ? "it is" : "they are"} in`,
     r.codexFailed && `Codex refused ${r.codexFailed}, which stay open`,
   ].filter(Boolean).join("; ") + ".";
@@ -258,8 +327,19 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
   const showing = mode === "review" && shows.length > 0;
   const visible = useMemo(() => showing ? pool.filter(s => shows.includes(showOf(s) as Show)) : pool, [pool, shows, showing]);
   const shownName = shows.map(id => SHOWS.find(([key]) => key === id)?.[1]).join(" + ");
-  /** Never in a bulk archive: unread or waiting on you, pinned, a running job, or working now. */
-  const bulkable = (list: LibrarySession[]) => list.filter(s => !held(s) && !s.protected && !s.pinned && !s.working && !s.archived);
+  /** The one-click clean-up: what the check-in found finished, here or in later work, and safe to archive together. */
+  const finished = useMemo(() => mode !== "review" ? [] : bulkable(pool.filter(s => { const v = showOf(s); return v === "done" || v === "elsewhere"; }))
+    .sort((a, b) => (b.idleDays || 0) - (a.idleDays || 0)).slice(0, 500), [pool, mode]);
+  /** Archived here and still open in the Claude app, which only a session inside it can change. */
+  const queue = data?.claudeQueue || [];
+  const handOff = (before = "") => act({ action: "applyInClaude" }, `${before}${before ? " " : ""}Claude is opening with the clean-up. Each session leaves this list once the app has archived it.`);
+  /** Archive, then hand the Claude app's share to a Claude session, so one confirmation finishes the job. */
+  async function archiveAll(list: LibrarySession[]) {
+    let summary = "";
+    const done = await act({ action: "archive", keys: list.map(s => s.key), activity: Object.fromEntries(list.map(s => [s.key, s.activityAt])) }, r => (summary = archived(r)));
+    if (done && list.some(s => homeOf(s) === "the Claude app")) await handOff(summary);
+    return done;
+  }
   // Active work reads by topic; clean-up reads by age, oldest first; the archive stays one queue.
   const sections = useMemo<Section[]>(() => {
     if (mode === "review") return cleanupSections(visible, expanded);
@@ -295,6 +375,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     <div className="sl-toolbar"><div className="cw-family-tabs" aria-label="Session view">{([['active', 'Active'], ['projects', 'By project'], ['review', 'Clean up'], ['groups', 'Groups & sections'], ['archived', 'Archived']] as const).map(([id, label]) => <button key={id} aria-pressed={mode === id} onClick={() => chooseMode(id)}>{label}{id === "review" && !!data?.reviewCount && <small>{data.reviewCount}</small>}</button>)}</div></div>
     {(loadError || error) && <p className="cw-error" role="alert">{error || loadError}</p>}
     {notice && <p className="sl-notice" role="status"><Check size={15} />{notice}</p>}
+    {queue.length > 0 && <div className="sl-finish is-queue" role="status"><span><b>{queue.length} waiting to be archived in the Claude app</b><small>Hangar can’t change that app, so a Claude session archives them there. They leave this list as it does.</small></span><button className="sl-finish-go" disabled={busy} onClick={() => handOff()}>Have Claude archive them<ArrowRight size={15} aria-hidden="true" /></button></div>}
     {!data ? <HangarLoading label="Reading session history" steps={["Indexing Claude Code sessions", "Indexing Codex sessions", "Grouping them by project"]} shape="rows" /> : <>
       {!data.nativeAvailable && <p className="cw-muted">Codex section and read state are unavailable on this machine. Hangar groups still work.</p>}
       {data.truncated && <p className="cw-muted">This is a bounded index; older sessions may be outside this scan.</p>}
@@ -317,6 +398,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
         {data.checking?.running ? <div className="sl-progress" role="status"><span>Checking sessions… {data.checking.done} of {data.checking.total}</span><i style={{ width: `${Math.round(data.checking.done / Math.max(1, data.checking.total) * 100)}%` }} /></div>
           : data.checking?.error ? <p className="cw-error" role="alert">The check-in run stopped: {data.checking.error}</p> : null}
         {mode === "review" && !checking && visible.some(s => !s.checkin) && <button className="sl-check-every" disabled={busy} onClick={() => checkIn(visible.filter(s => !s.checkin).slice(0, 600))}><ClipboardCheck size={15} aria-hidden="true" />Check in on all {visible.filter(s => !s.checkin).length}<small>Hangar reads each one’s ask, its ending and the project, in seconds</small></button>}
+        {mode === "review" && finished.length > 0 && <div className="sl-finish"><span><b>{finished.length} finished {finished.length === 1 ? "session" : "sessions"}</b><small>The check-in found them done, here or in later work. None is unread or waiting on you.</small></span><button className="sl-finish-go" disabled={busy} onClick={() => setBulk({ name: "Finished", rows: finished })}><Archive size={15} aria-hidden="true" />Archive {finished.length} finished</button></div>}
         {mode === "review" && pool.some(s => s.checkin) && <div className="sl-shows" role="group" aria-label="Show sessions the check-in found">
           <button aria-pressed={!showing} onClick={() => setShows([])}>All <small>{pool.length}</small></button>
           {SHOWS.map(([id, label]) => { const n = pool.filter(s => showOf(s) === id).length; return n > 0 && <button key={id} className={`is-${id}`} aria-pressed={shows.includes(id)} onClick={() => setShows(list => list.includes(id) ? list.filter(x => x !== id) : [...list, id])}><i aria-hidden="true" />{label} <small>{n}</small></button>; })}
@@ -387,11 +469,11 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
         <ul className="sl-bulk-list">{bulk.rows.slice(0, 6).map(s => <li key={s.key}><span>{s.title}</span><small>{s.idleDays}d</small></li>)}{n > 6 && <li className="is-more">and {n - 6} more</li>}</ul>
         <ul className="sl-bulk-where">
           {inCodex > 0 && <li><b>{inCodex}</b> archived in Codex right away</li>}
-          {inApp > 0 && <li><b>{inApp}</b> archived in the Claude app by a Claude session. Hangar can’t change that app, so it queues them; ask any Claude session to apply Hangar’s clean-up.</li>}
+          {inApp > 0 && <li><b>{inApp}</b> archived in the Claude app by a Claude session. Hangar can’t change that app, so it queues them and opens Claude with the instruction to archive them.</li>}
           {inHangar > 0 && <li><b>{inHangar}</b> started outside both apps, so Hangar is the only list they are in</li>}
         </ul>
         <div className="sl-dialog-actions"><button className="cw-primary" disabled={busy} onClick={async () => {
-          if (await act({ action: "archive", keys: bulk.rows.map(s => s.key), activity: Object.fromEntries(bulk.rows.map(s => [s.key, s.activityAt])) }, archived)) setBulk(null);
+          if (await archiveAll(bulk.rows)) setBulk(null);
         }}>Archive {n} <Archive size={16} /></button><button disabled={busy} onClick={() => setBulk(null)}>Cancel</button></div>
         <p className="sl-help">Unread sessions and ones waiting on you are not in this list. Each stays restorable in its app.</p>
         {error && <p className="cw-error" role="alert">{error}</p>}</section></div>;

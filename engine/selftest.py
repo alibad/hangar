@@ -209,6 +209,33 @@ class SessionCleanup(unittest.TestCase):
             self.assertNotIn("codex", saved)
             self.assertEqual((done["codexArchived"], done["claudeQueued"], done["hangarOnly"]), (1, 1, 1))
 
+    def test_clean_up_hands_its_claude_queue_to_a_claude_session(self):
+        from unittest import mock
+        from urllib.parse import parse_qs, urlparse
+        from hangar_engine import launch, session_library
+        queue = {"claudeQueue": [{"key": "claude:a", "appId": "local_a", "title": "Old"}]}
+        app = lambda how: [{"id": "claude", "name": "Claude Code", "kind": "agent", "how": how}]
+        with tempfile.TemporaryDirectory() as d, mock.patch.object(session_library.config, "REPO", Path(d)), \
+                mock.patch.object(launch, "_open_os") as opened, mock.patch.object(launch, "_terminal") as terminal:
+            with mock.patch.object(launch, "available", return_value=app("app")):
+                with self.assertRaises(ValueError):                                        # nothing queued: no session is opened
+                    session_library._hand_to_claude({"claudeQueue": []})
+                opened.assert_not_called()
+                done = session_library._hand_to_claude(queue)
+            self.assertEqual((done["opened"], done["queued"]), (True, 1))
+            link = urlparse(opened.call_args[0][0])
+            self.assertEqual((link.scheme, link.netloc + link.path), ("claude", "code/new"))
+            asked = parse_qs(link.query)
+            self.assertEqual(asked["folder"], [str(Path(d))])
+            self.assertEqual(asked["q"], [launch.APPLY_CLEANUP])                          # Hangar's own prompt, never a request's
+            self.assertIn("hangar_cleanup", launch.APPLY_CLEANUP)
+            opened.reset_mock()
+            with mock.patch.object(launch, "available", return_value=app("cli")):
+                with self.assertRaises(ValueError):                                        # a terminal session cannot archive in the app
+                    session_library._hand_to_claude(queue)
+            opened.assert_not_called()
+            terminal.assert_not_called()
+
 
 class StepBack(unittest.TestCase):
     """What you said in a session and how, and a reader's reply held to its shape. Synthetic transcripts only."""

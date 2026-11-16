@@ -119,6 +119,15 @@ queue a Claude session applies, the rest in Hangar. Unread sessions, sessions
 that stopped to ask you something, pinned ones and ones with a running job are
 never on the list. Step back never archives on its own.
 
+Hangar cannot change the Claude app, so the Claude app's share is queued and
+handed over at once: Hangar opens a Claude session there with the instruction
+to archive what is queued (`hangar_cleanup` lists it). Sessions → Clean up does
+the same from one button, **Archive N finished**: every idle session the
+check-in found done, here or in later work, except unread ones and ones waiting
+on you. While anything is still queued, the Sessions page shows how many and a
+**Have Claude archive them** button. The app decides whether each archive needs
+your approval; a session in auto mode may archive without asking.
+
 ## Engine
 
 `engine/hangar_engine/session_voice.py` reads the transcripts (only what was

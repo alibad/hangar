@@ -165,7 +165,10 @@ export default function StepBack({ machine, onOpen, onSessionsChanged, onCleanUp
     try {
       const out = await call<{ archived: number; codexArchived: number; claudeQueued: number; hangarOnly: number }>(`/api/world/${machine}/proxy/sessions/library`,
         { action: "archive", keys: rows.map(r => r.key), activity: Object.fromEntries(rows.map(r => [r.key, r.activityAt])) });
-      setNotice(`Archived ${out.archived}.` + (out.claudeQueued ? ` ${out.claudeQueued} of them live in the Claude app, which only a Claude session can change: ask one there to run Hangar's clean-up.` : ""));
+      // The Claude app's share is handed to a Claude session at once; if that fails, Sessions → Clean up keeps the queue and its button.
+      let opened = false;
+      if (out.claudeQueued) try { await call(`/api/world/${machine}/proxy/sessions/library`, { action: "applyInClaude" }); opened = true; } catch { /* stays queued */ }
+      setNotice(`Archived ${out.archived}.` + (out.claudeQueued ? ` ${out.claudeQueued} of them live in the Claude app, which only a Claude session can change: ${opened ? "Claude is opening to archive them there." : "open Sessions, Clean up and press “Have Claude archive them”."}` : ""));
       setFacts(null); changed.current?.();
       if (result) await act({ action: "archived", run: result.id, keys: rows.map(r => r.key) });
     } catch (e) { setError((e as Error).message); }

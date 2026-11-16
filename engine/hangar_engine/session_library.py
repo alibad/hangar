@@ -8,8 +8,9 @@ unread replies and status lines, never written.
 Archive means archived in the app that holds the session. A Codex thread is
 archived through Codex's API. The Claude app can only be changed from inside
 it, so a Claude app session is queued here and a Claude session in the app
-archives it (hangar_cleanup lists the queue); it counts as archived once the
-app's record says so. Only a session no app shows (a terminal session, an old
+archives it (hangar_cleanup lists the queue; applyInClaude opens a session
+there with that instruction); it counts as archived once the app's record
+says so. Only a session no app shows (a terminal session, an old
 Codex rollout) is archived in Hangar itself, since Hangar is the one list it
 is in.
 """
@@ -167,6 +168,8 @@ def update(doc, overlay, body):
                 raise ValueError("Use a group name of 1–80 characters (up to 200 groups).")
             gid = "hangar:" + uuid.uuid4().hex
             saved["groups"][gid] = {"name": name.strip()}
+        elif action == "applyInClaude":
+            return _hand_to_claude(snapshot(doc, overlay))
         else:
             current = snapshot(doc, overlay)
             rows = {s["key"]: s for s in current["sessions"]}
@@ -254,6 +257,22 @@ def _archive(saved, rows, keys, body):
     config.write_json(config.LOCAL / "session-library.json", saved)
     return {"saved": True, "archived": len(live) - len(failed), "codexArchived": len(codex) - len(failed), "codexFailed": len(failed),
             "claudeQueued": len(claude), "hangarOnly": len(elsewhere)}
+
+
+def _hand_to_claude(current):
+    """Open a Claude session in the app with the instruction to archive what Clean up queued for it, so archiving
+    there takes no second ask. Hangar writes the prompt (launch.APPLY_CLEANUP); nothing in the request reaches it."""
+    from . import launch
+    queued = len(current["claudeQueue"])
+    if not queued:
+        raise ValueError("Nothing is waiting to be archived in the Claude app.")
+    if not any(a["id"] == "claude" and a["how"] == "app" for a in launch.available()):
+        raise ValueError("The Claude app is not installed on this machine, and only a session inside it can archive there.")
+    try:
+        launch.open_in("claude", config.REPO, prompt=launch.APPLY_CLEANUP)
+    except launch.LaunchError as e:
+        raise ValueError(str(e)) from e
+    return {"opened": True, "queued": queued}
 
 
 def _checking():
