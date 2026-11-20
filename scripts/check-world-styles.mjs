@@ -18,7 +18,7 @@ try {
   const element = page.locator('iframe[title^="Hangar project world"]');
   await element.waitFor({ timeout: 60000 });
   const frame = await (await element.elementHandle()).contentFrame();
-  await frame.waitForFunction(() => !!window.atlas && atlas.buildings.every(b => b.onMap !== false), null, { timeout: 60000 });
+  await frame.waitForFunction(() => !!window.atlas && atlas.buildings.every(b => b.onMap !== false), null, { timeout: 60000, polling: 150 });
   await page.getByRole("status", { name: "Map loading status" }).waitFor({ state: "hidden" });
   console.log("Viewer ready");
   await frame.evaluate(() => atlas.select(atlas.doc.repos[0]));

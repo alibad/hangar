@@ -12,9 +12,9 @@ The colour-theme menu also offers a compact view selector.
 | Buildings | Original city on floating islands |
 | Airplanes | Gliders, prop planes and jets at a compact airport with a separate runway, taxi lanes and glazed terminals |
 | Galaxy | Planets distributed across a galactic star field with three spiral dust arms |
-| Forest | Irregular groves on a rolling, continuous landscape |
-| Ocean reef | Branching coral on an uninterrupted sea floor, with suspended-particle scenery and caustic-like light ribbons |
-| Mountains | Peaks distributed across a shared mountain landscape |
+| Forest | Conifers, rounded broadleaf trees, drooping crowns and autumn foliage across rolling groves |
+| Ocean reef | Branching coral, fans, plates and tube colonies across a continuous sea floor |
+| Mountains | Granite spires, sandstone mesas, folded ridges, glacial peaks and green domes across a valley |
 | Space fleet | Convoys in wedge-shaped squadron formations through open space |
 | Garden | Flowering trails in a continuous garden |
 | Constellation | Luminous stars in three dimensions, connected into category constellations |
@@ -52,6 +52,8 @@ are invented.
 
 Size and complexity use the existing **Commits / MB** switch. These represent
 observed repository facts, not completion, approval, quality or business value.
+A mountain gets taller with project size. Rock profiles and colors, tree species
+and coral shapes give projects stable visual identities.
 A project without an observed commit count retains the repository-size fallback.
 Activity, attention, local availability, website addresses, actual coding jobs
 and app ports retain their existing meanings. Physical pull-request flags remain

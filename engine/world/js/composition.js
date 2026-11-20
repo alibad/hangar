@@ -7,7 +7,11 @@ export const isLandscape = style => ["forest", "garden", "reef", "mountains", "m
 export function groundHeight(style, x, z) {
   if (style === "forest") return Math.sin(x * 0.026) * Math.cos(z * 0.022) * 3;
   if (style === "reef") return Math.sin(x * 0.035 + z * 0.012) * 1.4 + Math.cos(z * 0.03) * 1.1;
-  if (style === "mountains") return Math.sin(x * 0.021) * Math.cos(z * 0.018) * 6 + Math.sin((x + z) * 0.037) * 2;
+  if (style === "mountains") {
+    const across = z - .22 * x - 18 * Math.sin(x * .029);
+    const valley = Math.exp(-((across / 20) ** 2));
+    return 5 * Math.sin(x * .029) * Math.cos(z * .021) + 4 * Math.cos(across * .047) - 9 * valley;
+  }
   return 0;
 }
 
@@ -53,6 +57,15 @@ export function composeWorld(plan, style) {
         const x = (i % cols - (cols - 1) / 2) * 9;
         return { x, y: 0.12, z: (row - (rows - 1) / 2) * 11 + Math.sin(x * 0.09 + row) * 2.4, heading: null };
       });
+    } else if (style === "mountains") {
+      // Mountain chains have a longer axis, with alternating saddles between shoulders.
+      const angle = (rand() - .5) * .75;
+      positions = s.cells.map((_, i) => {
+        const phase = i * GOLDEN + rand() * .17, reach = Math.sqrt(i + .5) * 11.7;
+        const ridge = Math.cos(phase) * reach, across = Math.sin(phase) * reach * .65;
+        return { x: ridge * Math.cos(angle) - across * Math.sin(angle), y: .08,
+          z: ridge * Math.sin(angle) + across * Math.cos(angle), heading: null };
+      });
     } else if (style === "constellation") {
       y = Math.sin(a * 1.7) * 24;
       positions = s.cells.map((c, i) => { const phase = i * 1.16 + rand(), distance = 8 + Math.sqrt(i) * 12; return { x: Math.cos(phase) * distance, y: (rand() - 0.5) * 24, z: Math.sin(phase) * distance * 0.6, heading: null }; });
@@ -61,13 +74,13 @@ export function composeWorld(plan, style) {
       positions = s.cells.map((c, i) => { const r = 10 + Math.sqrt(i) * 10, p = i * GOLDEN; return { x: Math.cos(p) * r, y: (rand() - 0.5) * 35, z: Math.sin(p) * r, heading: null }; });
     } else {
       // Spiral sampling gives groves, coral and planetary systems a loose, irregular structure.
-      positions = s.cells.map((c, i) => { const angle = i * GOLDEN + rand() * 0.3, d = Math.sqrt(i + 0.5) * (style === "galaxy" ? 13 : 9); return { x: Math.cos(angle) * d, y: style === "galaxy" ? Math.sin(angle * 2) * 7 : 0, z: Math.sin(angle) * d * (style === "mountains" ? 0.65 : 1), heading: null }; });
+      positions = s.cells.map((c, i) => { const angle = i * GOLDEN + rand() * 0.3, d = Math.sqrt(i + 0.5) * (style === "galaxy" ? 13 : 9); return { x: Math.cos(angle) * d, y: style === "galaxy" ? Math.sin(angle * 2) * 7 : 0, z: Math.sin(angle) * d, heading: null }; });
       if (style === "galaxy") { y = Math.sin(a) * 12; x *= 1.2; z *= 0.75; }
     }
     const midpoint = key => (Math.min(...positions.map(p => p[key])) + Math.max(...positions.map(p => p[key]))) / 2;
     const focus = { x: midpoint("x"), y: midpoint("y"), z: midpoint("z") };
     const radius = Math.max(14, ...positions.map(p => Math.hypot(p.x - focus.x, p.y - focus.y, p.z - focus.z) + 7));
-    const label = { x: focus.x, y: focus.y + 10, z: focus.z - radius * 0.65 };
+    const label = { x: focus.x, y: focus.y + (style === "mountains" ? 20 : 10), z: focus.z - radius * 0.65 };
     const group = { x, y, z, radius, focus, label };
     groups.set(s.id, group);
     if (rectilinear) {
@@ -164,8 +177,12 @@ export function composeWorld(plan, style) {
   const extent = Math.max(32, Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2 + 18);
   for (const g of groups.values()) { g.x -= center.x; g.y = isLandscape(style) ? 0 : g.y - center.y; g.z -= center.z; }
   if (isLandscape(style)) for (const s of plan.islands) for (const c of s.cells) { const g = groups.get(s.id), p = projects.get(c.repo.id); p.y += groundHeight(style, g.x + p.x, g.z + p.z); }
-  const points = worldPositions.map(p => ({ x: p.x - center.x, y: isLandscape(style) ? p.y : p.y - center.y, z: p.z - center.z }));
-  return { style, groups, projects, points, extent, axisX: runwayX - center.x, center: { x: 0, y: 0, z: 0 }, phi: style === "airplanes" ? 0.57 : style === "constellation" ? 0.88 : style === "neural" ? 1.03 : style === "fleet" ? 0.92 : ["forest", "mountains", "reef"].includes(style) ? 1.03 : 0.85, theta: style === "airplanes" ? -0.6 : style === "neural" ? 0.45 : 0.72 };
+  const points = worldPositions.map(p => {
+    const x = p.x - center.x, z = p.z - center.z;
+    const y = style === "mountains" ? groundHeight(style, x, z) + 12 : isLandscape(style) ? p.y : p.y - center.y;
+    return { x, y, z };
+  });
+  return { style, groups, projects, points, extent, axisX: runwayX - center.x, center: { x: 0, y: 0, z: 0 }, phi: style === "airplanes" ? 0.57 : style === "constellation" ? 0.88 : style === "neural" ? 1.03 : style === "fleet" ? 0.92 : style === "mountains" ? 0.96 : ["forest", "reef"].includes(style) ? 1.03 : 0.85, theta: style === "airplanes" ? -0.6 : style === "neural" ? 0.45 : 0.72 };
 }
 
 /** Sparse, explainable edges. Cross-category edges require an observed shared topic. */

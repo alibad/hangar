@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { clamp, hash, rng } from "./util.js";
 import { PLOT } from "./layout.js";
+import { createMountainGeometry } from "./mountain-forms.js";
 
 export function createFormGeometry() {
   const gear = new THREE.Shape();
@@ -21,6 +22,7 @@ export function createFormGeometry() {
     cylinder: new THREE.CylinderGeometry(1, 1, 1, 12),
     cone: new THREE.ConeGeometry(1, 1, 7),
     crystal: new THREE.OctahedronGeometry(1, 0),
+    mountains: createMountainGeometry(),
     gear: new THREE.ExtrudeGeometry(gear, { depth: 0.2, bevelEnabled: false, steps: 1, curveSegments: 12 }).translate(0, 0, -0.1),
     leaf: new THREE.SphereGeometry(1, 8, 6),
   };
@@ -28,10 +30,22 @@ export function createFormGeometry() {
 
 const LEVELS = { lot: 0, tent: 1, house: 2, midrise: 3, tower: 4, skyscraper: 5, warehouse: 3 };
 export function formLevel(stage, t) { return clamp((LEVELS[stage] ?? 2) + t, 0, 6); }
+const TREES = [
+  { crown: "#2b785f", light: "#71b27b" },
+  { crown: "#589339", light: "#a6c55c" },
+  { crown: "#a65234", light: "#f6bd55" },
+  { crown: "#397f68", light: "#88c4a0" },
+];
+const CORALS = [
+  { body: "#e94f84", tips: "#ffd5b0" },
+  { body: "#e5993f", tips: "#fff4b0" },
+  { body: "#8963d3", tips: "#dbabef" },
+  { body: "#36bca8", tips: "#a6f1d5" },
+];
 
 /** Populate an existing project wrapper, so selection, lenses and live markers keep one implementation. */
 export function buildProjectForm(b, shadows) {
-  const g = b.shared.forms, rand = rng(hash(b.repo.id) ^ 0x327af), level = formLevel(b.stage, b.t);
+  const g = b.shared.forms, seed = hash(b.repo.id), rand = rng(seed ^ 0x327af), level = formLevel(b.stage, b.t);
   const family = b.island.color.clone();
   b.visualMaterials = [];
   const material = (color, glow = 0, metalness = 0) => {
@@ -40,8 +54,13 @@ export function buildProjectForm(b, shadows) {
     b.visualMaterials.push({ material: m, color: c.clone(), glow });
     return m;
   };
-  const palette = { forest: "#4c985e", reef: "#edaf75", mountains: "#849da4", garden: "#b78ac4", mechanical: "#8fa8b0" };
-  const main = material((palette[b.style] ? new THREE.Color(palette[b.style]) : family.clone()).offsetHSL((rand() - 0.5) * 0.16, 0.12, 0.02));
+  const variant = (seed >>> 5) % 4;
+  const tree = TREES[variant], coralPaint = CORALS[variant];
+  const palette = { forest: tree.crown, reef: coralPaint.body, mountains: "#ffffff", garden: "#b78ac4", mechanical: "#8fa8b0" };
+  const paint = palette[b.style] ? new THREE.Color(palette[b.style]) : family;
+  if (["forest", "reef"].includes(b.style)) paint.offsetHSL((rand() - 0.5) * 0.06, 0.06, 0.02);
+  else if (b.style !== "mountains") paint.offsetHSL((rand() - 0.5) * 0.16, 0.12, 0.02);
+  const main = material(paint);
   b.base.copy(main.color);
   const light = material("#fff0ca", 0.18), dark = material("#304355"), stem = material("#6e6949");
   const mint = material("#7ac7aa"), coral = material("#f18ca7", 0.08), gold = material("#d8ac63", 0.03, 0.65);
@@ -75,40 +94,73 @@ export function buildProjectForm(b, shadows) {
       break;
     }
     case "forest": {
-      const h = 2.6 + level * 1.15;
-      rod([0, 0, 0], [0, h * 0.8, 0], 0.24 + level * 0.035, stem);
-      for (let i = 0; i < 3 + Math.floor(level); i++) {
-        const a = i * 2.4, reach = 1 + level * 0.2, y = h * (0.45 + i / (9 + level) * 0.55);
-        const x = Math.cos(a) * reach, z = Math.sin(a) * reach;
-        rod([0, y * 0.75, 0], [x, y, z], 0.1, stem);
-        put(g.orb, i % 2 ? main : mint, x, y + 0.8, z, 1.1 + level * 0.13, 1.2 + level * 0.18, 1.1 + level * 0.13);
+      const h = 3 + level * 1.25, width = 1.4 + level * 0.15, foliage = material(tree.light);
+      rod([0, -.22, 0], [0, h * .85, 0], .22 + level * .043, stem);
+      if (variant === 0) {
+        for (let i = 0; i < 4; i++) {
+          const r = width * (1.12 - i * .21), layer = h * (.4 + i * .164);
+          const crown = put(g.cone, i % 2 ? foliage : main, 0, layer, 0, r, h * .39, r);
+          crown.rotation.y = i * .32;
+        }
+      } else {
+        const reach = width * (variant === 3 ? .89 : .68);
+        for (let i = 0; i < 5; i++) {
+          const a = i * 2.4 + rand() * .3, y = h * (.48 + i * .074);
+          const x = Math.cos(a) * reach, z = Math.sin(a) * reach;
+          rod([0, y * .67, 0], [x, y, z], .10 + level * .015, stem);
+          const canopy = variant === 3 ? g.leaf : g.orb;
+          const leaf = put(canopy, i % 2 ? foliage : main, x, y, z,
+            width * .64, variant === 3 ? h * .26 : width * .79, width * .61);
+          leaf.rotation.z = variant === 3 ? -.38 * Math.cos(a) : 0;
+        }
+        put(g.orb, foliage, 0, h * .83, 0, width * .72, width * .73, width * .72);
       }
-      top = h + 2;
+      top = h;
       break;
     }
     case "reef": {
-      const h = 2.6 + level * 0.85;
-      orb(dark, 0, 0.35, 0, 1.1);
-      for (let i = 0; i < 3 + Math.floor(level); i++) {
-        const a = i * 2.4, x = Math.cos(a) * (1.2 + level * 0.19), z = Math.sin(a) * (1.2 + level * 0.19), y = h * (0.55 + rand() * 0.45);
-        const mat = i % 2 ? coral : main;
-        rod([0, 0.4, 0], [x * 0.45, y * 0.6, z * 0.45], 0.2, mat);
-        rod([x * 0.45, y * 0.6, z * 0.45], [x, y, z], 0.15, mat);
-        rod([x * 0.45, y * 0.6, z * 0.45], [x * 0.3, y + 0.7, z * 0.3], 0.13, mat);
-        orb(light, x, y, z, 0.24);
-        orb(mat, x * 0.3, y + 0.7, z * 0.3, 0.3);
+      const h = 2 + level * .94, rim = material(coralPaint.tips, .035);
+      put(g.orb, dark, 0, .1, 0, 1.3, .55, 1.15);
+      if (variant === 1) {
+        // Plate corals grow overlapping, scalloped shelves.
+        for (let i = 0; i < 4; i++) {
+          const y = h * (.31 + i * .2), r = 1.98 - i * .23 + level * .10, a = i * 2.4;
+          put(g.orb, i % 2 ? main : rim, Math.cos(a) * .42, y, Math.sin(a) * .37, r, .24, r * .79).rotation.z = Math.cos(a) * .16;
+        }
+        rod([0, 0, 0], [0, h * .92, 0], .55, main);
+      } else if (variant === 3) {
+        // Tubes with a dark opening on each pale rim.
+        for (let i = 0; i < 5; i++) {
+          const a = i * 2.4, reach = (i === 0 ? .16 : 1.35), x = Math.cos(a) * reach, z = Math.sin(a) * reach;
+          const y = h * (.5 + rand() * .48), radius = .39 + rand() * .22;
+          rod([x * .6, .15, z * .6], [x, y, z], radius, main);
+          ring(rim, x, y, z, radius, Math.PI / 2);
+          put(g.smooth, dark, x, y + .01, z, radius * .85, .055, radius * .85);
+        }
+      } else {
+        const fan = variant === 2, count = 5 + Math.floor(level * .7);
+        const turn = (rand() - .5) * .84, largest = 1.6 + level * .14;
+        for (let i = 0; i < count; i++) {
+          const a = fan ? turn : i * 2.4, spread = fan ? (i / (count - 1) * 2 - 1) * largest : largest;
+          const x = Math.cos(a) * spread, z = Math.sin(a) * spread;
+          const y = h * (fan ? 1 - Math.abs(i / (count - 1) - .5) * .68 : .52 + rand() * .48);
+          const fork = [x * .54, y * .55, z * .54], tip = [x, y, z], bud = [x * .73, y + .51, z * .73 + .15];
+          rod([0, .15, 0], fork, .29, main);
+          rod(fork, tip, .17, main);
+          rod(fork, bud, .12, main);
+          orb(rim, ...tip, .24);
+          orb(rim, ...bud, .17);
+        }
       }
-      top = h + 1;
+      top = h;
       break;
     }
     case "mountains": {
-      const h = 3 + level * 1.45, r = 2 + level * 0.27;
-      put(g.cone, main, 0, h / 2, 0, r, h, r);
-      put(g.cone, light, 0, h * 0.88, 0, r * 0.28, h * 0.28, r * 0.28);
-      put(g.cone, dark, -r * 0.8, h * 0.19, r * 0.4, r * 0.6, h * 0.45, r * 0.6);
-      if (level > 2) put(g.cone, main, r * 0.7, h * 0.28, -r * 0.3, r * 0.65, h * 0.6, r * 0.65);
-      ring(light, 0, 0.12, 0, r * 1.25);
-      top = h * 1.03;
+      const h = 2.4 + level * 1.48, r = 2.34 + level * .37;
+      main.vertexColors = true;
+      const profile = g.mountains[(seed >>> 9) % g.mountains.length];
+      put(profile, main, 0, 0, 0, r, h, r).rotation.y = rand() * Math.PI * 2;
+      top = h;
       break;
     }
     case "fleet": {
@@ -192,11 +244,12 @@ export function buildProjectForm(b, shadows) {
     }
     default: throw new Error(`Unknown project form: ${b.style}`);
   }
-  // Fit even tilted rings and long starships inside the existing seven-unit plots.
+  // Fit forms to their footprint. Mountain ranges have wider spacing for rocky shoulders.
   // Scale whole meshes uniformly so branch endpoints and rotated gear teeth stay aligned.
-  const bounds = new THREE.Box3().setFromObject(b.group), origin = b.group.position;
+  const bounds = new THREE.Box3().setFromObject(b.group, b.style === "mountains"), origin = b.group.position;
   const reach = Math.max(Math.abs(bounds.min.x - origin.x), Math.abs(bounds.max.x - origin.x), Math.abs(bounds.min.z - origin.z), Math.abs(bounds.max.z - origin.z));
-  const fit = Math.min(1, (PLOT / 2 - 0.4) / reach);
+  const edge = b.style === "mountains" ? 4.65 : PLOT / 2 - .4;
+  const fit = Math.min(1, edge / reach);
   for (const mesh of b.group.children) { mesh.position.multiplyScalar(fit); mesh.scale.multiplyScalar(fit); }
   // Include all branch tips in marker placement and camera framing.
   top = Math.max(top * fit, new THREE.Box3().setFromObject(b.group).max.y - origin.y);

@@ -29,7 +29,7 @@ export function createEnvironment(world, plan, composition) {
   };
   const boxGeo = new THREE.BoxGeometry(1, 1, 1), boxMats = new Map();
   const box = (x, y, z, w, h, d, color) => { if (!boxMats.has(color)) boxMats.set(color, mat(color)); const m = mesh(boxGeo, boxMats.get(color), x, y, z); m.scale.set(w, h, d); return m; };
-  const colors = { airplanes: "#2e4d46", forest: "#466b50", reef: "#3f7f86", mountains: "#73878b", garden: "#8a9a73", mechanical: "#242c34", museum: "#b7b0a2" };
+  const colors = { airplanes: "#2e4d46", forest: "#466b50", reef: "#3f7f86", mountains: "#667d73", garden: "#8a9a73", mechanical: "#242c34", museum: "#b7b0a2" };
   if (isLandscape(style)) {
     // A ground plane extends beyond the camera horizon. There is no visible disk or rim.
     const size = Math.max(320, extent * 5), segments = Math.min(200, Math.max(72, Math.ceil(size / 8)));
@@ -37,14 +37,21 @@ export function createEnvironment(world, plan, composition) {
     horizon.userData.ground = true;
     const geo = new THREE.PlaneGeometry(size, size, segments, segments).rotateX(-Math.PI / 2), p = geo.attributes.position;
     const color = new THREE.Color(colors[style]), values = [];
+    const valley = new THREE.Color("#425f68"), hillside = new THREE.Color("#a6987d");
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), z = p.getZ(i);
       const edge = Math.max(Math.abs(x), Math.abs(z)) / (size / 2), blend = Math.min(1, Math.max(0, (1 - edge) / 0.4));
-      const fade = blend * blend * (3 - 2 * blend), y = -12 + (groundHeight(style, x, z) + 12) * fade - 0.08;
+      const height = groundHeight(style, x, z);
+      const fade = blend * blend * (3 - 2 * blend), y = -12 + (height + 12) * fade - 0.08;
       p.setY(i, y);
       const ridge = Math.sin(x * 0.023 + z * 0.017) * 0.11 + Math.cos(z * 0.041) * 0.08;
       const grain = Math.sin(x * 0.18 + z * 0.16) * Math.cos(z * 0.15) * 0.025;
-      const c = color.clone().multiplyScalar(0.92 + fade * (ridge + grain));
+      const c = color.clone();
+      if (style === "mountains") {
+        const accent = height < 0 ? valley : hillside;
+        c.lerp(accent, Math.min(0.8, Math.abs(height) / 12) * fade);
+      }
+      c.multiplyScalar(0.92 + fade * (ridge + grain));
       values.push(c.r, c.g, c.b);
     }
     geo.setAttribute("color", new THREE.Float32BufferAttribute(values, 3)); geo.computeVertexNormals();
@@ -133,7 +140,7 @@ export function createEnvironment(world, plan, composition) {
       for (const side of [-1, 1]) box(g.x + side * width / 2, 2.4, g.z, 0.4, 4.8, depth * 0.65, "#c3bcad");
       box(g.x, 7.3, g.z - depth / 2 + 1, width, 0.12, 0.3, "#fff2d6");
     }
-  } else {
+  } else if (!isLandscape(style)) {
     const positions = [], col = [], a = style === "galaxy" ? 2400 : 1100;
     const dust = new THREE.Color(style === "neural" ? "#6caaa7" : style === "galaxy" ? "#b5a1ed" : "#adb9d0");
     for (let i = 0; i < a; i++) {

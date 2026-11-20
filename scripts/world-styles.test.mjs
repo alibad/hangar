@@ -18,19 +18,20 @@ test("ten new worlds use the same persisted registry as the viewer and host", ()
 
 const forms = createFormGeometry();
 const box = new THREE.BoxGeometry(1, 1, 1);
-function project(style, stage = "tower", t = 0.5) {
-  const b = { style, stage, t, repo: { id: "example" }, island: { color: new THREE.Color("#8fbf7a") }, shared: { forms, geo: { box } }, group: new THREE.Group(), base: new THREE.Color() };
+function project(style, stage = "tower", t = 0.5, id = "example") {
+  const b = { style, stage, t, repo: { id }, island: { color: new THREE.Color("#8fbf7a") }, shared: { forms, geo: { box } }, group: new THREE.Group(), base: new THREE.Color() };
   b.add = (geo, mat, x, y, z, sx, sy, sz) => { const mesh = new THREE.Mesh(geo, mat); mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); b.group.add(mesh); return mesh; };
   b.height = buildProjectForm(b, false);
   return b;
 }
-for (const style of styles) test(`${style.name}: every stage stays finite, pickable and inside its plot`, () => {
+for (const style of styles) test(`${style.name}: every stage stays finite, pickable and inside its footprint`, () => {
   for (const stage of ["lot", "tent", "house", "midrise", "tower", "skyscraper", "warehouse", "unknown"]) for (const t of [0, 1]) {
     const b = project(style.id, stage, t), bounds = new THREE.Box3().setFromObject(b.group, true);
     assert.ok(b.group.children.length >= 1);
     assert.ok(Number.isFinite(b.height) && b.height > 0);
     assert.ok(bounds.max.y <= b.height + 0.01, `${stage} marker intersects its form`);
-    assert.ok(bounds.max.x <= 3.11 && bounds.min.x >= -3.11 && bounds.max.z <= 3.11 && bounds.min.z >= -3.11, `${stage} spills outside the plot: ${bounds.min.toArray()} / ${bounds.max.toArray()}`);
+    const edge = style.id === "mountains" ? 4.66 : 3.11;
+    assert.ok(bounds.max.x <= edge && bounds.min.x >= -edge && bounds.max.z <= edge && bounds.min.z >= -edge, `${stage} spills outside its footprint: ${bounds.min.toArray()} / ${bounds.max.toArray()}`);
     b.visualMaterials.forEach(({ material }) => material.dispose());
     b.formGeometries.forEach(geometry => geometry.dispose());
     assert.ok(b.group.children.length <= 5, "procedural parts should be batched for large catalogs");
@@ -41,6 +42,27 @@ test("size levels are bounded and increase with project evidence", () => {
   const levels = ["lot", "tent", "house", "midrise", "tower", "skyscraper"].map(stage => formLevel(stage, 0));
   assert.deepEqual(levels, [0, 1, 2, 3, 4, 5]);
   assert.equal(formLevel("skyscraper", 100), 6);
+});
+
+test("mountain profiles vary in silhouette and surface color at the same size", () => {
+  const profiles = new Set(), palettes = new Set();
+  for (let n = 0; n < 24; n++) {
+    const id = `ridge-${n}`;
+    const foothill = project("mountains", "tent", 0, id);
+    const summit = project("mountains", "skyscraper", 1, id);
+    const [surface] = foothill.formGeometries;
+    const heights = surface.getAttribute("position").array.filter((_, i) => i % 3 === 1);
+    profiles.add(JSON.stringify([...heights]));
+    palettes.add(JSON.stringify([...surface.getAttribute("color").array]));
+    assert.ok(summit.height > foothill.height * 2.5);
+    assert.deepEqual(summit.formGeometries[0].getAttribute("color").array, surface.getAttribute("color").array);
+    for (const b of [foothill, summit]) {
+      b.formGeometries.forEach(geometry => geometry.dispose());
+      b.visualMaterials.forEach(({ material }) => material.dispose());
+    }
+  }
+  assert.equal(profiles.size, 5);
+  assert.equal(palettes.size, 5);
 });
 
 test("only the Buildings view retains island terrain and architecture", () => {
