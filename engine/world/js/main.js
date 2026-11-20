@@ -481,10 +481,9 @@ function start(doc, local, quality) {
     }
   }
   /** Aim a little to the right of the subject when the card is open, so the subject lands in the visible part. */
-  function besideCard(target, radius, phi) {
+  function besideCard(target, radius, phi, theta = sphericalOf(camera.position, controls.target).theta) {
     const card = document.getElementById("card");
     if (card.hidden || !innerWidth || !innerHeight) return target; // a window with no size has no "beside"
-    const theta = sphericalOf(camera.position, controls.target).theta;
     if (innerWidth < 860) {
       // A bottom sheet: aim nearer the camera on the ground so the subject rises into the open sky above it.
       const toward = new THREE.Vector3(Math.sin(theta), 0, Math.cos(theta));
@@ -500,7 +499,9 @@ function start(doc, local, quality) {
     const top = b.group.localToWorld(new THREE.Vector3(0, b.height * 0.45, 0));
     const radius = b.style === "buildings" ? clamp(b.height * 2.4 + 42, 52, 150)
       : clamp(b.height * b.formScale * 3.1 + 16, 28, 96);
-    flyTo(besideCard(top, radius, 0.98), radius, 0.98);
+    // Look across the gate from the open apron so the pier cannot hide the plane.
+    const theta = b.style === "airplanes" ? (b.group.rotation.y > 0 ? -0.72 : -Math.PI + 0.72) : undefined;
+    flyTo(besideCard(top, radius, 0.98, theta), radius, 0.98, 1100, theta);
   };
   function focusIsland(isl, notify = true) {
     deselect(false);

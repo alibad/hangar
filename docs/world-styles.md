@@ -10,7 +10,7 @@ The colour-theme menu also offers a compact view selector.
 | View | Spatial interpretation |
 | --- | --- |
 | Buildings | Original city on floating islands |
-| Airplanes | A compact airport with a separate runway, taxi lanes, glazed terminals and opposing gate rows |
+| Airplanes | Gliders, prop planes and jets at a compact airport with a separate runway, taxi lanes and glazed terminals |
 | Galaxy | Planets distributed across a galactic star field with three spiral dust arms |
 | Forest | Irregular groves on a rolling, continuous landscape |
 | Ocean reef | Branching coral on an uninterrupted sea floor, with suspended-particle scenery and caustic-like light ribbons |
@@ -90,7 +90,7 @@ The main browser check intercepts data with fictional projects and rejects servi
 writes. It covers twelve distinct layouts, one-click selection, real mesh picking,
 filters, job markers, replay, catalog refresh, persistence, focus return, and
 1440/390/320-pixel layouts. The scale check exercises 210 projects in seven groups
-through 30 changes, checking geometry and texture counts after warm-up. QA
+through 33 changes, checking geometry and texture counts after warm-up. QA
 screenshots remain in ignored `var/world-style-qa/`.
 The pinch check uses trusted Chromium wheel input plus Safari's cumulative
 `GestureEvent.scale` contract dispatched through the DOM. It checks camera

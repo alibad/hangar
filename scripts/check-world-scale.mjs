@@ -13,7 +13,7 @@ await interceptWorld(page, doc);
 try {
   await page.goto(`${process.env.HANGAR_URL || "http://127.0.0.1:8003"}/api/world/local/view/index.html?embed=hangar&style=galaxy&quality=low&lens=map`);
   await page.waitForFunction(() => window.atlas?.buildings.length === 210, null, { timeout: 60000 });
-  const styles = WORLD_STYLES.slice(2).map(style => style.id), first = new Map();
+  const styles = WORLD_STYLES.slice(1).map(style => style.id), first = new Map();
   for (let cycle = 0; cycle < 3; cycle++) for (const style of styles) {
     const stats = await page.evaluate(style => {
       const start = performance.now(); atlas.setStyle(style);
@@ -30,5 +30,5 @@ try {
     }
     console.log(`PASS cycle ${cycle + 1}, ${style}: ${JSON.stringify(stats)}`);
   }
-  console.log("PASS: 210 projects, seven families, 30 world changes with stable geometry/texture counts. No service writes.");
+  console.log(`PASS: 210 projects, seven families, ${styles.length * 3} world changes with stable geometry/texture counts. No service writes.`);
 } finally { await browser.close(); }

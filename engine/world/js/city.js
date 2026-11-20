@@ -31,8 +31,7 @@ const STUFF = {
 };
 const pickOf = (list, rand) => list[Math.floor(rand() * list.length) % list.length];
 // ---------- model styles ----------
-// One persisted style applies to every project. Buildings and aircraft keep their original shapes;
-// the ten other worlds use shared procedural geometry from project-forms.js.
+// One persisted style applies to every project.
 export const MODEL_STYLES = WORLD_STYLES.map(style => style.id);
 let modelStyle = "buildings";
 export function setModelStyle(next) {
@@ -154,13 +153,42 @@ export function createShared() {
       crown: new THREE.ConeGeometry(0.85, 2.0, 6).translate(0, 1.0, 0),
       rock: new THREE.DodecahedronGeometry(1, 0),
       pennant: pennantGeometry(),
-      // Aircraft parts: a nose cone pointing +x with a square base the size of a unit box, and a nacelle along x.
-      nose: new THREE.ConeGeometry(Math.SQRT1_2, 1, 4, 1).rotateY(Math.PI / 4).rotateZ(-Math.PI / 2),
+      ...aircraftGeometry(),
       nacelle: new THREE.CylinderGeometry(0.5, 0.42, 1, 10).rotateZ(-Math.PI / 2),
     },
     metal: new THREE.MeshStandardMaterial({ color: "#a7afb8", roughness: 0.38, metalness: 0.55 }),
     rubber: new THREE.MeshStandardMaterial({ color: "#2a2e35", roughness: 0.9 }),
+    canopyPaint: new THREE.MeshStandardMaterial({ color: "#29455e", roughness: 0.26, metalness: 0.26 }),
   };
+}
+
+function aircraftGeometry() {
+  // Unit profile around the long axis. Keep the windows along its constant-radius cabin.
+  const profile = [
+    [0.02, -0.55], [0.13, -0.50], [0.29, -0.41], [0.43, -0.31], [0.5, -0.22],
+    [0.5, 0.24], [0.48, 0.33], [0.39, 0.42], [0.26, 0.48], [0.12, 0.515], [0, 0.53],
+  ].map(([radius, x]) => new THREE.Vector2(radius, x));
+  const fuselage = new THREE.LatheGeometry(profile, 20).rotateZ(-Math.PI / 2);
+  const wingOutline = new THREE.Shape([
+    new THREE.Vector2(-0.49, 0), new THREE.Vector2(0.51, 0),
+    new THREE.Vector2(0.16, -0.98), new THREE.Vector2(-0.08, -1), new THREE.Vector2(-0.31, -0.95),
+  ]);
+  const airfoil = new THREE.ExtrudeGeometry(wingOutline, { depth: 1, bevelEnabled: false })
+    .rotateX(-Math.PI / 2).translate(0, -0.5, 0);
+  const glass = [];
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 9; i++) {
+      const x = -0.19 + i * 0.047, z = side * 0.492, w = 0.012;
+      glass.push(
+        x - w, 0.105, z, x + w, 0.105, z, x + w, 0.193, z,
+        x - w, 0.105, z, x + w, 0.193, z, x - w, 0.193, z,
+      );
+    }
+  }
+  const cabinGlass = new THREE.BufferGeometry();
+  cabinGlass.setAttribute("position", new THREE.Float32BufferAttribute(glass, 3));
+  cabinGlass.computeVertexNormals();
+  return { fuselage, airfoil, cabinGlass, canopy: new THREE.SphereGeometry(1, 12, 8) };
 }
 
 /** A small triangular flag: work waiting on GitHub. */
@@ -450,53 +478,56 @@ export class Building {
     }));
   }
 
-  /** An aircraft parked on the plot, nose along the island's diagonal. Returns the top of its tail fin. */
+  /** An aircraft with its nose on +X, rotated into the gate by the world layout. */
   aircraft(rand, shadows) {
     const r = this.repo, g = this.shared.geo, spec = AIRCRAFT[this.stage] || AIRCRAFT.house;
     const k = (1 + this.t * 0.14) * 1.12;
     const len = spec.len * k, body = spec.body * k, wingSpan = spec.span * k, chord = spec.chord * k;
     const thick = (spec.glider ? 0.06 : 0.1) * k, gear = spec.glider ? 0.14 : 0.34 * k, y0 = gear + body / 2;
     this.group.rotation.y = -Math.PI / 4 + (rand() - 0.5) * 0.16;
-    // White fuselage with a row of cabin windows on each side; the island's colour is the livery.
     this.base.set(pickOf(FUSELAGE, rand));
-    this.roofColor = familyColor(r.family).offsetHSL(0, 0.28, -0.24);  // a deeper shade of the island, so planes stand out from its ground
-    const paint = new THREE.MeshStandardMaterial({ color: this.base.clone(), roughness: 0.5, metalness: 0.06, flatShading: true });
+    this.roofColor = familyColor(r.family).offsetHSL(0, 0.15, -0.08);
+    const paint = new THREE.MeshStandardMaterial({ color: this.base.clone(), roughness: 0.41, metalness: 0.15 });
     this.facades.push(paint);
-    const cabin = len * 0.6, windows = this.facade(cabin * 2.1, 1.35, body, rand), livery = this.roof();
-    const front = -len * 0.04 + cabin / 2, back = -len * 0.04 - cabin / 2, noseLen = len * 0.18, tailLen = len * 0.26;
-    this.add(g.box, [paint, paint, paint, paint, windows, windows], -len * 0.04, y0, 0, cabin, body, body, shadows);
-    this.add(g.nose, paint, front + noseLen / 2, y0, 0, noseLen, body, body, shadows);
-    const tail = this.add(g.nose, paint, back - tailLen / 2, y0 + body * 0.12, 0, tailLen, body * 0.82, body * 0.9, shadows);
-    tail.rotation.y = Math.PI;
+    const livery = this.roof();
+    const glass = new THREE.MeshStandardMaterial({ color: "#213a51", roughness: 0.32, metalness: 0.18, side: THREE.DoubleSide });
+    this.visualMaterials = [{ material: glass, color: glass.color.clone(), glow: 0.04 }];
+    this.cabinGlass = glass;
+    this.add(g.fuselage, paint, 0, y0, 0, len, body, body, shadows);
+    this.add(g.canopy, this.shared.canopyPaint, len * 0.35, y0 + body * 0.32, 0, len * 0.09, body * 0.19, body * 0.34, shadows, false);
+    if (!spec.glider) this.add(g.cabinGlass, glass, 0, y0, 0, len, body, body, false, false);
     const wing = (x, y, width, c, sweep, mat) => {
       for (const side of [-1, 1]) {
-        const half = width / 2;
-        const m = this.add(g.box, mat, x - Math.sin(sweep) * half / 2, y, side * Math.cos(sweep) * half / 2, c, thick, half, shadows);
-        m.rotation.y = -side * sweep;
+        const foil = this.add(g.airfoil, mat, x, y, 0, c, thick, side * width / 2, shadows);
+        foil.rotation.y = -side * sweep;
       }
     };
-    const wingY = gear + body * (spec.wing === 1 ? 0.96 : spec.wing === 0.5 ? 0.5 : 0.14), wingX = -len * 0.04 + cabin * 0.06;
+    const wingY = gear + body * (spec.wing === 1 ? 0.86 : spec.wing === 0.5 ? 0.5 : 0.16), wingX = len * 0.025;
     wing(wingX, wingY, wingSpan, chord, spec.sweep, livery);
-    // A swept fin with a long root reads as a tail from any angle; a tall thin one reads as a pole.
-    const finH = spec.fin * k * 0.72, tailX = back - tailLen * 0.42;
-    const fin = this.add(g.box, livery, tailX, y0 + body / 2 + finH / 2, 0, Math.max(chord * 1.05, tailLen * 0.7), finH, Math.max(thick * 1.6, 0.14 * k), shadows);
-    fin.rotation.z = 0.5;
-    wing(tailX - finH * 0.3, spec.tTail ? y0 + body / 2 + finH * 0.95 : y0 + body * 0.18, wingSpan * 0.36, chord * 0.6, spec.sweep, livery);
+    const finH = spec.fin * k * 0.72, tailX = -len * 0.37, finY = y0 + body * 0.20;
+    const fin = this.add(g.airfoil, livery, tailX, finY, 0, chord * 0.94, thick * 1.45, finH, shadows);
+    fin.rotation.set(-Math.PI / 2, 0, 0.32, "ZYX");
+    wing(tailX - finH * (spec.tTail ? 0.3 : 0.02), spec.tTail ? finY + finH * 0.91 : y0 + body * 0.18, wingSpan * 0.36, chord * 0.62, spec.sweep, livery);
     const nacelle = (x, y, z, size) => this.add(g.nacelle, this.shared.metal, x, y, z, size * 1.9, size, size, shadows);
     if (spec.under) {
       const reach = wingSpan / 2, places = spec.under === 4 ? [0.3, 0.56] : [0.34];
       for (const f of places) for (const side of [-1, 1]) nacelle(wingX - Math.sin(spec.sweep) * reach * f + chord * 0.25, wingY - body * (spec.wing === 1 ? -0.05 : 0.3), side * reach * f, body * 0.4);
     }
-    if (spec.rear) for (const side of [-1, 1]) nacelle(tailX + tailLen * 0.15, y0 + body * 0.25, side * body * 0.85, body * 0.42);
+    if (spec.rear) for (const side of [-1, 1]) nacelle(tailX + len * 0.08, y0 + body * 0.25, side * body * 0.49, body * 0.42);
     if (spec.nose === "prop" || spec.props) {
       // Propellers: one on the nose, or one on each wing engine.
-      const blades = spec.props ? [-1, 1].map(side => [wingX + chord * 0.75, wingY - body * 0.05, side * wingSpan * 0.17]) : [[front + noseLen + 0.04, y0, 0]];
+      const blades = spec.props ? [-1, 1].map(side => [wingX + chord * 0.75, wingY - body * 0.05, side * wingSpan * 0.17]) : [[len * 0.533, y0, 0]];
       for (const [x, y, z] of blades) this.add(g.box, this.shared.rubber, x, y, z, 0.06, body * (spec.props ? 1.1 : 1.5), body * 0.16, shadows, false);
     }
-    if (spec.hump) this.add(g.box, paint, front - cabin * 0.2, y0 + body * 0.55, 0, cabin * 0.34, body * 0.38, body * 0.78, shadows);
-    if (!spec.glider) this.add(g.box, this.shared.rubber, wingX, gear / 2, 0, chord * 0.7, gear, body * 0.7, shadows, false);
+    if (spec.hump) this.add(g.canopy, paint, len * 0.15, y0 + body * 0.42, 0, len * 0.19, body * 0.27, body * 0.37, shadows);
+    if (!spec.glider) {
+      for (const [x, z] of [[wingX, -body * 0.35], [wingX, body * 0.35], [len * 0.33, 0]]) {
+        const wheel = this.add(g.nacelle, this.shared.rubber, x, gear * 0.52, z, gear * 0.46, gear, gear, shadows, false);
+        wheel.rotation.y = Math.PI / 2;
+      }
+    }
     this.mount = { x: tailX, z: 0 };
-    return y0 + body / 2 + finH;
+    return Math.max(y0 + body * 0.7, finY + finH);
   }
 
   /** Placed by the island after construction: the small sheds that stand for extra local folders. */
@@ -553,6 +584,10 @@ export class Building {
       material.color.lerp(grey, s.dim * 0.75).multiplyScalar(1 - s.dim * 0.35);
       material.emissive.copy(material.color);
       material.emissiveIntensity = (glow + this.lit * 0.025 + s.glow * 0.15 + s.hover * 0.1) * (1 - s.dim);
+    }
+    if (this.cabinGlass) {
+      this.cabinGlass.emissive.set("#ffc887");
+      this.cabinGlass.emissiveIntensity = windows * (0.08 + this.lit * 0.07);
     }
     if (this.halo) {
       this.halo.material.color.copy(s.tint);

@@ -41,10 +41,12 @@ try {
       valid: atlas.buildings.every(b => b.pickables.every(m => m.matrixWorld.elements.every(Number.isFinite)) && (!b.marker || b.marker.position.y > b.height)),
       terrain: atlas.islands.some(i => i.rock.visible || i.plots.visible),
       environment: atlas.environment.name,
+      aircraft: atlas.buildings.every(b => b.pickables[0].geometry.type === "LatheGeometry"),
       orbit: atlas.world.controls.mouseButtons.LEFT === atlas.world.THREE.MOUSE.ROTATE,
       touchOrbit: atlas.world.controls.touches.ONE === atlas.world.THREE.TOUCH.ROTATE,
     }));
     assert.ok(info.valid); assert.equal(info.terrain, style.id === "buildings");
+    if (style.id === "airplanes") assert.ok(info.aircraft, "the fuselage must remain the aircraft's primary pickable");
     const spatial = ["galaxy", "fleet", "constellation", "neural"].includes(style.id);
     assert.equal(info.orbit, spatial); assert.equal(info.touchOrbit, spatial);
     assert.equal(info.environment, `environment:${style.id}`);
@@ -73,7 +75,7 @@ try {
   await send({ type: "filter", repos: null });
   await send({ type: "work", jobs: [] });
   // Pointer selection uses the form's real meshes in every new world.
-  for (const style of WORLD_STYLES.slice(2)) {
+  for (const style of WORLD_STYLES.slice(1)) {
     await frame.evaluate(id => { atlas.setStyle(id); atlas.deselect(); atlas.select(atlas.doc.repos[4], { fly: true }); }, style.id);
     await page.waitForTimeout(300);
     const point = await frame.evaluate(() => {
