@@ -131,6 +131,13 @@ try {
     await page.screenshot({ path: `var/world-style-qa/chooser-${width}.png` });
     await page.keyboard.press("Escape");
     await page.screenshot({ path: `var/world-style-qa/world-${width}.png` });
+    await page.getByRole("button", { name: "Map options", exact: true }).click();
+    const options = page.getByRole("region", { name: "Map options", exact: true });
+    const [menuBounds, mapBounds] = await Promise.all([options.boundingBox(), element.boundingBox()]);
+    assert.ok(menuBounds.x >= mapBounds.x - 1 && menuBounds.x + menuBounds.width <= mapBounds.x + mapBounds.width + 1);
+    assert.ok(menuBounds.y + menuBounds.height <= mapBounds.y + mapBounds.height + 1, `${width}px: map options stay inside the map`);
+    await page.screenshot({ path: `var/world-style-qa/map-options-${width}.png` });
+    await page.keyboard.press("Escape");
   }
   // Persist the selected style across a fresh viewer and host load.
   assert.equal(await frame.evaluate(() => atlas.style), "museum");

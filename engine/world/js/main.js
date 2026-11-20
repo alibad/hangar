@@ -954,6 +954,7 @@ function start(doc, local, quality) {
     scene.updateMatrixWorld();
     const width = canvas.clientWidth, height = canvas.clientHeight;
     if (!width || !height) return;
+    const toolbar = embedded ? width <= 790 ? 102 : 49 : 4;
     const d = camera.position.distanceTo(controls.target);
     const overview = buildings.length > 25 && (state.framing === "world" && !state.filter || d > viewPlan.extent * 0.95);
     const badgeLayer = state.lens === "changes" || (state.lens === "default" && state.layers.attention);
@@ -973,7 +974,7 @@ function start(doc, local, quality) {
       const w = Math.max(36, size?.width || text.length * 7 + 25) + 9;
       const h = Math.max(22, size?.height || 25) + 6;
       const inView = point.z >= -1 && point.z <= 1 && x >= w / 2 && x <= width - w / 2
-        && y >= h / 2 + (embedded ? 49 : 4) && y <= height - h / 2 - 12;
+        && y >= h / 2 + toolbar && y <= height - h / 2 - 12;
       if (!force && (!inView || occupied.some(r => Math.abs(x - r.x) * 2 < w + r.w && Math.abs(y - r.y) * 2 < h + r.h))) {
         object.visible = false;
         return false;
