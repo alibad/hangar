@@ -10,7 +10,9 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, re
 const errors = []; page.on("pageerror", error => errors.push(error.message));
 page.on("console", message => { if (message.type() === "error") console.error("console:", message.text()); });
 const doc = styleFixture();
-await interceptWorld(page, doc);
+doc.repos.find(repo => repo.id === "halo").commitCount = null;
+const work = { jobs: [] };
+await interceptWorld(page, doc, work);
 const url = process.env.HANGAR_URL || "http://127.0.0.1:8003";
 try {
   await page.goto(`${url}/#world`, { waitUntil: "domcontentloaded" });
@@ -21,7 +23,13 @@ try {
   await frame.waitForFunction(() => !!window.atlas && atlas.buildings.every(b => b.onMap !== false), null, { timeout: 60000, polling: 150 });
   await page.getByRole("status", { name: "Map loading status" }).waitFor({ state: "hidden" });
   console.log("Viewer ready");
-  await frame.evaluate(() => atlas.select(atlas.doc.repos[0]));
+  await frame.evaluate(() => atlas.select(atlas.doc.repos.find(repo => repo.id === "halo"), { fly: true }));
+  await page.getByText(/^Commit count unavailable/).waitFor();
+  await page.getByRole("button", { name: "MB", exact: true }).click();
+  await page.getByText("34.18 MB", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Commits", exact: true }).click();
+  await page.getByText(/^Commit count unavailable/).waitFor();
+  await frame.evaluate(() => atlas.select(atlas.doc.repos[0], { fly: true }));
   await page.waitForTimeout(800);
   const canonical = () => frame.evaluate(() => atlas.buildings.map(b => [b.repo.id, b.cell.x, b.cell.z]));
   const before = await canonical();
@@ -34,8 +42,14 @@ try {
     await dialog.getByRole("button", { name: new RegExp(`^${style.name} `) }).click();
     await dialog.waitFor({ state: "hidden" });
     await frame.waitForFunction(id => atlas.style === id && atlas.buildings.every(b => b.style === id), style.id);
+    await frame.waitForFunction(() => atlas.world.controls.enabled, null, { polling: 100 });
     assert.deepEqual(await canonical(), before, `${style.id}: visualization must not reorganize projects`);
     assert.equal(await frame.locator(".selected-tag").textContent(), "Aurora");
+    assert.ok(await frame.evaluate(() => {
+      const b = atlas.buildings.find(item => item.repo.id === "aurora");
+      const center = b.group.localToWorld(b.modelBounds.getCenter(new atlas.world.THREE.Vector3())).project(atlas.world.camera);
+      return Math.abs(center.x) < .35 && Math.abs(center.y) < .35;
+    }), `${style.id}: the selected subject stays in focus`);
     const info = await frame.evaluate(() => ({
       positions: atlas.buildings.map(b => [b.repo.id, ...b.group.position.toArray()]),
       valid: atlas.buildings.every(b => b.pickables.every(m => m.matrixWorld.elements.every(Number.isFinite)) && (!b.marker || b.marker.position.y > b.height)),
@@ -58,10 +72,12 @@ try {
   // A filter, arrival replay, and active work survive a form change.
   const send = data => page.evaluate(data => document.querySelector('iframe[title^="Hangar project world"]').contentWindow.postMessage({ source: "hangar", ...data }, location.origin), data);
   await send({ type: "filter", repos: ["aurora"] });
-  await send({ type: "work", jobs: [{ id: "fixture", repo: "aurora", provider: "codex", state: "running" }] });
+  work.jobs = [{ id: "fixture", repo: "aurora", provider: "codex", state: "running" }];
+  await send({ type: "work", jobs: work.jobs });
   await send({ type: "style", style: "forest" });
   await frame.waitForFunction(() => atlas.style === "forest" && atlas.buildings.find(b => b.repo.id === "bloom").target.dim >= 0.9);
   assert.equal(await frame.locator(".work-mark").textContent(), "Codex · working");
+  console.log("PASS working badge and filter survive a style change");
   await frame.evaluate(() => { atlas.setTime(Date.parse("2024-01-01")); atlas.setStyle("reef"); });
   await frame.waitForFunction(() => atlas.buildings.every(b => !b.group.visible));
   await frame.evaluate(() => atlas.setTime(null));
@@ -73,21 +89,28 @@ try {
   await frame.waitForFunction(() => atlas.style === "galaxy" && !atlas.buildings.find(b => b.repo.id === "bloom").group.visible);
   await send({ type: "catalog", doc });
   await send({ type: "filter", repos: null });
-  await send({ type: "work", jobs: [] });
+  work.jobs = [];
+  await send({ type: "work", jobs: work.jobs });
   // Pointer selection uses the form's real meshes in every new world.
   for (const style of WORLD_STYLES.slice(1)) {
     await frame.evaluate(id => { atlas.setStyle(id); atlas.deselect(); atlas.select(atlas.doc.repos[4], { fly: true }); }, style.id);
-    await page.waitForTimeout(300);
+    await frame.waitForFunction(() => atlas.world.controls.enabled, null, { polling: 100 });
+    await frame.evaluate(() => atlas.deselect());
     const point = await frame.evaluate(() => {
       const b = atlas.buildings.find(b => b.repo.id === "ember"), mesh = b.pickables[0];
-      mesh.geometry.computeBoundingBox();
-      const p = mesh.localToWorld(mesh.geometry.boundingBox.getCenter(new atlas.world.THREE.Vector3())).project(atlas.world.camera);
+      const point = new atlas.world.THREE.Vector3();
+      // The graph's branches can put the batched mesh's bounding center in
+      // empty space. Click the rendered core of a graph node.
+      const p = ["constellation", "neural"].includes(atlas.style)
+        ? b.group.localToWorld(point.set(0, 1, 0))
+        : mesh.localToWorld(mesh.geometry.boundingBox.getCenter(point));
+      p.project(atlas.world.camera);
       return { x: (p.x + 1) / 2 * innerWidth, y: (-p.y + 1) / 2 * innerHeight };
     });
-    await frame.evaluate(() => atlas.deselect());
     const rect = await element.boundingBox();
     await page.mouse.click(rect.x + point.x, rect.y + point.y);
-    await frame.waitForFunction(() => location.hash.includes("repo=ember"));
+    await frame.waitForFunction(() => location.hash.includes("repo=ember"), null, { polling: 100 });
+    console.log(`PASS pointer selection: ${style.id}`);
   }
   await mkdir("var/world-style-qa", { recursive: true });
   await page.getByRole("button", { name: "Close project pane", exact: true }).click();
@@ -121,11 +144,32 @@ try {
   await interceptWorld(standalone, doc);
   await standalone.goto(`${url}/api/world/local/view/index.html?style=forest&quality=low&night=0`);
   await standalone.waitForFunction(() => window.atlas?.style === "forest");
-  await standalone.getByRole("combobox", { name: "World style" }).selectOption("reef");
-  await standalone.waitForFunction(() => atlas.style === "reef");
+  const selector = standalone.getByRole("combobox", { name: "World style" });
+  const allModelsFit = () => standalone.evaluate(() => {
+    const { THREE, camera } = atlas.world;
+    camera.updateMatrixWorld();
+    return atlas.buildings.every(b => {
+      const { min, max } = b.modelBounds;
+      return [min.x, max.x].every(x => [min.y, max.y].every(y => [min.z, max.z].every(z => {
+        const p = b.group.localToWorld(new THREE.Vector3(x, y, z)).project(camera);
+        return Math.abs(p.x) <= 0.95 && Math.abs(p.y) <= 0.95 && p.z < 1;
+      })));
+    });
+  });
+  for (const { id } of WORLD_STYLES) {
+    await standalone.setViewportSize({ width: 1000, height: 700 });
+    await selector.selectOption(id);
+    await standalone.evaluate(() => atlas.home());
+    await standalone.waitForFunction(() => atlas.world.controls.enabled, null, { polling: 100 });
+    assert.ok(await allModelsFit(), `${id} desktop whole-world framing`);
+    await standalone.setViewportSize({ width: 390, height: 720 });
+    await standalone.waitForFunction(() => atlas.world.camera.aspect < 0.55, null, { polling: 100 });
+    assert.ok(await allModelsFit(), `${id} portrait resize reframes without pressing Home`);
+    console.log(`PASS desktop and portrait frame: ${id}`);
+  }
   await standalone.close();
   assert.deepEqual(errors, []);
-  console.log("PASS: 12 distinct layouts, one-click chooser, real pointer picking, filters, jobs, replay, catalog updates, persistence, focus and phone layouts. No service writes.");
+  console.log("PASS: 12 distinct layouts, desktop and portrait frame fit, one-click chooser, picking, filters, jobs, replay, catalog updates and focus. No service writes.");
 } catch (error) {
   await mkdir("var/world-style-qa", { recursive: true });
   await page.screenshot({ path: "var/world-style-qa/failure.png" });

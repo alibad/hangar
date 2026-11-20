@@ -136,10 +136,10 @@ export function createUI(app) {
 
   // ---------- hover tip ----------
   const tip = $("#tip");
-  ui.tip = (repo, x, y) => {
+  ui.tip = (repo, x, y, measurement) => {
     if (!repo) return (tip.hidden = true);
     const l = riskLevel(repo);
-    tip.innerHTML = `<b>${esc(repo.name)}</b><span>${esc(where(repo))} · ${esc(ago(repo.lastActivity))}</span>${l ? `<span class="risk">${esc(repo.risks[0].text)}</span>` : ""}`;
+    tip.innerHTML = `<b>${esc(repo.name)}</b><span>${esc(where(repo))} · ${esc(ago(repo.lastActivity))}</span>${measurement ? `<span>${esc(measurement)}</span>` : ""}${l ? `<span class="risk">${esc(repo.risks[0].text)}</span>` : ""}`;
     tip.style.left = `${x}px`;
     tip.style.top = `${y}px`;
     tip.hidden = false;

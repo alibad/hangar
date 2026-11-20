@@ -7,7 +7,8 @@ import { CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { clamp, hash, lerp, rng } from "./util.js";
 import { PLOT } from "./layout.js";
 import { WORLD_STYLES } from "./world-styles.js";
-import { buildProjectForm, createFormGeometry } from "./project-forms.js";
+import { buildProjectForm, createFormGeometry, formLevel } from "./project-forms.js";
+import { projectMeasurement } from "./project-size.js";
 
 const GROUND = {
   reading: "#a596cc", workshop: "#8fbf7a",
@@ -16,7 +17,6 @@ const GROUND = {
 const AUTO = ["#86bb76", "#78b08f", "#d4b47a", "#6fb2b4", "#c690a2", "#a596cc", "#93bb6f", "#7ab5a2"];
 export const familyColor = (id) => new THREE.Color(GROUND[id] || AUTO[hash(id) % AUTO.length]);
 
-const SIZES = { tent: [1, 300], house: [300, 5000], midrise: [5000, 50000], tower: [50000, 500000], skyscraper: [500000, 5000000] };
 const SHED_COLORS = { worktree: "#7aa7e8", copy: "#b9b4a8", release: "#e8c46a", derived: "#b28ae0", submodule: "#8fc1c9", vendor: "#9aa1a8", orphan: "#e07a5f", clone: "#b9b4a8" };
 const LIT = { live: 3, recent: 2, quiet: 1, dormant: 0, unknown: 0 };
 // What buildings are made of: houses are cream with terracotta roofs, mid-rises stone, towers and skyscrapers glass.
@@ -41,8 +41,7 @@ export function setModelStyle(next) {
 }
 export const currentModelStyle = () => modelStyle;
 
-// What sets a building's size: its commit count (how much work went into it), or its size on GitHub in megabytes.
-// A project with no checkout here has no commit count, so it keeps its size-based building.
+// The active measurement is consistent for every project and world.
 const SIZE_BY = ["commits", "megabytes"];
 let sizeBy = "commits";
 export function setSizeBy(next) {
@@ -51,18 +50,6 @@ export function setSizeBy(next) {
   return true;
 }
 export const currentSizeBy = () => sizeBy;
-const COMMIT_STAGES = [[15, "tent"], [60, "house"], [250, "midrise"], [1000, "tower"]];
-const COMMIT_SIZES = { tent: [1, 15], house: [15, 60], midrise: [60, 250], tower: [250, 1000], skyscraper: [1000, 10000] };
-/** The building class and where it sits inside that class (0 smallest, 1 largest). */
-export function sizing(repo) {
-  const n = repo.commitCount;
-  if (sizeBy === "commits" && Number.isFinite(n) && repo.stage !== "warehouse") {
-    const stage = n <= 0 ? "lot" : (COMMIT_STAGES.find(([limit]) => n < limit) || [0, "skyscraper"])[1];
-    return { stage, t: stage === "lot" ? 0 : spanOf(COMMIT_SIZES[stage], n) };
-  }
-  return { stage: repo.stage, t: span(repo.stage, repo.sizeKB || 0) };
-}
-
 // len/body/span/chord in plot units; wing: 0 low, 0.5 mid, 1 high; sweep in radians.
 const AIRCRAFT = {
   lot: { len: 2.5, body: 0.4, span: 4.6, chord: 0.42, wing: 0.5, sweep: 0, fin: 0.75, glider: true },
@@ -316,13 +303,6 @@ export function buildIsland(spot, shared, shadows) {
 
 // ---------- buildings ----------
 
-function spanOf([lo, hi], v) {
-  return clamp((Math.log10(Math.max(v, 1)) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo)), 0, 1);
-}
-function span(stage, kb) {
-  return spanOf(SIZES[stage] || [1, 10], kb);
-}
-
 export class Building {
   constructor(repo, cell, island, shared, shadows) {
     this.repo = repo;
@@ -336,8 +316,13 @@ export class Building {
     this.solids = [];
     this.lit = LIT[repo.recency] ?? 0;
     const rand = rng(hash(repo.id));
-    ({ stage: this.stage, t: this.t } = sizing(repo));
+    const measured = projectMeasurement(repo, sizeBy);
+    this.style = modelStyle;
+    this.stage = this.style === "buildings" && repo.stage === "warehouse" ? "warehouse" : measured.stage;
+    this.t = measured.t;
+    this.sizeLevel = formLevel(measured.stage, measured.t);
     this.sizeBy = sizeBy;
+    this.hasMeasurement = measured.value !== null;
     this.stuff = STUFF[this.stage] || STUFF.midrise;
     this.base = new THREE.Color(pickOf(this.stuff.facade, rand));
     this.base.offsetHSL(0, (rand() - 0.5) * 0.06, (rand() - 0.5) * 0.05);
@@ -345,9 +330,15 @@ export class Building {
       ? new THREE.Color(pickOf(this.stuff.roof, rand))
       : new THREE.Color(pickOf(this.stuff.roof, rand)).lerp(familyColor(repo.family), 0.35);
     this.height = 0;
-    this.style = modelStyle;
     this.formScale = this.style === "buildings" ? 1 : this.style === "airplanes" ? 1.48 : 1.38;
     this.make(rand, shadows);
+    this.modelBounds = new THREE.Box3();
+    for (const mesh of this.pickables) {
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      mesh.updateMatrix();
+      this.modelBounds.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix));
+    }
+    this.modelBounds.max.y = Math.max(this.modelBounds.max.y, this.height, this.flagTop || 0);
     island.group.add(this.group);
     this.state = { tint: this.base.clone(), dim: 0, ghost: false, glow: 0, born: 1, hover: 0 };
     this.target = { tint: this.base.clone(), dim: 0, ghost: false, glow: 0, born: 1, hover: 0 };
@@ -446,7 +437,7 @@ export class Building {
         break;
       }
       case "warehouse": {
-        const w = 5.2, h = 2.4 + t;
+        const w = 3.1 + this.sizeLevel * .43, h = 1.8 + this.sizeLevel * .74;
         top = box(w, h, 3.6);
         this.add(g.roof, this.roof(), 0, top + 0.5, 0, w * 1.05, 1, 3.4, shadows, false);
         top += 1;

@@ -162,9 +162,11 @@ export function createEnvironment(world, plan, composition) {
         const object = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false }));
         group.add(object); edgeMeshes.push({ object, base, edges: edges.filter(e => e.reason === reason) });
       }
-      group.userData.focus = id => {
+      group.userData.focus = (id, includes = () => true) => {
+        const active = edges.filter(edge => includes(edge.a) && includes(edge.b));
+        const visible = new Set(active);
         const neighbors = new Set(id ? [id] : []);
-        const incident = edges.filter(edge => edge.a === id || edge.b === id)
+        const incident = active.filter(edge => edge.a === id || edge.b === id)
           .sort((a, b) => Number(b.reason === "shared topic") - Number(a.reason === "shared topic"))
           .slice(0, 14);
         const chosen = new Set(incident);
@@ -175,7 +177,7 @@ export function createEnvironment(world, plan, composition) {
           const colors = geometry.attributes.color;
           let cursor = 0;
           for (const edge of row.edges) {
-            if (id && !chosen.has(edge)) continue;
+            if (!visible.has(edge) || id && !chosen.has(edge)) continue;
             const strength = id ? 2.4 : edge.reason === "shared topic" ? 1 : style === "constellation" ? 0.85 : 0.54;
             for (const p of [edge.from, edge.to]) {
               positions.setXYZ(cursor, p.x, p.y, p.z);

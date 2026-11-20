@@ -11,7 +11,7 @@ export const styleFixture = () => ({
   })),
 });
 
-export async function interceptWorld(page, doc) {
+export async function interceptWorld(page, doc, work = { jobs: [] }) {
   await page.route("**/api/**", async route => {
     const path = new URL(route.request().url()).pathname;
     const reply = json => route.fulfill({ json });
@@ -20,7 +20,7 @@ export async function interceptWorld(page, doc) {
     if (/\/proxy\/atlas$/.test(path)) return reply(doc);
     if (/\/proxy\/status$/.test(path)) return reply({ scanning: false, generatedAt: doc.generatedAt });
     if (/\/proxy\/apps$/.test(path)) return reply({ apps: [] });
-    if (/\/proxy\/work$/.test(path)) return reply({ jobs: [] });
+    if (/\/proxy\/work$/.test(path)) return reply(work);
     if (/\/proxy\/sessions\/library$/.test(path)) return reply({ sessions: [], groups: [], sections: [], providers: [] });
     return route.continue();
   });

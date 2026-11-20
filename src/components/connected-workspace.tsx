@@ -19,6 +19,8 @@ import { Activity, AppWindow, ArrowRight, Check, ChevronRight, Cpu, Globe2, Lapt
 import { useTheme } from "./theme-provider";
 import WorldStylePicker from "./world-style-picker";
 import { bindWorldPinch } from "../../engine/world/js/world-pinch.js";
+import { projectMeasurement, projectMeasurementText } from "../../engine/world/js/project-size.js";
+import { worldStyleById } from "../../engine/world/js/world-styles.js";
 import type { ConsoleTab } from "@/lib/labs";
 import type { Peer } from "@/lib/fleet-policy";
 import "./connected-workspace.css";
@@ -36,7 +38,8 @@ import { leftOff, suggestIslands, yourTurn, type LeftOff } from "@/lib/project-s
 import "./workspace-focus.css";
 
 type Site = { role: string; branch?: string; dirty?: number; ahead?: number; behind?: number; rel: string; root?: string; logo?: { hash: string } };
-type Repo = { homepage?: string | null; onMachine?: boolean; recency?: string; lastActivity?: string; url?: string; openPRs?: number; organizationReviewed?: boolean; fullName?: string; hiddenByIsland?: string; hidden?: boolean; attention?: string | null; id: string; name: string; family: string; description?: string; purpose?: string; sites: Site[]; meaning?: { purpose?: string; next?: string }; risks?: { id: string; text: string }[] };
+type MapSize = "commits" | "megabytes";
+type Repo = { commitCount?: number | null; sizeKB?: number | null; empty?: boolean; homepage?: string | null; onMachine?: boolean; recency?: string; lastActivity?: string; url?: string; openPRs?: number; organizationReviewed?: boolean; fullName?: string; hiddenByIsland?: string; hidden?: boolean; attention?: string | null; id: string; name: string; family: string; description?: string; purpose?: string; sites: Site[]; meaning?: { purpose?: string; next?: string }; risks?: { id: string; text: string }[] };
 type AtlasDoc = { islands?: Island[]; generatedAt: string; repos: Repo[]; families: { id: string; name: string; repos: number }[]; apps: { id: string; name: string }[] };
 type Session = LibrarySession;
 type Job = HangarJob;
@@ -315,9 +318,9 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
   useEffect(() => { if (ready) { send("layers", { layers }); send("lens", { lens: "default" }); } }, [ready, layers, send]);
   useEffect(() => { if (ready) send("style", { style: worldStyle }); }, [ready, worldStyle, send]);
   // Building size: commits (how much work went in) by default, or megabytes on GitHub. Kept per browser.
-  const [sizeBy, setSizeByState] = useState<"commits" | "megabytes">("commits");
+  const [sizeBy, setSizeByState] = useState<MapSize>("commits");
   useEffect(() => { try { const saved = localStorage.getItem("hangar-map-size"); if (saved === "commits" || saved === "megabytes") setSizeByState(saved); } catch { /* default */ } }, []);
-  const setSizeBy = (next: "commits" | "megabytes") => { setSizeByState(next); try { localStorage.setItem("hangar-map-size", next); } catch { /* kept for this visit */ } };
+  const setSizeBy = (next: MapSize) => { setSizeByState(next); try { localStorage.setItem("hangar-map-size", next); } catch { /* kept for this visit */ } };
   useEffect(() => { if (ready) send("size", { by: sizeBy }); }, [ready, sizeBy, send]);
   useEffect(() => {
     if (!ready) return;
@@ -490,6 +493,10 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
     top={<ProjectCategory key={`category-${machine}-${project.id}`} machine={machine} project={project} islands={doc?.islands || doc?.families || []} onChanged={refreshProjects} />}
     actions={<button aria-label={`More actions for ${project.name}`} title="Project actions" onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ project, x: r.left, y: r.bottom + 4, inPane: true }); }}><MoreHorizontal size={17} /></button>}
     below={<nav className="cw-pane-tabs" aria-label="Project views"><button aria-pressed={projectTab === "work"} onClick={() => setProjectTab("work")}>Work</button><button aria-pressed={projectTab === "repository"} onClick={() => setProjectTab("repository")} title="Changes, folders, apps and notes">Repo</button><button aria-pressed={projectTab === "architecture"} onClick={() => setProjectTab("architecture")}>Architecture</button><button aria-pressed={projectTab === "timeline"} onClick={() => setProjectTab("timeline")}>Timeline</button></nav>}>
+    {view === "world" && <p className="cw-world-size-note">
+      {projectMeasurementText(project, sizeBy)}
+      {projectMeasurement(project, sizeBy).value === null && <span> · reference size</span>}
+    </p>}
     {project.hidden && <p className="cw-project-state">{project.hiddenByIsland ? "This island is hidden. Restore it in Manage islands." : "Hidden from the world · restore from the actions menu."}</p>}
     {projectTab === "repository" ? <RepositoryPane key={`repository-${machine}-${project.id}`} machine={machine} repo={project.id} onClose={() => setSelected(null)} onSelect={setSelected} onChanged={refreshProjects} /> : projectTab === "architecture" ? <ProjectArchitecture key={`architecture-${machine}-${project.id}`} machine={machine} repo={project.id} onJob={setInspectJob} /> : projectTab === "timeline" ? <ProjectInsights machine={machine} repo={project.id} repoUrl={project.url} /> : <ProjectDetail project={project} machine={machine} machineName={machineName} sessions={projectSessions} jobs={jobs.filter(j => j.repo === project.id)} app={apps.find(a => a.repo === project.id)} appsChecked={appsChecked} busy={busy} onStart={() => { setComposer(true); setResume(null); }} onClone={() => setOperation({ kind: "clone", repo: project })} onContinue={continueSession} onOpenSession={machine === "local" ? s => void openSession(s.provider, s.id) : undefined} onAction={act} onJob={setInspectJob} onSelect={onSelect} activityFocus={activityFocus?.repo === project.id ? activityFocus : undefined} />}
   </SidePane>;
@@ -563,7 +570,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
         <div className="cw-focus-bar"><span><img src="/brand/foundry.png" alt="" width="28" height="24" />World <span className="cw-muted">/ {machineName}</span></span>{actionCounts}<button ref={exitWorld} onClick={() => setExpanded(false)} aria-label="Exit expanded world"><Minimize2 size={16} />Exit expanded view</button></div>
         <div ref={worldSurface} className="cw-world">
           <div className="cw-map-left"><button className="cw-map-home" aria-label="Show whole world" title="Show whole world" onClick={home}><Home size={16} /></button><ProjectSearch query={query} setQuery={setQuery} results={searchResults} onChoose={repo => { setQuery(""); choose(repo); }} onPick={() => repos[0] && choose(repos[0])} shortcut /></div>
-          <div className="cw-world-tools"><WorldStylePicker /><div className="cw-size-switch" role="group" aria-label="Project size"><span>Size</span>{([["commits", "Commits", "Project size follows how many commits the project has"], ["megabytes", "MB", "Project size follows the repository's size on GitHub"]] as const).map(([id, label, title]) => <button key={id} aria-pressed={sizeBy === id} title={title} onClick={() => setSizeBy(id)}>{label}</button>)}</div><MapMenu layers={layers} setLayers={setLayers} history={mapControls} setHistory={setMapControls} island={family ? doc?.families.find(f => f.id === family)?.name || "" : ""} onIslands={() => setOperation(family ? { kind: "islands", island: family } : { kind: "islands" })} /><button aria-label={expanded ? "Restore world layout" : "Expand world"} onClick={() => setExpanded(v => !v)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
+          <div className="cw-world-tools"><WorldStylePicker /><div className="cw-size-switch" role="group" aria-label="Project size"><span>Size</span>{([["commits", "Commits", "Project size follows how many commits the project has"], ["megabytes", "MB", "Project size follows the repository's size on GitHub"]] as const).map(([id, label, title]) => <button key={id} aria-pressed={sizeBy === id} title={title} onClick={() => setSizeBy(id)}>{label}</button>)}</div><MapMenu style={worldStyle} sizeBy={sizeBy} layers={layers} setLayers={setLayers} history={mapControls} setHistory={setMapControls} island={family ? doc?.families.find(f => f.id === family)?.name || "" : ""} onIslands={() => setOperation(family ? { kind: "islands", island: family } : { kind: "islands" })} /><button aria-label={expanded ? "Restore world layout" : "Expand world"} onClick={() => setExpanded(v => !v)}>{expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}</button></div>
           {doc && <iframe key={`${machine}-${worldRevision}`} ref={iframe} title={`Hangar project world on ${machineName}`} src={`/api/world/${machine}/view/index.html?embed=hangar&lens=default`} onLoad={() => send("status")} allow="clipboard-write" />}
           {!ready && <div className="cw-world-status" role="status" aria-label="Map loading status">
             {worldError ? <><TriangleAlert size={15} /><span>Map unavailable</span></> : <HangarLoading compact announce={false} label={worldSlow ? "Still loading the map…" : doc ? "Loading map…" : "Reading projects…"} steps={doc ? ["Laying out the islands", "Shaping the projects", "Adding the scenery", "Lighting the sky"] : ["Scanning project folders", "Asking GitHub what is yours"]} />}
@@ -665,7 +672,7 @@ function AppSection({ app, checked, repo, local, busy, onAction }: { app?: Apps;
     {!local && (live.length > 0 || targets.length > 0) && <p className="cw-tiny">Run and open apps on the machine that has them.</p>}</>;
 }
 /** One entry point for the map: what it shows on top, history and replay, and island actions. */
-function MapMenu({ layers, setLayers, history, setHistory, island, onIslands }: { layers: MapLayers; setLayers: (layers: MapLayers) => void; history: boolean; setHistory: (on: boolean) => void; island: string; onIslands: () => void }) {
+function MapMenu({ style, sizeBy, layers, setLayers, history, setHistory, island, onIslands }: { style: string; sizeBy: MapSize; layers: MapLayers; setLayers: (layers: MapLayers) => void; history: boolean; setHistory: (on: boolean) => void; island: string; onIslands: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -677,14 +684,22 @@ function MapMenu({ layers, setLayers, history, setHistory, island, onIslands }: 
     return () => { document.removeEventListener("pointerdown", away); window.removeEventListener("keydown", key); };
   }, [open]);
   const changed = LAYER_OPTIONS.some(o => layers[o.id] !== DEFAULT_LAYERS[o.id]);
+  const model = worldStyleById(style);
+  const relation = style === "constellation" ? "Lines connect projects in the same group."
+    : style === "neural" ? "Lines show a shared group or an observed shared topic." : "";
   return <div className="cw-map-menu" ref={ref}>
-    <button aria-label="Map options" aria-expanded={open} aria-haspopup="menu" title="What the map shows, history and islands" aria-pressed={open || history} onClick={() => setOpen(v => !v)}><LayersIcon size={16} />{changed && <i className="cw-map-menu-dot" aria-hidden="true" />}</button>
-    {open && <div className="cw-map-menu-panel" role="menu" aria-label="Map options">
+    <button aria-label="Map options" aria-expanded={open} title="Read this view, show map layers or replay history" aria-pressed={open || history} onClick={() => setOpen(v => !v)}><LayersIcon size={16} />{changed && <i className="cw-map-menu-dot" aria-hidden="true" />}</button>
+    {open && <div className="cw-map-menu-panel" role="region" aria-label="Map options">
+      <section className="cw-map-key" aria-label="How to read this view">
+        <b>{model.name}</b>
+        <small>{model.growth}. Size uses {sizeBy === "commits" ? "observed commits" : "repository MB"}. A hollow dot marks a reference size when the measurement is missing.</small>
+        {relation && <small>{relation}</small>}
+      </section>
       <p>Show on the map</p>
-      {LAYER_OPTIONS.map(o => <button key={o.id} role="menuitemcheckbox" aria-checked={layers[o.id]} onClick={() => setLayers({ ...layers, [o.id]: !layers[o.id] })}><span className="cw-check" aria-hidden="true">{layers[o.id] && <Check size={12} />}</span><span><b>{o.label}</b><small>{o.colors && <span className="cw-swatches">{o.colors.map(c => <i key={c} style={{ background: c }} />)}</span>}{o.hint}</small></span></button>)}
+      {LAYER_OPTIONS.map(o => <button key={o.id} aria-pressed={layers[o.id]} onClick={() => setLayers({ ...layers, [o.id]: !layers[o.id] })}><span className="cw-check" aria-hidden="true">{layers[o.id] && <Check size={12} />}</span><span><b>{o.label}</b><small>{o.colors && <span className="cw-swatches">{o.colors.map(c => <i key={c} style={{ background: c }} />)}</span>}{o.hint}</small></span></button>)}
       <hr />
-      <button role="menuitemcheckbox" aria-checked={history} onClick={() => { setHistory(!history); setOpen(false); }}><span className="cw-check" aria-hidden="true">{history ? <Check size={12} /> : <History size={12} />}</span><span><b>History and replay</b><small>Watch projects arrive over time</small></span></button>
-      <button role="menuitem" onClick={() => { setOpen(false); onIslands(); }}><span className="cw-check" aria-hidden="true"><SlidersHorizontal size={12} /></span><span><b>{island ? `${island} group…` : "Manage groups…"}</b><small>{island ? "Rename, hide or tidy this group" : "Rename, hide, merge or add groups"}</small></span></button>
+      <button aria-pressed={history} onClick={() => { setHistory(!history); setOpen(false); }}><span className="cw-check" aria-hidden="true">{history ? <Check size={12} /> : <History size={12} />}</span><span><b>History and replay</b><small>Watch projects arrive over time</small></span></button>
+      <button onClick={() => { setOpen(false); onIslands(); }}><span className="cw-check" aria-hidden="true"><SlidersHorizontal size={12} /></span><span><b>{island ? `${island} group…` : "Manage groups…"}</b><small>{island ? "Rename, hide or tidy this group" : "Rename, hide, merge or add groups"}</small></span></button>
       {changed && <button className="cw-map-menu-reset" onClick={() => setLayers(DEFAULT_LAYERS)}>Back to the default view</button>}
     </div>}
   </div>;

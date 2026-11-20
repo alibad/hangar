@@ -229,7 +229,7 @@
 .cw-map-menu-panel b{font-weight:550}
 .cw-map-menu-panel small{display:flex;align-items:center;gap:6px;color:var(--cw-muted);font-size:11px;line-height:1.35}
 .cw-check{flex:0 0 18px;height:18px;display:grid;place-items:center;border:1px solid var(--cw-line);border-radius:5px;margin-top:1px;color:var(--hangar-primary)}
-.cw-map-menu-panel [aria-checked=true] .cw-check{background:var(--hangar-primary-soft);border-color:var(--hangar-primary)}
+.cw-map-menu-panel [aria-pressed=true] .cw-check{background:var(--hangar-primary-soft);border-color:var(--hangar-primary)}
 .cw-swatches{display:inline-flex;gap:2px;flex-shrink:0}.cw-swatches i{width:7px;height:7px;border-radius:50%}
 .connected-workspace .cw-world-tools .cw-map-menu-panel .cw-map-menu-reset{justify-content:center;color:var(--hangar-primary);font-size:12px;margin-top:2px}
 /* Work tab app rows: soft pills to open, stop or run. */
@@ -382,3 +382,8 @@
 /* The world chooser joins size and map controls; narrow maps use a second row. */
 .cw-map-left{max-width:calc(100% - 420px)}
 @container cwmap (max-width:790px){.cw-world-tools{top:60px}.cw-map-left{max-width:calc(100% - 28px)}}
+
+.cw-map-key{display:grid;gap:4px;margin:2px 2px 8px;padding:9px 10px;border-radius:9px;background:color-mix(in oklab,var(--cw-ink) 5%,transparent)}
+.cw-map-key b{font-size:12px}
+.cw-world-size-note{margin:10px 0 0;font-size:12px;color:var(--cw-muted)}
+@container cwmap (max-width:400px){.cw-map-menu-panel{width:min(290px,calc(100cqw - 58px))}}

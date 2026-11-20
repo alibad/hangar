@@ -17,6 +17,7 @@ import { bindWorldPinch } from "./world-pinch.js";
 import { dressIsland, createEnvironment, disposeEnvironment } from "./environments.js";
 import { composeWorld } from "./composition.js";
 import { WORLD_STYLES, worldStyleById } from "./world-styles.js";
+import { projectMeasurementText } from "./project-size.js";
 
 const params = new URLSearchParams(location.search);
 document.body.classList.toggle("hangar-embedded", embedded);
@@ -70,6 +71,7 @@ function start(doc, local, quality) {
     const here = [];
     for (const cell of spot.cells) {
       const b = new Building(cell.repo, cell, isl, shared, shadows);
+      b.onMap = !cell.repo.hidden;
       buildings.push(b);
       here.push(b);
       byRepo.set(cell.repo.id, b);
@@ -77,6 +79,7 @@ function start(doc, local, quality) {
     isl.sheds = buildSheds(isl, here, shared, shadows);
     addScenery(isl);
     isl.buildings = here;
+    isl.group.visible = here.some(b => b.onMap);
     isl.label.addEventListener("click", (e) => { e.stopPropagation(); focusIsland(isl); });
   }
   let viewPlan = composeWorld(plan, currentModelStyle()), environment = null, environmentSignature = "";
@@ -97,10 +100,14 @@ function start(doc, local, quality) {
         if (!p) continue;
         b.group.position.set(p.x, p.y, p.z);
         if (p.heading !== null) b.group.rotation.y = p.heading;
-        if (style !== "buildings" && !b.nameTag) {
+        if (!b.nameTag) {
           const tag = document.createElement("button"); tag.className = "project-name"; tag.textContent = b.repo.name;
           tag.addEventListener("click", event => { event.stopPropagation(); select(b.repo, { fly: true }); });
           b.nameTag = new CSS2DObject(tag); b.nameTag.position.y = b.height + 1.3; b.nameTag.visible = false; b.group.add(b.nameTag);
+        }
+        if (b.nameTag) {
+          b.nameTag.element.title = projectMeasurementText(b.repo, b.sizeBy);
+          b.nameTag.element.classList.toggle("is-unmeasured", !b.hasMeasurement);
         }
       }
       dressIsland(island, style);
@@ -176,7 +183,7 @@ function start(doc, local, quality) {
         const tag = document.createElement("button");
         tag.className = "work-mark";
         marker = new CSS2DObject(tag);
-        marker.position.set(0, Math.max(b.height, b.flagTop || 0) + 8, 0);
+        marker.position.set(0, Math.max(b.height, b.flagTop || 0) + 4.6, 0);
         b.group.add(marker);
         workMarks.set(b.repo.id, marker);
         tag.addEventListener("click", (e) => { e.stopPropagation(); select(b.repo, { fly: true }); tellHost("job", { id: marker.userData.job }); });
@@ -260,7 +267,7 @@ function start(doc, local, quality) {
 
   // ---------- state ----------
   const state = {
-    lens: "map", layers: { ...LAYERS }, night: 0, nightTarget: 0, time: null, hover: null, selected: null, fly: null, filter: null,
+    lens: "map", layers: { ...LAYERS }, night: 0, nightTarget: 0, time: null, hover: null, selected: null, fly: null, filter: null, framing: "world",
     dirty: true, lastInput: performance.now(), autoRotate: quality.tier !== "low" && !reducedMotion,
     moving: new Set(), renderMs: [], downgraded: false, started: performance.now(),
   };
@@ -284,7 +291,7 @@ function start(doc, local, quality) {
   // belonging to changed islands need new instances; the terrain stays put.
   const footprint = spot => JSON.stringify(spot.cells.map(c => [c.repo.id, c.x, c.z]));
   const surfaces = spot => JSON.stringify(spot.cells.map(c => [c.repo.id, !!c.repo.hidden, !!c.repo.onMachine, c.repo.sites]));
-  const buildingShape = repo => JSON.stringify([repo.stage, repo.sizeKB, repo.commitCount, repo.recency, repo.homepage, repo.openPRs, repo.sites]);
+  const buildingShape = repo => JSON.stringify([repo.stage, repo.empty, repo.sizeKB, repo.commitCount, repo.family, repo.recency, repo.homepage, repo.openPRs, repo.sites]);
   for (const isl of islands) {
     isl.footprint = footprint(isl.spot); isl.surfaces = surfaces(isl.spot); isl.radius = isl.spot.radius;
   }
@@ -404,6 +411,7 @@ function start(doc, local, quality) {
     if (local) refreshApps();
     dressWorld();
     if (state.selected) { selRing.position.copy(state.selected.group.position); selRing.position.y += 0.08; }
+    if (state.selected) describeSelection(state.selected);
     highlightRelations(state.selected?.repo.id);
     selRing.visible = !!state.selected && !["constellation", "neural"].includes(currentModelStyle());
     cullLabels(); wake();
@@ -415,7 +423,8 @@ function start(doc, local, quality) {
     updateCatalog(doc);
     document.getElementById("world-style").value = id;
     tellHost("style", { style: id });
-    const view = home(); flyTo(view.target, view.radius, view.phi, 900, view.theta);
+    if (!state.framing) state.framing = state.selected ? "project" : "world";
+    reframe(900);
     wake();
   }
   // The standalone world has the same choices; the embedded host supplies its own chooser.
@@ -427,18 +436,58 @@ function start(doc, local, quality) {
   styleSelect.addEventListener("change", () => setStyle(styleSelect.value));
 
   // ---------- camera ----------
-  // Far enough that every island fits, seen from a little above so near and far districts overlap less.
-  const home = () => {
-    const width = canvas.clientWidth || innerWidth || 1000;
-    const height = canvas.clientHeight || innerHeight || 700;
-    const view = homeView(viewPlan.extent, embedded, width, height);
-    if (viewPlan.points) {
-      view.target = viewPlan.center; view.phi = viewPlan.phi; view.theta = viewPlan.theta;
-      view.radius = fitWorld(viewPlan.points, view.theta, view.phi, width / height, THREE.MathUtils.degToRad(camera.fov));
+  const included = b => b?.onMap !== false && b?.target.born > 0 && (!state.filter || state.filter.has(b.repo.id));
+  function modelPoints(b) {
+    b.island.group.updateWorldMatrix(true, false);
+    const transform = new THREE.Matrix4().compose(b.group.position, b.group.quaternion, new THREE.Vector3().setScalar(b.formScale))
+      .premultiply(b.island.group.matrixWorld);
+    return corners(b.modelBounds).map(p => p.applyMatrix4(transform));
+  }
+  function corners({ min, max }) {
+    return [min.x, max.x].flatMap(x => [min.y, max.y].flatMap(y => [min.z, max.z].map(z => new THREE.Vector3(x, y, z))));
+  }
+  function framePoints(points, theta, phi, padding) {
+    const center = new THREE.Box3().setFromPoints(points).getCenter(new THREE.Vector3());
+    const aspect = (canvas.clientWidth || 1000) / (canvas.clientHeight || 700);
+    const radius = fitWorld(points.map(p => p.clone().sub(center)), theta, phi, aspect, THREE.MathUtils.degToRad(camera.fov), padding);
+    controls.maxDistance = Math.max(260, viewPlan.extent * 3.5, radius * 1.25);
+    return { target: center, radius, theta, phi };
+  }
+  function home(group) {
+    const style = currentModelStyle(), whole = !group && !state.filter && state.time == null;
+    const items = (group?.buildings || buildings).filter(included);
+    const points = items.flatMap(modelPoints);
+    if (style === "buildings" && (whole || group)) {
+      for (const island of group ? [group] : islands) {
+        if (island.group.visible) points.push(...corners(new THREE.Box3().setFromObject(island.rock)));
+      }
+    } else if (style === "airplanes" && whole) {
+      const apron = new THREE.Box3();
+      for (const part of environment?.children || []) if (!part.userData.ground) apron.expandByObject(part);
+      if (!apron.isEmpty()) points.push(...corners(apron));
     }
-    controls.maxDistance = Math.max(260, viewPlan.extent * 3.5, view.radius * 1.25);
-    return { ...view, target: new THREE.Vector3(view.target.x, view.target.y, view.target.z) };
-  };
+    if (!points.length) {
+      const fallback = homeView(viewPlan.extent, embedded, canvas.clientWidth, canvas.clientHeight);
+      return { ...fallback, target: new THREE.Vector3(fallback.target.x, fallback.target.y, fallback.target.z) };
+    }
+    const padding = group || !whole ? { minimum: 26, padX: 4, padY: 7 } : undefined;
+    return framePoints(points, viewPlan.theta, viewPlan.phi, padding);
+  }
+  function projectFrame(b) {
+    // Look across the gate from the open apron so the pier cannot hide the plane.
+    const theta = b.style === "airplanes" ? (b.group.rotation.y > 0 ? -0.72 : -Math.PI + 0.72) : viewPlan.theta;
+    const view = framePoints(modelPoints(b), theta, .98, { minimum: 24, padX: 2.4, padY: 5 });
+    view.target = besideCard(view.target, view.radius, view.phi, view.theta);
+    return view;
+  }
+  function reframe(duration = 0) {
+    if (!state.framing) return;
+    const view = state.framing === "project" && state.selected
+      ? projectFrame(state.selected)
+      : home(typeof state.framing === "object" ? state.framing : null);
+    if (duration) flyTo(view.target, view.radius, view.phi, duration, view.theta);
+    else { state.fly = null; controls.enabled = true; place(view); }
+  }
   const sphericalOf = (pos, target) => new THREE.Spherical().setFromVector3(pos.clone().sub(target));
   function place(view) {
     controls.target.copy(view.target);
@@ -496,21 +545,16 @@ function start(doc, local, quality) {
     return target.clone().addScaledVector(right, (card.offsetWidth / 2 + 7) * unitsPerPx);
   }
   const focusBuilding = (b) => {
-    const top = b.group.localToWorld(new THREE.Vector3(0, b.height * 0.45, 0));
-    const radius = b.style === "buildings" ? clamp(b.height * 2.4 + 42, 52, 150)
-      : clamp(b.height * b.formScale * 3.1 + 16, 28, 96);
-    // Look across the gate from the open apron so the pier cannot hide the plane.
-    const theta = b.style === "airplanes" ? (b.group.rotation.y > 0 ? -0.72 : -Math.PI + 0.72) : undefined;
-    flyTo(besideCard(top, radius, 0.98, theta), radius, 0.98, 1100, theta);
+    state.framing = "project";
+    const view = projectFrame(b);
+    flyTo(view.target, view.radius, view.phi, 1100, view.theta);
   };
   function focusIsland(isl, notify = true) {
     deselect(false);
     ui.showDistrict(isl.spot);
     if (notify) tellHost("district", { family: isl.spot.id });
-    const radius = (isl.presentation?.radius || isl.spot.radius) * 2.7 + (currentModelStyle() === "buildings" ? 46 : 20);
-    const focus = isl.presentation?.focus;
-    const target = focus ? isl.group.localToWorld(new THREE.Vector3(focus.x, focus.y, focus.z)) : isl.group.position.clone();
-    flyTo(besideCard(target, radius, 0.9), radius, 0.9);
+    state.framing = isl;
+    reframe(1100);
   }
 
   // ---------- lenses, time, night ----------
@@ -542,6 +586,8 @@ function start(doc, local, quality) {
       state.moving.add(b);
     }
     for (const i of islands) if (i.sheds) i.sheds.visible = t == null && currentModelStyle() === "buildings";
+    if (state.selected && state.selected.target.born <= 0) deselect();
+    highlightRelations(state.hover?.repo.id || state.selected?.repo.id);
     if (user) state.autoRotate = false;
     wake();
   }
@@ -554,6 +600,10 @@ function start(doc, local, quality) {
   }
 
   // ---------- selection ----------
+  function describeSelection(b) {
+    const measurement = projectMeasurementText(b.repo, currentSizeBy());
+    selTagEl.title = `${b.repo.name} · ${measurement}`;
+  }
   function select(repo, { fly = false } = {}) {
     const b = byRepo.get(repo.id);
     if (!b || b.onMap === false) return;
@@ -562,6 +612,7 @@ function start(doc, local, quality) {
     selRing.position.copy(b.group.position); selRing.position.y += 0.08;
     selRing.visible = !["constellation", "neural"].includes(currentModelStyle());
     selTagEl.textContent = repo.name;
+    describeSelection(b);
     b.group.add(selTag);
     selTag.position.set(0, Math.max(b.height, b.flagTop || 0) + 2.4, 0);
     selTag.visible = true;
@@ -578,6 +629,7 @@ function start(doc, local, quality) {
   }
   function deselect(clearHash = true) {
     state.selected = null;
+    if (state.framing === "project") state.framing = null;
     selRing.visible = false;
     selTag.visible = false;
     selTag.removeFromParent();
@@ -596,13 +648,19 @@ function start(doc, local, quality) {
     const r = canvas.getBoundingClientRect();
     ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    const hit = ray.intersectObjects(pickables, false).find((h) => h.object.userData.building?.group.visible);
+    const hit = ray.intersectObjects(pickables, false).find(({ object }) => {
+      const b = object.userData.building;
+      return b?.group.visible && included(b);
+    });
     if (hit) return { building: hit.object.userData.building };
     const land = ray.intersectObjects(islandMeshes, false).find(h => h.object.visible && h.object.parent.visible);
     return land ? { island: islands.find((i) => i.spot === land.object.userData.island) } : {};
   };
   let relatedProjects = new Set();
-  function highlightRelations(id) { relatedProjects = environment?.userData.focus?.(id) || new Set(); cullLabels(); wake(); }
+  function highlightRelations(id) {
+    relatedProjects = environment?.userData.focus?.(id, key => included(byRepo.get(key))) || new Set();
+    syncMarkers(); wake();
+  }
   function setHover(b) {
     if (state.hover === b) return;
     if (state.hover) { state.hover.setTarget({ hover: 0 }); state.moving.add(state.hover); }
@@ -673,7 +731,7 @@ function start(doc, local, quality) {
   }
   bindWorldPinch(document, pinchZoom, event => !!event.target?.closest?.("#scene, #labels"));
 
-  controls.addEventListener("start", () => { interacted(); ui.tip(null); });
+  controls.addEventListener("start", () => { state.framing = null; interacted(); ui.tip(null); });
   controls.addEventListener("change", () => (state.dirty = true));
 
   function interacted() {
@@ -686,14 +744,16 @@ function start(doc, local, quality) {
   // ---------- keys and the pad ----------
   controls.listenToKeyEvents(window);
   const turn = (a) => {
+    state.framing = null;
     const s = sphericalOf(camera.position, controls.target);
     flyTo(controls.target.clone(), s.radius, s.phi, 420, s.theta + a);
   };
   const zoom = (f) => {
+    state.framing = null;
     const s = sphericalOf(camera.position, controls.target);
     flyTo(controls.target.clone(), clamp(s.radius * f, controls.minDistance, controls.maxDistance), s.phi, 380);
   };
-  const goHome = (notify = true) => { deselect(); if (notify) tellHost("district", { family: null }); const h = home(); flyTo(h.target, h.radius, h.phi, 1100, h.theta); };
+  const goHome = (notify = true) => { deselect(); if (notify) tellHost("district", { family: null }); state.framing = "world"; reframe(1100); };
   const PAD = { in: () => zoom(0.7), out: () => zoom(1.4), left: () => turn(Math.PI / 4), right: () => turn(-Math.PI / 4), home: goHome };
   for (const b of document.querySelectorAll(".pad button")) b.addEventListener("click", () => { interacted(); PAD[b.dataset.pad](); });
   document.querySelector(".brand").addEventListener("click", (e) => { e.preventDefault(); goHome(); });
@@ -858,7 +918,7 @@ function start(doc, local, quality) {
     if (pointer && !state.fly) {
       const p = pick(pointer.x, pointer.y);
       setHover(p.building || null);
-      ui.tip(p.building?.repo, pointer.x, pointer.y);
+      ui.tip(p.building?.repo, pointer.x, pointer.y, p.building && projectMeasurementText(p.building.repo, currentSizeBy()));
       pointer = null;
     }
     // On the light tier, draw at reduced resolution while things move and once more at full size when they stop.
@@ -895,7 +955,7 @@ function start(doc, local, quality) {
     const width = canvas.clientWidth, height = canvas.clientHeight;
     if (!width || !height) return;
     const d = camera.position.distanceTo(controls.target);
-    const overview = buildings.length > 25 && d > viewPlan.extent * 0.95;
+    const overview = buildings.length > 25 && (state.framing === "world" && !state.filter || d > viewPlan.extent * 0.95);
     const badgeLayer = state.lens === "changes" || (state.lens === "default" && state.layers.attention);
     const layer = id => state.lens !== "default" || state.layers[id];
     const occupied = [];
@@ -923,7 +983,18 @@ function start(doc, local, quality) {
       if (group) object.element.inert = false;
       return true;
     };
-    if (state.selected && selTag.visible) placeLabel(selTag, true);
+    for (const m of markers) m.visible = false;
+    for (const m of runMarks.values()) m.visible = false;
+    for (const m of workMarks.values()) m.visible = false;
+    for (const b of buildings) if (b.nameTag) b.nameTag.visible = false;
+    if (state.selected && selTag.visible) {
+      placeLabel(selTag, true);
+      if (markersShown && included(state.selected)) {
+        const work = workMarks.get(state.selected.repo.id), run = runMarks.get(state.selected.repo.id);
+        const working = work?.userData.live && layer("work") && placeLabel(work);
+        if (!working && run?.userData.live && layer("apps")) placeLabel(run);
+      }
+    }
 
     const groups = [...islands].sort((a, b) => (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity));
     let shownGroups = 0;
@@ -940,10 +1011,6 @@ function start(doc, local, quality) {
       island.label.classList.remove("far");
       if (members.length && shownGroups < (width < 600 ? 6 : 22) && placeLabel(island.tag, false, true)) shownGroups++;
     }
-    for (const m of markers) m.visible = false;
-    for (const m of runMarks.values()) m.visible = false;
-    for (const m of workMarks.values()) m.visible = false;
-    for (const b of buildings) if (b.nameTag) b.nameTag.visible = false;
     if (!markersShown) return;
 
     const candidates = buildings.filter(b => b.group.visible && (!state.filter || state.filter.has(b.repo.id)))
@@ -958,6 +1025,7 @@ function start(doc, local, quality) {
       const focused = engaged || relatedProjects.has(id);
       const close = distance * 0.013 < b.formScale * Math.max(5, b.height);
       const run = runMarks.get(id), work = workMarks.get(id);
+      if (work?.visible || run?.visible) continue;
       if (work?.userData.live && layer("work") && placeLabel(work)) { shown++; continue; }
       if (run?.userData.live && layer("apps") && (!overview || focused || shown < 2) && placeLabel(run)) { shown++; continue; }
       if (overview && !focused) continue;
@@ -984,7 +1052,7 @@ function start(doc, local, quality) {
   }
 
   // ---------- go ----------
-  window.addEventListener("resize", () => { world.resize(); syncMarkers(); wake(); });
+  window.addEventListener("resize", () => { world.resize(); reframe(); syncMarkers(); wake(); });
   document.addEventListener("visibilitychange", wake);
   world.resize();
   let night = params.get("night");
@@ -1078,6 +1146,8 @@ function start(doc, local, quality) {
     if (message.type === "filter") {
       state.filter = Array.isArray(message.repos) ? new Set(message.repos.filter(id => typeof id === "string")) : null;
       setLens(state.lens);
+      highlightRelations(state.hover?.repo.id || state.selected?.repo.id);
+      if (state.framing && state.framing !== "project") reframe();
     }
     if (message.type === "theme") {
       toggleNight(message.night ? 1 : 0);
@@ -1088,7 +1158,7 @@ function start(doc, local, quality) {
     }
     if (message.type === "pinch") pinchZoom(message);
     if (message.type === "style") setStyle(message.style);
-    if (message.type === "size" && setSizeBy(message.by)) updateCatalog(doc);
+    if (message.type === "size" && setSizeBy(message.by)) { updateCatalog(doc); reframe(); }
     if (message.type === "map-controls") document.body.classList.toggle("show-map-controls", !!message.visible);
     if (message.type === "work") showWork(message.jobs);
     if (message.type === "visibility") {

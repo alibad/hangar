@@ -80,15 +80,15 @@ export function buildProjectForm(b, shadows) {
   let top;
   switch (b.style) {
     case "galaxy": {
-      const r = 1.1 + level * 0.28, y = r + 1.3;
+      const r = 0.86 + level * 0.23, y = r + 1.3;
       put(g.smooth, main, 0, y, 0, r);
       // Latitude bands distinguish planets from the constellation's starbursts.
       for (const f of [-0.45, 0.15]) ring(light, 0, y + r * f, 0, r * Math.sqrt(1 - f * f), Math.PI / 2);
-      if (level >= 2) ring(gold, 0, y, 0, r * 1.55, 1.1);
-      if (level >= 4) ring(main, 0, y, 0, r * 1.75, 1.1);
+      if (level >= 2) ring(gold, 0, y, 0, Math.min(2.8, r * 1.4), 1.1);
+      if (level >= 4) ring(main, 0, y, 0, Math.min(2.95, r * 1.57), 1.1);
       for (let i = 0; i < Math.floor(level / 2); i++) {
         const a = i * 2.4 + 0.6;
-        orb(light, Math.cos(a) * 4, y + Math.sin(a) * 1.2, Math.sin(a) * 3, 0.3 + i * 0.08);
+        orb(light, Math.cos(a) * 2.55, y + Math.sin(a) * 1.2, Math.sin(a) * 2.55, 0.22 + i * 0.05);
       }
       top = y + r + 1;
       break;
@@ -199,7 +199,7 @@ export function buildProjectForm(b, shadows) {
       break;
     }
     case "constellation": {
-      const r = 0.4 + level * 0.075;
+      const r = 0.42 + level * 0.12;
       b.visualMaterials.find(row => row.material === light).glow = 1.2;
       orb(light, 0, 1, 0, r);
       top = 1 + r;
@@ -209,17 +209,18 @@ export function buildProjectForm(b, shadows) {
       const h = 1.5 + level * 0.85;
       put(g.cylinder, dark, 0, 0.3, 0, 2.4, 0.6, 2.4);
       rod([0, 0.3, 0], [0, h + 0.5, 0], 0.22, gold);
-      for (let i = 0; i < 2 + Math.floor(level / 2); i++) {
-        const y = 1 + i * 1.25, r = 1.5 + (i % 2) * 0.5;
+      const gears = 2 + Math.floor(level / 2);
+      for (let i = 0; i < gears; i++) {
+        const y = 0.8 + h * (i + 1) / (gears + 1), r = 1.1 + level * .12 + (i % 2) * 0.35;
         const gear = put(g.gear, i % 2 ? main : gold, 0, y, 0, r, r, 1.4); gear.rotation.x = Math.PI / 2;
         if (i % 2 === 0) { const side = put(g.gear, gold, 1.7, y + 1.1, 0, 0.9); side.rotation.y = 0.25; }
       }
       ring(light, 0, h + 0.6, 0, 1, 0);
-      top = Math.max(h + 1.7, 2 + Math.floor(level / 2) * 1.25);
+      top = h + 1.7;
       break;
     }
     case "neural": {
-      const r = 0.65 + level * 0.1;
+      const r = 0.55 + level * 0.17;
       orb(main, 0, 1, 0, r);
       orb(light, 0, 1.1, r * 0.65, r * 0.35);
       for (let i = 0; i < 3; i++) {
@@ -235,9 +236,10 @@ export function buildProjectForm(b, shadows) {
       box(light, 0, 0.4, 0, 3.2, 0.8, 3.2);
       box(dark, 0, 1.1, 0, 1.7, 0.7, 1.7);
       const variant = hash(b.repo.id) % 3;
-      if (variant === 0) for (let i = 0; i < 2 + Math.floor(level / 2); i++) ring(i % 2 ? gold : main, 0, 2.5 + i * 0.65, 0, 1.2 + i * 0.22, i * 0.6);
+      const layers = 2 + Math.floor(level / 2);
+      if (variant === 0) for (let i = 0; i < layers; i++) ring(i % 2 ? gold : main, 0, 2 + h * i / layers, 0, 0.95 + level * .11 + i * 0.16, i * 0.6);
       else if (variant === 1) { const sculpture = put(g.crystal, main, 0, 1.5 + h / 2, 0, 1.5, h / 2, 1.5); sculpture.rotation.z = 0.28; }
-      else for (let i = 0; i < 2 + Math.floor(level / 2); i++) { const slab = box(i % 2 ? gold : main, 0, 1.8 + i * 0.7, 0, 2, 0.5, 1.2); slab.rotation.y = i * 0.65; }
+      else for (let i = 0; i < layers; i++) { const slab = box(i % 2 ? gold : main, 0, 1.8 + h * i / layers, 0, 1.5 + level * .2, 0.42 + level * .07, 1.2); slab.rotation.y = i * 0.65; }
       box(gold, 0, 0.9, 1.62, 0.9, 0.35, 0.06);
       top = Math.max(h + 2, 4.5 + Math.floor(level / 2) * 0.65);
       break;
@@ -248,7 +250,7 @@ export function buildProjectForm(b, shadows) {
   // Scale whole meshes uniformly so branch endpoints and rotated gear teeth stay aligned.
   const bounds = new THREE.Box3().setFromObject(b.group, b.style === "mountains"), origin = b.group.position;
   const reach = Math.max(Math.abs(bounds.min.x - origin.x), Math.abs(bounds.max.x - origin.x), Math.abs(bounds.min.z - origin.z), Math.abs(bounds.max.z - origin.z));
-  const edge = b.style === "mountains" ? 4.65 : PLOT / 2 - .4;
+  const edge = b.style === "mountains" ? 4.65 : (PLOT / 2 - .4) * (.78 + .22 * level / 6);
   const fit = Math.min(1, edge / reach);
   for (const mesh of b.group.children) { mesh.position.multiplyScalar(fit); mesh.scale.multiplyScalar(fit); }
   // Include all branch tips in marker placement and camera framing.
@@ -274,7 +276,7 @@ export function buildProjectForm(b, shadows) {
   if (["constellation", "neural"].includes(b.style) && b.shared.starlight) {
     const material = new THREE.SpriteMaterial({ map: b.shared.starlight, color: b.style === "constellation" ? "#ffe1a0" : b.base, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false });
     b.halo = new THREE.Sprite(material);
-    b.halo.position.set(0, 1, 0); b.halo.scale.setScalar(b.style === "constellation" ? 5 + level * 0.6 : 5);
+    b.halo.position.set(0, 1, 0); b.halo.scale.setScalar(3.5 + level * .57);
     b.group.add(b.halo);
   }
   b.formHeight = top;

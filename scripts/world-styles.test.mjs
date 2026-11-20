@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
 import { WORLD_STYLES, isWorldStyle, worldStyleById } from "../engine/world/js/world-styles.js";
+import { projectMeasurement, projectMeasurementText } from "../engine/world/js/project-size.js";
 globalThis.location = { search: "", pathname: "/" };
 const { buildProjectForm, createFormGeometry, formLevel } = await import("../engine/world/js/project-forms.js");
 const { dressIsland, createEnvironment, disposeEnvironment } = await import("../engine/world/js/environments.js");
@@ -42,6 +43,17 @@ test("size levels are bounded and increase with project evidence", () => {
   const levels = ["lot", "tent", "house", "midrise", "tower", "skyscraper"].map(stage => formLevel(stage, 0));
   assert.deepEqual(levels, [0, 1, 2, 3, 4, 5]);
   assert.equal(formLevel("skyscraper", 100), 6);
+});
+
+test("the selected size metric distinguishes a missing observation from zero", () => {
+  const remote = { commitCount: null, sizeKB: 180000 };
+  const local = { commitCount: 0, sizeKB: 0 };
+  assert.equal(projectMeasurement(remote, "commits").value, null);
+  assert.equal(projectMeasurement(remote, "megabytes").value, 180000);
+  assert.deepEqual(projectMeasurement(local, "commits"), { value: 0, stage: "lot", t: 0 });
+  assert.equal(projectMeasurement(local, "megabytes").value, null);
+  assert.equal(projectMeasurement({ ...local, empty: true }, "megabytes").value, 0);
+  assert.equal(projectMeasurementText(local, "commits"), "0 commits");
 });
 
 test("mountain profiles vary in silhouette and surface color at the same size", () => {
@@ -161,6 +173,8 @@ test("each new world owns one global environment and releases its resources once
     if (group.userData.focus) {
       const edge = group.userData.edges[0], related = group.userData.focus(edge.a);
       assert.ok(related.has(edge.a) && related.has(edge.b));
+      assert.equal(group.userData.focus(edge.a, id => id === edge.a).size, 0);
+      for (const lines of group.children.filter(object => object.isLineSegments)) assert.equal(lines.geometry.drawRange.count, 0);
       assert.equal(group.userData.focus("unknown-project").size, 0);
     }
     const unique = new Set(); let disposed = 0;

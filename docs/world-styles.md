@@ -37,7 +37,8 @@ The underlying catalog and organization never change when switching views.
 Selection, search, filters, activity layers and arrival replay carry over. Each
 view has deterministic positions, including seats for hidden projects, so hiding
 and restoring a project does not shuffle its neighbors. Changing a view fits
-its footprint to the canvas. Group labels summarize waiting work when zoomed
+the visible models and their surroundings to the canvas. A focused project or
+group stays in view when switching styles and resizing the map. Group labels summarize waiting work when zoomed
 out, and project labels appear as you zoom in or move the pointer.
 Selecting a project still brings up its actual work,
 sessions, running apps and repository tools.
@@ -54,7 +55,10 @@ Size and complexity use the existing **Commits / MB** switch. These represent
 observed repository facts, not completion, approval, quality or business value.
 A mountain gets taller with project size. Rock profiles and colors, tree species
 and coral shapes give projects stable visual identities.
-A project without an observed commit count retains the repository-size fallback.
+Projects with no value for the selected measurement use the same reference size.
+A hollow dot on a project name and the project pane identify that case. An
+observed zero is a measured value and uses the smallest form. **Map options**
+explains how to read the current view and what its lines and layers show.
 Activity, attention, local availability, website addresses, actual coding jobs
 and app ports retain their existing meanings. Physical pull-request flags remain
 in the city view; attention badges remain available in every view.
