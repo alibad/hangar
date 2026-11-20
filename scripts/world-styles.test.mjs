@@ -54,6 +54,7 @@ test("only the Buildings view retains island terrain and architecture", () => {
 
 const { layout, reconcileLayout } = await import("../engine/world/js/layout.js");
 const { composeWorld, compositionEdges, groundHeight, isLandscape } = await import("../engine/world/js/composition.js");
+const { fitWorld } = await import("../engine/world/js/camera-view.js");
 const { styleFixture } = await import("./world-style-fixture.mjs");
 
 test("spatial views are deterministic, distinct and leave canonical organization untouched", () => {
@@ -78,6 +79,22 @@ test("airport gates alternate headings along a common terminal without island se
   assert.ok(points[0].z < 0 && points[1].z > 0);
 });
 
+test("airport and graph footprints fit a portrait camera", () => {
+  const plan = layout(styleFixture());
+  for (const style of ["airplanes", "constellation", "neural"]) {
+    const { points, phi, theta } = composeWorld(plan, style);
+    const camera = new THREE.PerspectiveCamera(40, 390 / 844, 1, 4000);
+    const distance = fitWorld(points, theta, phi, camera.aspect, THREE.MathUtils.degToRad(camera.fov));
+    camera.position.setFromSpherical(new THREE.Spherical(distance, phi, theta));
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
+    for (const { x, y, z } of points) {
+      const point = new THREE.Vector3(x, y, z).project(camera);
+      assert.ok(Math.abs(point.x) < 0.9 && Math.abs(point.y) < 0.9, style);
+    }
+  }
+});
+
 test("hide and restore retain view coordinates, including force-directed positions", () => {
   for (const style of WORLD_STYLES) {
     const doc = styleFixture(), plan = layout(doc), before = composeWorld(plan, style.id);
@@ -100,6 +117,16 @@ test("constellations and networks occupy depth and height; topics explain cross-
     const cross = edges.filter(e => doc.repos.find(r => r.id === e.a).family !== doc.repos.find(r => r.id === e.b).family);
     assert.equal(cross.length, style === "neural" ? 1 : 0);
     assert.ok(cross.every(e => e.reason === "shared topic"));
+  }
+});
+
+test("uncategorized projects do not acquire artificial graph connections", () => {
+  const doc = styleFixture();
+  doc.families = [{ id: "uncategorized", name: "Uncategorized", repos: doc.repos.length }];
+  for (const repo of doc.repos) repo.family = "uncategorized";
+  const plan = layout(doc);
+  for (const style of ["constellation", "neural"]) {
+    assert.deepEqual(compositionEdges(plan, composeWorld(plan, style)), []);
   }
 });
 

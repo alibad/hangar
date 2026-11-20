@@ -4,6 +4,7 @@ import { ExternalLink, RefreshCw } from "lucide-react";
 import { workspaceResponse } from "@/lib/workspace-response";
 import "./project-architecture.css";
 import HangarLoading from "./hangar-loading";
+import ProjectCodeGraph from "./project-code-graph";
 import { SignInNotice } from "./agent-sign-in";
 
 type Agent = "claude" | "codex";
@@ -22,8 +23,26 @@ function ago(iso: string) {
   return hours < 48 ? `${hours} h ago` : `${Math.round(hours / 24)} days ago`;
 }
 
-/** An Archify drawing of the project, drawn by an agent that only reads the code. */
-export default function ProjectArchitecture({ machine, repo, onJob }: { machine: string; repo: string; onJob: (id: string) => void }) {
+type Props = { machine: string; repo: string; onJob: (id: string) => void };
+const VIEWS = { drawing: "Drawing", dependencies: "Dependencies", impact: "Change Impact" } as const;
+
+export default function ProjectArchitecture(props: Props) {
+  const [view, setView] = useState<keyof typeof VIEWS>("drawing");
+  const { machine, repo } = props;
+  const base = `/api/world/${machine}/proxy/architecture`;
+  return <section className="project-architecture" aria-label="Project architecture">
+    <div className="pcg-tabs" role="group" aria-label="Architecture view">
+      {(Object.keys(VIEWS) as (keyof typeof VIEWS)[]).map(key => (
+        <button key={key} aria-pressed={view === key} onClick={() => setView(key)}>{VIEWS[key]}</button>
+      ))}
+    </div>
+    {view === "drawing" ? <ArchitectureDrawing {...props} key={`${machine}/${repo}`} />
+      : <ProjectCodeGraph key={`${machine}/${repo}/${view}`} mode={view} base={`${base}/graph`} repo={repo} />}
+  </section>;
+}
+
+/** A drawing produced and checked by Archify. */
+function ArchitectureDrawing({ machine, repo, onJob }: Props) {
   const base = `/api/world/${machine}/proxy/architecture`;
   const [status, setStatus] = useState<Status | null>(null), [error, setError] = useState(""), [agent, setAgent] = useState<Agent | null>(null);
   const [starting, setStarting] = useState(false), [frame, setFrame] = useState(0);
@@ -68,7 +87,7 @@ export default function ProjectArchitecture({ machine, repo, onJob }: { machine:
       {NAMES[a]}{status.signedOut?.includes(a) && <small> · sign in</small>}</button>)}
   </span>;
   const drawButton = (label: string) => <button className="pa-draw" disabled={!chosen || starting || busy} onClick={draw}><RefreshCw size={14} />{starting ? "Starting…" : label}</button>;
-  return <section className="project-architecture" aria-label="Project architecture">
+  return <div className="pcg">
     {!status && !error && <HangarLoading label="Looking for this project’s drawing" steps={["Checking for a saved drawing", "Checking Archify and the agents on this machine"]} shape="card" />}
     {error && <p role="alert" className="pa-alert">{error}</p>}
     {status && !status.archify && <div className="pa-empty">
@@ -104,5 +123,5 @@ export default function ProjectArchitecture({ machine, repo, onJob }: { machine:
         <span className="pa-actions">{agents}{drawButton("Draw architecture")}</span>
       </div>}
     </>}
-  </section>;
+  </div>;
 }

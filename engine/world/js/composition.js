@@ -21,35 +21,38 @@ export function composeWorld(plan, style) {
     }
     return { style, groups, projects, extent: plan.extent, center: { x: 0, y: -3, z: 0 }, phi: 1, theta: 0.72 };
   }
-  const count = plan.islands.length;
-  let airportZ = [0, 0];
-  const widest = Math.max(3, ...plan.islands.map(s => Math.min(10, Math.ceil(s.cells.length / 2))));
+  const blocks = [];
+  const rectilinear = ["airplanes", "museum", "mechanical"].includes(style);
   for (const [index, s] of plan.islands.entries()) {
     const rand = rng(s.seed ^ hash(style)), n = s.cells.length;
     const a = index * GOLDEN;
     let x = Math.cos(a) * Math.sqrt(index) * 82, z = Math.sin(a) * Math.sqrt(index) * 82, y = 0;
     let positions = [];
     if (style === "airplanes") {
-      const side = index % 2 ? 1 : -1, rows = Math.ceil(n / (widest * 2));
-      x = side * 40; z = airportZ[index % 2] + 18;
-      airportZ[index % 2] += Math.max(1, rows) * 48 + 20;
-      positions = s.cells.map((c, i) => ({ x: side * (18 + (Math.floor(i / 2) % widest) * 12), y: 0.65, z: Math.floor(i / (widest * 2)) * 48 + (i % 2 ? 11 : -11), heading: i % 2 ? Math.PI / 2 : -Math.PI / 2 }));
-    } else if (style === "museum") {
-      const cols = Math.max(2, Math.ceil(Math.sqrt(n)));
-      const across = Math.ceil(Math.sqrt(count));
-      const stride = Math.max(80, ...plan.islands.map(f => Math.ceil(Math.sqrt(f.cells.length)) * 14 + 24));
-      x = (index % across) * stride; z = Math.floor(index / across) * stride;
-      positions = s.cells.map((c, i) => ({ x: (i % cols - (cols - 1) / 2) * 12, y: 0.5, z: (Math.floor(i / cols) - (Math.ceil(n / cols) - 1) / 2) * 14, heading: null }));
-    } else if (style === "mechanical") {
-      const stride = Math.max(70, ...plan.islands.map(f => Math.ceil(Math.sqrt(f.cells.length)) * 10 + 24));
-      x = (index % 4) * stride; z = Math.floor(index / 4) * stride;
-      const cols = Math.max(2, Math.ceil(Math.sqrt(n)));
-      positions = s.cells.map((c, i) => ({ x: (i % cols - (cols - 1) / 2) * 10 + (Math.floor(i / cols) % 2 ? 5 : 0), y: 0.6, z: Math.floor(i / cols) * 10, heading: null }));
+      // Balanced terminal blocks, each with opposing gate rows.
+      const cols = Math.max(2, Math.ceil(Math.sqrt(n * 1.1)));
+      positions = s.cells.map((_, i) => ({
+        x: (Math.floor(i / 2) % cols - (cols - 1) / 2) * 14,
+        y: 0.12, z: Math.floor(i / (cols * 2)) * 36 + (i % 2 ? 9 : -9),
+        heading: i % 2 ? Math.PI / 2 : -Math.PI / 2,
+      }));
+    } else if (style === "museum" || style === "mechanical") {
+      const gap = style === "museum" ? 11 : 10;
+      const cols = Math.max(1, Math.ceil(Math.sqrt(n)));
+      positions = s.cells.map((_, i) => ({
+        x: (i % cols - (cols - 1) / 2) * gap, y: 0.12,
+        z: (Math.floor(i / cols) - (Math.ceil(n / cols) - 1) / 2) * gap, heading: null,
+      }));
     } else if (style === "fleet") {
       y = Math.sin(a) * 15;
       positions = s.cells.map((c, i) => { const row = Math.ceil((Math.sqrt(8 * (i + 1) + 1) - 1) / 2), at = i - row * (row - 1) / 2; return { x: (at - row / 2) * 12, y: (rand() - 0.5) * 4, z: row * 11, heading: Math.PI }; });
     } else if (style === "garden") {
-      positions = s.cells.map((c, i) => { const t = (i - (n - 1) / 2) * 9; return { x: t, y: 0.4, z: Math.sin(t * 0.075) * 9, heading: null }; });
+      const cols = Math.ceil(Math.sqrt(n * 1.7)), rows = Math.ceil(n / cols);
+      positions = s.cells.map((_, i) => {
+        const row = Math.floor(i / cols);
+        const x = (i % cols - (cols - 1) / 2) * 9;
+        return { x, y: 0.12, z: (row - (rows - 1) / 2) * 11 + Math.sin(x * 0.09 + row) * 2.4, heading: null };
+      });
     } else if (style === "constellation") {
       y = Math.sin(a * 1.7) * 24;
       positions = s.cells.map((c, i) => { const phase = i * 1.16 + rand(), distance = 8 + Math.sqrt(i) * 12; return { x: Math.cos(phase) * distance, y: (rand() - 0.5) * 24, z: Math.sin(phase) * distance * 0.6, heading: null }; });
@@ -64,20 +67,54 @@ export function composeWorld(plan, style) {
     const midpoint = key => (Math.min(...positions.map(p => p[key])) + Math.max(...positions.map(p => p[key]))) / 2;
     const focus = { x: midpoint("x"), y: midpoint("y"), z: midpoint("z") };
     const radius = Math.max(14, ...positions.map(p => Math.hypot(p.x - focus.x, p.y - focus.y, p.z - focus.z) + 7));
-    const label = style === "airplanes" ? { x: 0, y: 6, z: -20 } : { x: focus.x, y: focus.y + 7, z: focus.z - radius * 0.7 };
-    groups.set(s.id, { x, y, z, radius, focus, side: index % 2 ? 1 : -1, label });
+    const label = { x: focus.x, y: focus.y + 10, z: focus.z - radius * 0.65 };
+    const group = { x, y, z, radius, focus, label };
+    groups.set(s.id, group);
+    if (rectilinear) {
+      const padding = style === "airplanes" ? 28 : 23;
+      const left = Math.min(...positions.map(p => p.x)) - padding / 2;
+      const top = Math.min(...positions.map(p => p.z)) - padding / 2;
+      blocks.push({ group, left, top, width: (focus.x - left) * 2, height: (focus.z - top) * 2 });
+    }
     s.cells.forEach((cell, i) => projects.set(cell.repo.id, positions[i]));
   }
-  // Pack organic families without fences; their spacing follows their actual occupied extent.
-  if (!["airplanes", "museum", "mechanical"].includes(style)) {
+  if (rectilinear) {
+    // Place large blocks first, then fill the gaps next to and below them.
+    // Rectangular terminals and galleries need not fill an entire row by themselves.
+    const width = Math.max(1, ...blocks.map(b => b.width), Math.sqrt(blocks.reduce((area, b) => area + b.width * b.height, 0)) * 1.2);
+    const placed = [];
+    for (const block of blocks.sort((a, b) => b.width * b.height - a.width * a.height)) {
+      const xs = [0, ...placed.map(p => p.x + p.width)].sort((a, b) => a - b);
+      const zs = [0, ...placed.map(p => p.z + p.height)].sort((a, b) => a - b);
+      const z = zs.find(z => xs.some(x => fits(x, z)));
+      const x = xs.find(x => fits(x, z));
+      block.group.x = x - block.left;
+      block.group.z = z - block.top;
+      placed.push({ x, z, width: block.width, height: block.height });
+
+      function fits(x, z) {
+        return x + block.width <= width && placed.every(p =>
+          x + block.width <= p.x || x >= p.x + p.width || z + block.height <= p.z || z >= p.z + p.height);
+      }
+    }
+  } else {
+    // Fit each group as close as possible to the existing scene.
     const placed = [];
     for (const s of plan.islands) {
       const g = groups.get(s.id);
-      for (let attempt = 0; attempt < 1000; attempt++) {
-        const collision = placed.find(o => Math.hypot(g.x - o.x, g.z - o.z) < g.radius + o.radius + 14);
-        if (!collision) break;
-        const angle = (placed.length + attempt * 0.1) * GOLDEN, d = Math.sqrt(attempt + placed.length) * 20;
-        g.x = Math.cos(angle) * d; g.z = Math.sin(angle) * d;
+      g.x = 0; g.z = 0;
+      if (placed.length) {
+        const start = (hash(s.id) % 360) * Math.PI / 180;
+        let found = false;
+        for (let d = 6; !found; d += 6) {
+          const steps = Math.max(12, Math.ceil(d * Math.PI / 4));
+          for (let step = 0; step < steps; step++) {
+            const a = start + step / steps * Math.PI * 2;
+            const x = Math.cos(a) * d, z = Math.sin(a) * d;
+            if (!placed.every(o => Math.hypot(x - o.x, z - o.z) >= g.radius + o.radius + 5)) continue;
+            g.x = x; g.z = z; found = true; break;
+          }
+        }
       }
       placed.push(g);
     }
@@ -116,13 +153,19 @@ export function composeWorld(plan, style) {
       worldPositions.push({ x: g.x + p.x, y: g.y + p.y, z: g.z + p.z });
     }
   }
-  const axis = key => [Math.min(0, ...worldPositions.map(p => p[key])), Math.max(0, ...worldPositions.map(p => p[key]))];
+  const axis = key => [Math.min(...worldPositions.map(p => p[key])), Math.max(...worldPositions.map(p => p[key]))];
+  if (!worldPositions.length) worldPositions.push({ x: 0, y: 0, z: 0 });
   const [minX, maxX] = axis("x"), [minY, maxY] = axis("y"), [minZ, maxZ] = axis("z");
-  const center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 + 3, z: (minZ + maxZ) / 2 };
+  const runwayX = minX - 37;
+  if (style === "airplanes") {
+    worldPositions.push({ x: runwayX - 12, y: 0, z: minZ - 32 }, { x: runwayX + 12, y: 0, z: maxZ + 32 });
+  }
+  const center = { x: ((style === "airplanes" ? runwayX - 12 : minX) + maxX) / 2, y: (minY + maxY) / 2 + 3, z: (minZ + maxZ) / 2 };
   const extent = Math.max(32, Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2 + 18);
   for (const g of groups.values()) { g.x -= center.x; g.y = isLandscape(style) ? 0 : g.y - center.y; g.z -= center.z; }
   if (isLandscape(style)) for (const s of plan.islands) for (const c of s.cells) { const g = groups.get(s.id), p = projects.get(c.repo.id); p.y += groundHeight(style, g.x + p.x, g.z + p.z); }
-  return { style, groups, projects, extent, axisX: -center.x, center: { x: 0, y: 0, z: 0 }, phi: style === "airplanes" ? 0.57 : style === "constellation" ? 0.88 : style === "neural" ? 1.03 : style === "fleet" ? 0.92 : ["forest", "mountains", "reef"].includes(style) ? 1.03 : 0.85, theta: style === "airplanes" ? -0.6 : style === "neural" ? 0.45 : 0.72 };
+  const points = worldPositions.map(p => ({ x: p.x - center.x, y: isLandscape(style) ? p.y : p.y - center.y, z: p.z - center.z }));
+  return { style, groups, projects, points, extent, axisX: runwayX - center.x, center: { x: 0, y: 0, z: 0 }, phi: style === "airplanes" ? 0.57 : style === "constellation" ? 0.88 : style === "neural" ? 1.03 : style === "fleet" ? 0.92 : ["forest", "mountains", "reef"].includes(style) ? 1.03 : 0.85, theta: style === "airplanes" ? -0.6 : style === "neural" ? 0.45 : 0.72 };
 }
 
 /** Sparse, explainable edges. Cross-category edges require an observed shared topic. */
@@ -131,6 +174,8 @@ export function compositionEdges(plan, composition, includeHidden = false) {
   const point = cell => { const g = composition.groups.get(cell.repo.family), p = composition.projects.get(cell.repo.id); return { x: g.x + p.x, y: g.y + p.y + 1, z: g.z + p.z }; };
   const add = (a, b, reason) => { const key = [a.repo.id, b.repo.id].sort().join("|"); if (seen.has(key)) return; seen.add(key); edges.push({ a: a.repo.id, b: b.repo.id, from: point(a), to: point(b), reason }); };
   for (const family of plan.islands) {
+    // With no category membership, proximity would invent a connection.
+    if (family.id === "uncategorized") continue;
     const cells = family.cells.filter(c => includeHidden || !c.repo.hidden);
     for (let i = 1; i < cells.length; i++) {
       const p = point(cells[i]); let nearest = cells[0], distance = Infinity;

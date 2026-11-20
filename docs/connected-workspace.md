@@ -292,11 +292,28 @@ sandbox is not enforced on every platform. Drawings stay in local engine storage
 (`var/engine/architecture/`) and open in a sandboxed frame with no network. Install
 the skill once with `npx skills add tt-a1i/archify -g`; Node.js runs its checks.
 
-The world can be drawn in two styles, chosen under World style in the theme
-picker: Buildings (a city of lots, houses and towers) or Airplanes (a hangar of
-gliders, prop planes, jets and jumbos). Both use the same facts: stage sets the
-size, the island colour the paint, recent work the lit windows. The choice is
-kept per browser, and switching it swaps the models in place.
+Architecture also has **Dependencies** and **Change Impact**. On the machine
+with the checkout, set `HANGAR_CBM_BIN` to the absolute path of the trusted
+[Codebase Memory v0.12.1 binary](https://github.com/DeusData/codebase-memory-mcp/releases/tag/v0.12.1)
+in Hangar's environment (for example in its ignored `.env.local`), then
+restart Hangar and the project engine. Use the binary directly from the release.
+Hangar calls its CLI without installing MCP hooks or changing agent clients.
+Click **Build code index** on a clean checkout. Indexes stay in the engine's
+private `code-graph` directory and are keyed to the local checkout. Each
+connected machine enables indexing and builds its own baseline.
+
+Dependencies starts at one tracked file. Select an incoming or outgoing file to
+follow it, or open **Link evidence** to see the indexed commit's source around
+a call site. Change Impact compares tracked edits with that commit and shows
+possible callers up to two hops away. Refresh after editing or switching
+commits. A new HEAD requires a fresh index. The graph reflects static analysis
+and the indexer's language and file coverage. Inspect the code before relying
+on a relationship.
+
+The [twelve world styles](world-styles.md) share the project catalog. Choose
+one with the World style button. Buildings uses islands, Airplanes uses a
+single airport, and the graph views use categories and observed repository
+topics.
 
 To draw every project on this machine in one go, run
 `node scripts/draw-architecture-all.mjs` (your own repos, two at a time, Claude by

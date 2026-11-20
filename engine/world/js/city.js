@@ -318,6 +318,7 @@ export class Building {
       : new THREE.Color(pickOf(this.stuff.roof, rand)).lerp(familyColor(repo.family), 0.35);
     this.height = 0;
     this.style = modelStyle;
+    this.formScale = this.style === "buildings" ? 1 : this.style === "airplanes" ? 1.48 : 1.38;
     this.make(rand, shadows);
     island.group.add(this.group);
     this.state = { tint: this.base.clone(), dim: 0, ghost: false, glow: 0, born: 1, hover: 0 };
@@ -558,7 +559,7 @@ export class Building {
       this.halo.material.opacity = (0.55 + s.glow * 0.25 + s.hover * 0.15) * (1 - s.dim) * (s.ghost ? 0.3 : 1);
     }
     const born = Math.max(0.001, s.born);
-    this.group.scale.set(1, born * (1 + s.hover * 0.05), 1);
+    this.group.scale.set(this.formScale, this.formScale * born * (1 + s.hover * 0.05), this.formScale);
     this.group.visible = this.onMap !== false && s.born > 0.02;
     if (this.beacon) {
       this.beacon.visible = s.dim < 0.6 && (this.style === "buildings" || s.glow > 0.02);

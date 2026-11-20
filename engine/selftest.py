@@ -640,7 +640,7 @@ class IndependentEngine(unittest.TestCase):
                    "HANGAR_ENGINE_REFRESH_MIN": "0", "HANGAR_ENGINE_WATCH": "0", "PYTHONUTF8": "1",
                    "HOME": str(cls.root / "home"), "USERPROFILE": str(cls.root / "home"),
                    "CODEX_HOME": str(cls.root / "home/.codex"), "CLAUDE_CONFIG_DIR": str(cls.root / "home/.claude"),
-                   "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+                   "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "HANGAR_CBM_BIN": ""}
         (cls.root / "home").mkdir()
         def git(*args, date=None):
             env = {**cls.env, **({"GIT_AUTHOR_DATE": date, "GIT_COMMITTER_DATE": date} if date else {})}
@@ -733,6 +733,17 @@ class IndependentEngine(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as error:
             urllib.request.urlopen(self.base + "/api/architecture/view?repo=" + rid)
         self.assertEqual(error.exception.code, 404)
+
+    def test_code_graph_requires_configuration_and_post_intent(self):
+        rid = self.project()["id"]
+        path = "/api/architecture/graph"
+        self.assertEqual(self.read(path + "?repo=" + rid), {"state": "unconfigured"})
+        body = json.dumps({"repo": rid}).encode()
+        for headers, status in [({}, 403), ({"X-Hangar": "1"}, 400)]:
+            request = urllib.request.Request(self.base + path, data=body, headers=headers)
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                urllib.request.urlopen(request)
+            self.assertEqual(error.exception.code, status)
 
     def test_activity_joins_main_branch_commits_with_sessions(self):
         rid = self.project()["id"]

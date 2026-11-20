@@ -8,12 +8,18 @@ export function engineAddress(): string {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("HANGAR_ENGINE_PORT must be a local port.");
   return `http://127.0.0.1:${port}`;
 }
-const runtime = globalThis as typeof globalThis & { hangarEngineStarting?: Promise<string> };
+const runtime = globalThis as typeof globalThis & {
+  hangarEngineStarting?: Promise<string>;
+  hangarEngineReady?: { base: string; until: number };
+};
 
 /** Start the bundled engine on demand, once across simultaneous requests/HMR. */
 export async function ensureProjectEngine(): Promise<string> {
   if (isHostedRuntime() || process.env.VERCEL) throw new Error("The project engine runs only in local Hangar.");
   const base = engineAddress();
+  // A World frame loads many modules at once. Share a recent health check
+  // across their requests so the checks don't crowd out the modules themselves.
+  if (runtime.hangarEngineReady?.base === base && runtime.hangarEngineReady.until > Date.now()) return base;
   async function ready() {
     try {
       const response = await fetch(`${base}/api/status`, { cache: "no-store", signal: AbortSignal.timeout(700) });
@@ -25,9 +31,9 @@ export async function ensureProjectEngine(): Promise<string> {
       return false;
     }
   }
-  if (await ready()) return base;
   if (!runtime.hangarEngineStarting) {
     runtime.hangarEngineStarting = (async () => {
+      if (await ready()) return base;
       const logs = join(process.cwd(), "var"); mkdirSync(logs, { recursive: true });
       const log = openSync(join(logs, "engine.log"), "a");
       let failed = false;
@@ -44,7 +50,10 @@ export async function ensureProjectEngine(): Promise<string> {
         await new Promise(resolve => setTimeout(resolve, 250));
       }
       throw new Error("Hangar's project engine could not start. Check Python 3.10+ and var/engine.log.");
-    })().finally(() => { delete runtime.hangarEngineStarting; });
+    })().then(address => {
+      runtime.hangarEngineReady = { base: address, until: Date.now() + 2000 };
+      return address;
+    }).finally(() => { delete runtime.hangarEngineStarting; });
   }
   return runtime.hangarEngineStarting;
 }

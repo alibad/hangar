@@ -100,8 +100,8 @@ export function tailscaleInstall(platform: string): { url: string; command: stri
   return { url: "https://tailscale.com/download/linux", command: "" };
 }
 
-const READS = new Set(["agents", "insights", "islands", "workspace", "atlas", "apps", "status", "sessions", "sessions/library", "work", "logo", "changes", "plans", "architecture", "architecture/view", "activity", "activity/all", "commit", "reviews", "stepback", "stepback/facts"]);
-const WRITES = new Set(["agents/login", "islands", "workspace", "open", "notes", "rescan", "apps", "sessions/resume", "sessions/library", "sessions/checkin", "work", "plans", "git", "architecture", "reviews", "stepback"]);
+const READS = new Set(["agents", "insights", "islands", "workspace", "atlas", "apps", "status", "sessions", "sessions/library", "work", "logo", "changes", "plans", "architecture", "architecture/graph", "architecture/view", "activity", "activity/all", "commit", "reviews", "stepback", "stepback/facts"]);
+const WRITES = new Set(["agents/login", "islands", "workspace", "open", "notes", "rescan", "apps", "sessions/resume", "sessions/library", "sessions/checkin", "work", "plans", "git", "architecture", "architecture/graph", "reviews", "stepback"]);
 export function atlasPathAllowed(kind: string, parts: string[], method: string): boolean {
   if (!parts.length || parts.some(p => !p || p === "." || p === ".." || /[\\%?#\0]/.test(p))) return false;
   const path = parts.join("/");

@@ -86,14 +86,25 @@ export function createWorld(canvas, labelsEl, quality) {
     new THREE.SphereGeometry(2800, 32, 16),
     new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyU,
-      vertexShader: "varying vec3 vDir; void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+      vertexShader: `varying vec3 vDir;
+        void main() {
+          vDir = normalize(position);
+          // A sky has a direction but no distance. Ignore camera translation
+          // and draw at the far plane so large worlds cannot leave the dome.
+          vec4 clip = projectionMatrix * vec4(mat3(viewMatrix) * position, 1.0);
+          gl_Position = clip.xyww;
+        }`,
       fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 bottom; uniform vec3 sunDir; uniform float glow; varying vec3 vDir;
         void main(){ float h = vDir.y; vec3 c = h > 0.0 ? mix(horizon, top, pow(clamp(h,0.0,1.0), 0.55)) : mix(horizon, bottom, pow(clamp(-h,0.0,1.0), 0.4));
           float s = max(dot(normalize(vDir), sunDir), 0.0); c += glow * (pow(s, 64.0) * 0.6 + pow(s, 6.0) * 0.12) * vec3(1.0, 0.92, 0.8);
-          gl_FragColor = vec4(c, 1.0); }`,
+          gl_FragColor = vec4(c, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
     }),
   );
   sky.renderOrder = -10;
+  sky.frustumCulled = false;
   scene.add(sky);
 
   // Stars, faded in at night.
@@ -142,7 +153,7 @@ export function createWorld(canvas, labelsEl, quality) {
     extent: 300, isLite: tier === "low", style: "buildings",
     setStyle(style) {
       world.style = style;
-      clouds.visible = ["buildings", "airplanes", "forest", "garden", "mountains"].includes(style);
+      clouds.visible = style === "buildings";
       const spatial = ["galaxy", "fleet", "constellation", "neural"].includes(style);
       controls.mouseButtons.LEFT = spatial ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
       controls.mouseButtons.RIGHT = spatial ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE;
@@ -194,7 +205,8 @@ export function createWorld(canvas, labelsEl, quality) {
       sun.intensity = lerp(DAY.sunI, NIGHT.sunI, n);
       hemi.color.lerpColors(DAY.hemiSky, NIGHT.hemiSky, n);
       hemi.groundColor.lerpColors(DAY.hemiGround, NIGHT.hemiGround, n);
-      hemi.intensity = lerp(DAY.hemiI, NIGHT.hemiI, n);
+      // Ground and models must retain readable silhouettes in dark appearance.
+      hemi.intensity = lerp(DAY.hemiI, world.style === "buildings" ? NIGHT.hemiI : 1.6, n);
       renderer.toneMappingExposure = lerp(DAY.exposure, NIGHT.exposure, n);
       stars.material.opacity = Math.max(["galaxy", "fleet", "constellation", "neural"].includes(world.style) ? 0.65 : 0, clamp((n - 0.35) / 0.5, 0, 1));
       for (const c of clouds.children) {
@@ -219,6 +231,13 @@ export function createWorld(canvas, labelsEl, quality) {
       // Framing on a narrow viewport can put the camera several extents away.
       // Haze must follow the camera, otherwise fitting the whole view fogs out every project.
       const distance = camera.position.distanceTo(controls.target), spatial = ["galaxy", "fleet", "constellation", "neural"].includes(world.style);
+      const near = Math.max(1, Math.min(18, distance / 65));
+      const far = Math.max(4000, distance + world.extent * 5);
+      if (Math.abs(camera.near - near) > 0.25 || Math.abs(camera.far - far) > 50) {
+        camera.near = near;
+        camera.far = far;
+        camera.updateProjectionMatrix();
+      }
       scene.fog.near = Math.max(world.extent * (world.style === "buildings" || spatial ? 1.7 : 1.2), distance - world.extent * 0.7);
       scene.fog.far = Math.max(world.extent * (world.style === "buildings" || spatial ? 5.5 : 4.3), distance + world.extent * 3);
       if (composer && bloom?.enabled && !world.isLite) composer.render();

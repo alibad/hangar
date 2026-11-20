@@ -29,6 +29,9 @@ async function proxy(request: Request, context: Context) {
     const query = new URL(request.url).searchParams;
     const safeQuery = new URLSearchParams();
     for (const key of ["repo", "v", "days", "until", "sha", "session", "id"]) if (query.has(key)) safeQuery.set(key, query.get(key)!);
+    if (parts.join("/") === "architecture/graph") {
+      for (const key of ["graph", "file", "line"]) if (query.has(key)) safeQuery.set(key, query.get(key)!);
+    }
     let body = request.method === "POST" ? await request.text() : undefined;
     if (body && body.length > 32768) return Response.json({ error: "Request is too large" }, { status: 413 });
     const localApi = machine === "local" && kind === "proxy";

@@ -12,3 +12,20 @@ export function homeView(extent, embedded, width, height) {
     theta,
   };
 }
+
+/** Fit the projected footprint at the view's preferred angle. A bounding
+ * sphere wastes most of the canvas on rectangular or oblique layouts. */
+export function fitWorld(points, theta, phi, aspect, fov) {
+  const sin = Math.sin, cos = Math.cos;
+  const across = Math.tan(fov / 2) * Math.max(0.2, aspect) * 0.89;
+  const vertical = Math.tan(fov / 2) * 0.83;
+  let distance = 42;
+  for (const { x, y, z } of points) {
+    const right = x * cos(theta) - z * sin(theta);
+    const forward = x * sin(theta) + z * cos(theta);
+    const up = y * sin(phi) - forward * cos(phi);
+    const depth = forward * sin(phi) + y * cos(phi);
+    distance = Math.max(distance, depth + Math.max((Math.abs(right) + 9) / across, (Math.abs(up) + 13) / vertical));
+  }
+  return distance;
+}

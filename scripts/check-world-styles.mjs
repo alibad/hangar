@@ -111,9 +111,9 @@ try {
   assert.equal(await frame.evaluate(() => atlas.style), "museum");
   assert.equal(await page.evaluate(() => localStorage.getItem("bt-world-style")), "museum");
   await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "World style: Museum" }).waitFor({ timeout: 60000 });
   const restored = await (await element.elementHandle()).contentFrame();
-  await restored.waitForFunction(() => window.atlas?.style === "museum", null, { timeout: 60000 });
-  await page.getByRole("button", { name: "World style: Museum" }).waitFor();
+  await restored.waitForFunction(() => window.atlas?.style === "museum", null, { timeout: 60000, polling: 150 });
   assert.ok(await restored.evaluate(() => atlas.world.scene.fog.far > atlas.world.camera.position.distanceTo(atlas.world.controls.target) + atlas.composition.extent), "mobile whole-view framing must remain inside the visible fog range");
   const standalone = await browser.newPage({ viewport: { width: 1000, height: 700 }, reducedMotion: "reduce" });
   await interceptWorld(standalone, doc);

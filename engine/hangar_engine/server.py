@@ -27,6 +27,7 @@ class Server(ThreadingHTTPServer):
     the socket is exclusive there instead."""
     daemon_threads = True
     allow_reuse_address = sys.platform != "win32"
+    request_queue_size = 32  # A World frame requests many assets in parallel.
 
     def server_bind(self):
         if sys.platform == "win32":
@@ -167,6 +168,15 @@ def make_handler(state, port):
             if path == "/api/architecture":
                 from . import architecture
                 return self._send(200, architecture.status(state.doc or state.load(), scanner.overlay(), (parse_qs(url.query).get("repo") or [""])[0]))
+            if path == "/api/architecture/graph":
+                from . import code_graph
+                query = parse_qs(url.query)
+                try:
+                    return self._send(200, code_graph.inspect(state.doc or state.load(), scanner.overlay(),
+                                                              query.get("repo", [""])[0], query.get("graph", ["status"])[0],
+                                                              query.get("file", [""])[0], query.get("line", [""])[0]))
+                except (ValueError, OSError) as error:
+                    return self._send(400, {"error": str(error)})
             if path == "/api/architecture/view":
                 from . import architecture
                 page = architecture.view((parse_qs(url.query).get("repo") or [""])[0])
@@ -269,6 +279,12 @@ def make_handler(state, port):
                     return self._send(202, architecture.start(state.doc or state.load(), scanner.overlay(), body))
                 except (ValueError, OSError) as e:
                     return self._send(400, {"error": str(e)})
+            if path == "/api/architecture/graph":
+                from . import code_graph
+                try:
+                    return self._send(202, code_graph.start(state.doc or state.load(), scanner.overlay(), body.get("repo")))
+                except (ValueError, OSError) as error:
+                    return self._send(400, {"error": str(error)})
             if path == "/api/work":
                 from . import work
                 try:

@@ -10,7 +10,7 @@ The colour-theme menu also offers a compact view selector.
 | View | Spatial interpretation |
 | --- | --- |
 | Buildings | Original city on floating islands |
-| Airplanes | A continuous airport apron with a central runway, taxiways, terminal piers, opposing gate rows, glazing and boarding bridges |
+| Airplanes | A compact airport with a separate runway, taxi lanes, glazed terminals and opposing gate rows |
 | Galaxy | Planets distributed across a galactic star field with three spiral dust arms |
 | Forest | Irregular groves on a rolling, continuous landscape |
 | Ocean reef | Branching coral on an uninterrupted sea floor, with suspended-particle scenery and caustic-like light ribbons |
@@ -36,8 +36,10 @@ camera flight, and zoom still follows the pointer and respects distance limits.
 The underlying catalog and organization never change when switching views.
 Selection, search, filters, activity layers and arrival replay carry over. Each
 view has deterministic positions, including seats for hidden projects, so hiding
-and restoring a project does not shuffle its neighbors. Changing a view reframes
-the camera to fit that view. Selecting a project still brings up its actual work,
+and restoring a project does not shuffle its neighbors. Changing a view fits
+its footprint to the canvas. Group labels summarize waiting work when zoomed
+out, and project labels appear as you zoom in or move the pointer.
+Selecting a project still brings up its actual work,
 sessions, running apps and repository tools.
 
 In constellations and networks, hovering or selecting a project emphasizes its

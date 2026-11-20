@@ -12,7 +12,7 @@ import { createLife } from "./life.js";
 import { clamp, easeInOut, lerp } from "./util.js";
 import { api, embedded, tellHost, listenHost, applyPalette } from "./host.js";
 import { createHarbors } from "./harbors.js";
-import { homeView } from "./camera-view.js";
+import { fitWorld, homeView } from "./camera-view.js";
 import { bindWorldPinch } from "./world-pinch.js";
 import { dressIsland, createEnvironment, disposeEnvironment } from "./environments.js";
 import { composeWorld } from "./composition.js";
@@ -97,7 +97,7 @@ function start(doc, local, quality) {
         if (!p) continue;
         b.group.position.set(p.x, p.y, p.z);
         if (p.heading !== null) b.group.rotation.y = p.heading;
-        if (["constellation", "neural", "airplanes"].includes(style) && !b.nameTag) {
+        if (style !== "buildings" && !b.nameTag) {
           const tag = document.createElement("button"); tag.className = "project-name"; tag.textContent = b.repo.name;
           tag.addEventListener("click", event => { event.stopPropagation(); select(b.repo, { fly: true }); });
           b.nameTag = new CSS2DObject(tag); b.nameTag.position.y = b.height + 1.3; b.nameTag.visible = false; b.group.add(b.nameTag);
@@ -152,18 +152,9 @@ function start(doc, local, quality) {
 
   // Markers are HTML: cheap at rest, costly in motion (a layout and repaint per frame each). They hide while the
   // camera moves and come back when it rests, so moving costs what it did before there were markers.
-  let markersShown = true;
+  let markersShown = true, labelsDirty = true;
   function syncMarkers() {
-    const layer = (id) => state.lens !== "default" || state.layers[id];
-    const badges = state.lens === "changes" || (state.lens === "default" && state.layers.attention);
-    for (const m of markers) m.visible = markersShown && badges && m.parent !== state.selected?.group && (!state.filter || state.filter.has(m.userData.repo));
-    let appLabels = 0;
-    for (const [repo, mk] of runMarks) {
-      const match = !state.filter || state.filter.has(repo);
-      const close = camera.position.distanceTo(controls.target) < viewPlan.extent;
-      mk.visible = markersShown && mk.userData.live && match && layer("apps") && (!embedded || innerWidth >= 600 || close || appLabels++ < 2);
-    }
-    for (const mk of workMarks.values()) mk.visible = markersShown && mk.userData.live && layer("work");
+    labelsDirty = true;
   }
 
   // A green tag over every repo whose app is running on this machine, in every lens; kept fresh from /api/apps.
@@ -438,11 +429,14 @@ function start(doc, local, quality) {
   // ---------- camera ----------
   // Far enough that every island fits, seen from a little above so near and far districts overlap less.
   const home = () => {
-    const view = homeView(viewPlan.extent, embedded, innerWidth, innerHeight);
-    if (currentModelStyle() !== "buildings") {
+    const width = canvas.clientWidth || innerWidth || 1000;
+    const height = canvas.clientHeight || innerHeight || 700;
+    const view = homeView(viewPlan.extent, embedded, width, height);
+    if (viewPlan.points) {
       view.target = viewPlan.center; view.phi = viewPlan.phi; view.theta = viewPlan.theta;
-      view.radius *= 1.15;
+      view.radius = fitWorld(viewPlan.points, view.theta, view.phi, width / height, THREE.MathUtils.degToRad(camera.fov));
     }
+    controls.maxDistance = Math.max(260, viewPlan.extent * 3.5, view.radius * 1.25);
     return { ...view, target: new THREE.Vector3(view.target.x, view.target.y, view.target.z) };
   };
   const sphericalOf = (pos, target) => new THREE.Spherical().setFromVector3(pos.clone().sub(target));
@@ -504,7 +498,8 @@ function start(doc, local, quality) {
   }
   const focusBuilding = (b) => {
     const top = b.group.localToWorld(new THREE.Vector3(0, b.height * 0.45, 0));
-    const radius = clamp(b.height * 2.4 + 42, 52, 150);
+    const radius = b.style === "buildings" ? clamp(b.height * 2.4 + 42, 52, 150)
+      : clamp(b.height * b.formScale * 3.1 + 16, 28, 96);
     flyTo(besideCard(top, radius, 0.98), radius, 0.98);
   };
   function focusIsland(isl, notify = true) {
@@ -697,7 +692,7 @@ function start(doc, local, quality) {
     const s = sphericalOf(camera.position, controls.target);
     flyTo(controls.target.clone(), clamp(s.radius * f, controls.minDistance, controls.maxDistance), s.phi, 380);
   };
-  const goHome = (notify = true) => { deselect(); if (notify) tellHost("district", { family: null }); const h = home(); flyTo(h.target, h.radius, h.phi); };
+  const goHome = (notify = true) => { deselect(); if (notify) tellHost("district", { family: null }); const h = home(); flyTo(h.target, h.radius, h.phi, 1100, h.theta); };
   const PAD = { in: () => zoom(0.7), out: () => zoom(1.4), left: () => turn(Math.PI / 4), right: () => turn(-Math.PI / 4), home: goHome };
   for (const b of document.querySelectorAll(".pad button")) b.addEventListener("click", () => { interacted(); PAD[b.dataset.pad](); });
   document.querySelector(".brand").addEventListener("click", (e) => { e.preventDefault(); goHome(); });
@@ -881,7 +876,7 @@ function start(doc, local, quality) {
     // Slow ambient motion (clouds, bobbing, beacons) needs no more than 30 frames a second.
     if (ambientOnly && now - lastDraw < 33) return;
     lastDraw = now;
-    if (++labelTick % 6 === 0 || state.fly) cullLabels();
+    if (labelsDirty || ++labelTick % 6 === 0 || state.fly) cullLabels();
     const t0 = performance.now();
     world.render(labelsNow || !ambientOnly);  // the ambient drift alone never needs the labels laid out again
     watch(performance.now() - t0);
@@ -891,29 +886,87 @@ function start(doc, local, quality) {
   // Far out, only the bigger districts keep their names; zoom in and the rest appear.
   const bySize = [...islands].sort((a, b) => b.spot.cells.length - a.spot.cells.length);
   const rank = new Map(bySize.map((isl, i) => [isl, i]));
+  const measuredLabels = new WeakMap();
   function cullLabels() {
+    labelsDirty = false;
+    camera.updateMatrixWorld();
+    scene.updateMatrixWorld();
+    const width = canvas.clientWidth, height = canvas.clientHeight;
+    if (!width || !height) return;
     const d = camera.position.distanceTo(controls.target);
-    const keep = d > viewPlan.extent * 1.5 ? (embedded && innerWidth < 600 ? 3 : 9) : d > viewPlan.extent * 1.05 ? 14 : islands.length;
-    for (const i of islands) {
-      const far = camera.position.distanceTo(i.group.position) > d * 1.9 + 160 || rank.get(i) >= keep;
-      i.label.classList.toggle("far", far);
-      i.label.inert = far;
+    const overview = buildings.length > 25 && d > viewPlan.extent * 0.95;
+    const badgeLayer = state.lens === "changes" || (state.lens === "default" && state.layers.attention);
+    const layer = id => state.lens !== "default" || state.layers[id];
+    const occupied = [];
+    const point = new THREE.Vector3();
+    const placeLabel = (object, force = false, group = false) => {
+      if (!object) return false;
+      object.getWorldPosition(point).project(camera);
+      const x = (point.x + 1) * width / 2, y = (1 - point.y) * height / 2;
+      const text = object.element.textContent || "";
+      const measured = measuredLabels.get(object.element);
+      if (object.element.isConnected && measured?.text !== text) {
+        measuredLabels.set(object.element, { text, width: object.element.offsetWidth, height: object.element.offsetHeight });
+      }
+      const size = measuredLabels.get(object.element);
+      const w = Math.max(36, size?.width || text.length * 7 + 25) + 9;
+      const h = Math.max(22, size?.height || 25) + 6;
+      const inView = point.z >= -1 && point.z <= 1 && x >= w / 2 && x <= width - w / 2
+        && y >= h / 2 + (embedded ? 49 : 4) && y <= height - h / 2 - 12;
+      if (!force && (!inView || occupied.some(r => Math.abs(x - r.x) * 2 < w + r.w && Math.abs(y - r.y) * 2 < h + r.h))) {
+        object.visible = false;
+        return false;
+      }
+      occupied.push({ x, y, w, h });
+      object.visible = true;
+      if (group) object.element.inert = false;
+      return true;
+    };
+    if (state.selected && selTag.visible) placeLabel(selTag, true);
+
+    const groups = [...islands].sort((a, b) => (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity));
+    let shownGroups = 0;
+    for (const island of groups) {
+      const members = island.buildings.filter(b => b.onMap !== false && b.target.born > 0 && (!state.filter || state.filter.has(b.repo.id)));
+      const waiting = badgeLayer && overview ? members.filter(b => b.marker).length : 0;
+      const summary = waiting ? ` · ${waiting} waiting` : "";
+      if (island.label.querySelector("i").textContent !== members.length + summary) {
+        island.label.querySelector("i").textContent = members.length + summary;
+        island.label.setAttribute("aria-label", `Explore ${island.spot.family.name}, ${members.length} projects${summary}`);
+      }
+      island.tag.visible = false;
+      island.label.inert = true;
+      island.label.classList.remove("far");
+      if (members.length && shownGroups < (width < 600 ? 6 : 22) && placeLabel(island.tag, false, true)) shownGroups++;
     }
-    // Show readable names near the camera; keep the overview uncluttered.
-    const named = buildings.filter(b => b.nameTag);
-    for (const b of named) b.nameTag.visible = false;
-    const candidates = named.filter(b => b.group.visible && b !== state.selected && (!state.filter || state.filter.has(b.repo.id)))
-      .sort((a, b) => Number(relatedProjects.has(b.repo.id)) - Number(relatedProjects.has(a.repo.id)) || camera.position.distanceTo(a.group.getWorldPosition(new THREE.Vector3())) - camera.position.distanceTo(b.group.getWorldPosition(new THREE.Vector3())));
-    const occupied = [], limit = d < viewPlan.extent * 1.7 || buildings.length < 25 || relatedProjects.size ? 16 : 0;
-    for (const b of candidates) {
-      if (!markersShown || occupied.length >= limit) break;
-      const p = b.nameTag.getWorldPosition(new THREE.Vector3()).project(camera);
-      if (p.z < -1 || p.z > 1 || Math.abs(p.x) > 0.92 || Math.abs(p.y) > 0.88) continue;
-      const x = (p.x + 1) * innerWidth / 2, y = (1 - p.y) * innerHeight / 2;
-      if (occupied.some(q => Math.abs(q.x - x) < 100 && Math.abs(q.y - y) < 28)) continue;
-      b.nameTag.visible = true; b.nameTag.element.classList.toggle("is-related", relatedProjects.has(b.repo.id)); occupied.push({ x, y });
+    for (const m of markers) m.visible = false;
+    for (const m of runMarks.values()) m.visible = false;
+    for (const m of workMarks.values()) m.visible = false;
+    for (const b of buildings) if (b.nameTag) b.nameTag.visible = false;
+    if (!markersShown) return;
+
+    const candidates = buildings.filter(b => b.group.visible && (!state.filter || state.filter.has(b.repo.id)))
+      .map(b => ({ b, distance: camera.position.distanceTo(b.group.getWorldPosition(point)) }))
+      .sort((a, b) => Number(b.b === state.hover) - Number(a.b === state.hover)
+        || Number(relatedProjects.has(b.b.repo.id)) - Number(relatedProjects.has(a.b.repo.id))
+        || a.distance - b.distance);
+    let shown = 0;
+    for (const { b, distance } of candidates) {
+      if (shown >= (width < 600 ? 9 : 18)) break;
+      const id = b.repo.id, engaged = b === state.selected || b === state.hover;
+      const focused = engaged || relatedProjects.has(id);
+      const close = distance * 0.013 < b.formScale * Math.max(5, b.height);
+      const run = runMarks.get(id), work = workMarks.get(id);
+      if (work?.userData.live && layer("work") && placeLabel(work)) { shown++; continue; }
+      if (run?.userData.live && layer("apps") && (!overview || focused || shown < 2) && placeLabel(run)) { shown++; continue; }
+      if (overview && !focused) continue;
+      const badge = badgeLayer && b !== state.selected && (close || focused) ? b.marker : null;
+      if (badge && placeLabel(badge)) { shown++; continue; }
+      if (b.nameTag && b !== state.selected && (close || focused) && placeLabel(b.nameTag)) {
+        b.nameTag.element.classList.toggle("is-related", relatedProjects.has(id));
+        shown++;
+      }
     }
-    syncMarkers();
   }
 
   /** If drawing is slow on the high tier, drop shadows and bloom once, and say so. */
@@ -930,7 +983,7 @@ function start(doc, local, quality) {
   }
 
   // ---------- go ----------
-  window.addEventListener("resize", () => { world.resize(); wake(); });
+  window.addEventListener("resize", () => { world.resize(); syncMarkers(); wake(); });
   document.addEventListener("visibilitychange", wake);
   world.resize();
   let night = params.get("night");

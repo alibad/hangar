@@ -18,26 +18,22 @@ try {
   for (const style of WORLD_STYLES) {
     await page.evaluate(id => atlas.setStyle(id), style.id);
     await page.waitForTimeout(100);
-    await page.evaluate(style => {
+    await page.evaluate(() => {
       const a = window.atlas;
-      a.setStyle(style.id);
-      const v = a.composition, r = v.extent;
-      a.world.controls.target.set(v.center.x, v.center.y, v.center.z);
-      const sphere = new a.world.THREE.Spherical(r * 2.15, v.phi, v.theta);
-      a.world.camera.position.copy(a.world.controls.target).add(new a.world.THREE.Vector3().setFromSpherical(sphere));
-      if (style.id === "buildings") {
-        a.world.controls.target.set(0, 7, 0);
-        a.world.camera.position.set(r * 1.8, r * 1.8, r * 2.2);
-      }
-      a.world.controls.update();
+      a.home();
       a.setLens("map");
       // A clean view of the project forms; the host's navigation portal stays in the product.
       for (const island of a.islands) for (const child of island.group.children) {
         if (child.isGroup && child.children.some(c => c.geometry?.type === "CylinderGeometry" && c.geometry?.parameters?.height === 14)) child.visible = false;
       }
-    }, style);
-    await page.waitForFunction(id => atlas.buildings.every(b => b.style === id && b.state.dim < 0.002), style.id);
-    await page.waitForTimeout(900);
+    });
+    await page.waitForFunction(id => atlas.world.controls.enabled && atlas.buildings.every(b => b.style === id && b.state.dim < 0.002), style.id);
+    if (style.id === "buildings") await page.evaluate(() => {
+      const { camera, controls } = atlas.world;
+      camera.position.sub(controls.target).multiplyScalar(1.45).add(controls.target);
+      controls.update();
+    });
+    await page.waitForTimeout(400);
     await page.screenshot({ path: `var/world-style-qa/previews/${style.id}.png` });
     await sharp(`var/world-style-qa/previews/${style.id}.png`).resize(480, 300).webp({ quality: 84 }).toFile(`public/world-styles/${style.id}.webp`);
     console.log(`Captured ${style.id}`);
