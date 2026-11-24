@@ -30,9 +30,9 @@ import TaskComposer from "./task-composer";
 import { WorkspaceOperations, type OperationPanel, type Island } from "./workspace-operations";
 import { ProjectContextMenu, RepositoryPane, RemoveProjectDialog, type ProjectChoice, type ProjectMenuTarget } from "./project-controls";
 import SessionLibrary, { type LibrarySession, type SessionLibraryData } from "./session-library";
-import { ProjectDirectoryProvider, ProjectEmblem, type ProjectInfo } from "./project-identity";
+import { ProjectDirectoryProvider, ProjectEmblem, projectDirectory } from "./project-identity";
 import YourTurn, { IslandSuggestions } from "./your-turn";
-import { OPEN_PROJECT_EVENT, OPEN_PROJECT_KEY } from "@/lib/project-nav";
+import { OPEN_PROJECT_EVENT, OPEN_PROJECT_KEY, OPEN_SESSION_EVENT, OPEN_SESSION_KEY } from "@/lib/project-nav";
 import StepBack from "./step-back";
 import { leftOff, suggestIslands, yourTurn, type LeftOff } from "@/lib/project-signals";
 import "./workspace-focus.css";
@@ -385,16 +385,31 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
       } catch { sessionStorage.removeItem(key); }
     }
   }, [doc, docMachine, machine, machines, openAsked]);
+  // Another page asked for one session (a task in AI usage): the session list opens with it chosen.
+  const [sessionAsked, setSessionAsked] = useState(0);
+  const [sessionFocus, setSessionFocus] = useState<{ key: string; at: number } | null>(null);
+  useEffect(() => {
+    const ask = () => setSessionAsked(n => n + 1);
+    window.addEventListener(OPEN_SESSION_EVENT, ask);
+    return () => window.removeEventListener(OPEN_SESSION_EVENT, ask);
+  }, []);
+  useEffect(() => {
+    if (!onSessions || !machines.length) return;
+    try {
+      const saved = sessionStorage.getItem(OPEN_SESSION_KEY);
+      if (!saved) return;
+      const target = JSON.parse(saved);
+      if (!machines.some(m => m.id === target.machine)) { sessionStorage.removeItem(OPEN_SESSION_KEY); return; }
+      if (machine !== target.machine) { setMachine(target.machine); return; }
+      setSessionsTab("history"); setSessionFocus({ key: String(target.key), at: Date.now() });
+      sessionStorage.removeItem(OPEN_SESSION_KEY);
+    } catch { sessionStorage.removeItem(OPEN_SESSION_KEY); }
+  }, [onSessions, machine, machines, sessionAsked]);
 
   const home = () => { setSelected(null); setFamily(""); setQuery(""); send("district", { family: null }); };
   const choose = (repo: Repo, tab: "work" | "repository" = "work") => { setSelected(repo.id); setProjectTab(tab); setComposer(false); setResume(null); setActivityFocus(null); if (!repo.hidden) send("select", { repo: repo.id }); };
   // Logo, name and purpose for every project, so any view that names one shows it the same way and can open it.
-  const directory = useMemo(() => new Map<string, ProjectInfo>((doc?.repos || []).map(r => {
-    const logo = r.sites.find(s => s.logo)?.logo;
-    return [r.id, { id: r.id, name: r.name, purpose: r.meaning?.purpose || r.description || undefined,
-      island: (doc?.islands || doc?.families)?.find(f => f.id === r.family)?.name,
-      logo: logo ? `/api/world/${machine}/proxy/logo?repo=${encodeURIComponent(r.id)}&v=${encodeURIComponent(logo.hash)}` : undefined }];
-  })), [doc, machine]);
+  const directory = useMemo(() => projectDirectory(doc, machine), [doc, machine]);
   const openProject = (id: string, focus?: BoardFocus) => { const repo = doc?.repos.find(r => r.id === id); if (!repo) return; choose(repo); if (focus) setActivityFocus({ ...focus, repo: id }); if (view !== "world" && view !== "projects") onSelect("projects"); };
   const refreshProjects = useCallback(async () => {
     try {
@@ -615,7 +630,7 @@ export default function ConnectedWorkspace({ view, active, onSelect }: { view: V
         </div>}
         {sessionsTab === "stepback" && <StepBack key={`stepback-${machine}`} machine={machine} onOpen={machine === "local" ? s => void openSession(s.provider, s.id) : undefined}
           onSessionsChanged={() => { json<SessionLibraryData>(`${prefix}/sessions/library`).then(receiveLibrary).catch(() => { /* the list refreshes on its next visit */ }); }} onCleanUp={() => setSessionsTab("history")} />}
-        {sessionsTab === "history" && <SessionLibrary key={machine} machine={machine} data={library} error={sessionsError} onUpdate={receiveLibrary} onContinue={continueSession} onOpen={machine === "local" ? s => void openSession(s.provider, s.id) : undefined} />}
+        {sessionsTab === "history" && <SessionLibrary key={machine} machine={machine} data={library} error={sessionsError} focus={sessionFocus} onUpdate={receiveLibrary} onContinue={continueSession} onOpen={machine === "local" ? s => void openSession(s.provider, s.id) : undefined} />}
       </div>}
     </>
     {menu && <ProjectContextMenu target={menu} local={machine === "local"} app={apps.find(a => a.repo === menu.project.id)} onApp={body => void act("apps", { repo: menu.project.id, ...body })} onClose={() => setMenu(null)} onOpen={(id, tab) => { const repo = doc?.repos.find(r => r.id === id); if (repo) choose(repo, tab); }} onAttention={(repo, value) => void attention(repo, value)} onFolder={repo => void act("open", { repo, with: "folder" })} />}

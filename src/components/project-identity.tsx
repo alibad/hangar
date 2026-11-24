@@ -12,6 +12,21 @@ const ProjectDirectory = createContext<Directory>({ projects: new Map() });
 export function ProjectDirectoryProvider({ projects, open, children }: { projects: Map<string, ProjectInfo>; open?: (id: string) => void; children: ReactNode }) {
   return <ProjectDirectory.Provider value={{ projects, open }}>{children}</ProjectDirectory.Provider>;
 }
+/** The parts of the world document a directory needs. */
+type WorldRepo = { id: string; name: string; family: string; description?: string; meaning?: { purpose?: string }; sites: { logo?: { hash: string } | null }[] };
+type WorldDoc = { repos: WorldRepo[]; islands?: { id: string; name: string }[]; families?: { id: string; name: string }[] };
+
+/** Logo, name, purpose and island for every project in the world document, as each view shows them. */
+export function projectDirectory(doc: WorldDoc | null | undefined, machine: string) {
+  const islands = doc?.islands || doc?.families || [];
+  return new Map<string, ProjectInfo>((doc?.repos || []).map(r => {
+    const logo = r.sites.find(s => s.logo)?.logo;
+    return [r.id, { id: r.id, name: r.name, purpose: r.meaning?.purpose || r.description || undefined,
+      island: islands.find(f => f.id === r.family)?.name,
+      logo: logo ? `/api/world/${machine}/proxy/logo?repo=${encodeURIComponent(r.id)}&v=${encodeURIComponent(logo.hash)}` : undefined }];
+  }));
+}
+
 export const useProject = (id?: string | null) => useContext(ProjectDirectory).projects.get(id || "");
 export const useOpenProject = () => useContext(ProjectDirectory).open;
 

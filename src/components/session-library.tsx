@@ -56,7 +56,9 @@ export type SessionLibraryData = { sessions: LibrarySession[]; groups: Group[]; 
   claudeQueue?: { key: string; appId: string | null; title: string }[];
   /** A background check-in run over many sessions. */
   checking?: { running: boolean; done: number; total: number; error: string | null } };
-type Props = { machine: string; data: SessionLibraryData | null; error: string; onUpdate: (data: SessionLibraryData) => void; onContinue: (session: LibrarySession) => void; onOpen?: (session: LibrarySession) => void };
+type Props = { machine: string; data: SessionLibraryData | null; error: string; onUpdate: (data: SessionLibraryData) => void; onContinue: (session: LibrarySession) => void; onOpen?: (session: LibrarySession) => void;
+  /** Opened from another page for one session ("claude:<id>"): the list shows it, chosen. `at` tells two asks apart. */
+  focus?: { key: string; at: number } | null };
 type Mode = "active" | "projects" | "review" | "groups" | "archived";
 type Agent = "all" | "claude" | "codex";
 const DAY = 86400000;
@@ -105,7 +107,7 @@ async function request<T>(url: string, body?: unknown, signal?: AbortSignal): Pr
   return result;
 }
 
-export default function SessionLibrary({ machine, data, error: loadError, onUpdate, onContinue, onOpen }: Props) {
+export default function SessionLibrary({ machine, data, error: loadError, focus, onUpdate, onContinue, onOpen }: Props) {
   const [mode, setMode] = useState<Mode>("active");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("");
@@ -360,6 +362,26 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
     setSelectedKey(key);
     requestAnimationFrame(() => { if (window.matchMedia("(max-width: 1000px)").matches) detail.current?.scrollIntoView({ block: "start", behavior: "smooth" }); });
   };
+  // Asked for one session from another page: clear whatever hides it, choose it, then bring its row into view.
+  const handled = useRef(0), focused = useRef("");
+  useEffect(() => {
+    if (!focus || !data || handled.current === focus.at) return;
+    handled.current = focus.at;
+    const row = data.sessions.find(s => s.key === focus.key);
+    if (!row) { setNotice(""); setError("That task is not in the session list. Its conversation may have been deleted, or it ran outside Claude Code and Codex history."); return; }
+    setMode(row.archived ? "archived" : "active"); setFilter(""); setQuery(""); setAgent("all"); setProject("");
+    setUnreadOnly(false); setReviewedOnly(false); setShows([]); if (row.probe) setShowProbes(true);
+    setError(""); setSelectedKey(row.key); focused.current = row.key;
+  }, [focus, data]);
+  useEffect(() => {
+    const key = focused.current;
+    if (!key) return;
+    const at = visible.findIndex(s => s.key === key);
+    if (at < 0) return;
+    if (at >= limit) { setLimit(at + 1); return; }
+    focused.current = "";
+    requestAnimationFrame(() => inbox?.querySelector(`[data-session="${CSS.escape(key)}"]`)?.scrollIntoView({ block: "center" }));
+  }, [visible, limit, inbox]);
   const proposals = useMemo(() => {
     const map = new Map<string, { id: string; name: string; count: number; strong: number }>();
     for (const row of rows) if (row.suggestion) {
@@ -413,7 +435,7 @@ export default function SessionLibrary({ machine, data, error: loadError, onUpda
                 return <>{checked < section.all.length && <button className="sl-bulk is-quiet" disabled={busy || checking} title="Hangar checks each one: what was asked, how it ended, and whether anything is left" onClick={() => checkIn(section.all)}><ClipboardCheck size={12} aria-hidden="true" />Check all</button>}
                   {these.length > 0 && <button className="sl-bulk" disabled={busy} title={`Archive the ${these.length} ${showing ? shownName.toLowerCase() + " " : ""}sessions shown in this group`} onClick={() => setBulk({ name: showing ? `${section.name} · ${shownName}` : section.name, rows: these })}><Archive size={12} aria-hidden="true" />Archive all {these.length}</button>}</>;
               })()}</h4>}
-              {section.rows.map(row => <div className="sl-row-line" key={row.key}><button type="button" aria-pressed={selected?.key === row.key} className={`sl-row ${row.unread ? "sl-unread" : ""}`} onClick={() => pick(row.key)}>
+              {section.rows.map(row => <div className="sl-row-line" key={row.key}><button type="button" data-session={row.key} aria-pressed={selected?.key === row.key} className={`sl-row ${row.unread ? "sl-unread" : ""}`} onClick={() => pick(row.key)}>
                 <span className={`cw-session-provider is-${agentOf(row)}`}><AgentMark agent={agentOf(row)} /></span>
                 <span className="sl-row-text"><b>{row.title}</b>{row.status?.detail ? <em className={`sl-changed sl-row-status is-${row.status.category}`} title={STATUS[row.status.category] || "Last turn"}><span className="sl-status-dot" aria-hidden="true" />{row.status.detail}</em> : !!row.changed?.length && <em className="sl-changed"><GitCommitHorizontal size={12} aria-hidden="true" />{row.changed[0].subject}{(row.changedCount || 0) > 1 && <i>+{(row.changedCount || 0) - 1}</i>}</em>}<small className="sl-row-meta"><ProjectList projects={row.projects} />{[row.idleDays === null ? "" : row.idleDays === 0 ? "today" : `${row.idleDays}d idle`, row.archived ? "archived" : ""].filter(Boolean).map(part => <span key={part}>{part}</span>)}</small></span>
                 {(() => { const r = latestReview.get(row.key); return r && <span className={`sl-review is-${r.state === "done" ? r.verdict : r.state}`} title={`${NAME[r.reviewer]} reviewed this session’s work: ${reviewLabel(r)}`}><AgentMark agent={r.reviewer} />{reviewLabel(r)}</span>; })()}

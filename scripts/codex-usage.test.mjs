@@ -21,6 +21,7 @@ import {
   filterUsage,
   sumUsage,
   groupUsage,
+  placeKey,
 } from "../src/lib/assistant-usage-data.ts";
 
 const meta = {
@@ -196,4 +197,30 @@ test("one source/date/model selection drives identical KPI, daily and model tota
   assert.equal(sumUsage(filtered).totalTokens, 110);
   assert.equal(groupUsage(filtered, "day")[0].totalTokens, 110);
   assert.equal(groupUsage(filtered, "model")[0].totalTokens, 110);
+});
+
+test("projects gather their folders and copies; a folder of projects stays its own row", () => {
+  const base = { source: "claude", day: "2026-11-20", model: "claude-opus-5-5", session: "a", input: 10, cached: 0, cacheWrite: 0, output: 0, reasoning: 0, totalTokens: 10, calls: 1, estimatedCost: 0, unpricedTokens: 0, last: 1 };
+  const places = {
+    "C:/Code/hq/games/web": { kind: "project", repo: "web" },
+    "C:/Code/hq/games/web/src": { kind: "project", repo: "web" },
+    "C:/Code/hq/games/web-wt-p2p": { kind: "copy", repo: "web" },
+    "C:/Code/hq/games": { kind: "folder", holds: 3, contains: ["ai", "mod", "web"], within: "hq" },
+  };
+  const rows = [
+    { ...base, project: "C:/Code/hq/games/web" },
+    { ...base, project: "C:/Code/hq/games/web/src", session: "b" },
+    { ...base, project: "C:/Code/hq/games/web-wt-p2p", session: "c" },
+    { ...base, project: "C:/Code/hq/games", session: "d" },
+    { ...base, project: "C:/Elsewhere", session: "e" },
+  ];
+  const groups = groupUsage(rows, "project", (r) => placeKey(r.project, places));
+  assert.deepEqual(groups.map((g) => [g.key, g.totalTokens, g.sessions]), [
+    ["repo:web", 30, 3],
+    ["C:/Code/hq/games", 10, 1],
+    ["C:/Elsewhere", 10, 1],
+  ]);
+  assert.equal(groups[0].members.length, 3);
+  // Without the engine's answer every folder is its own row, as before.
+  assert.equal(groupUsage(rows, "project", (r) => placeKey(r.project, undefined)).length, 5);
 });

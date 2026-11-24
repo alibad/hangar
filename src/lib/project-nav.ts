@@ -10,3 +10,13 @@ export function openProject(repo: string, machine = "local") {
   window.dispatchEvent(new CustomEvent(SELECT_TAB_EVENT, { detail: "projects" }));
   window.dispatchEvent(new CustomEvent(OPEN_PROJECT_EVENT));
 }
+
+// The same for one session: Sessions opens with it chosen in the list ("claude:<id>" or "codex:<id>").
+export const OPEN_SESSION_KEY = "hangar-open-session";
+export const OPEN_SESSION_EVENT = "hangar:open-session";
+
+export function openSessionInHangar(key: string, machine = "local") {
+  try { sessionStorage.setItem(OPEN_SESSION_KEY, JSON.stringify({ machine, key })); } catch { /* opens the view only */ }
+  window.dispatchEvent(new CustomEvent(SELECT_TAB_EVENT, { detail: "sessions" }));
+  window.dispatchEvent(new CustomEvent(OPEN_SESSION_EVENT));
+}

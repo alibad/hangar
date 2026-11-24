@@ -243,6 +243,12 @@ def make_handler(state, port):
                     return self._send(200, session_library.update(state.doc or state.load(), scanner.overlay(), body))
                 except (ValueError, OSError) as e:
                     return self._send(400, {"error": str(e)})
+            if path == "/api/usage/places":
+                from . import usage_places
+                try:
+                    return self._send(200, {"places": usage_places.places(state.doc or state.load(), scanner.overlay(), body.get("paths"))})
+                except ValueError as e:
+                    return self._send(400, {"error": str(e)})
             if path == "/api/plans":
                 from . import plan_links
                 try:

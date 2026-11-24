@@ -63,6 +63,41 @@ class EngineModules(unittest.TestCase):
         self.assertEqual(list(roots), ["CODE"])
 
 
+class UsagePlaces(unittest.TestCase):
+    def test_a_working_folder_counts_toward_its_project_and_a_folder_of_projects_stays_a_folder(self):
+        # AI usage records the folder a task ran in. Folders inside a project, and copies kept beside it, count toward
+        # it; a parent folder (hq/games, or the parent repository hq itself) is not split among its projects.
+        from hangar_engine import usage_places
+        with tempfile.TemporaryDirectory() as root:
+            def site(rel, role="canonical"):
+                return {"root": "CODE", "rel": rel, "role": role}
+            doc = {"repos": [
+                {"id": "hq", "sites": [site("hq")]},
+                {"id": "web", "sites": [site("hq/games/web"), site("hq/games/web/.claude/worktrees/x", "worktree")]},
+                {"id": "mod", "sites": [site("hq/games/mod")]},
+                {"id": "engine", "sites": [site("hq/games/ai/engine", "submodule")]},
+                {"id": "ai", "sites": [site("hq/games/ai")]},
+            ]}
+            base = Path(root).as_posix()
+            at = lambda rel: f"{base}/{rel}"
+            got = usage_places.places(doc, {"roots": {"CODE": root}}, [
+                at("hq/games/web"), at("hq/games/web/src"), at("hq/games/web/.claude/worktrees/x"), at("hq/games/web-wt-p2p"),
+                at("hq/games/web-wt-p2p/app"), at("hq/games"), at("hq"), at("hq/games/ai"), at("hq/notes"), at("elsewhere"), "(unknown)"])
+        self.assertEqual(got[at("hq/games/web")], {"kind": "project", "repo": "web"})
+        self.assertEqual(got[at("hq/games/web/src")], {"kind": "project", "repo": "web"})
+        self.assertEqual(got[at("hq/games/web/.claude/worktrees/x")], {"kind": "project", "repo": "web"})
+        self.assertEqual(got[at("hq/games/web-wt-p2p")], {"kind": "copy", "repo": "web"})
+        self.assertEqual(got[at("hq/games/web-wt-p2p/app")], {"kind": "copy", "repo": "web"})
+        self.assertEqual(got[at("hq/games")], {"kind": "folder", "holds": 3, "contains": ["ai", "mod", "web"], "within": "hq"})
+        self.assertEqual(got[at("hq")]["kind"], "folder")
+        self.assertEqual(got[at("hq/games/ai")], {"kind": "project", "repo": "ai"})  # its submodule is part of it
+        self.assertEqual(got[at("hq/notes")], {"kind": "project", "repo": "hq"})
+        self.assertNotIn(at("elsewhere"), got)
+        self.assertNotIn("(unknown)", got)
+        with self.assertRaises(ValueError):
+            usage_places.places(doc, {"roots": {}}, "not a list")
+
+
 class AgentSignIn(unittest.TestCase):
     def test_signing_in_again_outranks_an_older_failed_job(self):
         from unittest import mock

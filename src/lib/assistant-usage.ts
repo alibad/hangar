@@ -1,7 +1,26 @@
 import { loadEvents } from "./claude-usage";
 import { readCodexUsage } from "./codex-usage";
 import { estimateCodexCost, PRICING_DATE } from "./codex-pricing";
-import type { AssistantSnapshot, UsageRow } from "./assistant-usage-data";
+import { ensureProjectEngine } from "./project-engine";
+import type { AssistantSnapshot, UsagePlace, UsageRow } from "./assistant-usage-data";
+
+/** Which project each working folder belongs to, from Hangar's engine, which alone knows where projects live on this
+ *  machine. Usage still loads without it: folders then show as folders. */
+async function readPlaces(paths: string[]): Promise<Record<string, UsagePlace>> {
+  const base = await ensureProjectEngine();
+  const places: Record<string, UsagePlace> = {};
+  // The engine reads at most 64 KB a request; a few hundred folders fit in one.
+  for (let i = 0; i < paths.length; i += 300) {
+    const response = await fetch(`${base}/api/usage/places`, {
+      method: "POST", cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10_000),
+      headers: { "Content-Type": "application/json", "X-Hangar": "1" },
+      body: JSON.stringify({ paths: paths.slice(i, i + 300) }),
+    });
+    if (!response.ok) throw new Error(`The project engine answered ${response.status}.`);
+    Object.assign(places, (await response.json()).places);
+  }
+  return places;
+}
 
 let cached: AssistantSnapshot | null = null;
 let inflight: Promise<AssistantSnapshot> | null = null;
@@ -95,11 +114,19 @@ async function build(): Promise<AssistantSnapshot> {
         last: e.t,
       });
     }
+  const all = [...rows.values()];
+  const places = await readPlaces([...new Set(all.map((r) => r.project))]).catch(
+    (error: unknown) => error instanceof Error ? error : new Error(String(error)),
+  );
   return {
     generatedAt: new Date().toISOString(),
-    rows: [...rows.values()],
+    rows: all,
+    places: places instanceof Error ? {} : places,
     pricingDate: PRICING_DATE,
-    warnings: codex.status === "fulfilled" ? codex.value.warnings : [],
+    warnings: [
+      ...(codex.status === "fulfilled" ? codex.value.warnings : []),
+      ...(places instanceof Error ? [`Projects are shown as folders: ${places.message}`] : []),
+    ],
     sources: {
       codex:
         codex.status === "fulfilled"

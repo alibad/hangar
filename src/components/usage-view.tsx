@@ -2,19 +2,37 @@
 
 import { useMemo, useState } from "react";
 import { ToolPageHeader } from "./tool-page";
-import { ChartNoAxesCombined } from "lucide-react";
+import { ChartNoAxesCombined, Layers } from "lucide-react";
 import { RefreshCw } from "lucide-react";
 import RouterUsageView from "@/components/router-usage-view";
 import { useUsageSnapshot } from "@/components/use-usage-snapshot";
+import AgentMark from "@/components/agent-mark";
+import { ProjectDirectoryProvider } from "@/components/project-identity";
+import {
+  ProjectCell,
+  ProjectFocus,
+  ProjectPicker,
+  ProjectTiles,
+  ShareBar,
+  TaskCell,
+  TaskFocus,
+  useUsageLinks,
+  type UsageProject,
+} from "@/components/usage-links";
+import { openProject } from "@/lib/project-nav";
 import {
   filterUsage,
   groupUsage,
+  placeKey,
   projectLabels,
   sourceLabel,
   sumUsage,
   type AssistantSnapshot,
+  type UsageRow,
 } from "@/lib/assistant-usage-data";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const taskOf = (r: UsageRow) => `${r.source}:${r.session}`;
 
 /** Sentinel for "no filter"; an empty string is not a valid Select value. */
 const ALL = "__all__";
@@ -39,8 +57,9 @@ const projectName = (p: string) =>
     .replace(/[\\/]+$/, "")
     .split(/[\\/]/)
     .pop() || p;
-const dayLabel = (day: string) =>
+const dayLabel = (day: string, weekday = false) =>
   new Date(day + "T12:00:00Z").toLocaleDateString("en-US", {
+    ...(weekday ? { weekday: "short" as const } : {}),
     month: "short",
     day: "numeric",
     timeZone: "UTC",
@@ -104,12 +123,21 @@ function AssistantUsage({
   const [from, setFrom] = useState(dayAt(29));
   const [to, setTo] = useState(dayAt(0));
   const [model, setModel] = useState("");
+  // A project ("repo:<id>") or a folder that is no one project's; see placeKey.
   const [project, setProject] = useState("");
+  // One task: "claude:<session id>" or "codex:<session id>".
+  const [task, setTask] = useState("");
   const [breakdown, setBreakdown] = useState<
     "model" | "project" | "day" | "session"
   >("model");
   const [metric, setMetric] = useState<"tokens" | "cost">("tokens");
   const [showAll, setShowAll] = useState(false);
+  const links = useUsageLinks();
+  const places = data?.places;
+  const projectOf = useMemo(
+    () => (r: UsageRow) => placeKey(r.project, places),
+    [places],
+  );
   const dates = useMemo(
     () => ({ from: range === "all" ? "" : from, to }),
     [range, from, to],
@@ -126,30 +154,107 @@ function AssistantUsage({
     () => [...new Set(sourceRows.map((r) => r.model))].sort(),
     [sourceRows],
   );
-  const projects = useMemo(
+  const modelSource = useMemo(
+    () => new Map(sourceRows.map((r) => [r.model, r.source])),
+    [sourceRows],
+  );
+  const folders = useMemo(
     () => [...new Set(sourceRows.map((r) => r.project))].sort(),
     [sourceRows],
   );
-  const labels = useMemo(() => projectLabels(projects), [projects]);
+  const labels = useMemo(() => projectLabels(folders), [folders]);
   const label = (p: string) => labels.get(p) || projectName(p);
-  const byLabel = useMemo(
-    () => [...projects].sort((a, b) => label(a).localeCompare(label(b))),
-    [projects, labels],
+  /** Each project, or folder of projects, with the folders its usage came from and, for a folder, the projects its
+   *  tasks worked on (from the session list, else the projects the folder holds). */
+  const projectsByKey = useMemo(() => {
+    const result = new Map<string, UsageProject & { tokens: number; touchedBy: Map<string, number> }>();
+    for (const r of sourceRows) {
+      const key = projectOf(r);
+      let entry = result.get(key);
+      if (!entry) {
+        const place = places?.[r.project];
+        const repo = place && place.kind !== "folder" ? place.repo : undefined;
+        entry = {
+          key, repo, folders: [], touched: [], tokens: 0, touchedBy: new Map(),
+          label: (repo && links.projects.get(repo)?.name) || label(r.project),
+          holds: place?.kind === "folder" ? place.holds : undefined,
+        };
+        result.set(key, entry);
+      }
+      entry.tokens += r.totalTokens;
+      if (!entry.folders.includes(r.project)) entry.folders.push(r.project);
+      if (!entry.repo)
+        for (const p of links.sessions?.get(taskOf(r))?.projects || [])
+          entry.touchedBy.set(p.id, (entry.touchedBy.get(p.id) || 0) + r.totalTokens);
+    }
+    for (const entry of result.values()) {
+      const place = places?.[entry.folders[0]];
+      const ids = entry.touchedBy.size
+        ? [...entry.touchedBy].sort((a, b) => b[1] - a[1]).map(([id]) => id)
+        : place?.kind === "folder" ? place.contains : [];
+      entry.touched = ids.map((id) => ({ id, name: links.projects.get(id)?.name || id }));
+    }
+    return result;
+  }, [sourceRows, projectOf, places, links, labels]); // label() reads labels
+  const projectChoices = useMemo(
+    () => [...projectsByKey.values()].sort((a, b) => b.tokens - a.tokens),
+    [projectsByKey],
   );
+  const tasks = useMemo(() => new Set(sourceRows.map(taskOf)), [sourceRows]);
   const activeModel = models.includes(model) ? model : "";
-  const activeProject = projects.includes(project) ? project : "";
+  const activeProject = projectsByKey.has(project) ? project : "";
+  const activeTask = tasks.has(task) ? task : "";
   const rows = useMemo(
     () =>
-      filterUsage(sourceRows, { model: activeModel, project: activeProject }),
-    [sourceRows, activeModel, activeProject],
+      filterUsage(sourceRows, { model: activeModel }).filter(
+        (r) =>
+          (!activeProject || projectOf(r) === activeProject) &&
+          (!activeTask || taskOf(r) === activeTask),
+      ),
+    [sourceRows, activeModel, activeProject, activeTask, projectOf],
   );
   const totals = useMemo(() => sumUsage(rows), [rows]);
   const groups = useMemo(() => {
-    const values = groupUsage(rows, breakdown);
+    const values = groupUsage(
+      rows,
+      breakdown,
+      breakdown === "project" ? projectOf : breakdown === "session" ? taskOf : undefined,
+    );
     return breakdown === "day"
       ? values.sort((a, b) => b.key.localeCompare(a.key))
       : values;
-  }, [rows, breakdown]);
+  }, [rows, breakdown, projectOf]);
+  /** The projects a task worked on: its session's, else the projects of the folders it ran in. */
+  const taskProjects = (key: string, members: UsageRow[]) => {
+    const known = links.sessions?.get(key)?.projects;
+    if (known?.length) return known.map((p) => ({ id: p.id, name: links.projects.get(p.id)?.name || p.name }));
+    const ids = [...new Set(members.map((r) => projectsByKey.get(projectOf(r))?.repo).filter(Boolean))] as string[];
+    return ids.map((id) => ({ id, name: links.projects.get(id)?.name || id }));
+  };
+  const focusProject = (key: string) => {
+    setProject(key);
+    setTask("");
+    setBreakdown("session");
+    setShowAll(false);
+  };
+  const focusTask = (key: string) => {
+    setTask(key);
+    setBreakdown("day");
+    setShowAll(false);
+  };
+  const focusModel = (key: string) => {
+    setModel(key);
+    setBreakdown("session");
+    setShowAll(false);
+  };
+  // A day shows its tasks; with one task already shown, its models that day.
+  const focusDay = (day: string) => {
+    setFrom(day);
+    setTo(day);
+    setRange("custom");
+    setBreakdown(activeTask ? "model" : "session");
+    setShowAll(false);
+  };
   const days = useMemo(() => {
     const grouped = new Map(groupUsage(rows, "day").map((g) => [g.key, g]));
     const first = dates.from || [...grouped.keys()].sort()[0];
@@ -192,10 +297,26 @@ function AssistantUsage({
   const selectSource = (value: Source) => {
     setModel("");
     setProject("");
+    setTask("");
     onSource(value);
   };
+  const focusedProject = activeProject ? projectsByKey.get(activeProject) : undefined;
+  const modelItems = useMemo(
+    () => [
+      { value: ALL, label: <span className="uv-model"><Layers size={13} aria-hidden="true" /><span>All models</span></span> },
+      ...models.map((m) => {
+        const agent = modelSource.get(m) || "claude";
+        return {
+          value: m,
+          label: <span className="uv-model"><span className={`uv-agent is-small is-${agent}`}><AgentMark agent={agent} /></span><span>{m}</span></span>,
+        };
+      }),
+    ],
+    [models, modelSource],
+  );
 
   return (
+    <ProjectDirectoryProvider projects={links.projects} open={(id) => openProject(id)}>
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -255,35 +376,30 @@ function AssistantUsage({
         {/* "" is not a legal Select value, so "All models" carries a sentinel
             that is translated at the boundary. The filter state itself stays ""
             so every reader of it is unchanged. */}
-        <Select value={activeModel || ALL} onValueChange={(v) => v && setModel(String(v) === ALL ? "" : String(v))}>
+        <Select items={modelItems} value={activeModel || ALL} onValueChange={(v) => v && setModel(String(v) === ALL ? "" : String(v))}>
           <SelectTrigger aria-label="Model filter" className={`${control} max-w-64`}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="border-gray-700 bg-gray-900 text-gray-200">
-            <SelectItem value={ALL}>All models</SelectItem>
-            {models.map((m) => (
-              <SelectItem key={m} value={m}>{m}</SelectItem>
+            {modelItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={activeProject || ALL} onValueChange={(v) => v && setProject(String(v) === ALL ? "" : String(v))}>
-          <SelectTrigger aria-label="Project filter" className={`${control} max-w-56`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="border-gray-700 bg-gray-900 text-gray-200">
-            <SelectItem value={ALL}>All projects</SelectItem>
-            {byLabel.map((p) => (
-              <SelectItem key={p} value={p} title={p}>{label(p)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {(activeModel || activeProject) && (
+        <ProjectPicker
+          choices={projectChoices}
+          value={activeProject}
+          format={compact}
+          onChange={(key) => (key ? focusProject(key) : setProject(""))}
+        />
+        {(activeModel || activeProject || activeTask) && (
           <button
             type="button"
             className="px-2 text-xs text-orange-300"
             onClick={() => {
               setModel("");
               setProject("");
+              setTask("");
             }}
           >
             Clear filters
@@ -291,6 +407,26 @@ function AssistantUsage({
         )}
         <span className="text-[11px] text-gray-500">UTC</span>
       </div>
+      {activeTask && (
+        <TaskFocus
+          taskKey={activeTask}
+          session={links.sessions?.get(activeTask)}
+          projects={taskProjects(activeTask, rows)}
+          onClear={() => {
+            setTask("");
+            setBreakdown("session");
+          }}
+        />
+      )}
+      {focusedProject && (
+        <ProjectFocus
+          project={focusedProject}
+          onClear={() => {
+            setProject("");
+            setBreakdown("project");
+          }}
+        />
+      )}
       {error && (
         <div
           role="alert"
@@ -364,7 +500,9 @@ function AssistantUsage({
                     onClick={() => selectSource(id)}
                     className="flex items-center justify-between gap-4 rounded-xl border border-gray-800 p-4 text-left hover:border-orange-500/50"
                   >
-                    <div>
+                    <div className="flex items-center gap-3">
+                      <span className={`uv-agent is-${id} is-large`}><AgentMark agent={id} /></span>
+                      <div>
                       <div className="text-sm font-medium text-gray-100">
                         {sourceLabel(id)}
                       </div>
@@ -372,6 +510,7 @@ function AssistantUsage({
                         {data.sources[id].available
                           ? `${number(total.calls)} usage updates`
                           : "Source could not be read"}
+                      </div>
                       </div>
                     </div>
                     <div className="text-right">
@@ -440,11 +579,7 @@ function AssistantUsage({
                         type="button"
                         title={`${d.day}: ${number(d.tokens)} tokens · ${money(d.cost)} estimated`}
                         aria-label={`${d.day}, ${number(d.tokens)} tokens, focus day`}
-                        onClick={() => {
-                          setFrom(d.day);
-                          setTo(d.day);
-                          setRange("custom");
-                        }}
+                        onClick={() => focusDay(d.day)}
                         className="flex h-full min-w-[5px] flex-1 flex-col justify-end rounded-t-sm hover:opacity-70 focus-visible:outline-2 focus-visible:outline-orange-500"
                       >
                         <div
@@ -523,11 +658,25 @@ function AssistantUsage({
                     {number(groups.length)}{" "}
                     {breakdown === "session" ? "tasks" : breakdown + "s"} · same
                     filters as chart
+                    {breakdown === "session" && !links.sessions && !links.sessionsError && " · reading session names…"}
+                    {breakdown === "session" && links.sessionsError && " · session names unavailable"}
                   </span>
                 </div>
-                <div className="max-h-[480px] overflow-auto">
+                {breakdown === "project" && groups.length > 1 && (
+                  <ProjectTiles
+                    projects={groups.slice(0, 8).flatMap((g) => {
+                      const p = projectsByKey.get(g.key);
+                      return p ? [{ project: p, tokens: g.totalTokens, costText: estimate(g) }] : [];
+                    })}
+                    total={totals.totalTokens}
+                    format={compact}
+                    cost={metric === "cost"}
+                    onFocus={focusProject}
+                  />
+                )}
+                <div className="max-h-[560px] overflow-auto">
                   <table className="w-full text-right text-xs">
-                    <thead className="sticky top-0 bg-gray-950 text-[10px] uppercase text-gray-500">
+                    <thead className="uv-thead sticky top-0 z-[1] bg-gray-950 text-[10px] uppercase text-gray-500">
                       <tr>
                         <th className="p-3 text-left">
                           {breakdown === "session" ? "Task" : breakdown}
@@ -545,29 +694,46 @@ function AssistantUsage({
                           key={g.key}
                           className="border-t border-gray-800/60 text-gray-300"
                         >
-                          <td
-                            className="max-w-64 truncate p-3 text-left"
-                            title={g.key}
-                          >
-                            {breakdown === "model" ||
-                            breakdown === "project" ? (
-                              <button
-                                type="button"
-                                className="text-orange-300 hover:underline"
-                                onClick={() =>
-                                  breakdown === "model"
-                                    ? setModel(g.key)
-                                    : setProject(g.key)
-                                }
-                              >
-                                {breakdown === "project"
-                                  ? label(g.key)
-                                  : g.key}
-                              </button>
+                          <td className="p-3 text-left">
+                            {breakdown === "project" ? (
+                              <ProjectCell
+                                project={projectsByKey.get(g.key) || { key: g.key, label: label(g.key), folders: [g.key], touched: [] }}
+                                tasks={g.sessions}
+                                share={totals.totalTokens ? g.totalTokens / totals.totalTokens : 0}
+                                onFocus={() => focusProject(g.key)}
+                              />
                             ) : breakdown === "session" ? (
-                              g.key.slice(0, 8) + "…"
+                              <TaskCell
+                                taskKey={g.key}
+                                session={links.sessions?.get(g.key)}
+                                projects={taskProjects(g.key, g.members)}
+                                last={g.last}
+                                share={totals.totalTokens ? g.totalTokens / totals.totalTokens : 0}
+                                loading={!links.sessions && !links.sessionsError}
+                                onFocus={() => focusTask(g.key)}
+                              />
                             ) : (
-                              dayLabel(g.key)
+                              <div className="uv-cell">
+                                {breakdown === "model" && (
+                                  <span className={`uv-agent is-${g.members[0]?.source || "claude"}`}>
+                                    <AgentMark agent={g.members[0]?.source || "claude"} />
+                                  </span>
+                                )}
+                                <span className="uv-cell-text">
+                                  <button
+                                    type="button"
+                                    className="uv-name"
+                                    title={`Show only ${breakdown === "model" ? g.key : dayLabel(g.key, true)}: its tasks`}
+                                    onClick={() => (breakdown === "model" ? focusModel(g.key) : focusDay(g.key))}
+                                  >
+                                    {breakdown === "model" ? g.key : dayLabel(g.key, true)}
+                                  </button>
+                                  <small>
+                                    <span>{g.sessions} {g.sessions === 1 ? "task" : "tasks"}</span>
+                                  </small>
+                                  <ShareBar share={totals.totalTokens ? g.totalTokens / totals.totalTokens : 0} />
+                                </span>
+                              </div>
                             )}
                           </td>
                           <td className="p-3" title={number(g.input)}>
@@ -669,6 +835,7 @@ function AssistantUsage({
         </>
       )}
     </div>
+    </ProjectDirectoryProvider>
   );
 }
 

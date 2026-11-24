@@ -1,0 +1,81 @@
+/* AI usage: tasks as sessions, projects with their logos, and links into the rest of Hangar. */
+.usage-page{--uv-claude:#d97757;--uv-codex:#10a37f;--uv-line:var(--border);--uv-muted:var(--muted-foreground)}
+
+/* One row of the breakdown: a mark, a name that narrows the page to it, a line about it, and its share. */
+.uv-cell{display:flex;align-items:center;gap:10px;min-width:0;max-width:440px}
+.uv-cell-text{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.uv-name{all:unset;box-sizing:border-box;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:550;color:var(--foreground);cursor:pointer;border-radius:4px}
+.uv-name:hover{color:var(--primary);text-decoration:underline;text-underline-offset:3px}
+.uv-name:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.uv-cell-text>small{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;min-width:0;font-size:11px;color:var(--uv-muted)}
+.uv-cell-text>small>span{white-space:nowrap}
+.uv-touched{display:inline-flex;align-items:center;gap:3px}
+.uv-touched i{font-style:normal;font-size:10px}
+.uv-go{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--uv-muted);cursor:pointer}
+.uv-go:hover{border-color:var(--uv-line);color:var(--primary)}
+.uv-go:focus-visible{outline:2px solid var(--ring);outline-offset:1px}
+.uv-share{display:block;width:100%;max-width:220px;height:3px;border-radius:2px;background:color-mix(in oklab,var(--uv-muted) 18%,transparent);overflow:hidden}
+.uv-share i{display:block;height:100%;border-radius:inherit;background:var(--primary)}
+
+/* The agent that ran a task, in its own colour, as in Sessions. */
+.uv-agent{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;border:1px solid var(--uv-line);border-radius:8px}
+.uv-agent .agent-mark{width:15px;height:15px}
+.uv-agent.is-claude{background:color-mix(in oklab,var(--uv-claude) 14%,transparent);color:var(--uv-claude);border-color:color-mix(in oklab,var(--uv-claude) 35%,transparent)}
+.uv-agent.is-codex{background:color-mix(in oklab,var(--uv-codex) 14%,transparent);color:var(--uv-codex);border-color:color-mix(in oklab,var(--uv-codex) 35%,transparent)}
+.uv-agent.is-large{flex-basis:44px;width:44px;height:44px;border-radius:11px}
+.uv-agent.is-large .agent-mark{width:22px;height:22px}
+.uv-agent.is-small{flex-basis:20px;width:20px;height:20px;border-radius:5px}
+.uv-agent.is-small .agent-mark{width:11px;height:11px}
+.uv-folder{--uv-size:22px;display:inline-grid;place-items:center;flex:0 0 var(--uv-size);width:var(--uv-size);height:var(--uv-size);border:1px dashed var(--uv-line);border-radius:calc(var(--uv-size) * .28);color:var(--uv-muted)}
+
+/* The biggest projects, logo first. */
+.uv-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:12px;border-bottom:1px solid var(--uv-line)}
+.uv-tile{display:flex;flex-direction:column;gap:8px;min-width:0;padding:12px;border:1px solid var(--uv-line);border-radius:12px;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}
+.uv-tile:hover{border-color:color-mix(in oklab,var(--primary) 55%,var(--uv-line))}
+.uv-tile:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.uv-tile-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.uv-tile-top b{font-size:11px;font-weight:600;color:var(--uv-muted)}
+.uv-tile-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:var(--foreground)}
+.uv-tile-value{display:flex;flex-direction:column;font-size:16px;font-weight:650;color:var(--foreground)}
+.uv-tile-value small{font-size:11px;font-weight:400;color:var(--uv-muted)}
+.uv-tile .uv-share{max-width:none}
+
+/* What the page is narrowed to: a task or a project, with the ways out. */
+.uv-focus{display:flex;align-items:flex-start;gap:14px;padding:16px;border:1px solid color-mix(in oklab,var(--primary) 35%,var(--uv-line));border-radius:14px;background:color-mix(in oklab,var(--primary) 5%,transparent)}
+.uv-focus-text{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.uv-focus-text>small{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--uv-muted)}
+.uv-focus-text h3{margin:0;font-size:16px;font-weight:650;color:var(--foreground);overflow-wrap:anywhere}
+.uv-focus-text p{margin:0;font-size:12px;line-height:1.5;color:var(--uv-muted)}
+.uv-focus-projects{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
+.uv-focus-folders{overflow-wrap:anywhere}
+.uv-focus-state{color:var(--foreground)!important}
+.uv-focus-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.uv-focus-actions button{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:6px 12px;border:1px solid var(--uv-line);border-radius:8px;background:transparent;color:var(--foreground);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+.uv-focus-actions button:hover{border-color:color-mix(in oklab,var(--primary) 55%,var(--uv-line))}
+.uv-focus-actions button.is-primary{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground)}
+.uv-focus-actions button:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+
+/* The project filter: searchable, each project with its logo. */
+.uv-picker{display:inline-flex;align-items:center;gap:8px;max-width:240px;min-height:34px;padding:6px 10px;border:1px solid var(--uv-line);border-radius:8px;background:transparent;color:var(--foreground);font:inherit;font-size:12px;cursor:pointer}
+.uv-picker span:not(.project-emblem):not(.uv-folder){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uv-picker>svg{flex-shrink:0;color:var(--uv-muted)}
+.uv-picker:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.uv-picker-popup{width:340px}
+.uv-option{display:flex;align-items:center;gap:10px;min-height:40px;padding:7px 10px;border-radius:6px;cursor:pointer;outline:none}
+.uv-option[data-highlighted]{background:var(--accent);color:var(--accent-foreground)}
+.uv-option[data-selected]{font-weight:600}
+.uv-option-text{display:flex;flex-direction:column;flex:1;min-width:0;overflow-wrap:anywhere}
+.uv-option-text small,.uv-option>small{font-size:11px;font-weight:400;color:var(--uv-muted)}
+.uv-option>svg{color:var(--primary);flex-shrink:0}
+.uv-model{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.uv-model span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+@media(max-width:640px){
+  .uv-focus{flex-wrap:wrap}
+  .uv-focus-actions{justify-content:flex-start;flex-basis:100%}
+  .uv-cell{max-width:260px}
+  .uv-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(pointer:coarse){.uv-option,.uv-picker,.uv-focus-actions button{min-height:44px}.uv-go{width:40px;height:40px;flex-basis:40px}}
+/* Some themes' panel colour is slightly see-through; rows scrolling under the header blur instead of showing through. */
+.uv-thead{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}

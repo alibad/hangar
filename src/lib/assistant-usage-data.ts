@@ -17,9 +17,16 @@ export type UsageRow = {
   unpricedTokens: number;
   last: number;
 };
+/** What a working folder is, from Hangar's project engine: a project's checkout (or a folder in it), a working copy
+ *  kept beside a project, or a folder that holds several projects. */
+export type UsagePlace =
+  | { kind: "project" | "copy"; repo: string }
+  | { kind: "folder"; holds: number; contains: string[]; within?: string };
 export type AssistantSnapshot = {
   generatedAt: string;
   rows: UsageRow[];
+  /** By working folder, as rows spell it. Folders the engine could not place are missing. */
+  places?: Record<string, UsagePlace>;
   sources: Record<
     Assistant,
     { available: boolean; error?: string; files?: number }
@@ -67,13 +74,22 @@ export function filterUsage(
       (!filters.project || r.project === filters.project),
   );
 }
+/** The project a folder's usage counts toward ("repo:<id>"), or the folder itself when it is no one project's. */
+export const placeKey = (
+  folder: string,
+  places: Record<string, UsagePlace> | undefined,
+) => {
+  const place = places?.[folder];
+  return place && place.kind !== "folder" ? `repo:${place.repo}` : folder;
+};
 export function groupUsage(
   rows: UsageRow[],
   by: "day" | "model" | "project" | "session" | "source",
+  keyOf?: (row: UsageRow) => string,
 ) {
   const groups = new Map<string, UsageRow[]>();
   for (const row of rows) {
-    const key = row[by];
+    const key = keyOf ? keyOf(row) : row[by];
     const group = groups.get(key) || [];
     group.push(row);
     groups.set(key, group);
@@ -81,6 +97,7 @@ export function groupUsage(
   return [...groups]
     .map(([key, values]) => ({
       key,
+      members: values,
       ...sumUsage(values),
       sessions: new Set(values.map((r) => `${r.source}:${r.session}`)).size,
       last: Math.max(...values.map((r) => r.last)),
